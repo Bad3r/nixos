@@ -10,17 +10,15 @@
     * Ships the idevice* tools used for pairing, device info, full and encrypted backups, crash reports, and developer mode.
 
   Options:
-    idevicepair pair: Establish trust with a connected device; run again after accepting the on-device dialog.
-    ideviceinfo: Print device identity, iOS version, and lockdown properties.
-    idevicebackup2 backup --full <dir>: Create a full backup into an existing <dir>; "encryption on -i" first enables encrypted backups.
-    idevicebackup2 -i: Prompt for backup passwords; without it, or BACKUP_PASSWORD/BACKUP_PASSWORD_NEW, password subcommands exit before reaching the device.
-    idevicebackup2 restore <dir>: Restore a previously created backup; --system --settings overwrites device settings and reboots unless --no-reboot is passed.
-    afcclient: Interactive AFC shell for the media filesystem; --documents <appid> targets an app sandbox.
-    idevicesyslog: Stream the device syslog.
+    idevicepair pair: Pair with a connected device; run again after accepting the on-device dialog.
+    idevicebackup2 backup --full <dir>: Create a full backup in an existing <dir>.
+    idevicebackup2 -i: Prompt for backup passwords.
+    idevicebackup2 restore <dir>: Restore a previously created backup.
 
   Notes:
-    * Every tool needs the usbmuxd daemon; the module asserts the service is enabled so the dependency fails at eval instead of at runtime.
-    * 1.4.0 (2025-10) is the first upstream release since 1.3.0 (2020); re-pair once after a major iOS upgrade when lockdownd rejects the stored record.
+    * Every tool needs the usbmuxd daemon.
+    * `idevicebackup2 restore` reboots the device unless `--no-reboot` is given; `--settings` overwrites device settings.
+    * Re-pair after a major iOS upgrade if lockdownd rejects the stored pairing.
 */
 _:
 let

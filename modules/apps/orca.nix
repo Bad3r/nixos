@@ -9,13 +9,8 @@
     * Runs coding agents in parallel Git worktrees.
     * Provides terminals, diffs, and a browser in a desktop application.
 
-  Options:
-    orca-ide: Launch the desktop application.
-    orca: Manage Orca from the command line.
-
   Notes:
-    * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
-    * Enables the AT-SPI accessibility bus for Linux computer use.
+    * Enables the AT-SPI accessibility bus for computer use.
     * Opens TCP port 6768 for mobile sync.
 */
 { inputs, ... }:

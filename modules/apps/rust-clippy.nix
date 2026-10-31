@@ -8,10 +8,6 @@
   Summary:
     * Extends the Rust compiler with additional warnings covering correctness, performance, and idiomatic style issues.
     * Runs via `cargo clippy` integrating into existing project workflows and CI pipelines.
-
-  Example Usage:
-    * `cargo clippy` -- Lint the current Rust workspace with default lint groups.
-    * `cargo clippy -- -W clippy::pedantic -A clippy::module-name-repetitions` -- Customize lint levels per project needs.
 */
 _:
 let

@@ -6,16 +6,11 @@
   Repository: nil
 
   Summary:
-    * Unified workspace combining HD video meetings, voice calls, team messaging, and file sharing.
-    * Supports scheduled and instant meetings, persistent spaces, screen sharing, virtual backgrounds, and recording.
-
-  Options:
-    webex: Launches the Cisco Webex desktop client (symlink to CiscoCollabHost).
-    webex.desktop: Application menu entry registered under share/applications.
+    * Video meetings, voice calls, team messaging, and file sharing in one client.
+    * Scheduled and instant meetings, persistent spaces, screen sharing, and recording.
 
   Notes:
-    * Proprietary Cisco binary distribution; the unfree license is registered via nixpkgs.allowedUnfreePackages.
-    * Upstream ships only a Linux x86_64 build sourced from binaries.webex.com.
+    * x86_64 Linux only.
 */
 _:
 let

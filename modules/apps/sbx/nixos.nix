@@ -1,8 +1,8 @@
 /*
   Package: sbx
   Description: Disposable agent sandboxes: TTL-bound VMs on the owner's qemu:///session.
-  Homepage: https://github.com/Bad3r/nixos
   Documentation: https://github.com/Bad3r/nixos/tree/main/docs/apps/sbx
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Boots throwaway VMs from Nix-built bases for unknown binaries, untrusted repositories, and GUI checks.
@@ -16,16 +16,12 @@
     create <windows-base>: Clone a Windows guest's exported golden copy, driven through qemu-ga only.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
-    sbx-mcp: Serve the verbs as MCP tools on stdio.
 
   Notes:
-    * Sandboxes are untrusted guests: no vdagent channel, no shared folders, and no network unless
-      --net egress puts them on the isolated sbx workload network.
-    * QEMU runs inside sbx.slice through the sbx-libvirt user unit, so the slice bounds every sandbox together.
-    * Each QEMU runs in its own local vsock namespace, so a guest never reaches a host vsock listener.
-    * Bases build on demand from this flake and never enter the host closure.
-    * Cloud bases come from hash-pinned images that `sbx base prepare` boots once with egress;
-      it refuses a caller with an agent session variable set, and agent permission rules ask first.
+    * Guests get no vdagent channel, shared folders, or network unless `--net egress`.
+    * Guests never reach a host vsock listener.
+    * Bases build on demand and never enter the host closure.
+    * `sbx base prepare` boots cloud images once with egress and refuses agent callers.
 */
 { config, ... }:
 let

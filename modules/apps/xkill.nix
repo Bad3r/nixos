@@ -10,13 +10,8 @@
     * Useful for quickly closing unresponsive graphical applications without needing task managers or kill commands.
 
   Options:
-    xkill: Launch the tool; the next click on a window will terminate the associated client.
     -display <display>: Specify the X display to operate on.
     -id <resource>: Kill a window by X resource ID without interactive selection.
-
-  Example Usage:
-    * `xkill` -- Activate crosshair cursor and click an unresponsive window to close it.
-    * `xkill -id 0x3e00007` -- Terminate a window using a known resource ID.
 */
 _:
 let

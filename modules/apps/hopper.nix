@@ -3,19 +3,15 @@
   Description: MacOS and Linux Disassembler for reverse engineering Mach-O and other binary formats.
   Homepage: https://www.hopperapp.com/
   Documentation: https://www.hopperapp.com/tutorial.html
+  Repository: nil
 
   Summary:
-    * Disassembler and decompiler for macOS and Linux binaries
     * Supports Mach-O format analysis including Objective-C class structures
     * Provides scripting capabilities for automated analysis
 
   Options:
     --executable <path>: Specify the binary file to analyze
-    --python-home <path>: Set Python home directory for scripting
-
-  Example Usage:
-    * `hopper` -- Launch Hopper GUI for interactive binary analysis
-    * `hopper --executable /path/to/binary` -- Open a specific binary in Hopper
+    --python <script.py>: Run a Python script after the initial analysis
 */
 _:
 let

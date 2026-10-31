@@ -3,32 +3,14 @@
   Description: Bundle of Wine utilities including wine-staging, winetricks, 32/64-bit Wine prefixes, Proton-GE, and a `proton-run` helper script.
   Homepage: https://www.winehq.org/
   Documentation: https://wiki.winehq.org/Wine_User%27s_Guide
-  Repository: https://gitlab.winehq.org/wine/wine (Wine) / https://github.com/GloriousEggroll/proton-ge-custom (Proton-GE)
+  Repository: https://gitlab.winehq.org/wine/wine
 
   Summary:
-    * Installs the full Wine staging toolchain with both 32-bit and 64-bit support along with winetricks for dependency management.
-    * Provides Proton-GE compatibility tool and a convenient `proton-run` script to run Windows applications using Proton outside Steam.
+    * Runs Windows programs with 32-bit and 64-bit Wine staging, with winetricks for runtime components.
+    * `proton-run` and `proton-tricks` run programs and install components with Proton outside Steam.
 
-  Options:
-    wine, wine64: Run Windows executables natively via Wine.
-    winetricks <verb>: Install common DLLs or runtime components into a Wine prefix.
-    proton-tricks <verb>: Install components into proton-run's prefix using Proton's Wine (respects PROTON_VERSION).
-    proton-run <program> [args]: Execute Windows programs using Proton with automatic prefix management.
-    WINEPREFIX=<dir>: Target a specific Wine prefix directory.
-    PROTON_VERSION=<version>: Select which Proton version to use. Supports:
-      - Third-party builds in compatibilitytools.d (e.g., 'GE-Proton9-20')
-      - Official Steam versions in steamapps/common (e.g., 'Proton-Experimental', 'Proton-9.0')
-      - Absolute paths to Proton installations
-      Note: 'Proton-X' is automatically translated to 'Proton - X' for Steam's naming convention.
-
-  Example Usage:
-    * `WINEPREFIX=~/prefixes/app wine setup.exe` -- Install a Windows application into a custom prefix.
-    * `winetricks corefonts vcrun2019` -- Install required runtime components.
-    * `proton-run game.exe` -- Launch a program with Proton-GE's compatibility enhancements.
-    * `PROTON_VERSION=Proton-Experimental proton-run game.exe` -- Use Steam's Proton Experimental.
-    * `PROTON_VERSION=GE-Proton9-20 proton-run game.exe` -- Use a specific GE-Proton version.
-    * `proton-tricks vcrun2022` -- Install VC++ 2022 runtime into proton-run's prefix.
-    * `PROTON_VERSION=Proton-Experimental proton-tricks vcrun2022 dotnet48` -- Install runtimes using Proton Experimental's Wine.
+  Notes:
+    * `PROTON_VERSION` picks the Proton build, such as `GE-Proton9-20` or `Proton-Experimental`.
 */
 _:
 let

@@ -15,11 +15,6 @@
     --categories <list>: Customize the sections displayed in the header (default `top,best,ask,show`).
     --plain-headlines: Disable syntax highlighting for headlines in low-color terminals.
     --auto-expand: Automatically expand all replies when entering a comment section.
-
-  Example Usage:
-    * `clx` -- Launch the interactive TUI and browse top and best stories.
-    * `clx comments 42133706` -- Open the discussion for item 42133706 directly.
-    * `clx url https://example.com/post` -- Render an article in reader mode inside the terminal.
 */
 _:
 let

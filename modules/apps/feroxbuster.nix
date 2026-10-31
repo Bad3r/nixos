@@ -1,13 +1,11 @@
 /*
   Package: feroxbuster
   Description: Fast recursive content discovery tool for web directories, files, and parameters.
-  Homepage: nil
   Documentation: https://epi052.github.io/feroxbuster-docs/
   Repository: https://github.com/epi052/feroxbuster
 
   Summary:
-    * Performs recursive brute-force discovery across web paths with filtering, replay proxies, and parallel request tuning.
-    * Supports automatic recursion, extension collection, response-size filtering, and wordlist-driven fuzzing.
+    * Brute-forces web paths recursively with wordlists, extension collection, response filtering, and tunable concurrency.
 
   Options:
     feroxbuster -u <url>: Start a recursive content discovery scan against the target URL.

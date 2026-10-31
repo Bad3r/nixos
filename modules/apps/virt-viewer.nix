@@ -8,9 +8,6 @@
   Summary:
     * `virt-viewer` attaches to a libvirt guest's graphical console by name.
     * `remote-viewer` opens a .vv connection file.
-
-  Example Usage:
-    * `virt-viewer --connect qemu:///system <guest>` -- Open a system guest's console.
 */
 _:
 let

@@ -7,10 +7,6 @@
 
   Summary:
     * Provides completions, diagnostics, go-to-definition, and find-references for Swift projects.
-    * Ships as part of the Swift toolchain via `swiftPackages.sourcekit-lsp`.
-
-  Example Usage:
-    * `sourcekit-lsp` -- Start the language server (normally launched by the editor).
 */
 _:
 let

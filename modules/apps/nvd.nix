@@ -3,16 +3,15 @@
   Description: Nix package diff tool for comparing derivation closures.
   Homepage: https://github.com/vlinkz/nvd
   Documentation: https://github.com/vlinkz/nvd#readme
-  Repository: https://github.com/vlinkz/nvd
+  Repository: https://git.sr.ht/~khumba/nvd
 
   Summary:
     * Compares two Nix store closures to show added, removed, or upgraded packages between generations.
-    * Supports JSON summaries for integration into CI pipelines and release notes.
 
   Options:
-    --json: Produce machine-readable diff output for integration with CI pipelines.
-    --wide: Expand the diff view to include derivation attribute paths.
-    --exit-status: Return non-zero exit codes when differences are detected.
+    diff: Diff two store paths and their closures.
+    list: List packages in a store path's closure.
+    history: Show the history of a Nix profile.
 */
 _:
 let

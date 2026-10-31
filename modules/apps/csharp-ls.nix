@@ -7,10 +7,9 @@
 
   Summary:
     * Provides completions, diagnostics, go-to-definition, and find-references for C# projects.
-    * Uses Roslyn's workspace APIs and requires a .NET SDK on PATH.
 
-  Example Usage:
-    * `csharp-ls` -- Start the language server (normally launched by the editor).
+  Notes:
+    * Requires a .NET SDK on PATH.
 */
 _:
 let

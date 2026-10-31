@@ -6,18 +6,17 @@
   Repository: https://github.com/mwh/dragon
 
   Summary:
-    * Spawns a small draggable icon that represents files piped in via stdin or passed as arguments, enabling drag-and-drop from terminal sessions.
-    * Operates on both X11 and Wayland (when running under XWayland), providing a quick way to hand off paths to editors, browsers, or chat clients.
+    * Shows draggable icons for files given as arguments or on stdin.
+    * Can act as a drop target that prints dropped URIs, or paths with `-p`.
 
   Options:
-    dragon-drop <file> [<file>...]: Offer the provided files for drag-and-drop into another application.
-    dragon-drop -t <target>: Restrict the allowed MIME target (defaults to text/uri-list for file drops).
-    xdragon ...: Symlinked entry point identical to dragon-drop for compatibility with older workflows.
+    dragon-drop -t: Act as a drop target instead of a source.
+    dragon-drop -I: Read file paths from stdin.
+    dragon-drop -a: Drag all files at once.
+    dragon-drop -x: Exit after a single completed drop.
 
-  Example Usage:
-    * `dragon-drop report.pdf` -- Present a draggable handle for report.pdf.
-    * `printf '%s\n' screenshot.png | dragon-drop` -- Pipe paths from another command and drag the resulting selection.
-    * `dragon-drop ~/Downloads/*.png` -- Collect multiple assets and drop them into a browser upload dialog.
+  Notes:
+    * `xdragon` is an alias for `dragon-drop`.
 */
 _:
 let

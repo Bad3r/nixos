@@ -10,16 +10,10 @@
     * Generates reports in table, JSON, YAML, and other formats, making it suitable for dashboards or CI metrics.
 
   Options:
-    tokei <path>: Count lines recursively within a path.
     -e <glob>: Exclude files/directories matching glob patterns.
     -t <lang>: Filter to specific languages.
     -f <format>: Output in formats like `json`, `yaml`, `cbor`.
     --sort <category>: Sort results by lines, code, comments, etc.
-
-  Example Usage:
-    * `tokei src/` -- View LOC statistics for a source directory.
-    * `tokei . -e target -e vendor` -- Ignore build artifacts and vendor directories.
-    * `tokei . -f json | jq '.Totals.code'` -- Produce JSON output and extract total code lines with jq.
 */
 _:
 let

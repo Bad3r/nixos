@@ -6,17 +6,12 @@
   Repository: https://github.com/ilya-zlobintsev/LACT
 
   Summary:
-    * Enables the NixOS lact service, which runs the `lactd` daemon and installs the `lact` GUI and CLI.
-    * Sets power limits, fan curves, and clocks; on NVIDIA cards it works through NVML.
+    * Sets power limits, fan curves, and clocks.
 
   Options:
     lact gui: Open the GUI.
     lact cli info: Show GPU details from the daemon.
     lact cli stats: Show GPU sensor readings.
-
-  Example Usage:
-    * `lact gui` -- Adjust power limits, fan curves, and clocks.
-    * `lact cli stats` -- Print the current temperatures, clocks, and power draw.
 */
 _:
 let

@@ -3,16 +3,14 @@
   Description: Enhanced interface for streaming and summarizing Nix command output.
   Homepage: https://github.com/maralorn/nix-output-monitor
   Documentation: https://github.com/maralorn/nix-output-monitor#readme
-  Repository: https://github.com/maralorn/nix-output-monitor
+  Repository: https://code.maralorn.de/maralorn/nix-output-monitor
 
   Summary:
     * Wraps Nix builds to group logs by derivation, highlight failures, and provide concise status dashboards.
-    * Offers progress metadata, elapsed timing, and optional JSON summaries for automation pipelines.
+    * Shows build progress and elapsed timing.
 
   Options:
-    --json: Emit machine-readable summaries alongside the TUI when wrapping `nix build`.
-    --keep-going: Continue building remaining derivations after a failure, mirroring `nix build --keep-going`.
-    --max-concurrent-jobs <n>: Restrict the number of builds running in parallel for resource control.
+    --json: Parse Nix `internal-json` log output.
 */
 _:
 let

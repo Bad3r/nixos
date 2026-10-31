@@ -6,19 +6,16 @@
   Repository: https://github.com/sezanzeb/input-remapper
 
   Summary:
-    * Enables the upstream NixOS service: a root daemon that grabs the chosen evdev devices and re-emits the mapped events through uinput, plus the GTK editor and the `input-remapper-control` CLI.
     * Maps gamepad buttons and analog sticks to keys, mouse movement, macros, or other gamepad inputs, per device and per preset.
-    * Uses services namespace because the daemon runs as a system service.
 
   Options:
-    input-remapper-gtk: Open the preset editor.
     input-remapper-control --command autoload: Apply every preset flagged for autoload.
-    services.input-remapper.enableUdevRules: Upstream keeps the hotplug autoload rule off (sezanzeb/input-remapper#140); left at that default, so a controller plugged in mid-session needs a manual autoload or a service restart.
 
   Notes:
-    * The daemon is wanted by graphical.target (upstream default), so autoload presets apply once a session starts.
+    * Autoload presets apply once a graphical session starts.
+    * Hotplugged devices need a manual autoload or a service restart.
     * Presets live in ~/.config/input-remapper-2/.
-    * Grabs its source evdev devices exclusively; antimicrox and sc-controller do not coordinate with it, so autoloading a preset for a device one of them also targets leaves only one program receiving events.
+    * Grabs devices exclusively; conflicts with antimicrox and sc-controller on the same device.
 */
 _:
 let

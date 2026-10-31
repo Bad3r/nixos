@@ -7,18 +7,11 @@
 
   Summary:
     * Provides `ld`, `as`, `ar`, `nm`, `objdump`, `readelf`, `strings`, `strip`, and the rest of GNU binutils.
-    * Installs the nixpkgs wrapper, whose `ld` adds the Nix dynamic linker and library search paths.
 
   Options:
     readelf -d <file>: Show the dynamic section (NEEDED libraries, RPATH, RUNPATH).
     objdump -d <file>: Disassemble the executable sections.
     nm -D <file>: List dynamic symbols.
-    strings <file>: Print the printable character runs in a file.
-
-  Example Usage:
-    * `readelf -d ./a.out` -- Check which shared libraries a binary needs.
-    * `objdump -d -M intel ./a.out | less` -- Disassemble with Intel syntax.
-    * `strip --strip-debug ./a.out` -- Drop debug symbols from a binary.
 */
 _:
 let

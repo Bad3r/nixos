@@ -10,7 +10,6 @@
     * Supports tsconfig paths, dependency-aware watch mode, shell scripts, and the Node.js test runner.
 
   Options:
-    <file.ts>: Execute a TypeScript file with Node.js flags and script arguments.
     watch <file.ts>: Rerun a script whenever its dependencies change.
     --include <path>: Add files or directories to watch.
     --exclude <pattern>: Exclude files or directories from watch mode.

@@ -1,25 +1,15 @@
 /*
   Package: cloudflare-warp
-  Variant: headless (warp-cli + warp-svc; no GUI taskbar, no XDG autostart)
   Description: Cloudflare WARP client delivering encrypted consumer VPN and Zero Trust connectivity.
   Homepage: https://developers.cloudflare.com/warp-client/
   Documentation: https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/
-  Repository: https://github.com/cloudflare/warp
+  Repository: nil
 
-  Summary:
-    * Runs warp-svc as a Zero Trust device enrolled with a per-host Access service token, no browser login.
-    * Renders the managed deployment file (mdm.xml) from sops secrets, so the token stays on tmpfs.
-    * Starts Connected at boot; the per-host mode decides whether WARP also becomes the system resolver.
-    * Replaces the host's nixos-<host> device profile exclude list at boot and on every switch when it
-      differs from the base list below plus the host's encrypted <host>.exclude entries, and restarts
-      warp-svc while the daemon still applies another list.
-    * Journals warp-svc output at its real priorities from info up, minus the IPv6 fwmark retry lines
-      it repeats without an IPv6 stack.
-
-  Options:
-    enable: Whether this host enrolls and runs warp-svc (the common baseline leaves it off).
-    package: WARP package; the headless build ships warp-cli, warp-svc, warp-dex, and warp-diag.
-    serviceMode: mdm.xml service_mode, `warp` (Gateway with WARP, WARP owns DNS) or `tunnelonly` (traffic only).
+  Notes:
+    * Headless: warp-cli and warp-svc, no GUI.
+    * Enrolls with a per-host Access service token, no browser login.
+    * Connects at boot.
+    * Manages the host's device profile exclude list.
 */
 { config, ... }:
 let

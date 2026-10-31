@@ -1,8 +1,6 @@
 /*
   Package: stylua
   Description: Opinionated Lua code formatter.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/JohnnyMorganz/StyLua
 
   Summary:

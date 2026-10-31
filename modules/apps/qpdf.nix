@@ -9,11 +9,6 @@
     * Rewrites, splits, merges, encrypts, decrypts, and linearizes PDFs while preserving low-level object fidelity.
     * Emits structural JSON and validation output that is useful for parsers, repair flows, and security review.
 
-  Example Usage:
-    * `qpdf --check report.pdf` -- Validate PDF structure and cross-reference consistency.
-    * `qpdf --linearize in.pdf out.pdf` -- Rewrite a PDF for faster incremental web delivery.
-    * `qpdf --split-pages in.pdf page-%d.pdf` -- Write each page to a separate PDF file.
-
   Options:
     --check: Validate PDF structure and report syntax or cross-reference issues.
     --decrypt: Remove encryption from a PDF when the password is supplied.

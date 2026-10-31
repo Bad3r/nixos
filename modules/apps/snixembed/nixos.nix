@@ -5,12 +5,6 @@
   Homepage: https://git.sr.ht/~steef/snixembed
   Documentation: https://git.sr.ht/~steef/snixembed/tree/main/README.md
   Repository: https://git.sr.ht/~steef/snixembed
-
-  Notes:
-    * Consumed by the i3wm session via a systemd user unit (see
-      modules/apps/i3wm/services.nix). The matching overlay in
-      modules/apps/snixembed/overlay.nix patches icon resolution and adds
-      gdk-pixbuf SVG support; both are required for tray icons to render.
 */
 _:
 let

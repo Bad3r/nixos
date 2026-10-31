@@ -7,16 +7,14 @@
 
   Summary:
     * Lets a controller drive games and desktop software that have no gamepad support of their own, with per-profile mappings, automatic profile switching per window, and a tray mode.
-    * Reads controllers through SDL2 and emits the mapped events through uinput, so it works under Wayland as well as X11.
+    * Works under Wayland as well as X11.
 
   Options:
-    antimicrox: Open the mapping window.
     antimicrox --tray: Start minimized to the tray with the last profile loaded.
     antimicrox --profile FILE: Load a specific profile at start.
 
   Notes:
-    * Installs the package's 60-antimicrox-uinput.rules so the active seat can open /dev/uinput; the rule is uaccess-only, no MODE widening. Trusted directly from the package with no local copy, so a future upstream rule change applies to every host unchecked.
-    * Reads gamepads through SDL2, which does not call EVIOCGRAB. If another enabled tool (input-remapper, sc-controller) holds an exclusive grab on the same device, antimicrox still shows it as connected but receives no events, with no error surfaced anywhere.
+    * Gets no events from a device another tool (input-remapper, sc-controller) grabs exclusively.
 */
 _:
 let

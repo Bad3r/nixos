@@ -8,10 +8,6 @@
   Summary:
     * Decompiles .NET assemblies and can generate portable PDB files.
     * Emits source to stdout or writes a decompiled project to a directory.
-
-  Example Usage:
-    * `ilspycmd sample.dll` -- Decompile an assembly to stdout.
-    * `ilspycmd -p -o decompiled sample.dll` -- Create a decompiled project.
 */
 _:
 let

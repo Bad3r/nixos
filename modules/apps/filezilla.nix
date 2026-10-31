@@ -3,22 +3,15 @@
   Description: Cross-platform FTP, FTPS, and SFTP client with a tabbed GUI.
   Homepage: https://filezilla-project.org/
   Documentation: https://wiki.filezilla-project.org/
-  Repository: https://github.com/filezilla/FileZilla
+  Repository: https://svn.filezilla-project.org/svn/FileZilla3/
 
   Summary:
-    * Provides dual-pane transfers, site manager profiles, directory comparison, and synchronized browsing for remote servers.
-    * Supports FTP over TLS (FTPS) and SSH File Transfer Protocol (SFTP) with transfer queue monitoring and speed limits.
+    * Transfers files over FTP, FTPS, and SFTP with dual panes, a site manager, directory comparison, and a transfer queue.
 
   Options:
-    filezilla: Launch the graphical client.
-    --locales=LANG: Override the desktop locale (normally autodetected via environment variables).
+    --locales=LANG: Override the desktop locale.
     --config-dir=PATH: Use an alternate configuration directory for bookmarks and settings.
     --help: Display CLI flags and exit.
-
-  Example Usage:
-    * `filezilla` -- Open the client to manage multiple FTP, FTPS, or SFTP sessions with drag-and-drop transfers.
-    * `filezilla --config-dir ~/.config/filezilla-work` -- Separate work profiles, bookmarks, and queue settings.
-    * `filezilla --locales=de_DE` -- Force a particular locale when the environment locale is unavailable.
 */
 _:
 let

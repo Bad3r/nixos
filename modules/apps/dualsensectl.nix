@@ -6,8 +6,7 @@
   Repository: https://github.com/nowrep/dualsensectl
 
   Summary:
-    * Talks to the controller over its hidraw node through hidapi, so every command works the same over USB and Bluetooth.
-    * Reads battery level and firmware info, sets lightbar color and brightness, player and microphone LEDs, microphone and speaker routing, volume, and adaptive-trigger effects, and powers a Bluetooth-connected controller off.
+    * Works the same over USB and Bluetooth.
 
   Options:
     dualsensectl -l: List connected controllers.
@@ -16,10 +15,6 @@
     dualsensectl player-leds NUMBER: Set the player indicator LEDs (0 disables them).
     dualsensectl trigger TRIGGER MODE ...: Apply an adaptive-trigger effect to left, right, or both.
     dualsensectl power-off: Turn a Bluetooth-connected controller off.
-
-  Notes:
-    * Ships a udev rule that seat-ACLs the DualSense hidraw nodes, so the tool does not depend on Steam's rules being installed.
-    * The kernel `hid_playstation` driver already exposes the controller as a gamepad; this tool only drives the extra features.
 */
 _:
 let

@@ -1,8 +1,6 @@
 /*
   Package: nixfmt
   Description: Official formatter for Nix code.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/NixOS/nixfmt
 
   Summary:

@@ -3,6 +3,7 @@
   Description: Project that aims to replace the existing {ip,ip6,arp,eb}tables framework.
   Homepage: https://netfilter.org/projects/nftables/
   Documentation: https://netfilter.org/projects/nftables/
+  Repository: https://git.netfilter.org/nftables/
 
   Summary:
     * Provides the `nft` CLI for defining packet filtering, NAT, and traffic classification rulesets.

@@ -3,7 +3,7 @@
   Description: Video conferencing and web conferencing service with screen sharing and recording.
   Homepage: https://zoom.us/
   Documentation: https://support.zoom.us/
-  Repository: https://github.com/NixOS/nixpkgs/tree/master/pkgs/applications/networking/instant-messengers/zoom-us
+  Repository: nil
 
   Summary:
     * Full-featured video conferencing with HD video, audio, and screen sharing capabilities.

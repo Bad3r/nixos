@@ -3,7 +3,7 @@
   Description: Proprietary command-line utility for extracting RAR archives.
   Homepage: https://www.rarlab.com/
   Documentation: https://www.rarlab.com/rar_add.htm
-  Repository: https://www.rarlab.com/rar/unrarsrc-6.2.12.tar.gz (source releases)
+  Repository: nil
 
   Summary:
     * Decompresses RAR and RAR5 archives, including multi-volume sets and encrypted archives (with password).
@@ -15,11 +15,6 @@
     unrar t archive.rar: Test archive integrity without extracting.
     unrar l archive.rar: List archive contents.
     -p<password>: Supply password for encrypted archives.
-
-  Example Usage:
-    * `unrar x files.part1.rar` -- Extract a multi-part RAR archive.
-    * `unrar l archive.rar` -- Inspect contents before extracting.
-    * `unrar x -ppassword secure.rar` -- Extract an encrypted archive with the provided password.
 */
 _:
 let

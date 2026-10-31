@@ -3,20 +3,9 @@
   Description: Operator-facing query and extract tools for Duplicati R2 archives.
   Repository: https://github.com/Bad3r/nixos
 
-  Cut A ships `duplicati-r2-tools.list`, a read-only path/snapshot/history CLI
-  that queries the per-target Duplicati SQLite at
-  /var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite with mode=ro.
-  Cut B ships `duplicati-r2-tools.extract`, a single-file extract CLI that
-  fetches the dblocks containing a path's content blocks from R2 (or a
-  file:// mirror), decrypts them through pyAesCrypt, and writes plaintext
-  to a destination, stdout, or a glob-mode output directory.
-  See docs/drafts/duplicati-r2-readonly-mount-investigation.md for the design.
-
-  This module declares the standard programs.duplicati-r2-tools.extended.{enable,packages}
-  options. The overlay derived from packages/duplicati-r2-tools
-  exposes pkgs.duplicati-r2-tools.{list,extract}. The service module
-  modules/services/duplicati-r2.nix auto-enables this when
-  services.duplicati-r2.stateDirReadableBy is non-empty.
+  Summary:
+    * `duplicati-r2-list` queries paths, snapshots, and file history from a target's local Duplicati database, read-only.
+    * `duplicati-r2-extract` restores single files or globs from R2 archives to a directory or stdout.
 */
 _:
 let

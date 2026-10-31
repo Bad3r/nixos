@@ -18,7 +18,7 @@
     -as / -automatic-scan: Use wappalyzer-style technology detection to pick relevant templates automatically.
     -o <file>: Write findings to the specified output file.
     -j / -jsonl: Emit JSON-line output suitable for downstream tooling.
-    -ud <dir>: Override the templates directory (defaults to `$HOME/.local/nuclei-templates`).
+    -ud <dir>: Override the templates directory.
 */
 _:
 let

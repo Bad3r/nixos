@@ -6,8 +6,8 @@
   Repository: https://github.com/muesli/duf
 
   Summary:
-    * Lists mounted devices, snap volumes, and remote shares with human-readable sizes, sorting, and filtering controls.
-    * Supports JSON output for automation and theming options for desktop or terminal integration.
+    * Lists mounted devices and network shares with human-readable sizes, sorting, and filtering.
+    * Emits JSON for scripts.
 
   Options:
     --all: Include pseudo, duplicate, and inaccessible file systems in the listing.
@@ -15,11 +15,6 @@
     --sort <field>: Sort by size, usage, mount point, or other columns.
     --json: Emit machine-readable JSON instead of a table.
     --output <columns>: Choose which columns to display (e.g. `--output mount,size,usage`).
-
-  Example Usage:
-    * `duf` -- Display disk usage for local filesystems with a colored summary.
-    * `duf --only local --sort usage` -- Focus on local mounts and sort by utilization.
-    * `duf --json | jq '.[] | {mount, usage}'` -- Feed JSON output into other tools for scripting.
 */
 _:
 let

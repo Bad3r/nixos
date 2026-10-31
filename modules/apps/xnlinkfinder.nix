@@ -1,8 +1,6 @@
 /*
   Package: xnlinkfinder
   Description: Endpoint, parameter, and target-specific wordlist discovery tool for web reconnaissance.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/xnl-h4ck3r/xnLinkFinder
 
   Summary:

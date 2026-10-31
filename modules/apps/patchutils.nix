@@ -11,8 +11,6 @@
 
   Options:
     filterdiff -i <pattern> <patch>: Extract changes to matching file paths.
-    lsdiff <patch>: List files modified by a patch.
-    grepdiff <pattern> <patch>: List files whose patch content matches a regular expression.
 */
 _:
 let

@@ -7,10 +7,6 @@
 
   Summary:
     * Provides completions, diagnostics, go-to-definition, and refactoring for TypeScript and JavaScript projects.
-    * Delegates analysis to tsserver and exposes the results over LSP; the binary is `typescript-language-server`.
-
-  Example Usage:
-    * `typescript-language-server --stdio` -- Start the language server in stdio mode (normally launched by the editor).
 */
 _:
 let

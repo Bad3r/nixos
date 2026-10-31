@@ -1,25 +1,17 @@
 /*
-  Package: mpv (with helper scripts)
-  Description: High-quality media player with bundled scripts for thumbnails, Jellyfin integration, and convenience utilities.
+  Package: mpv
+  Description: High-quality media player.
   Homepage: https://mpv.io/
   Documentation: https://mpv.io/manual/stable/
   Repository: https://github.com/mpv-player/mpv
 
   Summary:
-    * Home Manager installs `package` rewrapped with the script list (modules/apps/mpv/home.nix), which takes `thumbfast` (consumed by modernz for seek-bar previews) from `extraScripts`; this module installs the shader presets and `open-in-mpv` system-wide by default.
     * Supports advanced playback via GPU acceleration, scripting (Lua/Python), configurable keybindings, and remote control via JSON IPC or `mpv` sockets.
 
   Options:
-    mpv <file|url>: Play media from local files or network sources.
     --profile=<name>: Apply predefined profiles (e.g. `--profile=high-quality`).
     --script=<path>: Load additional scripts at runtime.
     mpv --idle=yes --input-ipc-server=/tmp/mpvsocket: Expose a control socket for remote commands.
-    extras.jellyfinShim.enable = true: Install jellyfin-mpv-shim for casting from Jellyfin clients.
-
-  Example Usage:
-    * `mpv --hwdec=auto movie.mkv` -- Play a video with automatic hardware decoding.
-    * `mpv https://www.youtube.com/watch?v=dQw4w9WgXcQ` -- Stream content directly using youtube-dl integration.
-    * `jellyfin-mpv-shim` -- Pair with a Jellyfin server to stream media through mpv.
 */
 
 _:

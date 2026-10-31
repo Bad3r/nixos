@@ -6,25 +6,11 @@
   Repository: https://github.com/ggml-org/llama.cpp
 
   Summary:
-    * Runs `llama-server` as the nixpkgs `services.llama-cpp` system service, from this module's package.
     * Serves OpenAI Chat Completions and Responses, Anthropic Messages, and a built-in web UI.
-    * `embeddings.enable` adds `llama-cpp-embed`, a CPU embeddings server.
-    * `transcription.enable` adds `llama-cpp-transcribe`, which transcribes audio files over
-      `/v1/audio/transcriptions`, and `dictation.enable` adds `llama-cpp-dictate`, which
-      transcribes live English audio over the `/v1/realtime` WebSocket. Both run on the Intel
-      iGPU through Vulkan, which `package` must support, and accept the main server's keys.
-    * The three extra servers listen on loopback only.
 
   Notes:
-    * The host sets `services.llama-cpp.settings`: listener, router flags, and models preset.
-    * The service reads the API key from secrets/llama-cpp.yaml through a systemd credential.
-      Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
-      disabled, it runs without a key, so the host binds a non-loopback listener only while
-      `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` holds the endpoint, default model, context sizes, and API key that local clients use.
-    * songbird builds the `llama-cpp` flake input, llama.cpp master, with CUDA for sm_120 only and
-      Vulkan, so no cache serves its build. The host compiles it against CUDA libraries from
-      cache.nixos-cuda.org.
+    * Runs without an API key when secrets/llama-cpp.yaml is unavailable.
+    * No cache serves its build; songbird compiles it locally.
 */
 { config, ... }:
 let

@@ -7,14 +7,12 @@
 
   Summary:
     * Lists devices with available firmware updates and schedules or applies them.
-    * Reaches LVFS devices through the fwupd daemon, which `services.fwupd.enable` runs.
 
   Options:
-    com.system76.FirmwareManager: Open the firmware manager window.
     -v: Raise the log level; repeat it for more detail.
 
-  Example Usage:
-    * `com.system76.FirmwareManager -vv` -- Open the window with verbose logging.
+  Notes:
+    * LVFS updates need `services.fwupd.enable`.
 */
 _:
 let

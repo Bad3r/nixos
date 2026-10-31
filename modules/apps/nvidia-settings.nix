@@ -5,18 +5,10 @@
   Documentation: https://github.com/NVIDIA/nvidia-settings#readme
   Repository: https://github.com/NVIDIA/nvidia-settings
 
-  Summary:
-    * Drives `hardware.nvidia.nvidiaSettings`, so the installed build is the one that matches `hardware.nvidia.package`.
-    * Installs nothing on a host without the NVIDIA driver.
-
   Options:
     -q <attribute>: Query an attribute such as `GPUCoreTemp` or `GPUUtilization`.
     -a <attribute>=<value>: Assign an attribute.
     -t: Print query results without labels.
-
-  Example Usage:
-    * `nvidia-settings` -- Open the settings window.
-    * `nvidia-settings -q GPUUtilization -t` -- Print the GPU utilization counters.
 */
 _:
 let

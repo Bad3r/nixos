@@ -3,7 +3,7 @@
   Description: GNU Image Manipulation Program.
   Homepage: https://www.gimp.org/
   Documentation: https://docs.gimp.org/
-  Repository: https://github.com/GNOME/gimp
+  Repository: https://gitlab.gnome.org/GNOME/gimp
 
   Summary:
     * Raster graphics editor for photo retouching, image composition, and image authoring.

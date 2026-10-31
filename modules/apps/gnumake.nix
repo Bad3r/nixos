@@ -15,11 +15,6 @@
     -C <dir>: Change to directory before reading the Makefile.
     -k: Keep going when some targets cannot be made.
     --trace: Print commands as they are executed with dependency context (GNU extension).
-
-  Example Usage:
-    * `make` -- Build the default target described in `Makefile` or `makefile`.
-    * `make -j$(nproc)` -- Compile targets in parallel according to CPU count.
-    * `make clean` -- Invoke the `clean` target to remove build artifacts.
 */
 _:
 let

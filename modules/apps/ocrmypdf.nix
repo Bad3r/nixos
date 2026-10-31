@@ -9,11 +9,6 @@
     * Converts scanned PDFs into searchable PDFs by running OCR and embedding a text layer while preserving the original page image.
     * Can deskew, rotate, clean, and optimize pages during OCR to improve downstream extraction quality.
 
-  Example Usage:
-    * `ocrmypdf scan.pdf searchable.pdf` -- Add a searchable text layer to a scanned PDF.
-    * `ocrmypdf --deskew --rotate-pages scan.pdf searchable.pdf` -- Correct skew and rotation before OCR.
-    * `ocrmypdf --skip-text --sidecar scan.txt scan.pdf searchable.pdf` -- OCR only image-only pages and save extracted text to a sidecar file.
-
   Options:
     --deskew: Straighten scanned pages before OCR.
     --rotate-pages: Detect and fix page rotation automatically.

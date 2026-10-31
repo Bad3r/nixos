@@ -14,8 +14,7 @@
     -i <mode>: Pick the icon style (`font` for NerdFonts glyphs or `xdg` for XDG icon theme).
 
   Notes:
-    * Requires a running BlueZ daemon and a notification daemon (e.g. dunst); enable Bluetooth at the host level.
-    * Pairs naturally with `pkgs.rofi` for i3wm/X11 stacks; bind to a key such as `Mod+Shift+b` for one-shot device toggling.
+    * Needs BlueZ and a notification daemon.
 */
 _:
 let

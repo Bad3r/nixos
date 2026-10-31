@@ -1,7 +1,6 @@
 /*
   Package: gowitness
   Description: Headless-Chrome web screenshot utility with a reporting interface.
-  Homepage: nil
   Documentation: https://github.com/sensepost/gowitness/wiki
   Repository: https://github.com/sensepost/gowitness
 
@@ -10,14 +9,12 @@
     * Stores captures in a database and serves a report UI for browsing screenshots, headers, and technologies.
 
   Options:
-    scan: Screenshot targets using the subcommands below.
-    scan single:
-      -u, --url <target>: Single URL to screenshot.
-    scan file:
-      -f, --file <file>: File of URLs to screenshot.
-    scan (persistent across scan subcommands):
-      --screenshot-path <dir>: Directory to write screenshots to.
-      --write-db: Persist results to the SQLite database.
+    scan single: Screenshot a single URL.
+    scan file: Screenshot each URL listed in a file.
+    -u, --url <target>: Single URL to screenshot.
+    -f, --file <file>: File of URLs to screenshot.
+    --screenshot-path <dir>: Directory to write screenshots to.
+    --write-db: Persist results to the SQLite database.
     report: Serve or export the web report UI over captured results.
 */
 _:

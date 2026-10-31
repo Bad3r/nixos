@@ -10,17 +10,10 @@
     * Prevents DNS leaks by forcing DNS resolution through Tor's SOCKS interface.
 
   Options:
-    torsocks [application]: Run an application with all TCP connections routed through Tor.
-    torsocks -i: Print Tor IP address and exit.
     torsocks --shell: Start a shell where all commands are automatically torified.
-    torsocks -u USERNAME: Run application as specified user.
-    torsocks -p PORT: Use Tor SOCKS proxy on custom port (default: 9050).
-
-  Example Usage:
-    * `torsocks curl ifconfig.me` -- Check your Tor exit IP address.
-    * `torsocks wget https://check.torproject.org` -- Download through Tor.
-    * `torsocks --shell` -- Launch a shell with all network traffic routed through Tor.
-    * `torsocks ssh user@host` -- SSH through Tor network.
+    torsocks -i, --isolate: Isolate each connection on its own Tor circuit.
+    torsocks -u, --user NAME: Username for SOCKS5 authentication.
+    torsocks -P, --port PORT: Use the Tor SOCKS proxy on a custom port (default: 9050).
 */
 _:
 let

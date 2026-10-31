@@ -1,9 +1,8 @@
 /*
   Package: spwn
   Description: Launch commands as transient per-user systemd units.
-  Homepage: nil
   Documentation: https://www.freedesktop.org/software/systemd/man/latest/systemd-run.html
-  Repository: nil
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Provides `spwn` for foreground transient user scopes.
@@ -14,10 +13,6 @@
     -v, --verbose: Print human context for the generated unit.
     -h, --help: Print usage information.
     --: Stop option parsing and treat the rest as the command.
-
-  Notes:
-    * Wraps systemd-run for the user manager only.
-    * Keeps systemd-run pass-through flags out of the v1 interface.
 */
 _:
 let

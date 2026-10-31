@@ -1,3 +1,13 @@
+/*
+  Package: malimite
+  Description: iOS and macOS decompiler built on Ghidra.
+  Documentation: https://github.com/LaurieWired/Malimite/wiki
+  Repository: https://github.com/LaurieWired/Malimite
+
+  Summary:
+    * Decompiles IPA files and application bundles with direct support for Swift, Objective-C, and Apple resources.
+    * Reconstructs Swift classes and translates methods with a built-in LLM.
+*/
 _:
 let
   MalimiteModule =

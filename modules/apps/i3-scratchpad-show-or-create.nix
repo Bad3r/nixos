@@ -3,12 +3,6 @@
   Description: Repo-local i3 helper that toggles a named scratchpad window or
     spawns the configured command when none exists.
   Repository: https://github.com/Bad3r/nixos
-
-  Notes:
-    * Built from packages/i3-scratchpad-show-or-create via the overlay that
-      modules/hosts/common/custom-overlays-base.nix derives.
-    * Consumed by modules/apps/i3wm/config.nix and keybindings.nix to wire
-      scratchpad toggles for terminal/nvim/Logseq.
 */
 _:
 let

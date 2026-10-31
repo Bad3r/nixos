@@ -1,8 +1,6 @@
 /*
   Package: gobuster
   Description: Go-based content, DNS, and virtual-host brute-forcing tool for web reconnaissance.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/OJ/gobuster
 
   Summary:

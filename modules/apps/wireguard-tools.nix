@@ -6,8 +6,8 @@
   Repository: https://git.zx2c4.com/wireguard-tools/
 
   Summary:
-    * Configures WireGuard interfaces via simple configuration files, supporting key generation, peer management, and tunnel status reporting.
-    * Includes `wg-quick` for bringing tunnels up/down using `/etc/wireguard/*.conf` files with DNS, routing, and firewall hooks.
+    * `wg` generates keys, manages peers, and reports tunnel status.
+    * `wg-quick` brings tunnels up and down from `/etc/wireguard/*.conf` files.
 
   Options:
     wg genkey | wg pubkey: Generate private/public key pairs.
@@ -15,11 +15,6 @@
     wg set <interface> <options>: Adjust peers and settings at runtime.
     wg-quick up <config>: Bring up a tunnel defined in `/etc/wireguard/<config>.conf`.
     wg-quick down <config>: Tear down a tunnel.
-
-  Example Usage:
-    * `wg genkey | tee privatekey | wg pubkey > publickey` -- Generate keys for a peer.
-    * `sudo wg-quick up wg0` -- Start the `wg0` tunnel using `/etc/wireguard/wg0.conf`.
-    * `sudo wg show wg0` -- Inspect handshake times, transfer statistics, and peer endpoints.
 */
 _:
 let

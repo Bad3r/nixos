@@ -3,7 +3,7 @@
   Description: Official Clojure CLI tools for running code, managing deps.edn, and invoking REPLs.
   Homepage: https://clojure.org/
   Documentation: https://clojure.org/guides/deps_and_cli
-  Repository: https://github.com/clojure/tools.deps
+  Repository: https://github.com/clojure/brew-install
 
   Summary:
     * Provides `clj` and `clojure` commands for starting REPLs, running scripts, and managing dependency aliases in `deps.edn`.
@@ -15,11 +15,6 @@
     -T[tool]: Execute a tools.deps tool such as `-Tnew` or `-T:project/-build` without starting a REPL.
     -P: Pre-fetch dependencies and cache the classpath without executing user code.
     -Sdeps '{...}': Merge inline dependency data into the current invocation.
-
-  Example Usage:
-    * `clj` -- Start an interactive REPL with the current project's dependencies.
-    * `clojure -M:test` -- Run tests using the `:test` alias defined in `deps.edn`.
-    * `clojure -X:deps tree` -- Print the dependency tree to diagnose version conflicts.
 */
 _:
 let

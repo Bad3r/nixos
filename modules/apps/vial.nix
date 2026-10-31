@@ -6,11 +6,10 @@
   Repository: https://github.com/vial-kb/vial-gui
 
   Summary:
-    * Edits keymaps, layers, macros, and other runtime settings on a connected board, which applies them immediately.
-    * Needs raw HID access to the board; the package's bundled udev rule stays inactive because NixOS reads rules only from `services.udev.packages`, so a keyboard module such as `modules/hardware/keyboards/fc660c.nix` grants it.
+    * Edits keymaps, layers, and macros on a connected board, which applies them immediately.
 
-  Options:
-    Vial: Open the configurator, which detects connected Vial boards.
+  Notes:
+    * Raw HID access comes from a keyboard module, such as `modules/hardware/keyboards/fc660c.nix`.
 */
 _:
 let

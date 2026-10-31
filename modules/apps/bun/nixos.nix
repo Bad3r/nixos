@@ -6,8 +6,7 @@
   Repository: https://github.com/oven-sh/bun
 
   Summary:
-    * All-in-one JavaScript/TypeScript toolkit combining runtime, bundler, test runner, and package manager.
-    * Node.js-compatible drop-in replacement with significant speed improvements.
+    * Node.js-compatible drop-in replacement with a built-in test runner.
 
   Options:
     run: Execute scripts or files with watch/hot reload support.

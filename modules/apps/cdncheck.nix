@@ -1,8 +1,6 @@
 /*
   Package: cdncheck
   Description: Identify CDN, cloud, and WAF technologies for DNS names or IP addresses.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/projectdiscovery/cdncheck
 
   Summary:

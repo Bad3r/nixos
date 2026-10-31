@@ -16,7 +16,7 @@
     getmouselocation: Print the pointer coordinates, screen, and window ID.
 
   Notes:
-    * Requires an X11 display; many operations do not work correctly under Wayland.
+    * X11 only; many operations fail under Wayland.
 */
 _:
 let

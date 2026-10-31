@@ -1,7 +1,6 @@
 /*
   Package: autotrace
   Description: Utility for converting bitmap images into vector graphics.
-  Homepage: nil
   Documentation: https://github.com/autotrace/autotrace#readme
   Repository: https://github.com/autotrace/autotrace
 
@@ -10,7 +9,7 @@
     * Supports outline and centerline tracing, color reduction, and despeckling.
 
   Options:
-    <input> -output-file <output>: Convert a bitmap image to a vector file.
+    autotrace -output-file <output> <input>: Convert a bitmap image to a vector file.
     -centerline: Trace centerlines instead of outlines.
     -color-count <count>: Reduce the number of colors before tracing.
     --list-input-formats: List supported input formats.

@@ -13,11 +13,6 @@
     nmap -sV <target>: Detect open ports and service versions.
     nmap -sC -sV <target>: Run default scripts alongside version detection.
     nmap -Pn -A <target>: Aggressive scan with OS detection and traceroute when hosts ignore ICMP.
-
-  Example Usage:
-    * `nmap -sV example.com` -- Enumerate exposed services on a host.
-    * `nmap -p 1-65535 -T4 192.0.2.10` -- Sweep all TCP ports quickly on an internal target.
-    * `nmap --script vuln 198.51.100.0/24` -- Run vulnerability NSE scripts across a subnet.
 */
 _:
 let

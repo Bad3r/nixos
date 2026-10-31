@@ -13,11 +13,6 @@
     rsync -avz <src> <dest>: Archive mode with compression for typical syncs.
     rsync --delete: Remove files at the destination that no longer exist at the source.
     rsync --bwlimit=<kbps>: Limit transfer bandwidth when sharing constrained links.
-
-  Example Usage:
-    * `rsync -avP /data/ user@host:/backup/` -- Mirror a directory to a remote host via SSH.
-    * `rsync -av --delete --exclude '.cache/' src/ dest/` -- Maintain an exact replica while skipping cache files.
-    * `rsync -avz --bwlimit=5000 files/ rsync://mirror.example.org/share/` -- Upload to an rsync daemon with throttled bandwidth.
 */
 _:
 let

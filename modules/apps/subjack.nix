@@ -7,7 +7,6 @@
 
   Summary:
     * Tests known domains and subdomains for takeover conditions such as dangling CNAMEs, stale cloud A records, dangling NS delegations, AXFR exposure, and email-related DNS takeovers.
-    * Fits recon pipelines after discovery tools such as subfinder, amass, or assetfinder and should be followed by manual verification of positive findings.
 
   Options:
     -d <domain>: Single domain to check.

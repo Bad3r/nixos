@@ -3,7 +3,7 @@
   Description: Human-friendly command line HTTP client for testing and debugging APIs.
   Homepage: https://httpie.io/cli
   Documentation: https://httpie.io/docs/cli
-  Repository: https://github.com/httpie/httpie
+  Repository: https://github.com/httpie/cli
 
   Summary:
     * Provides expressive request syntax with colorized, formatted output for API responses.

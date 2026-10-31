@@ -3,6 +3,7 @@
   Description: Pseudorandom number sequence test program.
   Homepage: https://www.fourmilab.ch/random/
   Documentation: https://www.fourmilab.ch/random/
+  Repository: https://github.com/Fourmilab/ent_random_sequence_tester
 
   Summary:
     * Runs statistical tests (entropy, chi-square, arithmetic mean, Monte Carlo π, serial correlation) on byte or bit streams.

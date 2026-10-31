@@ -3,16 +3,6 @@
   Description: CLI tool for Logseq DB graph management and MCP server
   Homepage: https://logseq.com/
   Repository: https://github.com/logseq/logseq
-
-  Summary:
-    * Command-line interface for managing Logseq database graphs.
-    * Provides MCP server functionality for programmatic access.
-
-  Options:
-    logseq-cli: Run the Logseq CLI tool.
-
-  Example Usage:
-    * `logseq-cli --help` -- Show available commands.
 */
 { inputs, ... }:
 let

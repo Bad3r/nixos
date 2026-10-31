@@ -3,7 +3,7 @@
   Description: SMBIOS table decoder for inspecting hardware inventory.
   Homepage: https://www.nongnu.org/dmidecode/
   Documentation: https://www.nongnu.org/dmidecode/manual.html
-  Repository: https://git.savannah.gnu.org/cgit/dmidecode.git
+  Repository: https://cgit.git.savannah.gnu.org/cgit/dmidecode.git
 
   Summary:
     * Reads system firmware tables to report CPU, memory, chassis, and firmware details without rebooting.

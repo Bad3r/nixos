@@ -14,10 +14,6 @@
     down: Stop and remove the services and their networks.
     logs -f: Follow the service logs.
     -f <file>: Use a specific Compose file.
-
-  Example Usage:
-    * `docker-compose up -d` -- Start the project in the current directory.
-    * `podman compose ps` -- List the project's containers through Podman's compose provider.
 */
 _:
 let

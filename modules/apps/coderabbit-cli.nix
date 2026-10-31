@@ -3,7 +3,7 @@
   Description: CodeRabbit's terminal client for AI-powered code reviews and repository automation.
   Homepage: https://coderabbit.ai/
   Documentation: https://docs.coderabbit.ai/docs/cli
-  Repository: https://github.com/coderabbitai/coderabbit-cli
+  Repository: nil
 
   Summary:
     * Authenticates with CodeRabbit to request AI code reviews, summaries, and guidance for pull requests or local diffs.
@@ -13,9 +13,6 @@
     coderabbit auth login: Sign into CodeRabbit and store credentials locally.
     coderabbit review --repo <path>: Generate an AI review for changes in the specified repository or diff.
     coderabbit update: Upgrade the CLI to the latest released version.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
 { inputs, ... }:
 {

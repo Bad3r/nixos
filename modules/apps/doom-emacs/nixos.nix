@@ -3,37 +3,10 @@
   Description: Doom Emacs framework built reproducibly with Nix via marienz/nix-doom-emacs-unstraightened.
   Homepage: https://github.com/doomemacs/doomemacs
   Documentation: https://docs.doomemacs.org/
-  Repository: https://github.com/marienz/nix-doom-emacs-unstraightened
-
-  Summary:
-    * Builds Doom Emacs with a sealed package set (no straight.el) by snapshotting modules and dependencies through Nix.
-    * Bundles a user doomdir (init.el / packages.el / config.el) into the produced Emacs derivation so activation is fully declarative.
-
-  Options:
-    enable: Toggle the doom-emacs integration; the actual package is installed by the Home Manager module.
-    package: Emacs derivation passed to Unstraightened (defaults to pkgs.emacs from the emacs-overlay).
-    doomDir: Path to the doomdir bundled into the build (defaults to the existing static starter doomdir).
-    enableLanguageTooling: Add language servers, formatters, and tree-sitter grammars for an active programming doomdir.
-    enableService: Enable the Home Manager `services.emacs` user daemon backed by Doom.
+  Repository: https://github.com/doomemacs/core
 
   Notes:
-    * Package sourced from nix-doom-emacs-unstraightened (github:marienz/nix-doom-emacs-unstraightened).
-    * Adds inputs.emacs-overlay.overlays.default to nixpkgs.overlays for the host whenever `enable = true`.
-      That registration is global: it changes pkgs.emacs and every package that builds against the Emacs
-      tree (notmuch, mu, mu4e, pdf-tools, anything using emacsPackages / emacsWithPackages). Account for
-      that side-effect when debugging unrelated Emacs regressions.
-    * Wires `nix-community.cachix.org` (emacs-overlay artefacts) and
-      `doom-emacs-unstraightened.cachix.org` (Doom build artefacts) into
-      `nix.settings.extra-substituters` so substitution covers both layers. Trust
-      keys are mirrored in `extra-trusted-public-keys`.
-    * Installs the unfree `symbola` font system-wide; Doom uses it as the Unicode
-      fallback face and `doom doctor` warns when it is missing.
-    * The structured renderer in _doomdir.nix is validated by the
-      doom-emacs-rendered-doomdir flake check. It is not the default doomDir
-      because nix-doom-emacs-unstraightened imports generated intermediates
-      during evaluation.
-    * Configuration and install delegated to Home Manager (modules/apps/doom-emacs/home.nix).
-    * Override doomDir to point at a real Doom configuration for a personalised setup.
+    * Enabling it applies emacs-overlay host-wide, which replaces `pkgs.emacs` and every package built against it.
 */
 { inputs, lib, ... }:
 let

@@ -6,18 +6,12 @@
   Repository: https://github.com/Byron/dua-cli
 
   Summary:
-    * Traverses directories quickly and presents usage statistics with an interactive TUI for cleanup.
-    * Offers non-interactive summaries suitable for scripting and CI reports.
+    * Traverses directories quickly and shows usage in an interactive TUI for cleanup.
+    * Prints non-interactive summaries for scripts.
 
   Options:
-    dua: Launch the interactive terminal interface in the current directory.
-    dua --summarize <paths>: Emit aggregate usage information for one or more paths.
+    dua aggregate <paths>: Print the space used by one or more paths.
     dua i <path>: Open the inspector focused on a specific directory tree.
-
-  Example Usage:
-    * `dua` -- Inspect disk usage interactively starting at the current working directory.
-    * `dua --summarize ~/Downloads ~/Videos` -- Compare storage consumption across multiple directories.
-    * `dua i /var/log` -- Drill into nested directories and delete files directly from the TUI.
 */
 _:
 let

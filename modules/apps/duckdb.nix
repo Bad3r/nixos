@@ -6,8 +6,8 @@
   Repository: https://github.com/duckdb/duckdb
 
   Summary:
-    * Provides a standalone CLI for querying transient in-memory and persistent DuckDB databases.
-    * Supports analytical SQL workloads, file-backed databases, and data import/export from the terminal.
+    * Queries in-memory and persistent DuckDB databases from a standalone CLI.
+    * Runs analytical SQL and imports or exports data files from the terminal.
 
   Options:
     -c COMMAND: Run COMMAND and exit.

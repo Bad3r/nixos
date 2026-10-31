@@ -6,12 +6,8 @@
   Repository: https://github.com/espanso/espanso
 
   Summary:
-    * Detects when you type a keyword (trigger) and replaces it with predefined text (expansion).
+    * Replaces typed keywords (triggers) with predefined text (expansions).
     * Supports variables (date, shell, clipboard), forms, regex triggers, and app-specific configurations.
-
-  Notes:
-    * Uses services namespace since espanso runs as a background service.
-    * HM services.espanso does not support nullable package - HM handles installation.
 */
 _:
 let

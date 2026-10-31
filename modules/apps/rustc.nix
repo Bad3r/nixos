@@ -13,13 +13,8 @@
     rustc <file.rs> -o <output>: Compile a single Rust file.
     --edition <2018|2021|2024>: Specify language edition.
     -C opt-level=<0-3|s|z>: Set optimization level.
-    -C target=<triple>: Cross-compile to a specific target.
+    --target <triple>: Cross-compile to a specific target.
     -Z <flag>: Enable nightly-only experimental options (if using nightly compiler).
-
-  Example Usage:
-    * `rustc main.rs -O` -- Compile with optimizations, producing `main`.
-    * `rustc lib.rs --crate-type=rlib` -- Build a reusable Rust library.
-    * `RUSTFLAGS="-C target-cpu=native" cargo build --release` -- Example of configuring rustc flags via Cargo.
 */
 _:
 let

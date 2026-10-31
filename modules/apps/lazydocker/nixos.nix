@@ -13,9 +13,6 @@
     -f: Specify Docker Compose file(s) to use.
     -c: Specify a custom config directory path.
     -d: Enable debug logging.
-
-  Notes:
-    * Home Manager manages per-user YAML configuration; the NixOS module handles package installation only.
 */
 _:
 let

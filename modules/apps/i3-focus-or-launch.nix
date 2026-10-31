@@ -3,11 +3,6 @@
   Description: Repo-local i3 helper that focuses an existing window matching a
     class/name, or launches the program if no match is found.
   Repository: https://github.com/Bad3r/nixos
-
-  Notes:
-    * Built from packages/i3-focus-or-launch via the overlay that
-      modules/hosts/common/custom-overlays-base.nix derives.
-    * Consumed by modules/apps/i3wm/config.nix to bind focus-or-launch shortcuts.
 */
 _:
 let

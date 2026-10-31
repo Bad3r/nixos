@@ -8,10 +8,6 @@
   Summary:
     * Launches the Bitwarden desktop vault for browsing, editing, and autofill-adjacent credential workflows.
     * Syncs encrypted items from Bitwarden-hosted or self-hosted services and integrates with biometric or desktop unlock features.
-
-  Options:
-    bitwarden: Launch the desktop application and open the vault UI.
-    Account settings: Configure the server endpoint, sign-in method, and vault timeout behavior from the in-app settings.
 */
 _:
 let

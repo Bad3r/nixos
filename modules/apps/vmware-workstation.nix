@@ -3,15 +3,11 @@
   Description: VMware Workstation Pro hypervisor and tooling.
   Homepage: https://www.vmware.com/products/workstation-pro.html
   Documentation: https://docs.vmware.com/en/VMware-Workstation-Pro/
+  Repository: nil
 
   Summary:
-    * Installs VMware Workstation binaries for building and running local VMs.
-    * Provides utilities like `vmware`, `vmrun`, and networking helpers required by the NixOS vmware host module.
-    * Optionally enables VMware Workstation host services.
-
-  Example Usage:
-    * `vmware` -- Launch the VMware Workstation UI.
-    * `vmrun start <vmx>` -- Automate headless VM lifecycle operations.
+    * Builds and runs local VMs.
+    * Ships the `vmware` UI and the `vmrun` CLI.
 */
 _:
 let

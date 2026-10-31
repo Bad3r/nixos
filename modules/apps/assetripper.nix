@@ -8,9 +8,6 @@
   Summary:
     * Analyzes Unity serialized files and asset bundles.
     * Reconstructs assets in the native Unity project format.
-
-  Options:
-    GUI: Launch AssetRipper and open Unity game folders or asset files.
 */
 _:
 let

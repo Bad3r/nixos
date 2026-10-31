@@ -6,8 +6,8 @@
   Repository: https://github.com/Kozea/WeasyPrint
 
   Summary:
-    * Renders HTML and CSS, including CSS Paged Media features (`@page` rules, margin boxes, page breaks), into PDF documents.
-    * Implements its own layout and text-shaping engine on top of Pango and HarfBuzz rather than wrapping a browser, so JavaScript-driven content is not executed.
+    * Renders HTML and CSS, including CSS Paged Media (`@page` rules, margin boxes, page breaks), into PDF.
+    * Does not execute JavaScript.
 
   Options:
     -s: Add a user CSS stylesheet (URL or filename); repeatable.

@@ -1,8 +1,6 @@
 /*
   Package: audiness
   Description: CLI tool to interact with Nessus.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/audius/audiness
 
   Summary:
@@ -20,8 +18,7 @@
     software: Manage Nessus software.
 
   Notes:
-    * Generate API keys in Nessus before using the CLI.
-    * Use an SSH port forward when the Nessus instance is hosted elsewhere.
+    * Needs API keys generated in Nessus.
 */
 _:
 let

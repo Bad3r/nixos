@@ -3,14 +3,11 @@
   Description: VMware OVF Tool for converting and deploying virtual machines.
   Homepage: https://developer.vmware.com/
   Documentation: https://developer.vmware.com/web/tool/ovf
+  Repository: nil
 
   Summary:
     * Command-line utility for importing and exporting OVF/OVA packages.
     * Supports conversion between different virtual machine formats.
-
-  Example Usage:
-    * `ovftool --help` -- Show available commands and options.
-    * `ovftool vm.vmx vm.ova` -- Convert a VMX file to OVA format.
 */
 
 _:

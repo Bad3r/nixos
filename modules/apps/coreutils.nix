@@ -3,16 +3,16 @@
   Description: GNU Core Utilities collection of essential file, text, and shell programs.
   Homepage: https://www.gnu.org/software/coreutils/
   Documentation: https://www.gnu.org/software/coreutils/manual/coreutils.html
-  Repository: https://git.savannah.gnu.org/cgit/coreutils.git
+  Repository: https://cgit.git.savannah.gnu.org/cgit/coreutils.git
 
   Summary:
-    * Provides canonical implementations of commands such as `ls`, `cp`, `mv`, `chmod`, and `cat`.
-    * Extends POSIX behavior with GNU-specific options, localization, and internationalization support.
+    * Provides core commands such as `ls`, `cp`, `mv`, `chmod`, and `cat`.
+    * Extends POSIX behavior with GNU-specific options.
 
   Options:
-    --help: Append to any coreutils command (e.g., `ls --help`) to display detailed usage information.
-    --version: Print version and licensing details for the invoked coreutils program.
-    --preserve-root: Protect `/` from recursive removal when running `rm --preserve-root -rf /`.
+    --help: Show usage for any coreutils command.
+    --version: Print the command's version.
+    --preserve-root: Refuse to operate recursively on `/`.
 */
 _:
 let

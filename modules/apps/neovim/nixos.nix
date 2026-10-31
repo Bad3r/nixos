@@ -8,11 +8,6 @@
   Summary:
     * Enhances Vim with embedded Lua scripting, Tree-sitter integration, LSP client, terminal emulator, and RPC APIs for external UIs.
     * Maintains compatibility with Vimscript while enabling performant plugin ecosystems like Lazy.nvim, Telescope, and nvim-cmp.
-
-  Notes:
-    * This module provides the base neovim-unwrapped package for nixvim to wrap.
-    * Package installation is handled by the nixvim home-manager module, not this NixOS module.
-    * Enable this module to activate nixvim configuration in home-manager.
 */
 _:
 let

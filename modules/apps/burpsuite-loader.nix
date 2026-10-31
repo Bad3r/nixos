@@ -1,24 +1,9 @@
 /*
   Package: burpsuite-loader
-  Description: Wrapper that exposes the Burp Suite Professional loader binary under a stable command name.
+  Description: Burp Suite Professional license loader.
   Homepage: https://portswigger.net/
   Documentation: https://portswigger.net/burp/documentation
-  Repository: https://gitlab.com/_VX3r/burpsuite-pro-flake
-
-  Summary:
-    * Provides a `burpsuite-loader` command backed by the `pkgs.burpsuitepro` derivation (registered by `modules/apps/burpsuitepro.nix`).
-    * Keeps loader access available outside the pentesting devshell for license/bootstrap workflows.
-
-  Options:
-    burpsuite-loader: Launch the packaged loader binary for Burp Suite Professional.
-
-  Example Usage:
-    * `burpsuite-loader` -- Run the license/bootstrap loader without entering the pentesting devshell.
-    * `burpsuite-loader --help` -- Pass arguments straight through to the upstream `loader` binary.
-
-  Notes:
-    * The upstream package exposes `loader`; this module wraps it as `burpsuite-loader` for PATH stability.
-    * Depends on the `pkgs.burpsuitepro` overlay defined in `modules/apps/burpsuitepro.nix`.
+  Repository: https://github.com/Bad3r/nixos
 */
 _:
 let

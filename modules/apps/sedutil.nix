@@ -19,15 +19,10 @@
     --revertTPer <SIDpassword> <device>: Restore factory defaults, erasing all data.
     --printDefaultPassword <device>: Print the drive MSID.
 
-  Example Usage:
-    * `sudo sedutil-cli --scan` -- Discover which attached drives report Opal support.
-    * `sudo sedutil-cli --query /dev/nvme0n1` -- Read the Discovery 0 response of an NVMe drive.
-    * `sudo sedutil-cli --printDefaultPassword /dev/sda` -- Read the factory MSID before taking ownership.
-
   Notes:
-    * Every device action needs `sudo` (docs/security/owner-storage-access.md).
-    * SATA drives also need `libata.allow_tpm=1` (docs/sedutil-cli.8), set in `modules/hosts/common/storage-diagnostics.nix` while sedutil is enabled and applied on the next reboot. NVMe drives are unaffected.
-    * `--printDefaultPassword` exposes the drive MSID, which is credential material.
+    * Device actions need `sudo`.
+    * SATA drives need `libata.allow_tpm=1`, set automatically and applied on the next reboot.
+    * The drive MSID is credential material.
 */
 _:
 let

@@ -1,7 +1,6 @@
 /*
   Package: generation-manager
   Description: Manage NixOS generations.
-  Homepage: nil
   Documentation: docs/architecture/06-reference.md
   Repository: https://github.com/Bad3r/nixos
 
@@ -19,9 +18,8 @@
     info <gen>: Show detailed information about a generation.
 
   Notes:
-    * The flake package output is retained for `nix run .#generation-manager -- ...`.
-    * `nix-diff` remains optional and is used only when present on PATH.
-    * `sudo` is intentionally resolved from the runtime environment.
+    * Also runs as `nix run .#generation-manager -- ...`.
+    * `diff` uses `nix-diff` when it is on PATH.
 */
 _:
 let

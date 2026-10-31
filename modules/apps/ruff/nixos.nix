@@ -13,11 +13,6 @@
     ruff check <path>: Run Ruff's linting rules against files or directories.
     ruff format <path>: Apply Ruff's formatter to Python sources.
     ruff clean: Remove Ruff's cache directory for fresh runs.
-
-  Example Usage:
-    * `ruff check src/` -- Lint the `src` package.
-    * `ruff format .` -- Format all Python files in the current directory.
-    * `ruff check --select I --fix` -- Sort imports and apply fixes automatically.
 */
 _:
 let

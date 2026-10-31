@@ -7,17 +7,16 @@
 
   Summary:
     * Opens Excel and CSV files in the terminal with delimiter detection and multi-sheet navigation.
-    * Supports filtering, sorting, profiling, formula-aware editing, and chart export for tabular data.
+    * Filters, sorts, profiles, and edits tabular data, and exports charts.
 
   Options:
     -t, --theme <name>: Start with a named color theme.
-    -d, --delimiter <char>: Set the CSV delimiter, using `\t` or `tab` for tabs.
+    -d, --delimiter <char>: Set the CSV delimiter.
     --version: Print version information.
-    --help, -h: Show usage, themes, examples, and keyboard shortcuts.
+    --help, -h: Show usage and keyboard shortcuts.
 
   Notes:
-    * The package is named `vex-tui`, but the installed binary is `vex`.
-    * `csv-vex-tui` and `xls-vex-tui` are shell aliases for `vex`.
+    * The binary is `vex`.
 */
 _:
 let

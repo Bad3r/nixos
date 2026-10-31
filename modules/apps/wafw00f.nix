@@ -1,13 +1,10 @@
 /*
   Package: wafw00f
   Description: Identify and fingerprint the Web Application Firewall protecting a site.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/EnableSecurity/wafw00f
 
   Summary:
     * Sends crafted requests and analyzes the responses to detect and name the WAF (if any) fronting a target.
-    * Recognizes a large set of WAF products; complements cdncheck's passive WAF detection with active probing.
 
   Options:
     -a, --findall: Report every matching WAF instead of stopping at the first.

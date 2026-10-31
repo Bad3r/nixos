@@ -1,23 +1,13 @@
 /*
   Package: nrun
   Description: Run nixpkgs packages with unfree packages allowed by default.
-  Homepage: nil
   Documentation: https://nix.dev/manual/nix/latest/command-ref/new-cli/nix3-run
   Repository: https://github.com/Bad3r/nixos
-
-  Summary:
-    * Runs a package from the configured nixpkgs flake using `nix run`.
-    * Enables unfree package evaluation by default for one-off invocations.
 
   Options:
     -h: Show usage information.
     --help: Show usage information.
     --: Stop option parsing and treat the next argument as the package attribute.
-    <nixpkgs-attr>: Run `nixpkgs#<nixpkgs-attr>` and pass remaining arguments through.
-
-  Notes:
-    * Sets `NIXPKGS_ALLOW_UNFREE=1` only when the caller has not set it.
-    * Uses `--impure` because nixpkgs reads `NIXPKGS_ALLOW_UNFREE` from the environment.
 */
 _:
 let

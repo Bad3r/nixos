@@ -18,9 +18,6 @@
     -U <users>: User list or comma-separated names to attempt during password attacks.
     -o <file> / -f <format>: Persist results to a file in `cli`, `cli-no-colour`, or `json` format.
     --random-user-agent: Randomize the User-Agent for each request to evade simple WAFs.
-
-  Notes:
-    * `pkgs.wpscan` ships under an unfree-redistributable license; entry below opts the package into `nixpkgs.allowedUnfreePackages`.
 */
 _:
 let

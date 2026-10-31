@@ -15,11 +15,6 @@
     -L <var> <values>: Run benchmarks over parameter lists (e.g. different input sizes).
     -p, --prepare <cmd>: Run a preparation command before each benchmark run.
     --export-json/--export-markdown <file>: Save benchmark results for reporting.
-
-  Example Usage:
-    * `hyperfine 'rg foo' 'ack foo'` -- Compare ripgrep and ack for a search task.
-    * `hyperfine -w 3 -r 10 'make clean && make'` -- Benchmark a build pipeline with warmup and specific run counts.
-    * `hyperfine --export-json results.json 'python script.py'` -- Save benchmark metrics for further analysis.
 */
 _:
 let

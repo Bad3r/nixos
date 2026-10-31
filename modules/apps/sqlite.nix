@@ -3,7 +3,7 @@
   Description: Self-contained, serverless, zero-configuration SQL database engine.
   Homepage: https://www.sqlite.org/
   Documentation: https://www.sqlite.org/docs.html
-  Repository: https://github.com/sqlite/sqlite
+  Repository: https://sqlite.org/src
 
   Summary:
     * Provides the sqlite3 CLI for embedding SQL workloads in scripts and local applications without managing a database server.

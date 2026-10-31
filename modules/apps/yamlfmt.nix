@@ -1,7 +1,6 @@
 /*
   Package: yamlfmt
   Description: Extensible command line tool or library to format yaml files.
-  Homepage: nil
   Documentation: https://github.com/google/yamlfmt/blob/main/docs/config-file.md
   Repository: https://github.com/google/yamlfmt
 

@@ -3,13 +3,15 @@
   Description: Screenshot-to-text utility that recognizes text and copies it to the clipboard.
   Homepage: https://github.com/dynobo/normcap
   Documentation: https://github.com/dynobo/normcap#readme
+  Repository: https://github.com/dynobo/normcap
 
   Summary:
     * Launches directly into selection mode for quick OCR snips.
     * Supports X11 and Wayland backends with clipboard integration.
     * Provides optional system tray indicator and history view.
-    * OCR languages are provided by the configured `tesseract` package
-      (tesseract4 ships all 132 traineddata files, including Arabic).
+
+  Notes:
+    * OCR data from tesseract4, all languages including Arabic.
 */
 
 _:

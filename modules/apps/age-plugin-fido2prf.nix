@@ -6,11 +6,7 @@
   Repository: https://github.com/FiloSottile/typage
 
   Summary:
-    * Adds FIDO2-backed identities to age using the `fido2prf` flow from typage.
     * Enables hardware-token age recipients without exposing long-lived private keys on disk.
-
-  Options:
-    age-plugin-fido2prf: Run the plugin binary used by age when decrypting FIDO2-backed identities.
 */
 _:
 let

@@ -14,11 +14,6 @@
     --add-to=<archive> <files>: Create or append files to an archive from the command line.
     --default-dir=<dir>: Start the UI rooted in a particular directory.
     --version: Show the installed release number and exit.
-
-  Example Usage:
-    * `file-roller` -- Open the GUI to browse and manipulate archives.
-    * `file-roller --extract-to ~/Downloads logs.tar.xz` -- Quickly unpack logs into the Downloads folder.
-    * `file-roller --add-to backup.7z Documents/Reports` -- Bundle reports into a 7z archive.
 */
 _:
 let

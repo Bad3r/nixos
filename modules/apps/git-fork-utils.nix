@@ -1,9 +1,7 @@
 /*
   Package: git-fork-utils
   Description: Git fork maintenance utilities.
-  Homepage: nil
-  Documentation: nil
-  Repository: nil
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Provides `git-fork-sync`, also invocable as `git fork-sync`, for pulling fork branches from origin and optional upstream.
@@ -21,9 +19,8 @@
     -h, --help: Print usage information.
 
   Notes:
-    * In Git subcommand form, use `git fork-sync -h` or `git fork-reset -h`; Git handles `--help` as a manpage lookup.
-    * The backup stash is kept for recovery and is never dropped automatically.
-    * Scheduled upstream syncs run inside each fork repository via the sync-upstream GitHub workflow; see docs/reference/fork-sync-automation.md.
+    * In `git fork-*` form, `--help` opens a manpage; use `-h`.
+    * Backup stashes are never dropped automatically.
 */
 _:
 let

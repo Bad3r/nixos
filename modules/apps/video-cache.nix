@@ -3,10 +3,11 @@
   Description: Build and maintain a cache of video file durations for filtering and playback.
   Homepage: https://github.com/Bad3r/nixos
   Documentation: https://github.com/Bad3r/nixos/tree/main/packages/video-cache
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Scans directories for video files and caches their durations in TSV format.
-    * Supports incremental updates: removes deleted files, adds new ones, skips cached.
+    * Updates the cache incrementally.
     * Emits matching videos in depth-first tree order with natural numeric sorting.
 
   Options:
@@ -14,9 +15,7 @@
     --quiet: Suppress progress bar and summary output.
 
   Notes:
-    * Package defined in packages/video-cache/default.nix and exposed via overlay.
-    * Cache stored at <video_dir>/.cache/video-durations.tsv.
-    * Errors logged to <video_dir>/.cache/video-errors.log.
+    * Writes its cache and error log under `<video_dir>/.cache/`.
 */
 _:
 let

@@ -1,38 +1,14 @@
 /*
-  Package: cpc (copy command + output)
-  Description: Interactive shell function that runs a command, streams its
-               combined stdout/stderr to the terminal live, and copies a
-               tagged record of the invocation and its output to the X
-               CLIPBOARD selection via xsel.
+  Package: cpc
+  Description: Shell function that runs a command and copies the command and its output to the X clipboard.
+  Repository: https://github.com/Bad3r/nixos
 
-  Usage:
-    cpc <command> [args...]
-    cpc sudo systemctl status nginx
-
-  Clipboard payload format:
-    <command>ip -br a</command>
-    <output>
-    lo               UNKNOWN        127.0.0.1/8
-    </output>
+  Summary:
+    * Shows the output live and copies it as a `<command>`/`<output>` tagged record.
 
   Notes:
-    * The xsel binary is referenced by absolute store path through the
-      `programs.cpc.extended.package` option, so the function works
-      without xsel on the user's PATH and is independent of
-      `programs.xsel.extended.enable`.
-    * stdout and stderr are merged so utilities that diagnose to stderr
-      (rg, ip, systemctl) end up in the clipboard alongside their results.
-    * TTY-aware programs (`ls`, `git`, `grep --color=auto`, pagers) detect
-      a pipe on stdout and disable color, paging, and progress output
-      because the function captures via `tee`. Force colour with the
-      tool's flag if needed (e.g. `cpc git -c color.ui=always status`).
-    * Sudo password prompts go to /dev/tty and are not captured.
-    * Argv is reconstructed with `printf '%q '` so the recorded command
-      round-trips through the shell. Both bash and zsh implement %q in
-      their builtin printf.
-    * XML-style tags are used for delimitation, not strict XML conformance:
-      payload contents are not entity-escaped, so output containing literal
-      `<` / `>` / `&` will not parse as XML but remains human-readable.
+    * Captured programs see a pipe, so they drop color and paging.
+    * Sudo password prompts are not captured.
 */
 _:
 let

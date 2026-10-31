@@ -10,15 +10,7 @@
     * Supports ECMAScript modules, V8 JavaScript engine features, and native addon development via node-gyp.
 
   Options:
-    node <script.js>: Execute JavaScript files with Node.js.
-    node --experimental-strip-types: Enable new experimental TypeScript stripping (22 feature).
-    npm <command>: Manage packages (install, run scripts, audits).
-    corepack enable: Activate package managers like pnpm/yarn shipped with Node 22.
-
-  Example Usage:
-    * `node app.js` -- Run a Node.js server or script entrypoint.
-    * `npm init -y && npm install express` -- Initialize a project and add dependencies.
-    * `npx tsc` -- Execute TypeScript compiler via npx using the Node 22 toolchain.
+    corepack enable: Activate the pnpm and yarn shims.
 */
 _:
 let

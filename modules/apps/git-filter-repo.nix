@@ -15,11 +15,6 @@
     --replace-text <file>: Apply text replacement rules loaded from a config file (supports regex).
     --refs <pattern>: Limit rewriting to matching refs such as `refs/heads/main`.
     --dry-run: Simulate the rewrite and report planned changes without modifying the repo.
-
-  Example Usage:
-    * `git filter-repo --path docs/` -- Extract the documentation history into a standalone repository.
-    * `git filter-repo --invert-paths --path secrets/` -- Remove a sensitive directory from all commits.
-    * `git filter-repo --replace-text mappings.txt` -- Scrub API keys or credentials according to a mapping file.
 */
 _:
 let

@@ -13,11 +13,6 @@
     cachix use <name>: Configure the current system to trust a Cachix cache.
     cachix push <name> <path>: Upload store paths to a cache.
     cachix watch-store <name>: Automatically push new builds as they appear.
-
-  Example Usage:
-    * `cachix use myteam` -- Add the `myteam` cache to `/etc/nix/nix.conf` and trust its key.
-    * `cachix push myteam result` -- Upload a built derivation to share with teammates.
-    * `cachix watch-store myteam` -- Continuously push builds while iterating locally.
 */
 _:
 let

@@ -1,6 +1,6 @@
 /*
   Package: maim
-  Description: Screenshot utility for X11/Wayland (via slop) offering region selection and advanced output features.
+  Description: Command-line screenshot utility for X11 with region selection via slop.
   Homepage: https://github.com/naelstrof/maim
   Documentation: https://github.com/naelstrof/maim#readme
   Repository: https://github.com/naelstrof/maim
@@ -15,11 +15,6 @@
     -m <seconds>: Delay capture by the specified number of seconds.
     -f <format>: Set the output format (png, jpg, bmp, etc.).
     -i <window-id>: Capture a specific window by XID.
-
-  Example Usage:
-    * `maim screenshot.png` -- Capture the entire screen to `screenshot.png`.
-    * `maim -s -u -m 3 region.png` -- After a 3-second delay, interactively select an area including the cursor.
-    * `maim -s | xclip -selection clipboard -t image/png` -- Copy a selected region directly to the clipboard.
 */
 _:
 let

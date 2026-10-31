@@ -7,18 +7,7 @@
 
   Summary:
     * Provides shell scripts that enumerate NetworkManager connections and present them through dmenu, rofi, or wofi interfaces.
-    * Enables quick connection toggling, VPN activation, and QR code display without opening graphical applets.
-
-  Options:
-    networkmanager_dmenu: Launch the standard dmenu interface.
-    networkmanager_dmenu -l rofi: Use rofi instead of dmenu (requires rofi installed).
-    networkmanager_dmenu --qr: Show QR codes for sharing Wi-Fi credentials.
-    Config files in `~/.config/networkmanager-dmenu/`: Customize prompts, fonts, and commands.
-
-  Example Usage:
-    * `networkmanager_dmenu` -- Select a Wi-Fi network using dmenu.
-    * `networkmanager_dmenu -l rofi --visible` -- Launch with rofi and keep the menu open after selection.
-    * `networkmanager_dmenu --qr` -- Display the QR code for the currently active Wi-Fi connection.
+    * Enables quick connection toggling and VPN activation without opening graphical applets.
 */
 _:
 let

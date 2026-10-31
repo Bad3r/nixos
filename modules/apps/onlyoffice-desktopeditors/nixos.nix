@@ -8,12 +8,6 @@
   Summary:
     * Combines text documents, spreadsheets, presentations, fillable forms, PDFs, and diagram viewing in one tabbed desktop suite.
     * Connects to ONLYOFFICE and third-party clouds for collaborative editing while preserving local offline workflows.
-
-  Options:
-    Text documents: Use the document editor for formatting, bookmarks, tables of contents, and mail merge.
-    Spreadsheets: Use formulas, charts, named ranges, and macros in workbook files.
-    Presentations: Build slide decks with presenter mode, objects, and style controls.
-    PDF: Edit PDF text, annotate files, and create or fill PDF forms.
 */
 _:
 let

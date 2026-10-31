@@ -3,12 +3,7 @@
   Description: Daemonless OCI container engine with a Docker-compatible CLI and API.
   Homepage: https://podman.io/
   Documentation: https://docs.podman.io/
-  Repository: https://github.com/containers/podman
-
-  Summary:
-    * Runs containers rootless as the owner; `docker` is a shim for the podman CLI.
-    * Links /run/docker.sock to the owner's rootless API socket, so act, lazydocker, and
-      docker-compose find it without DOCKER_HOST.
+  Repository: https://github.com/podman-container-tools/podman
 
   Options:
     run --device nvidia.com/gpu=all: Expose the NVIDIA GPU through CDI.
@@ -17,12 +12,8 @@
     compose: Run docker-compose against the Podman API.
 
   Notes:
-    * DOCKER_HOST cannot come from environment.sessionVariables: pam_env runs before pam_systemd
-      sets XDG_RUNTIME_DIR.
-    * The compat API ignores the requested runtime, so only the podman CLI (and the `docker`
-      shim) can select runsc or load the untrusted module.
-    * The rootful API socket stays off; virtualisation.podman.autoPrune prunes only the root
-      store, so a Home Manager timer prunes the rootless one.
+    * Rootless; `docker` runs podman and /run/docker.sock is the rootless socket.
+    * Only the podman CLI can select runsc.
 */
 _:
 let

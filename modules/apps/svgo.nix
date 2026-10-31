@@ -10,7 +10,6 @@
     * Simplifies SVG paths and structure to reduce asset size in build and graphics pipelines.
 
   Options:
-    <input> [<input> ...]: Optimize one or more SVG files.
     -o, --output <output> [<output> ...]: Write optimized files to the specified paths.
     -r, --recursive: Process SVG files recursively under a directory.
     -f, --folder <directory>: Set the directory containing SVG files to process.

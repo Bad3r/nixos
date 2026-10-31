@@ -7,10 +7,6 @@
 
   Summary:
     * Delivers Java completions, diagnostics, go-to-definition, and refactoring powered by Eclipse JDT.
-    * Requires a JDK on PATH; the binary is `jdtls`.
-
-  Example Usage:
-    * `jdtls` -- Start the Java language server (normally launched by the editor).
 */
 _:
 let

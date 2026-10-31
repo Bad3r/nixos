@@ -6,18 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the Charles proxy GUI packaged from the repo-local `packages/charles` derivation.
     * Supports SSL proxying, repeat requests, bandwidth shaping, and session recording for web/API testing.
-
-  Options:
-    charles: Launch the Charles desktop proxy UI.
-    ~/.charles.config: User-level configuration directory consumed by the packaged launcher.
-
-  Notes:
-    * `pkgs.charles` comes from the overlay that
-      `modules/hosts/common/custom-overlays-base.nix` derives from
-      `packages/charles`, which applies only while
-      `programs.charles.extended.enable` is true.
 */
 _:
 let

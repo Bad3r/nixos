@@ -10,15 +10,8 @@
     * Includes PhotoRec for recovering deleted files by signature, supporting numerous formats from damaged or formatted media.
 
   Options:
-    testdisk: Interactive ncurses interface for analyzing disks and recovering partitions.
-    photorec: File recovery tool focusing on carving files by signatures.
     testdisk /log: Enable logging to `testdisk.log` for troubleshooting.
     photorec /d <dir>: Set output directory for recovered files.
-
-  Example Usage:
-    * `sudo testdisk` -- Launch interactive partition recovery with guided steps.
-    * `sudo photorec /log /d ~/recovered` -- Recover files from a damaged disk to a specific directory while logging.
-    * Use TestDisk to rebuild an NTFS boot sector when partitions become unbootable.
 */
 _:
 let

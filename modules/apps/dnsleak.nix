@@ -6,15 +6,8 @@
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Queries OpenDNS (`myip.opendns.com`) to display your current public IP and ensure resolvers route through the expected service.
-    * Prints the nameservers configured in `/etc/resolv.conf` so you can confirm VPN or DNS overrides are active.
-
-  Options:
-    dnsleak: Run the check; no additional flags are required.
-
-  Example Usage:
-    * `dnsleak` -- Display the detected public IP and the DNS servers listed in `/etc/resolv.conf`.
-    * `dnsleak | tee /tmp/dnsleak.log` -- Capture the output for auditing or support tickets.
+    * Shows the current public IP as seen by OpenDNS (`myip.opendns.com`).
+    * Lists the nameservers in `/etc/resolv.conf` to confirm VPN or DNS overrides.
 */
 _:
 let

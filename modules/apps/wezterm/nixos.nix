@@ -3,17 +3,17 @@
   Description: GPU-accelerated cross-platform terminal emulator and multiplexer written in Rust.
   Homepage: https://wezterm.org/
   Documentation: https://wezfurlong.org/wezterm/
-  Repository: https://github.com/wez/wezterm
+  Repository: https://github.com/wezterm/wezterm
 
   Summary:
-    * Combines a terminal emulator, multiplexer, and SSH client with OpenGL/Metal acceleration, ligatures, and extensive configuration via Lua.
-    * Provides multiplexing tabs/panes, font fallback, SSH multiplexer with `wezterm ssh`, and nightly features like background tasks.
+    * Terminal emulator, multiplexer, and SSH client with GPU rendering, ligatures, and Lua configuration.
+    * Multiplexes tabs and panes locally or over `wezterm ssh`.
 
   Options:
-    --config-file <path>: Launch wezterm with an alternate configuration file.
-    --cwd <path>: Specify the working directory for new tabs via `wezterm start --cwd`.
+    --config-file <path>: Use an alternate configuration file.
+    --cwd <path>: Set the working directory for `wezterm start`.
     --ssh-domain <name>: Target a configured SSH domain when spawning remote tabs.
-    --log-level <trace|debug|info>: Adjust diagnostic verbosity for troubleshooting.
+    --log-level <trace|debug|info>: Set diagnostic verbosity.
 */
 _:
 let

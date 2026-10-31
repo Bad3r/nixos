@@ -12,9 +12,6 @@
   Options:
     -h: Print help.
     -c: Specify a config file.
-
-  Notes:
-    * Home Manager installs `package` wrapped with its language servers and formatters (modules/apps/helix/home.nix).
 */
 _:
 let

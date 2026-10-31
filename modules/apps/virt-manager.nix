@@ -7,15 +7,9 @@
 
   Summary:
     * Creates, configures, and opens consoles of guests on qemu:///system and qemu:///session.
-    * Seeds qemu:///system as its autoconnected connection through dconf.
-
-  Example Usage:
-    * `virt-manager` -- Open the manager; wheel members connect to qemu:///system without a password.
-    * `virt-manager --connect qemu:///session` -- Manage the owner's unprivileged guests.
 
   Notes:
-    * Guests created here carry no workloads ownership marker, so the declarative engine never
-      touches them.
+    * The workloads engine never manages guests created here.
 */
 _:
 let

@@ -6,8 +6,7 @@
   Repository: https://github.com/cloudflare/cloudflare-go
 
   Summary:
-    * Executes Cloudflare API operations for zones, DNS records, firewall rules, and accounts from the terminal.
-    * Supports credential loading from environment variables or config files to script Cloudflare workflows.
+    * Manages Cloudflare zones, DNS records, firewall rules, and accounts from the terminal.
 
   Options:
     --zone <domain>: Target a specific zone when listing or modifying DNS records (`flarectl --zone example.com dns list`).

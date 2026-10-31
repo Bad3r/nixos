@@ -1,13 +1,11 @@
 /*
   Package: websocat
   Description: Command-line client for WebSockets (like netcat/socat).
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/vi/websocat
 
   Summary:
-    * Connects to or serves ws:// and wss:// endpoints from the command line, acting like netcat/curl for WebSockets.
-    * Supports socat-style two-endpoint address specifiers (TCP, Unix sockets, exec, TLS) for piping between arbitrary transports.
+    * Connects to or serves ws:// and wss:// endpoints from the command line.
+    * Pipes between socat-style endpoints such as TCP, Unix sockets, exec, and TLS.
 
   Options:
     -s: Run in simple server mode, listening on the given port or addr:port.

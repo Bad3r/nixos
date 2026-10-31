@@ -2,32 +2,16 @@
   Package: safeguard-rdp
   Description: rdp:// URI handler for OneIdentity Safeguard "Start RDP Session" launches.
   Homepage: https://github.com/OneIdentity/SCALUS
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Registers a native handler for the rdp:// URI scheme (x-scheme-handler/rdp).
-    * Reconstructs a temporary .rdp from Safeguard's SCALUS launch URI and opens
-      it with Remmina, so a session starts the instant it is requested instead of
-      after downloading and double-clicking a file.
-    * Removing that delay wins the race against Safeguard's short-lived one-time
-      launch token, which otherwise expires and the session logs off with
-      ERRINFO_LOGOFF_BY_USER.
+    * Rebuilds a temporary .rdp from Safeguard's SCALUS launch URI and opens it with Remmina at once,
+      before the one-time launch token expires.
 
-  Ownership:
-    * Overrides the default x-scheme-handler/rdp handler (Remmina's own desktop
-      file claims the scheme but only parses native rdp://user:pass@host URIs).
-      The `application/x-rdp` file association stays owned by
-      host.defaults.remoteDesktopClient (Remmina) and is untouched here.
-
-  Requirements:
-    * The Safeguard side must be configured for URI launch (the "Start RDP
-      Session" button / SCALUS registration). In file-download mode Safeguard
-      never emits an rdp:// URI and this handler is simply unused.
-    * programs.remmina.extended must be enabled (the launcher opens the
-      reconstructed .rdp through Remmina).
-
-  Options:
-    programs.safeguard-rdp.extended.enable: Install the launcher and register it
-      as the default x-scheme-handler/rdp handler.
+  Notes:
+    * Needs Safeguard's URI launch mode and `programs.remmina.extended`.
+    * Replaces Remmina as the rdp:// handler; `.rdp` files still open in Remmina.
 */
 _:
 let

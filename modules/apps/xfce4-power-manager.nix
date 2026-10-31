@@ -10,14 +10,7 @@
     * Provides system tray indicators, keyboard brightness shortcuts, and integration with UPower/Logind for event handling.
 
   Options:
-    xfce4-power-manager: Launch the daemon and tray icon.
-    xfce4-power-manager-settings: Open the graphical settings dialog for configuring actions and display policies.
-    Command-line flags: `--no-daemon`, `--restart` for controlling the daemon directly.
-
-  Example Usage:
-    * `xfce4-power-manager` -- Start the power management daemon (usually auto-started in Xfce sessions).
-    * `xfce4-power-manager-settings` -- Configure battery thresholds, display blanking, and critical actions.
-    * Use keyboard brightness keys; the daemon handles adjusting brightness and notifications.
+    --restart: Restart the running daemon.
 */
 _:
 let

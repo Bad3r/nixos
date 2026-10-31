@@ -15,9 +15,6 @@
     --shares: Enumerate available SMB shares.
     -u USERNAME: Supply a username or credential file.
     -p PASSWORD: Supply a password or credential file.
-
-  Notes:
-    * The nixpkgs package is named `netexec`, while its primary executable is `nxc`.
 */
 _:
 let

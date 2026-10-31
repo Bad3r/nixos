@@ -28,10 +28,6 @@
     -m: Minimum file size in bytes; defaults to 8192 (8KB).
     -D: Deletion method (AEO=all except oldest, AEN=all except newest, NONE=report only).
     --dry-run: Preview deletions without modifying files.
-
-  Notes:
-    * Built with `withGui = false`, so only `czkawka_cli` is installed.
-    * Polish word "czkawka" means "hiccup".
 */
 _:
 let

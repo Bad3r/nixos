@@ -18,10 +18,7 @@
     -D: Show descriptions of vulnerabilities.
 
   Notes:
-    * A repo-level whitelist (whitelist.toml) is bundled via the whitelistFile option.
-    * The whitelist covers CPE name collisions for Haskell bindings, Rust crates,
-      Jenkins plugins, and other packages that share names with unrelated products.
-    * When whitelistFile is set, vulnix is wrapped to auto-pass -w on every invocation.
+    * Every scan applies the repo whitelist (`whitelist.toml`).
 */
 _:
 let

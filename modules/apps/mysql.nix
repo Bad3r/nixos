@@ -13,9 +13,6 @@
     mysql -u <user> -p: Connect to a MySQL server with the interactive client.
     mysqld --datadir=<path>: Start the server with an explicit data directory.
     mysqldump --databases <db>: Export one or more databases for backup or migration.
-
-  Notes:
-    * The pinned nixpkgs input exposes the package as `mysql84`, so this module keeps the stable `programs.mysql.extended` namespace while defaulting to that versioned attr.
 */
 _:
 let

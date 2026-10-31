@@ -10,9 +10,8 @@
     * Provides visual sync status, selective sync configuration, and account management.
 
   Notes:
-    * Requires maestral CLI for core functionality; this package provides the GUI layer.
-    * Launches from system tray; use `maestral_qt` command or desktop entry.
-    * Account linking can be completed through the GUI wizard.
+    * Requires the maestral CLI.
+    * Launch command: `maestral_qt`.
 */
 _:
 let

@@ -10,14 +10,7 @@
     * Supports submodules, shallow clones, and tarball output for reproducible packaging.
 
   Options:
-    nix-prefetch-git <url> [--rev <rev>] [--branch <name>]: Prefetch a repo and print hash metadata.
     nix-prefetch-git --fetch-submodules <url>: Include submodules in the prefetch.
-    nix-prefetch-git --nopull <path>: Reuse an existing clone without pulling.
-
-  Example Usage:
-    * `nix-prefetch-git https://github.com/nixos/nixpkgs --rev nixos-24.05` -- Fetch the nixos-24.05 branch and print its hash.
-    * `nix-prefetch-git --fetch-submodules https://github.com/example/project` -- Include submodules when generating the hash.
-    * `nix-prefetch-git --url . --rev refs/heads/main` -- Prefetch a local repository.
 */
 _:
 let

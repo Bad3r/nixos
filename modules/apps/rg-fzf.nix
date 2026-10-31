@@ -1,22 +1,13 @@
 /*
   Package: rg-fzf
   Description: Interactive ripgrep with fzf live search and preview.
-  Homepage: N/A (custom package)
-  Documentation: See package meta.longDescription
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Combines ripgrep and fzf for interactive fuzzy searching across files.
     * Re-runs ripgrep as you type for live search results.
     * Syntax-highlighted preview with bat showing context around matches.
     * Opens selected result in $EDITOR at the matching line number.
-
-  Usage:
-    rg-fzf [INITIAL_QUERY] [DIRECTORY]
-
-  Keybindings:
-    Enter     - Open selected file in $EDITOR at line
-    Ctrl-/    - Toggle preview window
-    Ctrl-u/f  - Scroll preview up/down
 */
 _:
 let

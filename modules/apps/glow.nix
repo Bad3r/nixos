@@ -10,10 +10,8 @@
     * Supports local and remote sources, TUI navigation, and export to plaintext or JSON for further tooling.
 
   Options:
-    glow <path>: Render a Markdown file with the current style.
-    glow --pager: Follow edits live in a scrollable preview.
+    glow --pager: Display the rendered output in a pager.
     glow --style <dark|light>: Override the automatic theme choice.
-    glow list --local: Browse cached documents managed by glow.
 */
 _:
 let

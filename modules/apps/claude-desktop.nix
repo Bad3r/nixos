@@ -7,21 +7,11 @@
 
   Summary:
     * Provides Claude chat, Cowork, and Claude Code sessions with MCP server and desktop extension support.
-    * Installs Anthropic's Linux build, repackaged from its APT repository.
-
-  Options:
-    claude-desktop: Launch the desktop application.
-    claude-desktop claude://claude.ai/new: Open a new chat.
-    claude-desktop claude://code/new: Open a new Claude Code session.
 
   Notes:
-    * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
-    * The package's FHS environment keeps the host PATH, so MCP servers launched through npx, uvx, or docker use the system profile's tools.
-    * Cowork's precheck finds qemu-system-x86_64 on PATH: the installed launcher prefixes PATH with qemu_kvm, which stays off the
-      system profile. OVMF firmware and virtiofsd come from the FHS environment.
+    * MCP servers run with the system PATH.
     * Cowork needs read-write /dev/kvm and /dev/vhost-vsock.
-    * Electron picks its secret backend from XDG_CURRENT_DESKTOP and falls back to plaintext (basic_text) under i3, so the
-      launcher passes --password-store=gnome-libsecret to reach the hosts-common GNOME Keyring.
+    * Stores secrets in GNOME Keyring.
 */
 { inputs, ... }:
 {

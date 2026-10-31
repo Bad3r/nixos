@@ -1,5 +1,13 @@
-# i3 NixOS module
-# Enables X11 with the i3 window manager
+/*
+  Package: i3wm
+  Description: Tiling window manager.
+  Homepage: https://i3wm.org
+  Repository: https://github.com/i3/i3
+
+  Summary:
+    * Tiling window manager for X11, configured through a plain-text file.
+    * Arranges windows in a tree of containers with split, stacked, and tabbed layouts.
+*/
 let
   i3SessionModule =
     {

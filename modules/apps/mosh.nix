@@ -3,6 +3,7 @@
   Description: Mobile shell (ssh replacement).
   Homepage: https://mosh.org/
   Documentation: https://mosh.org/
+  Repository: https://github.com/mobile-shell/mosh
 
   Summary:
     * Keeps interactive remote shells responsive across roaming, packet loss, and changing client IPs.
@@ -11,7 +12,6 @@
   Options:
     --ssh=COMMAND: Use a custom SSH client or argument set for the initial handshake.
     --family=all|inet|inet6|prefer-inet|prefer-inet6: Control IPv4 or IPv6 selection.
-    user@host: Connect to the remote target using SSH-style destination syntax.
 */
 _:
 let

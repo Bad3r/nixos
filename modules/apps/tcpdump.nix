@@ -17,8 +17,8 @@
     -s snaplen: Limit how many bytes of each packet are captured.
 
   Notes:
-    * Installs a capability wrapper so `wheel` users can capture without invoking `sudo`.
-    * The wrapper source refuses `-z` for non-root callers: tcpdump.c:3173 `execlp`s the postrotate command and the wrapper's ambient capability set lands in it. Root callers retain the normal rotation workflow.
+    * `wheel` users capture without `sudo`.
+    * `-z` is refused for non-root callers.
 */
 _:
 let

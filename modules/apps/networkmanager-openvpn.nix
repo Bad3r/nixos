@@ -10,7 +10,6 @@
     * Enables certificate, username/password, and static key authentication through GUI and CLI workflows.
 
   Options:
-    --vpn-type openvpn: Specify the OpenVPN plugin when creating connections with `nmcli connection add`.
     --ask: Prompt interactively for secrets when activating a profile via `nmcli connection up --ask`.
     --show-secrets: Reveal stored credentials for troubleshooting with `nmcli connection show --show-secrets`.
 */

@@ -3,10 +3,11 @@
   Description: Recover files based on their contents.
   Homepage: https://foremost.sourceforge.net/
   Documentation: https://foremost.sourceforge.net/
+  Repository: https://sourceforge.net/p/foremost/code/
 
   Summary:
     * Carves deleted or damaged files from raw disk images and block devices using file signatures.
-    * Supports targeted recovery by type, configurable carving rules, and audit-friendly output directories.
+    * Recovers selected file types with configurable carving rules and an audit log.
 
   Options:
     -i: Read input from the specified image file or block device.

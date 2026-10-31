@@ -3,24 +3,18 @@
   Description: Official IDE for Android application development with AVD support.
   Homepage: https://developer.android.com/studio
   Documentation: https://developer.android.com/studio/intro
-  Repository: https://github.com/nicokosi/android-studio
+  Repository: https://android.googlesource.com/platform/tools/adt/idea
 
   Summary:
     * Provides the complete Android development environment including SDK Manager and AVD Manager.
-    * Enables ADB debugging and configures KVM acceleration for Android emulator.
-    * Sets ANDROID_HOME and adds SDK tools to PATH for CLI access.
 
   Options:
     -Xmx4g: Increase maximum JVM heap size (useful for large projects).
     -Didea.log.path=<path>: Override the IDE log directory location.
 
   Notes:
-    * Requires KVM for hardware-accelerated emulation; user is added to kvm group.
-    * Use `-gpu swiftshader_indirect` with emulator if GPU acceleration causes issues.
-    * Standalone adb provided via android-tools; systemd 258+ handles uaccess rules automatically.
-    * Install cmdline-tools via Android Studio SDK Manager before using sdkmanager CLI.
-    * Emulator requires nix-ld libraries defined in modules/hosts/common/nix-ld.nix (libcxx, libtiff,
-      libuuid, libbsd, ncurses5, X11 libs, libpulseaudio, libpng, etc.).
+    * Install cmdline-tools in the SDK Manager before using `sdkmanager`.
+    * Emulator GPU fallback: `-gpu swiftshader_indirect`.
 */
 _:
 let

@@ -1,15 +1,11 @@
 /*
   Package: tinfoil-wiper
-  Description: Securely erase NVMe SSDs with controller-native or software methods
+  Description: Securely erase NVMe SSDs with controller-native or software methods.
   Homepage: https://github.com/Bad3r/Tinfoil-Wiper
   Repository: https://github.com/Bad3r/Tinfoil-Wiper
 
-  Usage:
-    * `tinfoil_wiper --dry-run /dev/nvme0n1` -- Preview an erase plan.
-    * `sudo tinfoil_wiper /dev/nvme0n1` -- Run the selected erase method.
-
-  The package grants no privileges. Real wipes still require an explicit root
-  invocation.
+  Notes:
+    * Real wipes require root.
 */
 { inputs, ... }:
 let

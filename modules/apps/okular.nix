@@ -10,15 +10,9 @@
     * Provides review features (highlights, stamps), table of contents navigation, and advanced search with regular expressions.
 
   Options:
-    okular <file>: Open documents from the command line.
     --presentation: Launch in fullscreen presentation mode.
     --print: Send a document directly to the printer queue.
     --unique: Ensure a single Okular instance handles all documents.
-
-  Example Usage:
-    * `okular report.pdf` -- View and annotate a PDF document.
-    * `okular --presentation slides.pdf` -- Present a slideshow using a PDF deck.
-    * `okular --print invoice.pdf` -- Open the print dialog immediately for a file.
 */
 _:
 let

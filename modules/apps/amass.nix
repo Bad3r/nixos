@@ -3,7 +3,7 @@
   Description: OWASP attack surface mapping toolkit for DNS enumeration and infrastructure discovery.
   Homepage: https://owasp.org/www-project-amass/
   Documentation: https://github.com/owasp-amass/amass/wiki/User-Guide
-  Repository: https://github.com/OWASP/Amass
+  Repository: https://github.com/owasp-amass/amass
 
   Summary:
     * Enumerates subdomains and related infrastructure by combining OSINT, brute forcing, ASN mapping, and reverse DNS.

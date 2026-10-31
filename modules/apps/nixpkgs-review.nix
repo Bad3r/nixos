@@ -1,8 +1,6 @@
 /*
   Package: nixpkgs-review
   Description: Review Nixpkgs pull requests by evaluating and building changed packages.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/Mic92/nixpkgs-review
 
   Summary:

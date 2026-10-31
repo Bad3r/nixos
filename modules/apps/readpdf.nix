@@ -1,14 +1,11 @@
 /*
   Package: readpdf
   Description: Extract OCR text from PDFs using OCRmyPDF sidecar output.
-  Homepage: nil
-  Documentation: nil
-  Repository: nil
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Provides a focused `readpdf` command for text extraction from image-based or broken-text-layer PDFs.
     * Defaults to stdout while still allowing explicit sidecar text files.
-    * Adds `pdf-cat` and `cat-pdf` aliases when the wrapper is enabled.
 
   Options:
     -p, --pages <pages>: Limit OCR to pages, ranges, or comma-separated selectors such as `3`, `2-5`, or `1,3,7-10`.
@@ -16,9 +13,7 @@
     -h, --help: Print usage information.
 
   Notes:
-    * Wraps OCRmyPDF force mode because PDFs with bad embedded text layers need a fresh OCR pass.
-    * Sends OCRmyPDF's required searchable-PDF output to `/dev/null` in both modes so the
-      command works on any ocrmypdf release that supports `/dev/null` as the output PDF.
+    * Aliases: `pdf-cat`, `cat-pdf`.
 */
 _:
 let

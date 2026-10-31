@@ -6,7 +6,6 @@
   Repository: https://github.com/nektos/act
 
   Summary:
-    * Executes GitHub Actions workflows locally in runner containers on any Docker API engine.
     * Supports platform image mapping, secret injection, and dry-run mode.
 
   Options:
@@ -17,8 +16,7 @@
     -P <platform>=<image>: Map a platform to a container image.
 
   Notes:
-    * act takes GITHUB_TOKEN from `gh auth token` but silently runs without one; the wrapper fails instead when gh has no token.
-    * The wrapper skips the check when the caller sets GITHUB_TOKEN with -s/--secret or passes --secret-file.
+    * Fails without a `gh auth token` or a `GITHUB_TOKEN` secret.
 */
 _:
 let

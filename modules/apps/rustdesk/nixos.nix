@@ -6,7 +6,7 @@
   Repository: https://github.com/rustdesk/rustdesk
 
   Summary:
-    * Shares the live X11 session and the login screen with clipboard, audio, and file transfer, encoding through ffmpeg's hardware codecs.
+    * Shares the live X11 session and the login screen with clipboard, audio, file transfer, and hardware video encoding.
     * Registers with the fleet's own ID server (hbbs) and connects peers directly over Cloudflare Mesh, falling back to its relay (hbbr).
 
   Options:
@@ -15,16 +15,8 @@
     --option <key> [value]: Read or set one setting in the running service.
 
   Notes:
-    * Package is rustdesk-flutter, the build with the hwcodec feature; the rustdesk attribute is the Sciter UI without it.
-    * RustDesk has no system-wide config. rustdesk.service writes the managed settings into root's files at every
-      start, and as each user into the owner's and the greeter's, because the first server process to run pushes
-      its own files back to root.
-    * The ID, salt, and permanent password derive from secrets/rustdesk.yaml, so every host knows every other
-      host's login and the owner's peer list carries it.
-    * The registry host that sets rustdeskServer runs hbbs and hbbr with the key pair in secrets/rustdesk.yaml.
-    * IPAddressAllow confines the client service, its server processes, hbbs, and hbbr to loopback and the Mesh
-      range. A GUI started from the user's session sits outside that cgroup, so only its settings keep its
-      traffic on Mesh.
+    * Every host knows every other host's permanent password.
+    * A GUI started from the user session is not confined to Mesh; only its settings keep it there.
 */
 { config, ... }:
 let

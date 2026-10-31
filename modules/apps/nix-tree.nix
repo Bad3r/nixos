@@ -10,9 +10,7 @@
     * Provides TUI navigation, search, and export options to inspect build dependencies efficiently.
 
   Options:
-    --derivation <path>: Render the dependency tree rooted at the given derivation.
-    --gc-roots <path>: Highlight whether nodes are protected by garbage-collector roots.
-    --include-outputs: Include runtime outputs alongside build-time dependencies.
+    --derivation: Operate on the store derivation rather than its outputs.
 */
 _:
 let

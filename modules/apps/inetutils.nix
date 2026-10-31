@@ -3,7 +3,7 @@
   Description: GNU collection of common networking clients and servers.
   Homepage: https://www.gnu.org/software/inetutils/
   Documentation: https://www.gnu.org/software/inetutils/manual/
-  Repository: https://git.savannah.gnu.org/cgit/inetutils.git
+  Repository: https://cgit.git.savannah.gnu.org/cgit/inetutils.git
 
   Summary:
     * Provides `traceroute`, `ifconfig`, `telnet`, `ftp`, `tftp`, `talk`, and the r-commands (`rsh`, `rlogin`, `rcp`, `rexec`).
@@ -13,11 +13,9 @@
     traceroute -I <host>: Probe with ICMP ECHO instead of UDP.
     traceroute -m <num> <host>: Set the maximum hop count (default 64).
     ifconfig -a: Display all interfaces, including those that are down.
-    telnet <host> <port>: Open an interactive TCP session for protocol testing.
-    ping6 <host>: Send ICMPv6 echo requests.
 
   Notes:
-    * nixpkgs sets `meta.priority = 7`, so in the system profile iputils `ping`, the whois app's `whois`, and util-linux `logger` take precedence over the inetutils builds.
+    * `ping`, `whois`, and `logger` come from iputils, whois, and util-linux.
 */
 _:
 let

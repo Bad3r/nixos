@@ -6,8 +6,8 @@
   Repository: https://github.com/gphoto/gphoto2
 
   Summary:
-    * Downloads photos and videos over PTP, the protocol iPhones expose for camera-roll access after the on-device photo permission prompt.
-    * Adds a scriptable batch-import path (filename templates, only-new filtering) that the gvfs gphoto2 GUI backend does not offer.
+    * Downloads photos and videos over PTP, including an iPhone camera roll after the on-device photo permission prompt.
+    * Batch-imports with filename templates and only-new filtering.
 
   Options:
     --auto-detect: List detected cameras and PTP devices.
@@ -17,10 +17,10 @@
     --filename <pattern>: Name downloads with strftime and counter placeholders.
 
   Notes:
-    * Talks libgphoto2/libusb directly and does not use usbmuxd; the device must stay unlocked during transfers.
-    * PTP access to iOS devices is read-only by design; deleting after transfer is the only write operation iOS permits.
-    * Installs libgphoto2's udev rules, the only source of the ID_GPHOTO2 property gvfs keys on to offer the camera volume, and creates the "camera" group they hardcode. Stock systemd 70-uaccess.rules already ACLs PTP-class devices to the active local seat, so the group grant covers non-seat access such as SSH, and only that path needs a fresh login.
-    * gvfs runs its own gphoto2 volume monitor against the same libgphoto2; only one process can claim the PTP port, so the monitor has to be stopped before a CLI transfer.
+    * iOS devices must stay unlocked during transfers.
+    * iOS PTP access is read-only apart from deleting files.
+    * Stop the gvfs gphoto2 volume monitor before a CLI transfer.
+    * Access over SSH needs a fresh login for the `camera` group.
 */
 _:
 let

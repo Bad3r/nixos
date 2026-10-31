@@ -15,8 +15,7 @@
     doctor: Check installation health and diagnose issues.
 
   Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Upstream package metadata still uses the `oh-my-opencode` name while the upstream repository is `code-yeongyu/oh-my-openagent`.
+    * Upstream renamed the project to oh-my-openagent.
 */
 { inputs, ... }:
 let

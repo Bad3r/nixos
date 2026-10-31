@@ -3,20 +3,15 @@
   Description: File database for nixpkgs that answers which package provides a file or command.
   Homepage: https://github.com/nix-community/nix-index
   Documentation: https://github.com/nix-community/nix-index#usage
-  Repository: https://github.com/nix-community/nix-index
-
-  Summary:
-    * Installs nix-index wrapped with the prebuilt database from nix-index-database, so `nix-locate` works without a local `nix-index` run.
-    * Hooks bash and zsh so an unknown command prints the packages that provide it, in place of command-not-found.
+  Repository: https://github.com/NixOS/nix-index
 
   Options:
-    nix-locate <pattern>: Query the database for packages containing a file.
     nix-locate --top-level <pattern>: Report only top-level package attributes.
     nix-locate --whole-name <pattern>: Match the whole file name rather than a substring.
 
-  Example Usage:
-    * `nix-locate bin/terraform` -- Find which derivations ship a `terraform` binary.
-    * `nix-locate --top-level --whole-name libssl.so.3` -- Find the packages that ship a shared library.
+  Notes:
+    * Prebuilt database from nix-index-database.
+    * Replaces command-not-found in bash and zsh.
 */
 { inputs, ... }:
 let

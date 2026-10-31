@@ -3,27 +3,10 @@
   Description: Integrated web security testing platform from PortSwigger for intercepting, scanning, and manipulating HTTP/S traffic.
   Homepage: https://portswigger.net/
   Documentation: https://portswigger.net/burp/documentation
-  Repository: https://gitlab.com/_VX3r/burpsuite-pro-flake
-
-  Summary:
-    * Provides the packaged Burp Suite Professional desktop client from the `burpsuite-pro-flake` input.
-    * Registers the overlay that exposes `pkgs.burpsuitepro` so downstream modules (`burpsuite-loader`, devshell, ad-hoc overrides) share a single derivation.
-
-  Options:
-    burpsuitepro: Launch Burp Suite Professional with the packaged runtime.
-    BURP_JVM_ARGS=...: Override JVM sizing for large engagements.
-    JAVA_TOOL_OPTIONS=...: Pass additional Java flags to the packaged launcher.
-    python.moduleDirectory: Directory Burp uses for loading Jython modules.
-
-  Example Usage:
-    * `burpsuitepro` -- Start the Professional edition and configure the browser proxy to intercept traffic.
-    * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` -- Allocate a larger heap for sustained scans.
-    * Install the companion `burpsuite-loader` module when license-loader bootstrap is needed outside the devshell.
+  Repository: nil
 
   Notes:
-    * Package sourced from `inputs."burpsuite-pro-flake"`; the overlay below is the single place that ties the flake input to `pkgs.burpsuitepro`.
-    * The upstream launcher writes a Jython defaults file to `$XDG_CACHE_HOME/burpsuitepro/jython-defaults.json` on every launch (containing the Nix-store `jython.jar` path and python module directory) and seeds an empty `$HOME/.BurpSuite/UserConfigPro.json` if absent.
-    * Both files are passed via `--user-config-file`, defaults last, so the Nix-managed Jython paths always override GUI-edited values.
+    * Jython paths reset to the Nix-managed values on every launch.
 */
 { inputs, ... }:
 let

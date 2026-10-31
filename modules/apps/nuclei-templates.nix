@@ -10,13 +10,10 @@
     * Provides templates for the http, dns, network, file, ssl, headless, code, javascript, and dast protocols, plus reusable workflow profiles.
 
   Options:
-    /run/current-system/sw/share/nuclei-templates: Active system reference for the installed template tree.
     -t <category>/: Pass a category (e.g. `http/cves`, `network/`, `dns/`) to nuclei via `-t`.
-    -w profiles/<file>.yml: Run a curated workflow profile bundled under `share/nuclei-templates/profiles`.
 
   Notes:
-    * Data-only package; tools should reference files under `share/nuclei-templates` rather than expecting a CLI binary.
-    * Pair with `programs.nuclei.extended.enable` and point `-ud` or `nuclei -update-template-dir` at this path to keep scans pinned to the system closure.
+    * Data only; no CLI.
 */
 _:
 let

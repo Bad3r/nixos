@@ -6,8 +6,8 @@
   Repository: https://github.com/exiftool/exiftool
 
   Summary:
-    * Supports hundreds of metadata formats (EXIF, IPTC, XMP, GPS, Maker Notes) across images, audio, video, and document files.
-    * Enables batch metadata extraction, conversion, and modification with rich filtering and output formatting options.
+    * Reads and writes EXIF, IPTC, XMP, GPS, and maker-note metadata across image, audio, video, and document files.
+    * Extracts, converts, and edits metadata in batches with filtering and formatted output.
 
   Options:
     -r: Recursively process files in subdirectories.
@@ -15,11 +15,6 @@
     -P: Preserve original file timestamps when writing metadata.
     -overwrite_original: Modify files in place without creating backup copies.
     -TagsFromFile <src>: Copy tags from another file or directory, optionally filtered by tag list.
-
-  Example Usage:
-    * `exiftool photo.jpg` -- Print all available tags for a single image.
-    * `exiftool -r -json ~/Pictures | jq '.[].DateTimeOriginal'` -- Recursively extract capture timestamps into JSON.
-    * `exiftool -overwrite_original -All= image.jpg` -- Strip all metadata from an image in place.
 */
 _:
 let

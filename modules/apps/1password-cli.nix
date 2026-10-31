@@ -14,10 +14,6 @@
     item: Create, edit, list, get, and delete vault items.
     read: Resolve an `op://` secret reference and print its value.
     run: Start a command with environment variables populated from secret references.
-
-  Notes:
-    * Uses nixpkgs package `pkgs._1password-cli`; the app key omits the leading underscore for repo module discovery.
-    * Delegates runtime wrapper setup to nixpkgs' `programs._1password` module.
 */
 _:
 let

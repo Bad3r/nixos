@@ -18,8 +18,7 @@
     -P <pid>: Show only the given process ID; repeat for more.
 
   Notes:
-    * Installs a capability wrapper so `wheel` users can run nethogs without invoking `sudo`; `cap_sys_ptrace` and `cap_dac_read_search` let it read every process's `/proc/<pid>/fd` to attribute sockets to processes.
-    * The wrapper source passes only `TERM` and `TERMINFO_DIRS=/run/current-system/sw/share/terminfo` to nethogs, so caller-set `TERMINFO`, `TERMINFO_DIRS`, and `~/.terminfo` entries are ignored.
+    * `wheel` users run it without `sudo`.
 */
 _:
 let

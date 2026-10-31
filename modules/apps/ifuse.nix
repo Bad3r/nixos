@@ -10,15 +10,15 @@
     * Reaches per-app Documents folders through the house_arrest service for apps that opt into file sharing.
 
   Options:
-    ifuse <mountpoint>: Mount the device media filesystem.
     --documents <appid>: Mount the named app's Documents folder instead.
     --list-apps: List installed apps and their file-sharing capability.
     -u <udid>: Select a specific device when several are connected.
 
   Notes:
-    * Unmount with fusermount3 -u <mountpoint>, matching the libfuse3 ifuse links; a locked screen or missing trust record surfaces as a mount error.
-    * AFC throughput is protocol-bound at roughly 2-20 MB/s reads and lower writes regardless of USB generation, so bulk copies pair a plain ifuse mount with rsync instead of the slower gvfs path.
-    * Requires the usbmuxd daemon; the module asserts the service is enabled so the dependency fails at eval instead of at runtime.
+    * Unmount with `fusermount3 -u <mountpoint>`.
+    * A locked or untrusted device fails to mount.
+    * AFC transfers run at roughly 2-20 MB/s.
+    * Needs the usbmuxd daemon.
 */
 _:
 let

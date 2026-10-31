@@ -15,11 +15,6 @@
     diagnostics [--output '{:format :json}']: Generate project-wide warnings and errors as machine-readable output.
     rename --from ns/sym --to ns/new-sym: Apply safe renames across the codebase.
     listen: Start the language server, communicating over stdio for editor integrations.
-
-  Example Usage:
-    * `clojure-lsp clean-ns --dry` -- Preview namespace cleanups without modifying files.
-    * `clojure-lsp format --filenames src app/core.clj` -- Format specific source files.
-    * `clojure-lsp listen` -- Run the LSP server for editor clients that connect via stdio.
 */
 _:
 let

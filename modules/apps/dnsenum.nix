@@ -1,9 +1,7 @@
 /*
   Package: dnsenum
   Description: Multi-purpose DNS enumeration toolkit for reconnaissance.
-  Homepage: nil
-  Documentation: nil
-  Repository: https://github.com/fwaeytens/dnsenum
+  Repository: https://github.com/SparrowOchon/dnsenum2
 
   Summary:
     * Gathers DNS host records (A, NS, MX), attempts AXFR transfers, performs Google subdomain scraping, and brute-forces names from a wordlist.

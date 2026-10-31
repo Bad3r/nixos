@@ -1,5 +1,5 @@
 /*
-  Package: networkmanager-applet
+  Package: networkmanagerapplet
   Description: GTK tray applet for controlling NetworkManager connections.
   Homepage: https://wiki.gnome.org/Projects/NetworkManager
   Documentation: https://developer.gnome.org/NetworkManager/stable/applet.html
@@ -10,14 +10,7 @@
     * Integrates 802.1x, VPN plug-ins, WWAN modems, and connection editing via `nm-connection-editor`.
 
   Options:
-    nm-applet: Start the NetworkManager status icon in the system tray.
     --indicator: Enable Ayatana indicator for Unity-based desktops.
-    nm-connection-editor: Launch the advanced connection configuration dialog.
-
-  Example Usage:
-    * `nm-applet --indicator &` -- Run the applet in the background on minimal desktops.
-    * Click the tray icon to connect/disconnect Wi-Fi and VPN connections.
-    * `nm-connection-editor` -- Edit advanced connection settings such as IPv6, DNS, and security settings.
 */
 _:
 let

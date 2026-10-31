@@ -13,13 +13,8 @@
     build: Compile the current package and dependencies (use `--release` for optimized builds).
     run: Build and execute the project's main binary with optional arguments.
     test: Execute unit, integration, and doc tests defined in the crate.
-    add: Add dependencies to `Cargo.toml` via the official `cargo-edit` integration.
+    add: Add dependencies to `Cargo.toml`.
     publish: Package and upload the crate to a registry when ready for release.
-
-  Example Usage:
-    * `cargo new my-app` -- Scaffold a new binary crate with default layout.
-    * `cargo build --release` -- Produce optimized artifacts in `target/release`.
-    * `cargo test -- --nocapture` -- Run the project's test suite and stream stdout for debugging.
 */
 _:
 let

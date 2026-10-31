@@ -13,11 +13,6 @@
     daemon: Start the clipboard monitoring daemon (required for history capture).
     print: Output clipboard history for rofi/dmenu consumption.
     clear: Clear the clipboard history (daemon must be stopped first).
-
-  Example Usage:
-    * `greenclip daemon &` -- Start the daemon in the background.
-    * `rofi -modi "clipboard:greenclip print" -show clipboard` -- Launch rofi clipboard selector.
-    * `pkill greenclip && greenclip clear && greenclip daemon &` -- Clear history and restart.
 */
 _:
 let

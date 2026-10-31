@@ -6,12 +6,8 @@
   Repository: https://github.com/flameshot-org/flameshot
 
   Summary:
-    * Captures screenshots with configurable annotations, blur, arrows, highlighting, and upload/share integrations.
-    * Supports system tray controls, DBus shortcuts, Wayland/X11 backends, and custom keyboard shortcuts.
-
-  Notes:
-    * Uses services namespace since flameshot runs as a background service.
-    * HM services.flameshot does not support nullable package - HM handles installation.
+    * Captures screenshots with annotations, blur, arrows, and highlighting, then saves, copies, or uploads them.
+    * Runs from the system tray or D-Bus with custom keyboard shortcuts.
 */
 _:
 let

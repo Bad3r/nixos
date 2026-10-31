@@ -6,16 +6,12 @@
   Repository: https://gitlab.gnome.org/GNOME/libsecret
 
   Summary:
-    * Provides `secret-tool`, which stores, looks up and clears items in the login keyring that gnome-keyring serves.
-    * Items are addressed by attribute pairs, so a helper and a runbook can name the same item without sharing a file.
+    * Stores, looks up, and clears keyring items addressed by attribute pairs.
 
   Options:
     secret-tool store --label=<label> <attribute> <value>...: Store a secret read from the terminal under the given attributes.
     secret-tool lookup <attribute> <value>...: Print the secret matching the attributes.
     secret-tool clear <attribute> <value>...: Remove the matching items.
-
-  Example Usage:
-    * `secret-tool store --label='Example token' service example account alice` -- Store a token a helper later reads with `secret-tool lookup service example account alice`.
 */
 _:
 let

@@ -7,12 +7,7 @@
 
   Summary:
     * Provides the shared `libstdc++.so.6` runtime used by applications built against GCC's C++ standard library.
-    * Includes low-level GCC runtime libraries such as `libgcc_s.so.1` that are commonly required by prebuilt native extensions and foreign binaries.
-
-  Options:
-    lib/libstdc++.so.6: Runtime shared library for C++ applications linked against GNU libstdc++.
-    lib/libgcc_s.so.1: GCC support library used for exception handling and stack unwinding.
-    NIX_LD_LIBRARY_PATH: Add this package to runtime library paths for foreign binaries that require `libstdc++.so.6`.
+    * Includes low-level GCC runtime libraries such as `libgcc_s.so.1` that prebuilt native extensions and foreign binaries often require.
 */
 _:
 let

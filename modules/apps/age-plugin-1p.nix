@@ -1,8 +1,6 @@
 /*
   Package: age-plugin-1p
   Description: Use SSH keys from 1Password with age.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/Enzime/age-plugin-1p
 
   Summary:
@@ -14,7 +12,7 @@
     -j 1p: Ask age to discover and invoke the plugin during decryption.
 
   Notes:
-    * Requires the 1Password CLI to be authenticated at runtime.
+    * Requires an authenticated 1Password CLI.
 */
 _:
 let

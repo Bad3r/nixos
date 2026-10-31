@@ -1,14 +1,10 @@
 /*
   Package: build-sh-completion
   Description: Zsh completion for this flake's ./build.sh helper.
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Ships a `_build_sh` completion function under share/zsh/site-functions
-      so NixOS's zsh module finds it via `$NIX_PROFILES/share/zsh/site-functions`
-      (the fpath populated by nixpkgs' programs.zsh module).
-    * Completes the flags documented in build.sh and resolves --host candidates
-      from the shareCommon hosts in `lib.nixos.hosts` when a flake directory is
-      reachable; build.sh refuses any other host.
+    * Completes build.sh flags and `--host` names.
 */
 _:
 let

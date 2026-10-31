@@ -14,12 +14,7 @@
     parted <device> mklabel gpt: Create a GPT partition table.
     parted <device> mkpart <name> <fs> start end: Create partitions with explicit start/end positions.
     --script: Run in non-interactive mode for automation.
-    resizepart <num> <end>: Resize a partition to a new end sector.
-
-  Example Usage:
-    * `sudo parted /dev/sda print` -- Inspect current partitions on a disk.
-    * `sudo parted --script /dev/sdb mklabel gpt mkpart primary ext4 1MiB 100GiB` -- Create a GPT disk and an ext4 partition via a script.
-    * `sudo parted /dev/nvme0n1 resizepart 3 200GiB` -- Grow partition 3 to a new size.
+    parted <device> resizepart <num> <end>: Resize a partition to a new end sector.
 */
 _:
 let

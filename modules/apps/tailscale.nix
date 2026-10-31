@@ -6,24 +6,12 @@
   Repository: https://github.com/tailscale/tailscale
 
   Summary:
-    * Installs the Tailscale client and daemon used to join tailnets and route traffic over WireGuard.
-    * Enables the NixOS tailscaled service so networking state is managed declaratively.
-    * Exposes common service and SSH host settings through `programs.tailscale.extended`.
+    * Joins devices to a tailnet and routes their traffic over WireGuard.
 
   Options:
     tailscale up: Bring the node online and apply advertised routes or exit-node settings.
     tailscale status: Show peer connectivity, tunnel health, and route state.
     tailscale ssh <target>: Open an SSH session over the tailnet identity plane.
-    acceptDns: Whether to install the tailnet DNS configuration pushed by the coordination server.
-    authKeyFile: Optional file path containing a reusable auth key for non-interactive node registration.
-    extraSetFlags: Additional arguments passed to `tailscale set` after daemon startup.
-    interfaceName: Override the network interface name used by tailscaled (default `tailscale0`).
-    sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
-    sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
-      Defaults to the registry host marked `primary` using that host's own
-      `tailnetIp` in `flake.lib.nixos.hosts`. At most one host may be primary,
-      and that host must provide a non-empty `tailnetIp` string; no primary
-      leaves the default null. Hosts must switch before the generated alias changes.
 */
 { config, lib, ... }:
 let

@@ -17,9 +17,6 @@
     --json: Emit machine-readable JSON results for tooling.
     -i, --ignore-case: Case insensitive search.
     -w, --word-regexp: Only match whole words.
-
-  Notes:
-    * Home Manager module at modules/apps/ripgrep/home.nix provides user-level configuration.
 */
 _:
 let

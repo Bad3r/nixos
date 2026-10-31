@@ -6,20 +6,15 @@
   Repository: https://github.com/dunst-project/dunst
 
   Summary:
-    * Implements the freedesktop.org notification specification with extensive theming, urgency handling, and scriptable hooks.
-    * Supports dynamic configuration reloads, history, and integration with `dunstctl` for runtime control.
+    * Implements the freedesktop.org notification specification with theming, urgency rules, and scriptable hooks.
+    * Keeps a notification history and takes runtime control through `dunstctl`.
 
   Options:
-    -config <file>: Load notifications settings from a specific dunstrc.
-    -print: Output the current configuration and exit.
-    -verbosity <level>: Adjust log verbosity (critical, error, warning, info, debug).
-    dunstctl close-all: Close all displayed notifications via the companion CLI.
+    -config <file>: Load settings from a specific dunstrc.
+    -print: Print notifications to stdout.
+    -verbosity <level>: Set the minimum log level (critical, error, warning, info, debug).
+    dunstctl close-all: Close all displayed notifications.
     dunstctl history-pop: Re-display the most recent notification from history.
-
-  Example Usage:
-    * `dunst -config ~/.config/dunst/dunstrc &` -- Start dunst with a custom configuration file.
-    * `dunstctl set-paused true` -- Temporarily pause displaying notifications.
-    * `dunstctl history-pop` -- Quickly restore the last dismissed notification.
 */
 _:
 let

@@ -1,7 +1,6 @@
 /*
   Package: whatweb
   Description: Web technology fingerprinting scanner for identifying frameworks, CMSes, and infrastructure components.
-  Homepage: nil
   Documentation: https://github.com/urbanadventurer/whatweb/wiki
   Repository: https://github.com/urbanadventurer/whatweb
 
@@ -10,9 +9,9 @@
     * Supports quiet and structured output modes for reconnaissance pipelines and reporting.
 
   Options:
-    -a <level>: Increase probing aggression from passive fingerprinting to deeper active checks.
-    --log-json <file>: Write findings as JSON for later analysis.
-    --no-errors: Suppress transient HTTP and parsing errors during large scans.
+    -a <level>: Set probing aggression, from passive fingerprinting to active checks.
+    --log-json <file>: Write findings as JSON.
+    --no-errors: Suppress error messages.
 */
 _:
 let

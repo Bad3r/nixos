@@ -17,9 +17,6 @@
     -v: Print the version and exit.
     --enable-feature: Enable one or more comma-separated feature flags.
     --disable-feature: Disable one or more comma-separated feature flags.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
 */
 { inputs, ... }:
 let

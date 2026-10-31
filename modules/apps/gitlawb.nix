@@ -3,11 +3,10 @@
   Description: Sandboxed CLI for interacting with the decentralized gitlawb network.
   Homepage: https://gitlawb.com
   Documentation: https://docs.gitlawb.com
-  Repository: https://github.com/Gitlawb/releases
+  Repository: nil
 
   Summary:
     * Provides the `gl` CLI and `git-remote-gitlawb` helper for creating identities, registering with gitlawb nodes, and cloning or pushing gitlawb repositories.
-    * Wraps both entrypoints in bubblewrap so runtime access is limited to the active workspace plus `~/.gitlawb`.
 
   Options:
     identity new: Generate an Ed25519 identity and DID for gitlawb.
@@ -16,8 +15,7 @@
     mcp serve: Expose gitlawb tools over MCP for agent integrations.
 
   Notes:
-    * Package is unfree and must remain in `nixpkgs.allowedUnfreePackages`.
-    * Runtime confinement is implemented in the package wrapper, not the NixOS module.
+    * Access is limited to the current workspace and `~/.gitlawb`.
 */
 _:
 let

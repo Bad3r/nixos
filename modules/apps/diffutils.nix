@@ -3,7 +3,7 @@
   Description: GNU utilities for comparing files and directories.
   Homepage: https://www.gnu.org/software/diffutils/
   Documentation: https://www.gnu.org/software/diffutils/manual/diffutils.html
-  Repository: https://git.savannah.gnu.org/cgit/diffutils.git
+  Repository: https://cgit.git.savannah.gnu.org/cgit/diffutils.git
 
   Summary:
     * Delivers `diff`, `cmp`, `sdiff`, and `diff3` for textual and binary comparison workflows.

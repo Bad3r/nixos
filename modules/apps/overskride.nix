@@ -9,12 +9,8 @@
     * GTK4/libadwaita front end for BlueZ that lists known and in-range devices, handles pair/connect/trust/block, and exposes adapter controls.
     * Sends and receives files over OBEX, supports multiple adapters, RSSI-based device sorting, and adapter renaming.
 
-  Options:
-    overskride: Launch the Bluetooth and Obex client window.
-
   Notes:
-    * Requires the BlueZ daemon (`hardware.bluetooth.enable`); enable Bluetooth at the host level.
-    * Pulls in gtk4 + libadwaita; intentional GUI dependency for non-GNOME desktops such as i3wm.
+    * Needs `hardware.bluetooth.enable` on the host.
 */
 _:
 let

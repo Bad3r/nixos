@@ -6,20 +6,14 @@
   Repository: https://github.com/wfxr/forgit
 
   Summary:
-    * Adds shorthand commands (e.g. `ga`, `gcf`) that invoke fzf-powered pickers for staging hunks, browsing commits, and checking out branches.
-    * Ships as a collection of shell scripts compatible with Bash, Zsh, Fish, and Nushell for drop-in Git productivity improvements.
+    * Adds aliases such as `ga`, `glo`, and `gcb` that open fzf pickers for staging files, browsing commits, and checking out branches.
 
   Options:
-    ga: Interactive `git add` staged by selected files or hunks.
-    gcf: Launch an fzf picker for `git commit --fixup` targets.
-    gco: Choose a branch, tag, or commit to check out via fuzzy search.
-    gl: Browse reflog entries interactively before jumping or resetting.
-    gd: Select files to view diffs with syntax highlighting.
-
-  Example Usage:
-    * `ga` -- Stage files or individual hunks after selecting them through fzf.
-    * `gco` -- Pick a branch interactively to check out without memorizing names.
-    * `gl` -- Navigate the reflog and jump to previous states using fuzzy search.
+    ga: Pick files to `git add`.
+    gcf: Pick files to `git checkout`.
+    gco: Pick a commit to check out.
+    grl: Browse reflog entries.
+    gd: Pick files to view diffs.
 */
 _:
 let

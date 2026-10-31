@@ -1,13 +1,11 @@
 /*
   Package: gau
   Description: Fetch known URLs for a domain from third-party archive sources.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/lc/gau
 
   Summary:
     * Pulls historical and known URLs for a domain from the Wayback Machine, Common Crawl, Open Threat Exchange, and URLScan.
-    * Emits pipeline-friendly URL lists for passive endpoint discovery and fuzzing input; pairs with the active katana crawler.
+    * Emits pipeline-friendly URL lists for passive endpoint discovery and fuzzing input.
 
   Options:
     --providers <list>: Sources to query (wayback, commoncrawl, otx, urlscan).

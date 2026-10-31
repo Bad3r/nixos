@@ -8,11 +8,6 @@
   Summary:
     * Translates Linux kernel multitouch events into the slotted type B protocol.
     * Supports type A and type B multitouch devices with or without contact tracking.
-
-  Options:
-    mtdev_new_open: Create and configure a converter for an input-device file descriptor.
-    mtdev_get: Read translated type B multitouch events into an input-event buffer.
-    mtdev_close_delete: Flush and free a dynamically allocated converter.
 */
 _:
 let

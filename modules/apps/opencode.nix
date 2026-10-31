@@ -13,9 +13,6 @@
     run [message..]: Run opencode with a message in non-interactive mode.
     serve: Start a headless opencode server.
     web: Start the opencode server and open the web interface.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
 { inputs, ... }:
 let

@@ -7,8 +7,6 @@
 
   Summary:
     * Provides the Playwright CLI for running tests, generating scripts, and interactive browser automation.
-    * Wraps CLI browser-launch commands to prefer system-installed Google Chrome or Chromium.
-    * Uses a dedicated profile directory for automation sessions to avoid polluting daily browser profiles.
 
   Options:
     test: Run end-to-end tests with Playwright Test.
@@ -18,8 +16,7 @@
     --user-data-dir <directory>: Persist session data in a dedicated profile path.
 
   Notes:
-    * Uses `playwright-test` because it provides the `playwright` CLI binary.
-    * For `test`, Playwright channel/executable selection is still controlled by `playwright.config.*`.
+    * `test` takes its browser from `playwright.config.*`.
 */
 _:
 let

@@ -10,15 +10,9 @@
     * Ideal for debugging APIs or log payloads, with support for loading files or piping data via stdin.
 
   Options:
-    jnv <file>: Load JSON from a file into the viewer (stdin supported when omitted).
-    -o, --output <path>: Save filtered results to a file.
-    --color <auto|always|never>: Control colorized output.
-    --wrap: Toggle line wrapping for the preview pane.
-
-  Example Usage:
-    * `jnv response.json` -- Explore a JSON response interactively and experiment with jq filters.
-    * `curl https://api.example.com | jnv` -- Pipe API output directly into the viewer.
-    * `jnv data.json --output filtered.json` -- Save the filtered JSON result while experimenting in the TUI.
+    -c, --config <file>: Use a specific configuration file.
+    --default-filter <filter>: Apply a jq filter when the interface first loads.
+    --write-to-stdout: Write the current JSON result to stdout on exit.
 */
 _:
 let

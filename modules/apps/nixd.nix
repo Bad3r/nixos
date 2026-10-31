@@ -10,7 +10,6 @@
     * Integrates with Nix evaluation to expose nixpkgs package and option-system completions.
 
   Options:
-    nixd: Start the language server for editor integrations.
     --help: Display all available server flags and usage information.
 */
 _:

@@ -7,13 +7,6 @@
 
   Summary:
     * Provides a cross-platform Markdown editor with live preview, split view, tabbed interface, and export to PDF/HTML.
-
-  Options:
-    marktext: Launch the desktop editor.
-    marktext <file.md>: Open a specific Markdown file directly.
-
-  Example Usage:
-    * `marktext notes.md` -- Edit a Markdown document with live preview and formatting tools.
 */
 
 _:

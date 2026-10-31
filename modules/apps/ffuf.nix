@@ -6,8 +6,8 @@
   Repository: https://github.com/ffuf/ffuf
 
   Summary:
-    * Replaces `FUZZ` keywords in URLs, headers, and request bodies with high concurrency and minimal overhead.
-    * Supports recursive discovery, multi-wordlist modes (clusterbomb, pitchfork, sniper), autocalibration, and replay through intercepting proxies.
+    * Replaces `FUZZ` keywords in URLs, headers, and request bodies with wordlist entries at high concurrency.
+    * Supports recursion, multi-wordlist modes, autocalibration, and replay through intercepting proxies.
 
   Options:
     -u <url>: Target URL containing one or more `FUZZ` keywords.

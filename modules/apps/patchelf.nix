@@ -1,8 +1,6 @@
 /*
   Package: patchelf
   Description: Small utility to modify the dynamic linker and RPATH of ELF executables.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/NixOS/patchelf
 
   Summary:
@@ -25,9 +23,6 @@
     --no-default-lib: Set `DF_1_NODEFLIB` so the default library directories are skipped.
     --page-size: Override the assumed page size when relocating headers.
     --output: Write the patched result to a new file instead of in place.
-
-  Notes:
-    * nixpkgs pins `patchelf` to the 0.15.x series used by the stdenv fixup hook; `patchelfUnstable` carries the newer upstream snapshot at low priority.
 */
 _:
 let

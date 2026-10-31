@@ -15,16 +15,9 @@
     smartctl -H /dev/nvme0: Report overall health status.
     smartctl -v ID,FORMAT /dev/sdX: Select a vendor attribute display format.
     smartctl -F TYPE /dev/sdX: Apply a documented firmware-bug workaround.
-    smartd.conf: Configure daemon monitoring intervals and notification methods.
-
-  Example Usage:
-    * `sudo smartctl -a /dev/sda` -- Review detailed health metrics and error logs.
-    * `sudo smartctl -a /dev/nvme0n1` -- Read the NVMe SMART/health, error and self-test logs.
-    * `sudo smartctl -t long /dev/sda` -- Initiate an extended self-test (run in background).
-    * Edit `/etc/smartd.conf` to schedule weekly tests and email alerts via `smartd`.
 
   Notes:
-    * Every device query needs `sudo` (docs/security/owner-storage-access.md).
+    * Device queries need `sudo`.
 */
 _:
 let

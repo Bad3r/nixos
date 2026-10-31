@@ -10,16 +10,10 @@
     * Supports filtering by syscall, attaching to multiple processes, generating timestamps, and decoding complex structures like ioctl and network calls.
 
   Options:
-    strace <command>: Trace a command from startup.
     -p <pid>: Attach to an existing process.
     -f: Follow forked processes.
     -e trace=<syscall_set>: Filter system calls (e.g. `trace=network,file`).
     -tt -T: Print timestamps and syscall durations.
-
-  Example Usage:
-    * `strace ls` -- View system calls made by `ls`.
-    * `sudo strace -p 1234 -f -o trace.log` -- Attach to PID 1234, following forks, and log to a file.
-    * `strace -e trace=network curl example.com` -- Inspect only network-related system calls for a command.
 */
 _:
 let

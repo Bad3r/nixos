@@ -14,12 +14,10 @@
     --confdir <dirname>: Read and write client state under an alternate configuration folder.
     --logdir <name>: Write one log file per sync run into the given folder (pairs with --logexpire).
     --serverurl <url>: Preseed the account wizard, or create an account non-interactively with --userid and --apppassword.
-    -q, --quit: Terminate the running instance, which is what the user unit issues on stop.
+    -q, --quit: Terminate the running instance.
 
   Notes:
-    * Uses the services namespace because the client runs as a background sync daemon; modules/apps/nextcloud-client/home.nix drives the Home Manager user unit.
-    * HM services.nextcloud-client only references the package from its unit's ExecStart and never adds it to home.packages, so this module owns installation and the desktop entry.
-    * Account credentials go to the Secret Service over libsecret; modules/hosts/common/gnome-keyring.nix already provides the backing daemon.
+    * Stores account credentials in the Secret Service.
 */
 _:
 let

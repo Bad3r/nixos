@@ -6,19 +6,13 @@
   Repository: https://github.com/microsoft/vscode
 
   Summary:
-    * Runs VS Code inside an FHS environment to satisfy extensions expecting `/usr/lib`, glibc, or dynamic library paths not present on NixOS.
-    * Bundles the proprietary Microsoft build with extra shell wrappers while retaining extension marketplace support.
+    * Runs VS Code in an FHS environment, so extensions find the `/usr/lib` and glibc paths they expect.
+    * Proprietary Microsoft build with extension marketplace support.
 
   Options:
-    code: Launch Visual Studio Code within the FHS wrapper.
     code --extensions-dir <dir>: Use a custom extension directory.
     code --user-data-dir <dir>: Store user settings in an alternate location.
     code --disable-gpu: Troubleshoot rendering issues on unsupported GPUs.
-
-  Example Usage:
-    * `code .` -- Open the current directory in VS Code.
-    * `code --disable-gpu --log trace` -- Diagnose rendering problems with verbose logging.
-    * Configure remote development extensions in the usual manner; the FHS wrapper ensures required binaries resolve correctly.
 */
 _:
 let

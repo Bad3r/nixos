@@ -14,11 +14,6 @@
     --sys, --system: Only show system units.
     -s, --state <state>: Only show units in the given state, for example `failed`.
     -V, --verbose: Print the systemctl commands that run.
-
-  Example Usage:
-    * `sysz` -- Pick units, then an action.
-    * `sysz -u -s failed` -- Triage failed user units.
-    * `sysz restart` -- Restart the picked units.
 */
 _:
 let

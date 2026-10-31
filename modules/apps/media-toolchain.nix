@@ -7,15 +7,6 @@
 
   Summary:
     * Ensures transcoding, thumbnail generation, and document rendering utilities are available in the environment.
-    * Includes GStreamer plugin sets (good/bad/ugly/libav) for broad codec coverage alongside ffmpeg-full and supporting tools.
-
-  Options:
-    ffmpeg: Command-line transcoder for audio/video conversion.
-    imagemagick/ghostscript: Image and PDF manipulation tools.
-
-  Example Usage:
-    * `ffmpeg -i input.mov -c:v libx264 output.mp4` -- Transcode video using ffmpeg-full.
-    * `gst-inspect-1.0 | grep libav` -- Verify the GStreamer libav plugin is installed.
 */
 _:
 let

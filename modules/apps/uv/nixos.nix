@@ -15,11 +15,6 @@
     uv sync: Sync dependencies into a virtual environment based on lockfile/project config.
     uv run <cmd>: Execute commands inside managed environments.
     uv tool install <pkg>: Install standalone CLI tools into an isolated environment.
-
-  Example Usage:
-    * `uv pip install requests` -- Install a Python package using uv instead of pip.
-    * `uv lock && uv sync` -- Produce a lockfile and sync dependencies into `.venv`.
-    * `uv run pytest` -- Execute a command using the synced environment without manually activating it.
 */
 _:
 let

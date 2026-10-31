@@ -15,11 +15,6 @@
     --citeproc: Enable citation and bibliography processing.
     --filter <program>: Run a JSON filter to transform the AST.
     --template <file>: Use a custom template for final rendering.
-
-  Example Usage:
-    * `pandoc README.md -f markdown -t html -o README.html` -- Convert Markdown to HTML.
-    * `pandoc paper.md --citeproc --bibliography refs.bib -o paper.pdf` -- Produce a PDF with citations.
-    * `pandoc notes.md -t docx -o notes.docx` -- Generate a Word document from Markdown notes.
 */
 _:
 let

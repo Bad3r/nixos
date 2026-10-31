@@ -10,15 +10,10 @@
     * Saves patchbays, sets of connections that an active patchbay restores as nodes appear.
 
   Options:
-    [patchbay-file]: Load a saved .qpwgraph patchbay at start.
     -a, --activated: Start with the patchbay activated.
     -x, --exclusive: Make the patchbay exclusive, so links it does not list are removed.
     -m, --minimized: Start minimized.
     -r, --remote <name>: Connect to the named PipeWire remote daemon.
-
-  Example Usage:
-    * `qpwgraph` -- Open the PipeWire graph.
-    * `qpwgraph -a -m ~/studio.qpwgraph` -- Start minimized with a saved patchbay active.
 */
 _:
 let

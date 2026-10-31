@@ -6,14 +6,7 @@
   Repository: https://github.com/logseq/logseq
 
   Summary:
-    * A privacy-first, open-source platform for knowledge sharing and management.
     * Supports outlining, note-taking, and graph visualization.
-
-  Options:
-    logseq: Launch the desktop application.
-
-  Example Usage:
-    * `logseq` -- Open the Logseq desktop app.
 */
 { inputs, ... }:
 let

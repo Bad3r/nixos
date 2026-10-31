@@ -7,8 +7,7 @@
 
   Summary:
     * Converts raster images such as PNG and JPEG files into SVG vector graphics.
-    * Traces colored artwork, scans, photographs, blueprints, and pixel art with configurable clustering and curve
-      fitting.
+    * Traces colored artwork, scans, photographs, blueprints, and pixel art.
 
   Options:
     -i, --input <input>: Specify the input raster image.

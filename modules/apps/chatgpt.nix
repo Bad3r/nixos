@@ -7,16 +7,9 @@
 
   Summary:
     * Provides ChatGPT and Codex projects, local file access, and desktop workflows.
-    * Installs OpenAI's native Linux application with the input's NixOS runtime integration.
-
-  Options:
-    chatgpt: Launch the desktop application.
 
   Notes:
-    * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
-    * Electron app with productName "Codex": its Chromium profile lives in
-      $XDG_CONFIG_HOME/Codex, while its agent state shares $CODEX_HOME
-      (~/.config/codex) with the CLI.
+    * Shares agent state in `$CODEX_HOME` with the Codex CLI.
 */
 { inputs, ... }:
 {

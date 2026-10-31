@@ -1,8 +1,6 @@
 /*
   Package: masscan
   Description: Fast scan of the Internet using a custom asynchronous TCP/IP stack.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/robertdavidgraham/masscan
 
   Summary:

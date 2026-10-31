@@ -14,11 +14,6 @@
     telegram-desktop --proxy-server=<host:port>: Route network traffic through a proxy.
     telegram-desktop --enable-features=WaylandWindowDecorations: Improve Wayland integration on compatible compositors.
     telegram-desktop --debug: Emit verbose logs for troubleshooting.
-
-  Example Usage:
-    * `telegram-desktop` -- Join chats, channels, and voice rooms from the desktop client.
-    * `telegram-desktop --startintray` -- Keep Telegram running quietly while still receiving notifications.
-    * `telegram-desktop --proxy-server=socks5://127.0.0.1:9050` -- Use a SOCKS5 proxy for privacy or corporate compliance.
 */
 _:
 let

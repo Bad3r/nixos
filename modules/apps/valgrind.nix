@@ -15,11 +15,6 @@
     valgrind --tool=callgrind <program>: Generate callgrind profiling data.
     valgrind --tool=massif <program>: Profile heap usage over time.
     valgrind --log-file=<path>: Save reports to a file per process.
-
-  Example Usage:
-    * `valgrind ./app` -- Run a binary under Memcheck to catch memory issues.
-    * `valgrind --tool=callgrind ./app && kcachegrind callgrind.out.*` -- Profile CPU hotspots and inspect results.
-    * `valgrind --tool=massif --massif-out-file=massif.out ./server` -- Monitor heap growth for long-running services.
 */
 _:
 let

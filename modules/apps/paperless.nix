@@ -1,29 +1,14 @@
 /*
-  Package: paperless-ngx
+  Package: paperless
   Description: Document management system that scans, indexes, and archives documents.
   Homepage: https://docs.paperless-ngx.com/
   Documentation: https://docs.paperless-ngx.com/configuration/
   Repository: https://github.com/paperless-ngx/paperless-ngx
 
-  Summary:
-    * Runs the nixpkgs `services.paperless` units with a local PostgreSQL database, Redis,
-      and Tika with Gotenberg for Office and e-mail files.
-    * Points the built-in AI at llama.cpp: generation goes to the router's client model and
-      embeddings to the `llama-cpp-embed` instance, with a key of their own.
-    * Writes a nightly `document_exporter` copy of every document and its metadata.
-
   Notes:
-    * The key reaches paperless as an environment file, since paperless reads it only from
-      the environment. Without secrets/llama-cpp.yaml the router runs keyless on loopback
-      and paperless sends no key.
-    * An AI key typed into the admin UI lands in the exporter output, so keys stay in sops.
-    * `paperless-manage` re-runs itself as paperless through sudo before it sources the
-      environment file, a file only paperless and root can read.
-
-  Example Usage:
-    * `sudo paperless-manage createsuperuser` -- Create the first login.
-    * `sudo paperless-manage document_llmindex rebuild` -- Re-embed every document after the
-      embedding model changes.
+    * AI features use the local llama.cpp server.
+    * Exports every document nightly.
+    * AI keys typed into the admin UI land in the export; keep keys in sops.
 */
 _:
 let

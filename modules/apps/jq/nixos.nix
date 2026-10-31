@@ -15,11 +15,6 @@
     -s: Slurp all inputs into an array before processing.
     -f <file>: Load filters from a file rather than command line.
     --arg/--argjson <name> <value>: Pass shell variables into jq programs.
-
-  Example Usage:
-    * `jq '.items[] | {id, name}' data.json` -- Extract specific fields from an array.
-    * `curl -s https://api.example.com | jq -r '.results[].url'` -- Stream API output and print raw URLs.
-    * `jq --arg env "$ENV" '.config[$env]' config.json` -- Select configuration for the current environment variable.
 */
 _:
 let

@@ -9,19 +9,8 @@
     * Opens PDF and other document formats from Python for text extraction, page rendering, annotations, and structural edits.
     * Exposes a low-level document model suitable for parsers, chunkers, and layout-aware automation.
 
-  Example Usage:
-    * `pymupdf show -metadata report.pdf` -- Print high-level PDF metadata from the CLI.
-    * `pymupdf gettext -mode layout report.pdf` -- Extract page text with layout-aware spacing.
-    * `pymupdf extract report.pdf` -- Extract embedded images, fonts, and attachments.
-
-  Options:
-    pymupdf.open(path): Open a document from disk, bytes, or a stream.
-    Document.load_page(page_number): Access a specific page for extraction or edits.
-    Page.get_text(mode = "text"): Extract plain text, blocks, words, HTML, or structured representations.
-    Page.get_pixmap(): Render a page to an image buffer for OCR or previews.
-
   Notes:
-    * The package exposes the `pymupdf` CLI directly; importing the library requires a Python environment that includes the package.
+    * Importing the library needs a Python environment that includes pymupdf.
 */
 _:
 let

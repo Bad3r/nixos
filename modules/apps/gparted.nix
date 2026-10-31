@@ -8,16 +8,6 @@
   Summary:
     * Provides a GUI for manipulating partition tables, creating filesystems, aligning partitions, and inspecting device details.
     * Supports FAT, NTFS, ext*, Btrfs, LVM2 PVs, and more, with operations queued for preview before committing changes.
-
-  Options:
-    gparted: Launch the graphical partition editor.
-    --enable-libparted-dmraid: (Built-in) support for dmraid devices when available.
-    (Most functionality is accessed through the GUI menubar and context menus.)
-
-  Example Usage:
-    * `sudo gparted` -- Open GParted with administrative privileges to manage partitions.
-    * Use “Resize/Move” to adjust partition sizes while preserving data.
-    * Use “Create Partition Table...” to initialize new disks with GPT or MSDOS labels.
 */
 _:
 let

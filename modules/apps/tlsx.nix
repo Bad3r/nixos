@@ -1,8 +1,6 @@
 /*
   Package: tlsx
   Description: TLS data gathering and analysis toolkit.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/projectdiscovery/tlsx
 
   Summary:

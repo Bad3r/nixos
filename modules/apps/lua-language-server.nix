@@ -8,9 +8,6 @@
   Summary:
     * Provides completions, diagnostics, go-to-definition, and hover for Lua projects.
     * Supports EmmyLua annotations for gradual typing and improved IDE inference.
-
-  Example Usage:
-    * `lua-language-server` -- Start the language server (normally launched by the editor).
 */
 _:
 let

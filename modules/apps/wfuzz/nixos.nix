@@ -1,13 +1,12 @@
 /*
   Package: wfuzz
   Description: Web application fuzzer for content discovery, parameter testing, and brute force.
-  Homepage: nil
   Documentation: https://wfuzz.readthedocs.io
   Repository: https://github.com/xmendez/wfuzz
 
   Summary:
     * Replaces FUZZ keywords in URLs, headers, and bodies using configurable payloads, encoders, and iterators.
-    * Filters and matches by HTTP status, response size, and word/line counts to surface anomalies during web assessments.
+    * Filters responses by status, lines, words, chars, or regex to surface anomalies.
 
   Options:
     -u <url>: Target URL containing one or more `FUZZ` keywords.
@@ -15,8 +14,9 @@
     -w <file>: Wordlist payload shortcut (alias for `-z file,<file>`).
     -t <n>: Number of concurrent connections (default 10).
     -X <method>: HTTP method to use, including `FUZZ` for method fuzzing.
-    --hc / --hl / --hh / --hs: Hide responses by status code, line count, word count, or size respectively.
-    --sc / --sl / --sh / --ss: Show only responses matching the given status, line, word, or size criteria.
+    --hc / --hl / --hw / --hh: Hide responses by status code, lines, words, or chars.
+    --sc / --sl / --sw / --sh: Show only responses by status code, lines, words, or chars.
+    --hs / --ss <regex>: Hide or show responses whose content matches the regex.
     -p <ip:port[:type]>: Route requests through one or more proxies (HTTP, SOCKS4, SOCKS5).
 */
 _:

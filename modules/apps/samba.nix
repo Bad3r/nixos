@@ -10,13 +10,7 @@
     * Includes `smbclient`, `nmblookup`, and `rpcclient` for Windows and Samba enumeration workflows.
 
   Options:
-    smbclient //SERVER/SHARE: Access an SMB/CIFS share with an FTP-like client.
-    nmblookup NAME: Query NetBIOS names and map them to IP addresses.
-    rpcclient HOST: Execute client-side MS-RPC commands against a host.
     -U USERNAME: Set the SMB username and optionally prompt for its password.
-
-  Notes:
-    * The package exposes client binaries but no `samba` executable. Use `nix shell nixpkgs#samba -c smbclient --version` for ad-hoc checks.
 */
 _:
 let

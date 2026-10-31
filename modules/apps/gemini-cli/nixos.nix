@@ -15,10 +15,6 @@
     -s, --sandbox: Enable sandbox mode for the session.
     --approval-mode <mode>: Set tool approval behavior.
     --include-directories <paths>: Add up to five directories to the workspace.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Home Manager module enables config surfaces while NixOS owns the package installation.
 */
 { inputs, ... }:
 let

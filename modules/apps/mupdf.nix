@@ -9,11 +9,6 @@
     * Ships the MuPDF viewer plus `mutool` commands for inspecting, cleaning, extracting, and rendering PDF content.
     * Handles PDF repair, page rasterization, object extraction, and metadata inspection without requiring a GUI workflow.
 
-  Example Usage:
-    * `mupdf report.pdf` -- Open a PDF in the lightweight MuPDF viewer.
-    * `mutool info report.pdf` -- Print page, font, and object information for a PDF.
-    * `mutool draw -o page-%03d.png report.pdf 1-3` -- Render the first three pages to PNG files.
-
   Options:
     mutool clean: Rewrite and sanitize a PDF, optionally compressing or linearizing objects.
     mutool draw: Render pages to raster formats such as PNG or PNM.

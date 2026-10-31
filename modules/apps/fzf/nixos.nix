@@ -6,11 +6,8 @@
   Repository: https://github.com/junegunn/fzf
 
   Summary:
-    * Offers blazing fast fuzzy search with ANSI color, multi-select, preview, and key binding integrations.
+    * Filters lists with fuzzy search, multi-select, and previews.
     * Provides shell widgets so Ctrl-T, Ctrl-R, and custom bindings open interactive pickers.
-
-  Notes:
-    * HM programs.fzf does not support nullable package - HM handles installation.
 */
 _:
 let

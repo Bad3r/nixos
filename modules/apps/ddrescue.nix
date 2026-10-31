@@ -3,7 +3,7 @@
   Description: GNU data recovery tool that clones damaged block devices while minimizing additional wear.
   Homepage: https://www.gnu.org/software/ddrescue/ddrescue.html
   Documentation: https://www.gnu.org/software/ddrescue/manual/ddrescue_manual.html
-  Repository: https://savannah.gnu.org/git/?group=ddrescue
+  Repository: nil
 
   Summary:
     * Copies data from failing disks to healthy targets using smart retry strategies and a persistent mapfile for resumable rescues.
@@ -15,11 +15,6 @@
     -n: Skip the scraping phase when you only want the initial fast copy.
     -R: Reverse the direction of all passes to read the tail of a device first.
     -m <mapfile>: Restrict the rescue domain to blocks marked as finished in another map.
-
-  Example Usage:
-    * `ddrescue -f -r3 /dev/sdb disk.img rescue.map` -- Clone a failing disk image with three retry passes, overwriting `disk.img` if needed.
-    * `ddrescue -d -n /dev/sdc failing.img stage1.map` -- Perform the initial fast pass using direct I/O without scraping.
-    * `ddrescue -R -r1 /dev/sdc failing.img stage2.map` -- Resume the rescue in reverse to recover remaining blocks after the first pass.
 */
 _:
 let

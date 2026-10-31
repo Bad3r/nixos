@@ -6,11 +6,9 @@
   Repository: https://github.com/fonttools/fonttools
 
   Summary:
-    * Provides CLI and Python APIs for inspecting, subsetting, and converting OpenType/TrueType fonts.
-    * Includes utilities like `pyftsubset`, `ttx`, and `fonttools varLib` for font engineering workflows.
+    * Inspects, subsets, and converts OpenType/TrueType fonts from the CLI or Python.
 
   Options:
-    ttx <font-file>: Convert between binary font formats and editable XML.
     pyftsubset <font-file> --text="...": Generate minimized subset fonts for specific glyph sets.
     fonttools varLib <designspace-file>: Build variable fonts from a designspace file.
 */

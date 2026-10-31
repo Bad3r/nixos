@@ -8,10 +8,6 @@
   Summary:
     * Opens KeePass-compatible encrypted databases for offline secret storage, editing, and search.
     * Supports browser integration, TOTP generation, SSH agent integration, and hardware-backed unlock methods.
-
-  Options:
-    keepassxc: Launch the desktop password manager and open the database selection UI.
-    Database settings: Configure auto-lock, browser integration, SSH agent, and entry protection from the app preferences.
 */
 _:
 let

@@ -6,13 +6,10 @@
   Repository: https://github.com/cloudflare/workers-rs
 
   Summary:
-    * Ships the `worker` Rust crates, macros, and examples used to build Cloudflare Workers entirely in Rust.
-    * Integrates with `workers-build` and Wrangler to bundle WebAssembly, Durable Objects, and other runtime features.
+    * Provides the `worker` crates and macros for writing Cloudflare Workers in Rust.
 
-  Options:
-    --git https://github.com/cloudflare/workers-rs: Scaffold from the official template via `cargo generate --git ...`.
-    --features http: Enable compatibility layers when declaring `worker = { features = ["http"] }` in `Cargo.toml`.
-    --release: Produce optimized wasm artifacts during `worker-build --release` builds.
+  Notes:
+    * Placeholder: the SDK is the `worker` crate, so nothing is installed.
 */
 _:
 let

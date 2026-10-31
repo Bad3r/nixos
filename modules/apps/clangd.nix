@@ -7,11 +7,6 @@
 
   Summary:
     * Delivers completions, diagnostics, go-to-definition, and refactoring for C and C++ projects.
-    * Ships as part of the `clang-tools` package, which bundles all LLVM/Clang static analysis utilities.
-
-  Example Usage:
-    * `clangd --version` -- Print the clangd version.
-    * Automatically launched by editors when opening C/C++ files with a compile_commands.json present.
 */
 _:
 let

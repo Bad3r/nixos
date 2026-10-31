@@ -7,10 +7,6 @@
 
   Summary:
     * Manages containers, images, pods, volumes, and Kubernetes resources from a desktop UI.
-    * Connects to the owner's rootless Podman API socket that the podman app enables.
-
-  Options:
-    podman-desktop: Launch the desktop application.
 */
 _:
 let

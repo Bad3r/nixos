@@ -16,10 +16,6 @@
     -a: Include author and document metadata discovered during crawling.
     --allowed: Restrict followed paths to URLs matching a regular expression.
     --with-numbers: Keep words that contain digits instead of letters only.
-
-  Notes:
-    * Adds a local overlay so `pkgs.cewl` includes the `getoptlong` gem missing from the pinned nixpkgs package.
-    * The overlay reuses the pinned nixpkgs CeWL package directory as the Bundler gemdir and fails explicitly if nixpkgs moves it.
 */
 _:
 let

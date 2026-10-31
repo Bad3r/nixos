@@ -15,9 +15,6 @@
     --add-dir: Add a directory to the workspace.
     --sandbox: Run with terminal sandbox restrictions enabled.
     plugin: Manage plugins.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
 { inputs, ... }:
 let

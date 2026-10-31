@@ -7,7 +7,7 @@
 
   Summary:
     * Provides a single environment with `jupyter`, `jupyter-lab`, `jupyter-notebook`, `jupyter-console`, `jupyter-nbconvert`, and `ipython` entry points.
-    * Ships Clojure (Clojupyter), Octave, R (Ark), and Ruby (IRuby) kernels through the nixpkgs override; the Python kernelspec comes from ipykernel in the environment itself, not from the override.
+    * Ships Clojure (Clojupyter), Octave, R (Ark), Ruby (IRuby), and Python kernels.
 
   Options:
     notebook: Launch the classic web-based Jupyter Notebook server.
@@ -18,10 +18,8 @@
     server: Run only the headless Jupyter server backend without a UI.
 
   Notes:
-    * `jupyter-all` is `jupyter.override` from nixpkgs that swaps the default kernel definition set for the Clojure, Octave, R, and Ruby ones.
-    * The Wolfram kernel is intentionally excluded upstream because it is unfree.
-    * Those four kernels live in a standalone `jupyter-kernel.create` output that only the wrapped `jupyter` binary knows about, so they are re-exported on JUPYTER_PATH for external clients such as the VS Code Jupyter extension.
-    * No `python3` kernelspec is exported, deliberately; see the comment on `mkKernelspecs`. Python notebooks want a per-project virtualenv (`uv venv && uv pip install ipykernel`) selected as the interpreter.
+    * External clients such as VS Code see the Clojure, Octave, R, and Ruby kernels.
+    * External clients get no Python kernel; use a per-project venv with ipykernel.
 */
 _:
 let

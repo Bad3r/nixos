@@ -17,8 +17,7 @@
     -t, --total-utilization: Show cumulative usage instead of the current rate.
 
   Notes:
-    * Installs a capability wrapper so `wheel` users can run bandwhich without invoking `sudo`; `cap_sys_ptrace` and `cap_dac_read_search` let it read every process's `/proc/<pid>/fd` to attribute sockets to processes.
-    * The whole binary is wrapped because the Linux build never execs a child (`lsof` runs only on macOS and FreeBSD), so the ambient capabilities stay in-process.
+    * `wheel` users run it without `sudo`.
 */
 _:
 let

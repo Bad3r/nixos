@@ -20,9 +20,6 @@
     -s [+][-]seek: Start at seek bytes into the input.
     -l len: Stop after len octets.
     -u: Use uppercase hex letters instead of lowercase.
-
-  Notes:
-    * Package is tinyxxd, a drop-in replacement for the xxd utility bundled with ViM.
 */
 _:
 let

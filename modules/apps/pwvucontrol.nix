@@ -8,9 +8,6 @@
   Summary:
     * Sets volume and mute per application stream and per device, and picks the default output and input.
     * Talks to PipeWire directly rather than through the PulseAudio compatibility layer.
-
-  Options:
-    pwvucontrol: Open the volume control window.
 */
 _:
 let

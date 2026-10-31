@@ -13,11 +13,6 @@
     john --wordlist=<file> <hashes>: Run a straightforward wordlist attack.
     john --incremental <hashes>: Try incremental brute-force based on character sets.
     john --restore=<session>: Resume a paused cracking session.
-
-  Example Usage:
-    * `john --format=sha512crypt hashes.txt` -- Crack Linux shadow hashes.
-    * `john --wordlist=rockyou.txt --rules hashes.txt` -- Apply mangling rules to a wordlist.
-    * `john --show hashes.txt` -- Display recovered credentials once cracking finishes.
 */
 _:
 let

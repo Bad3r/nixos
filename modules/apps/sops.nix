@@ -3,6 +3,7 @@
   Description: Simple and flexible tool for managing secrets.
   Homepage: https://getsops.io/
   Documentation: https://getsops.io/
+  Repository: https://github.com/getsops/sops
 
   Summary:
     * Encrypts and decrypts structured secret files while preserving readable key structure.

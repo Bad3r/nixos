@@ -13,7 +13,7 @@
     start: Initiate account linking and begin syncing.
     stop: Stop the sync daemon.
     status: Display account info, storage usage, and sync state.
-    pause/resume: Temporarily suspend or continue syncing.
+    pause, resume: Temporarily suspend or continue syncing.
     excluded: View and manage excluded folders for selective sync.
     activity: Live view of items being synced.
     history: Show sync history.
@@ -22,9 +22,7 @@
     autostart: Configure automatic daemon startup on login.
 
   Notes:
-    * Requires initial account linking via `maestral start` or the GUI.
-    * Supports gitignore-style .mignore files for local exclusion patterns.
-    * Can run as a systemd user service; see maestral-gui for Qt frontend.
+    * Needs one-time account linking via `maestral start` or the GUI.
 */
 _:
 let

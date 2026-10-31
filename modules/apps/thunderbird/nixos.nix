@@ -3,7 +3,7 @@
   Description: Full-featured e-mail client.
   Homepage: https://thunderbird.net/
   Documentation: https://support.mozilla.org/en-US/products/thunderbird
-  Repository: https://hg.mozilla.org/comm-central/
+  Repository: https://github.com/thunderbird/thunderbird-desktop
 
   Summary:
     * Provides a desktop mail client with integrated calendar, contacts, tasks, and feed support.

@@ -15,10 +15,6 @@
     dig -x <addr>: Run a reverse lookup for an IPv4 or IPv6 address.
     dig +short <name>: Print only the answer data.
     dig +trace <name>: Follow the delegation from the root servers down to the answer.
-    delv <name>: Resolve with DNSSEC validation and report the validation result.
-
-  Notes:
-    * `dnsutils` is the `bind.dnsutils` output; `host` ships in `bind.host`, which NixOS installs through `environment.corePackages`.
 */
 _:
 let

@@ -3,6 +3,7 @@
   Description: Utility for bidirectional data transfer between two independent data channels.
   Homepage: http://www.dest-unreach.org/socat/
   Documentation: http://www.dest-unreach.org/socat/
+  Repository: https://repo.or.cz/socat.git
 
   Summary:
     * Bridges files, pipes, terminals, sockets, and TLS endpoints through a single process.
@@ -11,7 +12,6 @@
   Options:
     -d: Increase logging verbosity for connection setup and teardown.
     -d -d: Emit more detailed debug output about both addresses and transfers.
-    TCP-LISTEN:PORT,reuseaddr,fork: Accept TCP connections and forward each client to a target address.
 */
 _:
 let

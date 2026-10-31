@@ -3,20 +3,11 @@
   Description: Official ProtonVPN desktop application with secure core, NetShield, and auto-connect features.
   Homepage: https://protonvpn.com/
   Documentation: https://protonvpn.com/support/linux-vpn-tool/
-  Repository: https://github.com/ProtonVPN/linux-app
+  Repository: https://github.com/ProtonVPN/proton-vpn-gtk-app
 
   Summary:
     * Provides a GTK interface for ProtonVPN, supporting OpenVPN and WireGuard connections, profiles, kill switch, split tunneling, and notifications.
     * Integrates Proton account login, multi-hop (Secure Core), NetShield malware/ad blocking, and connection speed metrics.
-
-  Options:
-    protonvpn-app: Launch the ProtonVPN desktop client and sign in with Proton credentials.
-    CLI: This package installs `protonvpn-app` as its main program.
-
-  Example Usage:
-    * `protonvpn-app` -- Open the GUI, select a profile, and connect to a VPN server.
-    * `protonvpn-app --start-minimized` -- Launch the app with tray-first behavior.
-    * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
 _:
 let

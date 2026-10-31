@@ -7,20 +7,14 @@
 
   Summary:
     * Captures and dissects network traffic with support for hundreds of protocols and display filters.
-    * Includes `tshark` CLI, capture file analysis, and decryption helpers for many protocols.
+    * Includes the `tshark` CLI and the `dumpcap` capture tool.
 
   Options:
-    wireshark: Launch the graphical interface for live capture and analysis.
     tshark -i <iface>: Perform command-line captures and parsing.
     dumpcap -i <iface> -w file.pcapng: Capture packets with minimal overhead.
 
-  Example Usage:
-    * `wireshark` -- Inspect live traffic; `wheel` users can capture through the capability-wrapped `dumpcap`.
-    * `tshark -Y "http.request" -r capture.pcapng` -- Filter HTTP requests from a saved capture.
-    * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` -- Rotate captures every five minutes for long-running monitoring.
-
   Notes:
-    * Creates a compatibility `wireshark` group for tooling and policies that still expect it, while packet capture remains wheel-gated in this repo.
+    * Packet capture is limited to `wheel`.
 */
 _:
 let

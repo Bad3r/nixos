@@ -3,6 +3,7 @@
   Description: Program to configure the Linux IP packet filtering ruleset.
   Homepage: https://www.netfilter.org/projects/iptables/index.html
   Documentation: https://www.netfilter.org/projects/iptables/index.html
+  Repository: https://git.netfilter.org/iptables
 
   Summary:
     * Configures legacy Netfilter packet filtering, NAT, and mangle tables from the command line.

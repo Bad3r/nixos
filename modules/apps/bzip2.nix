@@ -15,11 +15,6 @@
     -d, --decompress: Force decompression even when invoked via the `bzip2` executable.
     -t, --test: Verify the integrity of compressed data without writing output files.
     -c, --stdout: Write results to standard output for shell pipelines.
-
-  Example Usage:
-    * `bzip2 -9 backup.sql` -- Compress a database dump with the strongest compression settings.
-    * `bunzip2 -k logs.tar.bz2` -- Decompress an archive while keeping the original compressed file.
-    * `bzcat logs.tar.bz2 | tar xf -` -- Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
 _:
 let

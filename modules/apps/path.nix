@@ -1,24 +1,10 @@
 /*
   Package: path
   Description: Interactive shell function that resolves paths and copies a comma-delimited result to the X clipboard.
-  Homepage: nil
-  Documentation: nil
-  Repository: nil
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Resolves one or more path arguments with realpath and prints each absolute path to stdout.
-    * Copies the same resolved paths to the X CLIPBOARD selection as a comma-delimited line.
-
-  Options:
-    <path>: Resolve the path with realpath. Pass multiple paths to copy a comma-delimited clipboard payload.
-
-  Notes:
-    * The xsel binary is referenced by absolute store path through the
-      `programs.path.extended.package` option, so the function works
-      without xsel on the user's PATH and is independent of
-      `programs.xsel.extended.enable`.
-    * zsh and bash completions are left file-oriented so tab completion
-      continues to select paths after the `path` command name.
+    * Prints each resolved absolute path to stdout.
 */
 _:
 let

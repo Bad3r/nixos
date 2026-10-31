@@ -5,24 +5,15 @@
   Documentation: https://libvirt.org/docs.html
   Repository: https://gitlab.com/libvirt/libvirt
 
-  Summary:
-    * Runs the system libvirtd (qemu:///system) with QEMU/KVM, and puts virsh and qemu-system-x86_64 on PATH.
-    * QEMU runs as qemu-libvirtd; guests get swtpm TPMs, virtiofsd shares, and OVMF firmware with
-      Microsoft keys enrolled for domains that request enrolled-keys.
-
   Options:
-    -c qemu:///system: Connect to the system daemon; wheel members need no password for read-write access.
-    -r: Open a read-only connection, which needs no authentication.
+    -c qemu:///system: Connect to the system daemon.
+    -r: Open a read-only connection.
 
   Notes:
-    * Plain virsh as the owner talks to qemu:///session: no LIBVIRT_DEFAULT_URI is set, so nothing
-      raises a system prompt by accident.
-    * Wheel members manage system guests without a password through polkit. Other users need
-      fresh admin authentication for each read-write connection; root connections bypass polkit.
-    * libvirtd and virtlockd do not restart on switch: after a libvirt bump, `systemctl restart
-      libvirtd` keeps running guests (KillMode=process).
-    * libvirt-guests shuts guests down on host shutdown and resumes none at boot; autostart is per
-      object.
+    * Plain `virsh` connects to qemu:///session.
+    * Wheel members manage system guests without a password.
+    * libvirtd does not restart on switch; restart it after a libvirt bump, running guests survive.
+    * Guests shut down with the host and none resume at boot.
 */
 _:
 let

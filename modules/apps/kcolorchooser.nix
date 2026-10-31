@@ -6,14 +6,9 @@
   Repository: https://invent.kde.org/graphics/kcolorchooser
 
   Summary:
-    * Provides a simple KDE Gear interface to pick colors anywhere on the screen via an eyedropper tool.
-    * Displays color values in multiple formats (HTML hex, RGB, HSV) and supports editing palette entries.
-    * Can print the selected color to stdout with `--print`, making script integration straightforward.
-
-  Example Usage:
-    * `kcolorchooser` -- Launch the GUI picker with the default palette.
-    * `kcolorchooser --print` -- Copy a sampled color to stdout as soon as it is confirmed.
-    * `kcolorchooser --color "#AABBCC"` -- Preload the dialog with a specific color for adjustments.
+    * Picks colors anywhere on the screen with an eyedropper tool.
+    * Displays color values in multiple formats (HTML hex, RGB, HSV) and edits palette entries.
+    * Prints the selected color to stdout with `--print`.
 */
 _:
 let

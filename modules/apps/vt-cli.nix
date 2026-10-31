@@ -6,8 +6,7 @@
   Repository: https://github.com/VirusTotal/vt-cli
 
   Summary:
-    * Interacts with the VirusTotal API from the terminal for lookups, scans, and hunting workflows.
-    * Supports structured output and shell completion for scripting or analyst-driven investigation.
+    * Queries the VirusTotal API from the terminal for lookups, scans, and hunting.
 
   Options:
     init: Initialize or re-initialize local vt CLI configuration.

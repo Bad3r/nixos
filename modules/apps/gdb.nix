@@ -15,11 +15,6 @@
     -q: Start quietly without the banner.
     -p <pid>: Attach to an already running process by PID.
     -c <core>: Analyze a core dump alongside the original executable.
-
-  Example Usage:
-    * `gdb --args ./app --config config.toml` -- Debug a program with custom arguments.
-    * `gdb -p $(pidof myservice)` -- Attach to a running service for live inspection.
-    * `gdb -ex "break main" -ex run ./program` -- Set a breakpoint at `main` before starting execution.
 */
 _:
 let

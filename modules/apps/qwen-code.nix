@@ -15,13 +15,8 @@
     --approval-mode <mode>: Set tool approval behavior (plan, default, auto-edit, auto, yolo).
 
   Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * /etc/qwen-code/system-defaults.json holds the Nix-managed defaults; ~/.qwen/settings.json
-      stays writable and overrides them.
-    * With programs.llama-cpp.extended.client.endpoint set (modules/apps/llama-cpp.nix), the
-      defaults select that server's OpenAI-compatible API and `client.model`, register every
-      model in `client.models` for `qwen -m`, and `qwen` reads the API key from
-      `client.apiKeyFile` at launch.
+    * ~/.qwen/settings.json overrides the defaults in /etc/qwen-code/system-defaults.json.
+    * Uses the local llama.cpp server when programs.llama-cpp.extended.client.endpoint is set.
 */
 { inputs, ... }:
 let

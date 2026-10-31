@@ -6,8 +6,8 @@
   Repository: https://github.com/rfc1036/whois
 
   Summary:
-    * Resolves objects via the WHOIS (RFC 3912) protocol with automatic server selection where supported.
-    * Includes the companion `mkpasswd` utility from the same upstream package set.
+    * Queries WHOIS (RFC 3912) servers, selecting the right server automatically where supported.
+    * Includes the companion `mkpasswd` utility.
 
   Options:
     -h, --host=HOST: Query a specific WHOIS server directly.

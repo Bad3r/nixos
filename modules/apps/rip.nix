@@ -1,3 +1,23 @@
+/*
+  Package: rip
+  Description: Safe rm replacement that moves files to the trash.
+  Repository: https://github.com/Bad3r/nixos
+
+  Summary:
+    * Moves files and directories to the FreeDesktop trash through trash-cli instead of deleting them.
+    * Restores trashed files and lists the ones trashed from the current directory.
+
+  Options:
+    -u, --unbury [<path>...]: Restore trashed files, through a picker when no path is given.
+    -s, --seance: List files trashed from the current directory.
+    -i, --inspect: Show files and confirm before trashing them.
+    --empty-trash: Permanently delete everything in the trash.
+    --graveyard <path>: Use another trash directory.
+
+  Notes:
+    * `rm` is aliased to `rip`.
+    * Home-filesystem trash entries expire after ten days.
+*/
 let
   ripModule =
     {

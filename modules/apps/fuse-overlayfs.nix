@@ -6,8 +6,7 @@
   Repository: https://github.com/containers/fuse-overlayfs
 
   Summary:
-    * Implements overlay filesystem semantics in userspace, enabling lower/upper/workdir layering without kernel overlayfs privileges.
-    * Supports game and container workflows that require writable overlays on top of read-only base assets.
+    * Layers lower, upper, and work directories in userspace without kernel overlayfs privileges.
 
   Options:
     -o lowerdir=<path>,upperdir=<path>,workdir=<path>: Compose layered filesystem views from immutable and writable directories.

@@ -1,13 +1,11 @@
 /*
   Package: flake-checker
   Description: Health checks for your Nix flakes.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/DeterminateSystems/flake-checker
 
   Summary:
     * Checks flake.lock Nixpkgs inputs for freshness, supported refs, and upstream ownership.
-    * Supports explicit Common Expression Language policies for repository-specific lockfile rules.
+    * Applies Common Expression Language policies for repository-specific lockfile rules.
 
   Options:
     --no-telemetry: Disable aggregate diagnostic reporting.

@@ -6,9 +6,7 @@
   Repository: https://github.com/Lifailon/lazyjournal
 
   Summary:
-    * Browses systemd journal entries, filesystem logs, and container logs from one terminal UI.
-    * Filters and searches logs interactively for local service diagnostics.
-    * Supports Docker and Podman container log inspection alongside host logs.
+    * Filters and searches logs interactively.
 */
 _:
 let

@@ -8,11 +8,6 @@
   Summary:
     * Exposes strongly typed Rust bindings for DNS, Workers KV, R2, and account-level Cloudflare services.
     * Supports async execution with Tokio and handles pagination, authentication, and rate limiting helpers.
-
-  Options:
-    cargo add cloudflare: Add the SDK crate to a Rust project using Cargo.
-    Client::new(api_token): Construct an authenticated API client with a scoped token.
-    client.zones().list(): List zones accessible to the configured account.
 */
 _:
 let

@@ -7,7 +7,7 @@
 
   Summary:
     * Provides a minimal stdin-driven menu and launcher designed to integrate with scripts and window manager workflows.
-    * Supports fuzzy matching, vertical lists, and prompt customization through command-line flags and configuration patches.
+    * Supports vertical lists, custom prompts, and case-insensitive matching through command-line flags.
 
   Options:
     -p <prompt>: Set a custom prompt string displayed before the input field.
@@ -15,11 +15,6 @@
     -b: Position the menu at the bottom of the screen instead of the top.
     -i: Enable case-insensitive item matching.
     -fn <font>: Override the font used to render menu entries.
-
-  Example Usage:
-    * `dmenu_run` -- Launch dmenu to execute commands found on your `$PATH`.
-    * `ls | dmenu -p "Open file:"` -- Select a file from the current directory and print the choice to stdout.
-    * `printf 'yes\nno' | dmenu -i -l 2` -- Present a two-line selection, matching case-insensitively.
 */
 _:
 let

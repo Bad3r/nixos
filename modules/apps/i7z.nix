@@ -17,8 +17,7 @@
     --socket1 <id>: Select a secondary socket ID for dual-socket monitoring.
 
   Notes:
-    * Does not install a capability wrapper; running `i7z` requires explicit elevation.
-    * Enables `hardware.cpu.x86.msr` because i7z reads model-specific registers.
+    * Needs `sudo`.
 */
 _:
 let

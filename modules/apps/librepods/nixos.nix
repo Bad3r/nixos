@@ -1,16 +1,16 @@
 /*
   Package: librepods
-  Description: Reverse-engineered AirPods support for Linux. Reads battery,
-    handles ear detection, noise control modes, and other Apple Accessory
-    Protocol features over L2CAP, with a Continuity BLE advertisement
-    decoder for out-of-session battery readings.
+  Description: Reverse-engineered AirPods support for Linux.
   Homepage: https://github.com/kavishdevar/librepods
   Documentation: https://github.com/kavishdevar/librepods/blob/main/linux/README.md
-  Repository: https://github.com/kavishdevar/librepods
+  Repository: https://github.com/librepods-org/librepods
+
+  Summary:
+    * Reads battery, handles ear detection and noise control modes over the Apple Accessory Protocol.
 
   Notes:
     * Requires the BlueZ daemon (`hardware.bluetooth.enable`).
-    * Ships two binaries: `librepods` (Qt GUI) and `librepods-ctl` (CLI helper).
+    * Ships the `librepods` Qt GUI and the `librepods-ctl` CLI.
 */
 _:
 let

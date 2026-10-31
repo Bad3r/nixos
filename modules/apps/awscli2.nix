@@ -21,10 +21,6 @@
     --region <id>: Override the configured AWS region for a single invocation.
     --output <json|text|table|yaml|yaml-stream>: Choose the response rendering format.
     --query <JMESPath>: Filter and reshape responses client-side before rendering.
-
-  Notes:
-    * Tracks AWS CLI v2, the actively maintained major version. AWS CLI v1 (`nixpkgs#awscli`) is in maintenance mode.
-    * Module options live at `programs.awscli2.extended` to match the nixpkgs attribute; the installed binary is `aws`.
 */
 _:
 let

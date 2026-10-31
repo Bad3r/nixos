@@ -10,14 +10,11 @@
     * Supports both desktop-driven workflows and headless API automation for CI or repeatable assessment pipelines.
 
   Options:
-    zap: Launch the desktop proxy and scanning interface.
     -daemon: Start ZAP headlessly for API-driven automation or proxied testing.
     -addoninstall <id>: Install an add-on from the ZAP marketplace into the current profile.
 
   Notes:
-    * Declarative add-ons are pinned in Nix and copied into the installation plugin directory.
-    * Add-on dependencies must be declared explicitly; this module does not resolve Marketplace metadata.
-    * The package uses a JavaFX-enabled JDK so Browser View can render HTML responses.
+    * Add-on dependencies must be declared explicitly.
 */
 _:
 let

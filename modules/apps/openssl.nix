@@ -10,9 +10,9 @@
     * Supplies the OpenSSL libraries used by applications that implement TLS/SSL and general-purpose cryptography.
 
   Options:
-    version: Use `openssl version` to display the current library and tool version string.
-    genpkey: Run `openssl genpkey -algorithm RSA -out key.pem` to generate private keys.
-    s_client: Connect to TLS services with `openssl s_client -connect host:port` for debugging handshakes.
+    version: Print the library and tool version.
+    genpkey: Generate a private key.
+    s_client: Connect to a TLS service to debug the handshake.
 */
 _:
 let

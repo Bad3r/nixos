@@ -3,7 +3,7 @@
   Description: Info-ZIP command-line extractor for .zip archives across Unix-like systems.
   Homepage: http://www.info-zip.org
   Documentation: https://infozip.sourceforge.net/UnZip.html
-  Repository: https://github.com/madler/unzip
+  Repository: nil
 
   Summary:
     * Extracts, lists, and tests ZIP archives while preserving directory hierarchy and file attributes.

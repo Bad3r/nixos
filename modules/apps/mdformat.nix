@@ -7,16 +7,12 @@
 
   Summary:
     * Formats Markdown files while preserving CommonMark-compatible structure.
-    * Includes the GitHub Flavored Markdown plugin used by the central treefmt configuration.
 
   Options:
     --check: Verify formatting without applying changes.
     --end-of-line: Select output line endings.
     --number: Apply consecutive numbering to ordered lists.
     --wrap: Control paragraph word wrapping.
-
-  Notes:
-    * Default package wraps mdformat with mdformat-gfm to match the repository formatter.
 */
 _:
 let

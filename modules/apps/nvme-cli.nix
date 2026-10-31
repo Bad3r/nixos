@@ -16,13 +16,8 @@
     nvme fw-log /dev/nvme0: Inspect firmware slots.
     nvme device-self-test /dev/nvme0 --start short: Run a short self-test.
 
-  Example Usage:
-    * `nvme list` -- Discover NVMe devices attached to the system.
-    * `sudo nvme smart-log /dev/nvme0` -- Check drive temperature, media errors, and wear indicators.
-    * `sudo nvme device-self-test /dev/nvme0 --start extended` -- Initiate an extended diagnostic self-test.
-
   Notes:
-    * Commands that open a controller or namespace node need `sudo` (docs/security/owner-storage-access.md).
+    * Device commands need `sudo`.
 */
 _:
 let

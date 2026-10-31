@@ -3,20 +3,10 @@
   Description: Desktop handler that opens a qBittorrent Web UI and hands it torrent files and magnet links through its add dialog.
   Homepage: https://www.qbittorrent.org/
   Documentation: https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-5.0)
-  Repository: https://github.com/qbittorrent/qBittorrent
+  Repository: https://github.com/Bad3r/nixos
 
-  Summary:
-    * Registers `qbittorrent-webui.desktop` for `application/x-bittorrent` and `x-scheme-handler/magnet`, so a browser download or a magnet click opens the Web UI at a `#download=` link, which leads to the add dialog where the category and save path are chosen.
-    * Hands over a torrent file as a `file://` URL to a copy in the staging directory, which the qBittorrent service reads itself, so the service must be able to read that directory.
-
-  Options:
-    programs.qbittorrent-webui.extended.url: Web UI base URL the handler opens.
-    programs.qbittorrent-webui.extended.stagingDir: Directory the handler copies torrent files into for the service to read.
-
-  Example Usage:
-    * `qbittorrent-webui` -- Open the Web UI in the default browser.
-    * `qbittorrent-webui ~/Downloads/example.torrent` -- Open the add dialog for a torrent file.
-    * `qbittorrent-webui 'magnet:?xt=urn:btih:...'` -- Open the add dialog for a magnet link.
+  Notes:
+    * The qBittorrent service must be able to read the staging directory.
 */
 _:
 let

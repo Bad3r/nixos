@@ -3,13 +3,10 @@
   Description: Electron wrapper for the Raindrop.io bookmark manager.
   Homepage: https://raindrop.io
   Documentation: https://help.raindrop.io
+  Repository: nil
 
-  Summary:
-    * Launches the Raindrop.io progressive web application in a dedicated Electron shell.
-    * Stores profile data under `~/.config/raindrop` to keep bookmarks and sessions isolated from other Electron apps.
-
-  Example Usage:
-    * `raindrop` -- Open the Raindrop.io desktop experience in its own window.
+  Notes:
+    * Profile lives in `~/.config/raindrop`.
 */
 _:
 let

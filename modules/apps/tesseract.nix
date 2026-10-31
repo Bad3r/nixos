@@ -6,14 +6,9 @@
   Repository: https://github.com/tesseract-ocr/tesseract
 
   Summary:
-    * Installs the `tesseract` CLI for converting images into text, hOCR, TSV, ALTO XML, or searchable PDF output.
+    * Converts images into text, hOCR, TSV, ALTO XML, or searchable PDF output.
     * Supports automated layout detection, multiple page segmentation modes, and custom language models.
     * Works with companion utilities such as `tesseract-lang` packages to add language models.
-
-  Example Usage:
-    * `tesseract receipt.png stdout` -- OCR an image and print plain text to standard output.
-    * `tesseract receipt.png receipt pdf` -- Generate a searchable PDF from an image input.
-    * `tesseract receipt.png stdout --psm 6 -l eng` -- OCR a cropped text block with an explicit page segmentation mode and language.
 
   Options:
     -l <langs>: Select one or more trained languages, such as `eng` or `eng+ara`.

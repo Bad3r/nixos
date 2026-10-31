@@ -8,16 +8,6 @@
     * Decompile Android DEX and APK files to Java source code.
     * GUI for interactive exploration of decompiled code.
     * CLI for batch processing and automation.
-
-  Included Tools:
-    jadx: Command-line interface for decompiling DEX/APK files.
-    jadx-gui: Graphical interface for browsing decompiled sources.
-
-  Example Usage:
-    * `jadx app.apk` -- Decompile APK to Java sources in ./app directory.
-    * `jadx -d output/ classes.dex` -- Decompile DEX to specified output directory.
-    * `jadx-gui app.apk` -- Open APK in GUI for interactive analysis.
-    * `jadx --deobf app.apk` -- Decompile with deobfuscation enabled.
 */
 _:
 let

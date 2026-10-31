@@ -1,13 +1,13 @@
 /*
   Package: dust
-  Description: du alternative that visualizes disk usage with interactive, tree-based bar charts.
+  Description: du alternative that visualizes disk usage with tree-based bar charts.
   Homepage: https://github.com/bootandy/dust
   Documentation: https://github.com/bootandy/dust#readme
   Repository: https://github.com/bootandy/dust
 
   Summary:
-    * Displays directory trees ordered by size using colored Unicode bar charts for quick identification of large paths.
-    * Offers interactive navigation, JSON output, and ignore patterns for scripting or exploratory cleanup.
+    * Shows directory trees ordered by size with colored bar charts, so large paths stand out.
+    * Supports depth limits, ignore patterns, and file counts.
 
   Options:
     -d <depth>: Limit traversal to the specified directory depth.
@@ -15,11 +15,6 @@
     -x: Stay on the current filesystem (do not cross mount points).
     --filecount: Display the number of files in each directory.
     --ignore-directory <pattern>: Skip directories matching the given pattern.
-
-  Example Usage:
-    * `dust` -- Render an interactive overview of disk usage under the current directory.
-    * `dust -d 2 /var` -- Inspect the largest directories within `/var` up to depth 2.
-    * `dust -n 10 --ignore-directory node_modules project/` -- Show the top ten space consumers while ignoring `node_modules`.
 */
 _:
 let

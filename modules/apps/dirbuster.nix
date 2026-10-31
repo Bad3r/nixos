@@ -3,16 +3,11 @@
   Description: OWASP GUI for brute-forcing directories and files on web application servers.
   Homepage: https://sourceforge.net/projects/dirbuster/
   Documentation: https://wiki.owasp.org/index.php/Category:OWASP_DirBuster_Project
-  Repository: nil
+  Repository: https://sourceforge.net/p/dirbuster/code/
 
   Summary:
     * Launches the legacy OWASP DirBuster Swing interface with bundled wordlists for forced-browsing assessments.
     * Supports recursive discovery of directories and files by issuing threaded HTTP requests against a base target URL.
-
-  Options:
-    dirbuster: Launch the graphical interface and bundled wordlists.
-    File -> Load a List: Select a custom wordlist instead of the packaged defaults.
-    Start: Begin the configured forced-browsing scan against the target URL.
 */
 _:
 let

@@ -3,6 +3,7 @@
   Description: Tool for tracing bitmaps into smooth, scalable vector graphics.
   Homepage: https://potrace.sourceforge.net/
   Documentation: https://potrace.sourceforge.net/potrace.1.html
+  Repository: nil
 
   Summary:
     * Transforms bitmap images (PBM, PGM, PPM, BMP) into vector formats (EPS, PostScript, PDF, SVG, DXF).

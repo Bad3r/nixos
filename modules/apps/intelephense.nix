@@ -3,14 +3,10 @@
   Description: PHP language server implementing LSP via the Intelephense engine.
   Homepage: https://intelephense.com/
   Documentation: https://github.com/bmewburn/vscode-intelephense/blob/master/README.md
-  Repository: https://github.com/bmewburn/intelephense
+  Repository: nil
 
   Summary:
     * Provides completions, diagnostics, go-to-definition, and find-references for PHP projects.
-    * Licensed under a proprietary unfree license; the binary is `intelephense`.
-
-  Example Usage:
-    * `intelephense --stdio` -- Start the language server in stdio mode (normally launched by the editor).
 */
 _:
 let

@@ -3,7 +3,7 @@
   Description: Arbitrary-precision calculator language for interactive and scripted math.
   Homepage: https://www.gnu.org/software/bc/
   Documentation: https://www.gnu.org/software/bc/manual/
-  Repository: https://git.savannah.gnu.org/cgit/bc.git
+  Repository: nil
 
   Summary:
     * Evaluates expressions with unlimited precision, user-defined functions, and control structures.

@@ -10,8 +10,7 @@
     * Supports image previews, batch operations, and persistent settings.
 
   Notes:
-    * Part of the czkawka package which includes both CLI and GUI binaries.
-    * Also includes Krokiet, an experimental Slint-based GUI alternative.
+    * Superseded upstream by Krokiet, also installed; 12.0 is the last GTK release.
 */
 _:
 let

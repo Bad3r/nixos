@@ -6,17 +6,11 @@
   Repository: https://github.com/tobagin/karere
 
   Summary:
-    * Native GTK4 WhatsApp client with LibAdwaita styling and system tray integration.
-    * Features custom notification sounds, image/text pasting, persistent sessions, and multi-language spell checking.
-
-  Options:
-    * System tray icon with unread message status indicator.
-    * Custom notification sounds (WhatsApp, Pop, Alert, Soft, Start).
-    * Theme selection (Light, Dark, System) with LibAdwaita styling.
-    * Custom download directory and spell checking dictionaries.
+    * Native GTK4 WhatsApp client with system tray integration.
+    * Custom notification sounds, image and text pasting, persistent sessions, and spell checking.
 
   Notes:
-    * Video attachments unsupported due to WebKitGTK/WhatsApp Web compatibility limitations.
+    * Video attachments are unsupported.
 */
 _:
 let

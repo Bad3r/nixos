@@ -10,7 +10,6 @@
     * Provides portable and reproducible rendering for SVG assets and image conversion.
 
   Options:
-    <in-svg> <out-png>: Render an SVG file to a PNG file.
     -c: Write the output PNG to stdout.
     -w, --width <length>: Set the output width in pixels.
     -h, --height <length>: Set the output height in pixels.

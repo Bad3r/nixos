@@ -6,8 +6,7 @@
   Repository: https://salsa.debian.org/rousseau/PCSC
 
   Summary:
-    * Enables the smart-card daemon used by PC/SC clients such as OpenSC and GnuPG.
-    * Uses services namespace because pcscd runs as a system service.
+    * Serves smart cards to PC/SC clients such as OpenSC and GnuPG.
 */
 _:
 let

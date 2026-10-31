@@ -1,8 +1,6 @@
 /*
   Package: assetfinder
   Description: Find domains and subdomains potentially related to a given domain.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/tomnomnom/assetfinder
 
   Summary:
@@ -10,11 +8,10 @@
     * Emits discovered domains on stdout for use in recon pipelines.
 
   Options:
-    assetfinder <domain>: Find domains and subdomains related to the supplied domain.
     --subs-only: Only include subdomains of the search domain.
 
   Notes:
-    * Some upstream sources require environment variables such as `FB_APP_ID`, `FB_APP_SECRET`, `VT_API_KEY`, or `SPYSE_API_TOKEN`.
+    * Some sources need `FB_APP_ID`, `FB_APP_SECRET`, `VT_API_KEY`, or `SPYSE_API_TOKEN`.
 */
 _:
 let

@@ -11,15 +11,9 @@
 
   Options:
     picom --config <file>: Use a specific configuration file.
-    --backend <xrender|glx|xr_glx_hybrid>: Select rendering backend.
-    --experimental-backends: Enable new GLX features (blur, dual-kawase).
+    --backend <xrender|glx>: Select rendering backend.
     --vsync: Enable vertical sync to reduce tearing.
     --log-file <path>: Write logs for debugging.
-
-  Example Usage:
-    * `picom --config ~/.config/picom/picom.conf --daemon` -- Start compositing with a custom config.
-    * `picom --experimental-backends --backend glx` -- Use GLX backend with blur effects.
-    * `pkill picom && picom --vsync` -- Restart picom with VSYNC enabled to mitigate tearing.
 */
 _:
 let

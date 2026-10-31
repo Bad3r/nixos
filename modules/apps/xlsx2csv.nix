@@ -1,12 +1,10 @@
 /*
   Package: xlsx2csv
   Description: Convert xlsx workbooks to CSV from the command line, including very large files.
-  Homepage: nil
-  Documentation: nil
   Repository: https://github.com/dilshod/xlsx2csv
 
   Summary:
-    * Streams sheets straight out of the xlsx container on the system Python, so large workbooks convert without opening a spreadsheet application.
+    * Streams sheets straight out of the xlsx container, so large workbooks convert without opening a spreadsheet application.
     * Selects a sheet by number or name, exports every sheet into one stream or one file each, and controls delimiter, quoting, and date, time, and float formats.
     * Reads the workbook from a path or from standard input with '-'.
 

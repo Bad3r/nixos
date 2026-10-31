@@ -17,8 +17,8 @@
     --vlan <id>: Send ARP requests using an 802.1Q VLAN tag.
 
   Notes:
-    * The package name is `arp-scan-rs`, but the installed binary is `arp-scan`.
-    * Installs a capability wrapper so `wheel` users can send ARP requests without invoking `sudo`.
+    * The installed binary is `arp-scan`.
+    * `wheel` users run it without `sudo`.
 */
 _:
 let

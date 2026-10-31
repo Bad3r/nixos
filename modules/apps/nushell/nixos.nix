@@ -6,7 +6,6 @@
   Repository: https://github.com/nushell/nushell
 
   Summary:
-    * A new type of shell.
     * Pipelines use structured data rather than raw text.
 
   Options:

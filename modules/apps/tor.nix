@@ -3,7 +3,7 @@
   Description: Anonymizing overlay network daemon that routes TCP traffic through volunteer relays.
   Homepage: https://www.torproject.org/
   Documentation: https://torproject.gitlab.io/tor-manual/tor/
-  Repository: https://github.com/torproject/tor
+  Repository: https://gitlab.torproject.org/tpo/core/tor
 
   Summary:
     * Provides onion-routing circuits that hide client network location by relaying connections through volunteer-operated nodes.

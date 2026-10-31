@@ -8,10 +8,6 @@
   Summary:
     * Offers interactive and headless debugging for Go binaries, integrating with editors and IDEs via the DAP protocol.
     * Supports breakpoints, goroutine inspection, expression evaluation, and recording of execution traces.
-
-  Example Usage:
-    * `dlv debug ./cmd/api` -- Build and start debugging the binary produced from `./cmd/api`.
-    * `dlv attach $(pgrep myservice)` -- Attach to a running Go process for live inspection.
 */
 _:
 let

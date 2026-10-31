@@ -10,15 +10,9 @@
     * Output conforms to the i3bar JSON protocol and swaybar pango markup, enabling drop-in use across tiling window managers.
 
   Options:
-    -c <config>: Use a specific TOML configuration file (default: `~/.config/i3status-rust/config.toml`).
-    -w <config-dir>: Watch the configuration directory for changes and reload live.
-    --stdout: Print bar output to stdout (useful for debugging or piping).
+    --never-pause: Ignore i3's requests to pause the bar while hidden or fullscreen.
+    -j, --threads <n>: Set the maximum number of blocking threads (default: 2).
     --version: Display the program version.
-
-  Example Usage:
-    * `i3status-rs -c ~/.config/i3status-rust/config.toml` -- Run with a custom configuration.
-    * `i3status-rs --stdout` -- Inspect generated JSON output for troubleshooting.
-    * `i3status-rs -w ~/.config/i3status-rust/` -- Enable live reloading when editing configuration files.
 */
 _:
 let

@@ -3,11 +3,10 @@
   Description: Free and open source painting application.
   Homepage: https://krita.org/
   Documentation: https://docs.krita.org/
-  Repository: https://github.com/KDE/krita
+  Repository: https://invent.kde.org/graphics/krita
 
   Summary:
-    * Digital painting and illustration application offering brushes, layers, and advanced color management for artists.
-    * Cross-platform creative suite for creating digital art from scratch with support for various file formats.
+    * Digital painting and illustration with brushes, layers, and advanced color management.
 */
 _:
 let

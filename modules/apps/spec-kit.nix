@@ -13,9 +13,6 @@
     specify init: Initialize a new spec-kit project.
     specify generate: Generate specifications from templates.
     -h, --help: Show usage information.
-
-  Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
 { inputs, ... }:
 {

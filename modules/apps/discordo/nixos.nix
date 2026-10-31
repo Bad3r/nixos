@@ -7,10 +7,6 @@
 
   Summary:
     * Provides a terminal interface for Discord servers, channels, and messages.
-    * Reads configuration from $XDG_CONFIG_HOME/discordo/config.toml.
-
-  Example Usage:
-    * `discordo` -- Launch the client and sign in interactively.
 */
 _:
 let

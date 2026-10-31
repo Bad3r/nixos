@@ -6,11 +6,8 @@
   Repository: https://github.com/kovidgoyal/kitty
 
   Summary:
-    * Renders text using OpenGL for high performance and ligature support, offering layout splits, kitten extensions, and remote control sockets.
-    * Provides built-in features like Unicode input, graphics protocol, session management, and `kitty +kitten` helper commands.
-    * Installs the ssh:// handler package and registers its desktop entry at the NixOS and Home Manager MIME layers.
-    * The handler uses an absolute store path, notifies on rejected URLs, discards opaque URL paths,
-      and keeps every SSH window open with `kitty --hold` after the SSH kitten exits.
+    * Renders text with OpenGL, with ligatures, layout splits, kitten extensions, and remote control sockets.
+    * Provides Unicode input, a graphics protocol, session management, and `kitty +kitten` helper commands.
 
   Options:
     kitty --config <file>: Launch with a custom configuration file.
@@ -18,11 +15,6 @@
     kitty +kitten themes: Browse and apply color schemes interactively.
     kitty +kitten ssh <host>: Open ssh sessions with kitty's graphics protocol support.
     kitty --session <file>: Restore a predefined layout with tabs/splits.
-
-  Example Usage:
-    * `kitty` -- Start the terminal emulator with default configuration.
-    * `kitty --config ~/.config/kitty/light.conf` -- Launch with an alternate theme/config.
-    * `kitty @ set-font-size 14` -- Adjust font size on the fly via remote control.
 */
 _:
 let

@@ -16,9 +16,6 @@
     -j, --json: Print a single line of stats as JSON.
     -nm, --no-mouse: Disable mouse handling for TTY systems.
     -tt, --t_thresh: Set the high-temperature threshold.
-
-  Notes:
-    * The nixpkgs package propagates `stress`; no separate module wiring is required.
 */
 _:
 let

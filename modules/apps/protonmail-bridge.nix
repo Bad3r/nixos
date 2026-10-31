@@ -6,19 +6,11 @@
   Repository: https://github.com/ProtonMail/proton-bridge
 
   Summary:
-    * Runs the upstream Bridge binary as a systemd user service in `--noninteractive` mode.
     * Translates Proton Mail's encrypted API into local IMAP on `127.0.0.1:1143` (STARTTLS) and SMTP on `127.0.0.1:1025` (STARTTLS).
-    * Talks to the host's Secret Service implementation over D-Bus (libsecret), so GNOME Keyring or KWallet works without further configuration.
-    * Upstream's user unit is gated on `graphical-session.target`, so the daemon only starts once a desktop session is active; on a headless host the unit will sit idle.
 
-  Initial sign-in:
-    The daemon runs with `--noninteractive` and cannot perform the first login. After enabling the
-    module, run `protonmail-bridge --cli` interactively once, type `login` to complete the Proton
-    flow, then `info` to print the per-account Bridge password. Paste that password into the mail
-    client; the daemon picks up the stored credentials from the keyring on the next start.
-
-  Example Usage:
-    * Point Thunderbird (or any IMAP client) at `127.0.0.1`, IMAP `1143`, SMTP `1025`, both with STARTTLS, using the Bridge-generated password.
+  Notes:
+    * Starts only in a graphical session.
+    * First sign-in: run `protonmail-bridge --cli`, then `login`, then `info` for the mail client password.
 */
 _:
 let

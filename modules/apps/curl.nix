@@ -6,8 +6,8 @@
   Repository: https://github.com/curl/curl
 
   Summary:
-    * Supports HTTP(S), FTP, SFTP, and numerous other protocols with granular control over TLS and authentication.
-    * Powers automation and scripting workflows via libcurl bindings and flexible output formatting.
+    * Supports HTTP(S), FTP, SFTP, and many other protocols, with control over TLS and authentication.
+    * Ships libcurl for use from programs and scripts.
 
   Options:
     -I <url>: Fetch only HTTP response headers for quick health checks.

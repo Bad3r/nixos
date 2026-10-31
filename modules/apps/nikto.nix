@@ -19,10 +19,7 @@
     -Plugins <value>: Select which plugins to run.
 
   Notes:
-    * Prefer nuclei for template-based vulnerability coverage: its actively updated
-      corpus (nuclei-templates) supersedes most of nikto's checks. Keep nikto for
-      its built-in default-file and outdated-server signature scans and quick,
-      zero-config server triage.
+    * nuclei supersedes most of its checks.
 */
 _:
 let

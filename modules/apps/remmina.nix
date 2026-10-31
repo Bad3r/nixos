@@ -8,10 +8,8 @@
   Summary:
     * Provides a tabbed GTK client for RDP, VNC, SPICE, NX, X2Go, SSH, SFTP, and related remote-access workflows.
     * Supports reusable connection profiles, SSH tunneling, and plugin-driven protocol integration from one interface.
-    * Installs shared MIME info for `.rdp` connection files so XDG can classify them as `application/x-rdp`.
 
   Options:
-    remmina: Launch the graphical client and browse saved connection profiles.
     -c <file.remmina>: Connect using a saved profile file or a supported URI.
     --set-option key=value --update-profile <file.remmina>: Modify stored profile settings from the command line.
 */
