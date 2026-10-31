@@ -5,19 +5,9 @@
   Documentation: https://support.1password.com/getting-started-linux/
   Repository: nil
 
-  Summary:
-    * Installs the 1Password Linux desktop application from the stable release channel.
-    * Provides vault browsing, item editing, browser integration, Quick Access, and Watchtower checks.
-
-  Options:
-    Browser integration: Connect supported browsers to the desktop app for unlock and filling workflows.
-    Quick Access: Fill credentials in desktop apps from the Linux client.
-    Watchtower: Review reused, weak, or compromised passwords and other security alerts.
-
   Notes:
-    * Uses nixpkgs package `pkgs._1password-gui`; the app key omits the leading underscore for repo module discovery.
-    * Delegates browser-support wrapper setup to nixpkgs' `programs._1password-gui` module.
-    * A Home Manager user unit starts the app with `--silent` at graphical-session start, to start the 1p socket.
+    * Stable release channel.
+    * Configures browser integration
 */
 _:
 let
@@ -43,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable 1password-gui.";
+          description = "Enables 1Password desktop App.";
         };
 
         package = lib.mkOption {
@@ -56,7 +46,7 @@ let
         polkitPolicyOwners = lib.mkOption {
           type = lib.types.listOf lib.types.str;
           default = [ owner ];
-          description = "Users allowed to integrate 1Password with polkit-based authentication mechanisms.";
+          description = "Users allowed to integrate 1Password with polkit.";
         };
       };
 
