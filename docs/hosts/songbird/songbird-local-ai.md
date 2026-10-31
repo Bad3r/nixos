@@ -100,7 +100,6 @@ Each role names a section of the models preset in [services.nix](../../../module
 - Claude Code and Codex run only against hosted models; local agent work runs in qwen-code, which is built for OpenAI-compatible servers.
 - One engine owns the RTX 5080 at a time: language, image, and speech generation models share the same 16 GB, and a second engine evicts or starves the first.
 - Models whose 4-bit file exceeds about 40 GB, such as GLM-5.3, Kimi K3, and Qwen3.5 122B-A10B, fit in neither VRAM nor the RAM the desktop leaves free.
-- The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
 - Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
 - `ornith-1.5-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.

@@ -48,8 +48,6 @@
 ## Constraints
 
 - M.2_3 and M.2_4 stay empty; populating either drops the GPU slot from x16 to x8.
-- The GPU slot is PCIe 5.0 x16-capable, but root port `0000:00:06.0` advertises only 16 GT/s, so the RTX 5080 links at PCIe 4.0 x16.
-  The unverified suspect is the UEFI `ALT_PCIE_MODE` setting.
 - Disk A sits under the motherboard's M.2_1 heatsink; without it, sustained writes throttle.
 - `/dev/nvmeN` indices reshuffle across boots. Address a drive by PCI address or serial, never by index.
 - The DIMMs run at 7400 MT/s because their DDR5-8400 XMP profile is unstable on this host. The fallback ladder runs down to the CPU's native DDR5-6400; four DIMMs forfeit 8400.
