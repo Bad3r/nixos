@@ -47,10 +47,15 @@ imports; expose modules through namespace exports" is a rule an agent can apply.
 
 ## Layering
 
-Claude Code loads `CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/`; it does
-not automatically load `AGENTS.md`. If `AGENTS.md` is the shared source of truth
-for other agents, make `CLAUDE.md` import it with `@AGENTS.md` or symlink
-`CLAUDE.md` to it, then add only Claude-specific deltas.
+Claude Code loads `CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/`. Its
+`instructionFiles` option governs `AGENTS.md`: under the default,
+`claude-md-or-agents-md`, a project without a `CLAUDE.md`, `.claude/CLAUDE.md`,
+or `CLAUDE.local.md` of its own gets its `AGENTS.md` files instead, each loaded
+where a `CLAUDE.md` would be, so a nested one arrives once Claude reads a file
+in its directory. Any of those three files drops every `AGENTS.md`, and a root
+`CLAUDE.md` that imports `@AGENTS.md` brings back only that one file, so this
+repository keeps `AGENTS.md` as the only source and carries none of them;
+`claude-md-and-agents-md` loads both kinds.
 
-Keep shared conventions in one source of truth. Use deeper `CLAUDE.md` files or
+Keep shared conventions in one source of truth. Use deeper `AGENTS.md` files or
 path-scoped `.claude/rules/` only for narrow rules whose scope genuinely differs.
