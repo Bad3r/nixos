@@ -37,6 +37,8 @@ let
   # Commented entries in the catalog leave the upstream default in effect.
   codexDefaultSettings = import ./_default-settings.nix;
 
+  telemetry = import ./_telemetry.nix { inherit pkgs; };
+
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
@@ -92,6 +94,13 @@ let
       enabled = false;
     };
     check_for_update_on_startup = false;
+    # Explicit OTLP exporters bypass analytics.enabled; these go to the local
+    # collector in _telemetry.nix. Content logging stays off.
+    otel = telemetry.codexOtel // {
+      log_user_prompt = false;
+      log_agent_responses = false;
+      log_guardian_assessments = false;
+    };
 
     # Experimental settings
     suppress_unstable_features_warning = true;

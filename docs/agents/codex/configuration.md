@@ -12,6 +12,7 @@ Edits made directly to that output can disappear on the next merge.
 - [Process environment](../../../modules/agents/codex/_env.nix): environment values exported by login sessions and the Codex launcher.
 - [Shared MCP registry](../../../modules/agents/mcp/servers.nix): server endpoints, commands, and client membership.
 - [Execution policy](../../../modules/agents/codex/_exec-policy.nix): command approval rules and the controlled shell.
+- [Telemetry](../../../modules/agents/codex/_telemetry.nix): local OpenTelemetry export, covered in [Codex telemetry](telemetry.md).
 
 Uncomment an optional setting and supply its value to configure it.
 Site policy overrides catalog values.
