@@ -35,14 +35,14 @@
 
     # Wired ports only: Wi-Fi may be a public network, and WARP and the VM
     # bridges carry no mDNS peers.
-    services.avahi = {
-      allowInterfaces = [
+    services.avahi.settings = {
+      server.allow-interfaces = [
         "eth0"
         "eth1"
       ];
       publish = {
-        enable = true;
-        addresses = true;
+        disable-publishing = false;
+        publish-addresses = true;
       };
     };
   };

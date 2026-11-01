@@ -208,25 +208,24 @@ _: {
           enable = true;
           package = lib.attrByPath [ "programs" "rofi" "extended" "package" ] pkgs.rofi osConfig;
 
-          # Terminal for running console applications
-          inherit terminal;
-
           # Calculator plugin (uses libqalculate)
           plugins = [ pkgs.rofi-calc ];
 
-          # Enable modes
-          modes = [
-            "window"
-            "drun"
-            "run"
-            "ssh"
-            "combi"
-            "filebrowser"
-            "calc"
-          ];
+          settings = {
+            # Terminal for running console applications
+            inherit terminal;
 
-          # Additional configuration matching old config.rasi
-          extraConfig = {
+            # Enable modes
+            modes = [
+              "window"
+              "drun"
+              "run"
+              "ssh"
+              "combi"
+              "filebrowser"
+              "calc"
+            ];
+
             # Display settings
             show-icons = true;
             icon-theme = config.gtk.iconTheme.name or "hicolor";
