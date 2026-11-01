@@ -1,6 +1,8 @@
 // ==UserScript==
 // @name        nixpkgs-review-gha
 // @match       https://github.com/*
+// @homepageURL https://github.com/Defelo/nixpkgs-review-gha
+// @downloadURL https://github.com/Defelo/nixpkgs-review-gha/raw/refs/heads/main/shortcut.user.js
 // @run-at      document-idle
 // ==/UserScript==
 
@@ -131,34 +133,62 @@ const setupActionsPage = async () => {
 
 	const inputs = new URLSearchParams(match[2]);
 
-	(await query(document, "details > summary.btn")).click();
-	await query(document, "details .workflow-dispatch");
+	(
+		await query(
+			document,
+			'details > summary.btn, react-app.loaded [data-component="PH_Actions"] button[data-variant="primary"]',
+		)
+	).click();
+	await query(
+		document,
+		':is(details .workflow-dispatch, [role="dialog"]) [name="inputs[pr]"]',
+	);
 
 	const setBranch = async (branch) => {
-		(await query(document, "details .workflow-dispatch")).classList.add(
-			"old-branch",
+		await query(document, 'details .workflow-dispatch, [role="dialog"]');
+		const newRefPickerBtn = document.querySelector(
+			"[role=dialog] button[id^=ref-picker-]",
 		);
-		document
-			.querySelector(
-				"details .workflow-dispatch .branch-selection > details > summary",
-			)
-			.click();
-		(
-			await query(
-				document,
-				`ref-selector[type=branch] button[value="${branch}"]`,
-			)
-		).click();
-		while (
-			(await query(document, "details .workflow-dispatch")).classList.contains(
+		if (newRefPickerBtn) {
+			newRefPickerBtn.click();
+			await query(document, "ul#branches");
+			[...document.querySelectorAll("ul#branches > li")]
+				.find(
+					(x) =>
+						x.querySelector(
+							'[data-component="ActionList.Item.Label"] div div div',
+						).innerText === branch,
+				)
+				.click();
+			do {
+				await sleep(100);
+			} while (document.querySelector('[role="dialog"] [aria-busy=true]'));
+		} else {
+			(await query(document, "details .workflow-dispatch")).classList.add(
 				"old-branch",
+			);
+			document
+				.querySelector(
+					"details .workflow-dispatch .branch-selection > details > summary",
+				)
+				.click();
+			(
+				await query(
+					document,
+					`ref-selector[type=branch] button[value="${branch}"]`,
+				)
+			).click();
+			while (
+				(
+					await query(document, "details .workflow-dispatch")
+				).classList.contains("old-branch")
 			)
-		)
-			await sleep(100);
+				await sleep(100);
+		}
 	};
 
 	const setInput = (name, value) => {
-		const selector = `details .workflow-dispatch [name='inputs[${name}]']`;
+		const selector = `:is(details .workflow-dispatch, [role="dialog"]) [name='inputs[${name}]']`;
 		const input = document.querySelector(`${selector}:not([type=hidden])`);
 
 		if (!input) {
@@ -187,7 +217,9 @@ const setupActionsPage = async () => {
 		.forEach(([name, value]) => setInput(name, value));
 
 	document
-		.querySelector("details .workflow-dispatch button[type=submit]")
+		.querySelector(
+			'details .workflow-dispatch button[type=submit], [role="dialog"] button[type=submit]',
+		)
 		.focus();
 };
 

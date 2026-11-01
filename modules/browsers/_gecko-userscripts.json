@@ -1,15 +1,15 @@
 {
 	"nixpkgs-review-gha": {
-		"repo": "Defelo/nixpkgs-review-gha",
+		"repo": "Bad3r/nixpkgs-review-gha",
 		"branch": "main",
 		"path": "shortcut.user.js",
 		"sourceFile": "_gecko-nixpkgs-review-gha.user.js",
-		"rev": "f55080c3c63d1bc048b484825ab95cb6ebf0fd4f",
-		"hash": "sha256-ouXRXAK7E525HT2Lo14mqvPHBXrJahgOdSuYvJ3tSWk=",
+		"rev": "49eb906bd8207a0a80613f963fbd9cc908518754",
+		"hash": "sha256-GUpI1R4cXCZ+1xzNeZCukmt0dn958US0ePI6wTknmwQ=",
 		"id": 1,
 		"uuid": "cb37dedd-9092-44f6-8073-8ab7c9431918",
-		"updatedAt": 1780076413000,
-		"installUrl": "https://raw.githubusercontent.com/Defelo/nixpkgs-review-gha/refs/heads/main/shortcut.user.js",
+		"updatedAt": 1791903720000,
+		"installUrl": "https://github.com/Bad3r/nixpkgs-review-gha/raw/refs/heads/main/shortcut.user.js",
 		"meta": {
 			"include": [],
 			"exclude": [],
@@ -19,6 +19,8 @@
 			"grant": [],
 			"resources": {},
 			"name": "nixpkgs-review-gha",
+			"homepageURL": "https://github.com/Defelo/nixpkgs-review-gha",
+			"downloadURL": "https://github.com/Defelo/nixpkgs-review-gha/raw/refs/heads/main/shortcut.user.js",
 			"runAt": "document-idle"
 		}
 	}
