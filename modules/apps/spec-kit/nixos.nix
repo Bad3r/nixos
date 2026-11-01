@@ -31,7 +31,7 @@
         self = python;
         packageOverrides = _final: prev: {
           mcp = prev.mcp.overrideAttrs (old: {
-            patches = (old.patches or [ ]) ++ [ ./spec-kit/mcp-ipv4-stream-cleanup-test.patch ];
+            patches = (old.patches or [ ]) ++ [ ./mcp-ipv4-stream-cleanup-test.patch ];
           });
         };
       };

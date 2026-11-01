@@ -16,7 +16,8 @@ Conventions for the NixOS app modules under `modules/apps/`, one program per fil
 ## File layout
 
 - Store each app module at `modules/apps/<tool>.nix` and export it as `flake.nixosModules.apps.<tool>`.
-- An app with more than one module file keeps them in `modules/apps/<tool>/`: `nixos.nix`, `home.nix`, `overlay.nix`, and `package.nix`, each only when the app has that piece.
+- An app with more than one file, patches included, keeps them all in `modules/apps/<tool>/`: `nixos.nix`, `home.nix`, `overlay.nix`, and `package.nix`, each only when the app has that piece.
+  A folder left with only `nixos.nix` moves back to `modules/apps/<tool>.nix`.
   `home.nix` is the [Home Manager module](apps-module-home-manager.md), `overlay.nix` the [overlay](custom-packages-overlays.md), and `package.nix` the `perSystem.packages` registration.
 - A check, fixture, or `_`-prefixed helper of an app with a folder sits in that folder.
 - An app that has a feature folder, such as `modules/agents/<tool>/`, `modules/browsers/<tool>/`, or `modules/git/`, keeps its files there instead.
