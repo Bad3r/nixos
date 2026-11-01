@@ -134,7 +134,10 @@
     environment = "dev";
     exporter = "none";
     trace_exporter = "none";
+    # metrics_exporter = "statsig"; # none | statsig | { otlp-http = { ... }; } | { otlp-grpc = { ... }; }
     log_user_prompt = false;
+    # log_agent_responses = false;
+    # log_guardian_assessments = false;
   };
 
   # Terminal UI

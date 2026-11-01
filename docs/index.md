@@ -340,6 +340,8 @@
 
 - [agents/codex/configuration.md](agents/codex/configuration.md)
   - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
+- [agents/codex/telemetry.md](agents/codex/telemetry.md)
+  - Local capture of Codex metrics, logs, and traces; reading the files and the turn-cost caveat.
 
 ### MCP
 

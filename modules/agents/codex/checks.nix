@@ -39,8 +39,17 @@ in
         homeDir = "/home/codex-config-check";
         configDir = "/home/codex-config-check/.config/codex";
       };
+      telemetry = import ./_telemetry.nix { inherit pkgs; };
     in
     {
+      checks."codex/telemetry-collector" =
+        pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
+          ''
+            STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
+              --config=${telemetry.collectorConfigFile}
+            touch "$out"
+          '';
+
       checks."codex/config" =
         pkgs.runCommandLocal "codex-config-check"
           {
