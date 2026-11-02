@@ -11,7 +11,7 @@
 
   Notes:
     * The profile lives in $XDG_DATA_HOME/bibimbap.
-    * The first connection goes through the HID chooser; later launches reconnect on their own.
+    * A managed Chrome policy grants the site the cable and dongle IDs, so launches reconnect without the HID chooser.
 */
 _:
 let
@@ -132,6 +132,20 @@ let
 
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ udevRules ];
+
+        # Chrome keeps a chooser grant across reconnects only for devices with
+        # a USB serial, and the dongle reports none since firmware 5.08.
+        environment.etc."opt/chrome/policies/managed/bibimbap.json".text = builtins.toJSON {
+          WebHidAllowDevicesForUrls = [
+            {
+              devices = map (productId: {
+                vendor_id = lib.fromHexString vendorId;
+                product_id = lib.fromHexString productId;
+              }) productIds;
+              urls = [ "https://bbb.pulsar.gg" ];
+            }
+          ];
+        };
       };
     };
 in
