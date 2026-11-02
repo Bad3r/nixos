@@ -293,6 +293,28 @@ flushSegment() {
   segment="" raw="" redirs=""
 }
 
+# Reads a ${...} expansion, one word to bash, from the index after its brace
+# into brace, and into braceWord with spaces and operators blanked to _ so the
+# word splits as one; fails on nested quotes, expansions, or escapes.
+# shellcheck disable=SC2016
+readBraces() {
+  local j="$1" ch
+  brace='${' braceWord='${'
+  while [ "$j" -lt "${#s}" ]; do
+    ch="${s:j:1}"
+    j=$((j + 1))
+    brace+="$ch"
+    if [ "$ch" = "}" ]; then
+      braceWord+="$ch"
+      i=$j
+      return 0
+    fi
+    [[ $ch != [\'\"\$\`\\] ]] || return 1
+    if [[ $ch == [[:space:]\|\&\;\<\>\(\)] ]]; then braceWord+=_; else braceWord+="$ch"; fi
+  done
+  return 1
+}
+
 # Moves one redirection out of the segment's words, so arguments after it stay
 # in the same command; fails on a target it cannot read as one plain word.
 readRedirect() {
@@ -311,7 +333,14 @@ readRedirect() {
     ch="${s:i:1}"
     case "$ch" in
     '`' | \\) return 1 ;;
-    '$') [ "${s:i+1:1}" != "(" ] || return 1 ;;
+    '$')
+      [ "${s:i+1:1}" != "(" ] || return 1
+      if [ "${s:i+1:1}" = "{" ] && [ "$tq" != "'" ]; then
+        readBraces $((i + 2)) || return 1
+        target+="$braceWord"
+        continue
+      fi
+      ;;
     "'" | '"')
       if [ -z "$tq" ]; then
         tq="$ch"
@@ -351,7 +380,14 @@ elideSbx() {
       continue
       ;;
     '`') return 1 ;;
-    '$') [ "$next" != "(" ] || return 1 ;;
+    '$')
+      [ "$next" != "(" ] || return 1
+      if [ "$next" = "{" ]; then
+        readBraces $((i + 1)) || return 1
+        segment+="$braceWord" raw+="$brace"
+        continue
+      fi
+      ;;
     '"') if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi ;;
     esac
     if [ -z "$quote" ]; then
@@ -391,7 +427,7 @@ q="[\"']?"
 t="${q}/tmp(/|[\"'[:space:];|&)]|$)"
 seg="[^|;&]*"
 patterns=(
-  "(>>?|&>>?|>\|)[[:space:]]*${t}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${t}"
   "\btee\b${seg}[[:space:]]${t}"
   "\b(mkdir|touch|mktemp|truncate|cd|pushd)\b${seg}[[:space:]=]${t}"
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${t}"
@@ -419,7 +455,7 @@ tarDir="\btar\b${seg}[[:space:]](-C|--directory)${opt}"
 tarExtracting="$(tr '|;&' '\n' <<<"$command" |
   grep -E -- "\btar([[:space:]]+x[A-Za-z]*([[:space:]]|$)|${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get)([[:space:]]|$))" || true)"
 patterns=(
-  "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${leaf}"
   "\btee\b${seg}[[:space:]]${leaf}"
   "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
   "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
@@ -442,7 +478,7 @@ done
 # A top-level dir a command creates must have a findable name.
 name="${q}${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+"
 writes=(
-  "(>>?|&>>?|>\|)[[:space:]]*${name}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${name}"
   "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
   "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
