@@ -22,6 +22,7 @@ let
     lact = true;
     babashka = true;
     bibimbap = true;
+    "realforce-connect" = true;
     "clojure-cli" = true;
     "clojure-lsp" = true;
     leiningen = true;
