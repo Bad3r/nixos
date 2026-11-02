@@ -256,8 +256,8 @@ checkHostPath() {
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
 # only --to and a host cp destination write on the host.
-if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
-  verb="" positional=()
+checkSbx() {
+  local n word verb="" positional=()
   for ((n = 1; n < ${#words[@]}; n++)); do
     word="${words[n]}"
     case "$word" in
@@ -281,7 +281,145 @@ if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
     ! grep -qE '^[a-z0-9][a-z0-9-]{0,30}:' <<<"${positional[1]}"; then
     checkHostPath "${positional[1]}"
   fi
-  exit 0
+}
+
+flushSegment() {
+  if [[ $segment =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$segment"; then
+    checkSbx
+    elided+=" sbx$redirs "
+  else
+    elided+="$raw"
+  fi
+  segment="" raw="" redirs=""
+}
+
+# Reads a ${...} expansion, one word to bash, from the index after its brace
+# into brace, and into braceWord with spaces and operators blanked to _ so the
+# word splits as one; fails on nested quotes, expansions, or escapes.
+# shellcheck disable=SC2016
+readBraces() {
+  local j="$1" ch
+  brace='${' braceWord='${'
+  while [ "$j" -lt "${#s}" ]; do
+    ch="${s:j:1}"
+    j=$((j + 1))
+    brace+="$ch"
+    if [ "$ch" = "}" ]; then
+      braceWord+="$ch"
+      i=$j
+      return 0
+    fi
+    [[ $ch != [\'\"\$\`\\] ]] || return 1
+    if [[ $ch == [[:space:]\|\&\;\<\>\(\)] ]]; then braceWord+=_; else braceWord+="$ch"; fi
+  done
+  return 1
+}
+
+# Moves one redirection out of the segment's words, so arguments after it stay
+# in the same command; fails on a target it cannot read as one plain word.
+readRedirect() {
+  local start=$((i - 1)) op="$c" target="" tq="" ch
+  if [[ $segment =~ (^|[[:space:]])([0-9]+)$ ]]; then
+    op="${BASH_REMATCH[2]}$op"
+    segment="${segment%"${BASH_REMATCH[2]}"}"
+  fi
+  while [[ ${s:i:1} == [\<\>\&\|] ]]; do
+    op+="${s:i:1}"
+    i=$((i + 1))
+  done
+  [[ $op != *'<<'* ]] || return 1
+  while [ "${s:i:1}" = " " ] || [ "${s:i:1}" = $'\t' ]; do i=$((i + 1)); done
+  while [ "$i" -lt "${#s}" ]; do
+    ch="${s:i:1}"
+    case "$ch" in
+    '`' | \\) return 1 ;;
+    '$')
+      [ "${s:i+1:1}" != "(" ] || return 1
+      if [ "${s:i+1:1}" = "{" ] && [ "$tq" != "'" ]; then
+        readBraces $((i + 2)) || return 1
+        target+="$braceWord"
+        continue
+      fi
+      ;;
+    "'" | '"')
+      if [ -z "$tq" ]; then
+        tq="$ch"
+      elif [ "$tq" = "$ch" ]; then
+        tq=""
+      fi
+      ;;
+    ' ' | $'\t' | $'\n' | '|' | '&' | ';' | '<' | '>' | '(' | ')') [ -n "$tq" ] || break ;;
+    esac
+    target+="$ch"
+    i=$((i + 1))
+  done
+  [ -n "$target" ] && [ -z "$tq" ] || return 1
+  redirs+=" $op$target"
+  raw+="${s:start:i-start}"
+}
+
+# Checks each sbx command between unquoted shell operators and replaces it with
+# a bare sbx plus its redirections, so the patterns below see host-side pipes
+# and redirections but not guest arguments. Fails on substitutions, comments,
+# and heredocs, which can hide operators from the split.
+elideSbx() {
+  local s="$1" c next quote="" i=0
+  segment="" raw="" redirs="" elided=""
+  while [ "$i" -lt "${#s}" ]; do
+    c="${s:i:1}" next="${s:i+1:1}"
+    i=$((i + 1))
+    if [ "$quote" = "'" ] || { [ "$quote" = ansi ] && [ "$c" != \\ ]; }; then
+      [ "$c" != "'" ] || quote=""
+      segment+="$c" raw+="$c"
+      continue
+    fi
+    case "$c" in
+    \\)
+      segment+="$c$next" raw+="$c$next"
+      i=$((i + 1))
+      continue
+      ;;
+    '`') return 1 ;;
+    '$')
+      [ "$next" != "(" ] || return 1
+      if [ "$next" = "{" ]; then
+        readBraces $((i + 1)) || return 1
+        segment+="$braceWord" raw+="$brace"
+        continue
+      fi
+      ;;
+    '"') if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi ;;
+    esac
+    if [ -z "$quote" ]; then
+      case "$c" in
+      "'") if [ "${segment: -1}" = '$' ]; then quote=ansi; else quote="'"; fi ;;
+      '#') [[ -n $segment && ${segment: -1} != [[:space:]] ]] || return 1 ;;
+      '<' | '>')
+        [ "$next" != "(" ] || return 1
+        readRedirect || return 1
+        continue
+        ;;
+      '&')
+        if [ "$next" = '>' ]; then
+          readRedirect || return 1
+          continue
+        fi
+        ;;&
+      '|' | '&' | ';' | '(' | ')' | $'\n')
+        flushSegment
+        elided+="$c"
+        continue
+        ;;
+      esac
+    fi
+    segment+="$c" raw+="$c"
+  done
+  [ -z "$quote" ] || return 1
+  flushSegment
+}
+
+if [[ $command == *sbx* ]] && elideSbx "$command"; then
+  command="$elided"
 fi
 
 text="$(sed -E 's#/tmp/\.(X11|ICE)-unix#/allowed-socket#g' <<<"$command")"
@@ -289,7 +427,7 @@ q="[\"']?"
 t="${q}/tmp(/|[\"'[:space:];|&)]|$)"
 seg="[^|;&]*"
 patterns=(
-  "(>>?|&>>?|>\|)[[:space:]]*${t}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${t}"
   "\btee\b${seg}[[:space:]]${t}"
   "\b(mkdir|touch|mktemp|truncate|cd|pushd)\b${seg}[[:space:]=]${t}"
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${t}"
@@ -302,7 +440,7 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest arguments of an sbx command are not checked unless it has an env prefix or the command holds a substitution, comment, or heredoc."
   fi
 done
 
@@ -317,7 +455,7 @@ tarDir="\btar\b${seg}[[:space:]](-C|--directory)${opt}"
 tarExtracting="$(tr '|;&' '\n' <<<"$command" |
   grep -E -- "\btar([[:space:]]+x[A-Za-z]*([[:space:]]|$)|${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get)([[:space:]]|$))" || true)"
 patterns=(
-  "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${leaf}"
   "\btee\b${seg}[[:space:]]${leaf}"
   "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
   "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
@@ -340,7 +478,7 @@ done
 # A top-level dir a command creates must have a findable name.
 name="${q}${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+"
 writes=(
-  "(>>?|&>>?|>\|)[[:space:]]*${name}"
+  "(>>?|>&|&>>?|>\|)[[:space:]]*${name}"
   "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
   "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
