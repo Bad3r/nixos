@@ -20,6 +20,7 @@ let
     "protonmail-bridge" = true;
     lact = true;
     babashka = true;
+    bibimbap = true;
     "clojure-cli" = true;
     "clojure-lsp" = true;
     leiningen = true;

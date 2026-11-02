@@ -54,6 +54,7 @@ let
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
+      bibimbap.extended.enable = lib.mkOverride 1100 false;
       binutils.extended.enable = lib.mkOverride 1100 true;
       biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
