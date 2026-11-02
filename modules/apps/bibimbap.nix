@@ -52,6 +52,7 @@ let
             --user-data-dir="''${XDG_DATA_HOME:-$HOME/.local/share}/bibimbap" \
             --no-first-run \
             --no-default-browser-check \
+            --hide-scrollbars \
             "$@"
         '';
       };
