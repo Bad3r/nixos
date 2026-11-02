@@ -175,6 +175,8 @@ in
                   # The first start with it converts BT_backup into torrents.db.
                   ResumeDataStorageType = "SQLite";
                   PerformanceWarning = true;
+                  # bound stop announces at exit
+                  ShutdownTimeout = 10;
                 };
                 Core.AutoDeleteAddedTorrentFile = "Never";
                 # libtorrent's own NAT-PMP would race the renewal unit below
