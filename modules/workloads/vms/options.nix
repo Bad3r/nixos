@@ -516,6 +516,18 @@ let
                 ) config.interfaces)
                 "{ <nic> = \"<network prefix>.<hostOffset>\"; }";
 
+            hostnames =
+              derived (types.listOf types.str)
+                "Names and addresses the host reaches the guest by, as an SSH client matches them; empty without an interface."
+                (lib.optionals (config.interfaces != { }) (
+                  [
+                    name
+                    "${name}.vm"
+                  ]
+                  ++ lib.unique (lib.attrValues config.address)
+                ))
+                ''[ "<name>" "<name>.vm" <addresses> ]'';
+
             mounts =
               derived (types.attrsOf types.attrs)
                 "Enabled shares with a mount point, keyed by tag, in the shape `workloads-guest-base` takes as `workloads.guest.shares`."

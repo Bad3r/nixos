@@ -96,21 +96,9 @@ A stale out-link never touches an existing disk.
 
 Verification: `ssh root@<name> systemctl is-system-running` prints `running`.
 
-## Pin the host key
+## Host key
 
-Precondition: the guest has booted once and generated its SSH host key.
-
-1. Read the key from the host; the bridge is local to the host, so the scan reaches the guest itself:
-
-   ```sh
-   ssh-keyscan -t ed25519 <name>
-   ```
-
-2. Set the key as `services.openssh.publicKey` in the guest configuration, and add it under the guest name to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`.
-
-3. Switch the host, then deploy the guest.
-
-Verification: `nix flake check` passes `configurations/nixos/<name>`, which fails when the two keys differ.
+The host trusts the guest's SSH host key from its first boot, as [guest SSH host keys](host-keys.md) describes.
 
 ## Deploy a configuration change
 
