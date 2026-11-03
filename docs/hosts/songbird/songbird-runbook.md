@@ -34,7 +34,9 @@ Verification:
 ## Capture the monitor EDID
 
 Precondition: the monitor is awake, `xrandr` lists `DP-4 connected`, and X runs without a stored EDID.
-X reports the stored EDID in place of the panel's own, so for a new monitor first delete `secrets/songbird-monitor.edid`, switch, and restart X.
+X reports the stored EDID in place of the panel's own, so for a new monitor first remove `secrets/songbird-monitor.edid` with a commit in `secrets`, commit the submodule bump, switch, and restart X.
+A build reads `secrets/` at its committed revision, so an uncommitted deletion leaves the stored EDID in place.
+`grep CustomEDID /var/log/X.0.log` prints nothing once X runs without it.
 
 1. From the repository root, capture the panel's EDID into a temporary file and decode it:
 
