@@ -18,5 +18,7 @@ in
 
   inherit fleetSshPublicKey;
   sshKeys = [ fleetSshPublicKey ];
+  # Unlocked without 1Password; its private half is secrets/workloads-ssh.yaml.
+  workloadsSshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINlroJ2+brmuY3kedyBe2j/1rbLmUpcvr81+UXaZ/KBJ";
   gitSigningPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDNTENPappbhPz4AqjvRmWBO0m2oS/mkej/pgN0F6fM";
 }

@@ -79,7 +79,7 @@ in
                 windows = {
                   account = {
                     name = metaOwner.username;
-                    authorizedKeys = metaOwner.sshKeys;
+                    authorizedKeys = metaOwner.sshKeys ++ [ metaOwner.workloadsSshPublicKey ];
                   };
                   timeZone = "Arab Standard Time";
                   services.ssh.port = 22;
