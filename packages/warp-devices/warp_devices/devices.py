@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
-from warp_devices.api import ApiError, Getter, Json, paginate_cursor, paginate_pages
+from warp_devices.api import ApiError, Getter, Json, explain, paginate_cursor, paginate_pages
 from warp_devices.timefmt import DataError, iso_utc, parse_optional
 
 if TYPE_CHECKING:
@@ -215,7 +215,7 @@ def load(client: Getter, now: datetime) -> Listing:
         try:
             optional[name] = jobs[name].wait()
         except ApiError as error:
-            warnings.append(str(error))
+            warnings.append(explain(error))
             optional[name] = None
     fleet = optional[FLEET_STATUS]
     reports: Reports | None = None

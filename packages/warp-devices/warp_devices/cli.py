@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 from warp_devices import devices, history
-from warp_devices.api import ApiError, Client, Getter
+from warp_devices.api import ApiError, Client, Getter, explain
 from warp_devices.render import Row, printable, table, use_color
 from warp_devices.timefmt import DataError, ago, local_clock, span
 
@@ -22,7 +22,6 @@ USAGE_EXIT = 2
 LOOKUP_EXIT = 3
 BROKEN_PIPE_EXIT = 141
 INTERRUPT_EXIT = 130
-FORBIDDEN = 403
 COMMANDS = ("list", "history")
 VALUE_FLAGS = ("--account-id-file", "--token-file", "--hours")
 CREDENTIAL_PATTERN = re.compile(r"[\x21-\x7e]+")
@@ -30,7 +29,6 @@ CREDENTIAL_SOURCE = (
     "the warp-devices app renders $XDG_RUNTIME_DIR/warp-devices/{account-id,api-token} from"
     " the account_id and zero_trust_read_api_token keys of secrets/cloudflare-warp.yaml"
 )
-PERMISSION_HINT = "the token needs the Zero Trust Read and DEX Read account permissions"
 
 
 class CredentialError(Exception):
@@ -259,9 +257,9 @@ def run_history(client: Getter, args: argparse.Namespace, now: datetime) -> int:
 
 
 def describe(error: Exception) -> str:
-    """Word a failure for stderr, adding the permission hint to a 403."""
+    """Word a failure for stderr, adding the permission hint to a 401 or 403."""
     if isinstance(error, ApiError):
-        text = f"{error}; {PERMISSION_HINT}" if error.status == FORBIDDEN else str(error)
+        text = explain(error)
     elif isinstance(error, DataError):
         text = f"unexpected data from Cloudflare: {error}"
     else:

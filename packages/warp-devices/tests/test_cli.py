@@ -195,6 +195,23 @@ class ListTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Zero Trust Read and DEX Read", err)
 
+    def test_optional_forbidden_warns_with_hint(self) -> None:
+        """A 401 or 403 on DEX still lists with STATUS unknown, exits 0, and warns with the hint."""
+        for status in (401, 403):
+            with self.subTest(status=status):
+                client = getter()
+
+                def forbidden(_params: Mapping[str, str], status: int = status) -> Json:
+                    raise ApiError(FLEET_STATUS, "Authentication error", status=status)
+
+                client.routes[FLEET_STATUS] = forbidden
+                code, out, err = run(client=client)
+                self.assertEqual(code, 0)
+                self.assertEqual(out.splitlines()[1].split()[:2], ["songbird", "unknown"])
+                warning = next(line for line in err.splitlines() if FLEET_STATUS in line)
+                self.assertIn("warning:", warning)
+                self.assertIn("Zero Trust Read and DEX Read", warning)
+
 
 class HistoryTest(unittest.TestCase):
     """history resolves a device and prints its reports."""

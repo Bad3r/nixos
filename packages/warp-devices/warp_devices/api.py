@@ -29,6 +29,8 @@ HTTP_OK = 200
 SERVER_ERROR = 500
 RETRY_STATUSES = frozenset({408, 429})
 REDIRECTS = range(300, 400)
+PERMISSION_STATUSES = frozenset({401, 403})
+PERMISSION_HINT = "the token needs the Zero Trust Read and DEX Read account permissions"
 
 type Json = dict[str, object]
 
@@ -54,6 +56,13 @@ class ApiError(Exception):
         super().__init__(f"GET {endpoint} failed: {message}")
         self.endpoint = endpoint
         self.status = status
+
+
+def explain(error: ApiError) -> str:
+    """Word an API failure, adding the permission hint to a 401 or 403."""
+    if error.status in PERMISSION_STATUSES:
+        return f"{error}; {PERMISSION_HINT}"
+    return str(error)
 
 
 class Getter(Protocol):

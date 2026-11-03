@@ -66,10 +66,12 @@ The table prints the first and last report and every report whose status, colo, 
 
 ## Output and exit codes
 
-`--json` prints every field with the API's raw timestamps, plus a `warnings` list for `list`.
+`list --json` prints every device field and a `warnings` list.
+`history --json` prints the reports the table would show, adding the gateway address and giving the gap in seconds.
+Both keep the API's raw timestamps.
 Color is on for a terminal unless `NO_COLOR` holds a non-empty value; `--color` and `--no-color` override it.
 
-Tables and stderr print control and format characters in API text escaped, so a device name cannot drive the terminal or reorder and hide text.
+Tables and stderr print control and format characters in API text escaped, so a device name cannot drive the terminal, reorder text, or break a line.
 `--json` keeps them as JSON escapes.
 
 | Code | Meaning                            |
@@ -84,10 +86,12 @@ Tables and stderr print control and format characters in API text escaped, so a 
 ## Failures
 
 The device endpoints stall now and then or cut a response short, so connecting and each read time out.
-A request retries with backoff on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
+A request retries with backoff on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring a short `Retry-After`), or any 5xx.
 Network errors retry the same way, such as a DNS failure, a refused or unreachable connection, or a TLS error.
 
-A failed TLS certificate check or any other status is final, so a 403 fails at once and names the two permissions the token needs.
+A failed TLS certificate check or any other status is final.
+A 401 or 403 is never retried and always names the two permissions the token needs.
+It fails the command like any final error, except on a physical-devices or DEX endpoint in `list`, where it is a warning.
 A redirect is never followed, which keeps the token off its target host.
 
 A pagination cursor that stops advancing or loops fails the endpoint rather than returning a partial list.
