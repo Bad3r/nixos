@@ -388,8 +388,10 @@
         focusOrLaunch = lib.getExe (appRows.package "i3-focus-or-launch");
       };
 
-      # Use the already-defined stylixColors for consistency
-      stylixColorsStrictWithHash = stylixColors;
+      # VS Code Dark 2026 colors with no base16 slot.
+      palette = {
+        focusBorder = "#3994bc"; # focusBorder, tab.activeBorderTop
+      };
 
       # Bar on the sidebar color (base01) instead of base00.
       barConfigOnSidebar = lib.recursiveUpdate config.stylix.targets.i3.exportedBarConfig {
@@ -397,25 +399,6 @@
           _: value: if value == stylixColors.base00 then stylixColors.base01 else value
         ) config.stylix.targets.i3.exportedBarConfig.colors;
       };
-
-      # Muted focus accent: base0D mixed halfway toward base00.
-      focusedBorderColor =
-        let
-          channel =
-            c:
-            (
-              lib.toInt config.lib.stylix.colors."base0D-rgb-${c}"
-              + lib.toInt config.lib.stylix.colors."base00-rgb-${c}"
-            )
-            / 2;
-          hex = n: lib.toLower (lib.fixedWidthString 2 "0" (lib.toHexString n));
-        in
-        "#"
-        + lib.concatMapStrings (c: hex (channel c)) [
-          "r"
-          "g"
-          "b"
-        ];
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
@@ -469,9 +452,9 @@
         };
 
         borderWidth = lib.mkOption {
-          description = "Window border width in pixels for positioning calculations.";
+          description = "Window border width in pixels, also used by positioning calculations.";
           type = lib.types.int;
-          default = 5;
+          default = 1;
           example = 3;
         };
 
@@ -576,7 +559,7 @@
 
               floating = {
                 modifier = "Mod1";
-                border = 5;
+                border = config.gui.i3.borderWidth;
                 titlebar = false;
               };
 
@@ -586,46 +569,42 @@
               };
 
               window = {
-                border = 5;
+                border = config.gui.i3.borderWidth;
                 hideEdgeBorders = "none";
                 titlebar = false;
               };
 
-              # Make split-direction hint use the same color as borders
-              # (indicator equals border per state). Keep scope minimal and
-              # avoid self-referencing config to prevent recursion.
+              # Accent frame on the focused window, base02 on the rest.
               colors = {
                 focused = {
-                  indicator = lib.mkForce focusedBorderColor;
-                  border = lib.mkForce focusedBorderColor;
-                  childBorder = lib.mkForce focusedBorderColor;
+                  indicator = lib.mkForce palette.focusBorder;
+                  border = lib.mkForce palette.focusBorder;
+                  childBorder = lib.mkForce palette.focusBorder;
                 };
-                urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
-
-                # Grouped per-state overrides to satisfy linters and avoid repetition
-                # Unfocused frames in the sidebar color.
+                urgent.indicator = lib.mkForce stylixColors.base08;
                 focusedInactive = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base01;
-                  border = lib.mkForce stylixColorsStrictWithHash.base01;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
+                  indicator = lib.mkForce stylixColors.base02;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
                 };
                 unfocused = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base01;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
+                  indicator = lib.mkForce stylixColors.base03;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
                 };
                 placeholder = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base01;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
+                  indicator = lib.mkForce stylixColors.base03;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
                 };
               };
 
               workspaceAutoBackAndForth = true;
               inherit workspaceOutputAssign;
 
+              # VS Code spacing-size40.
               gaps = {
-                inner = 6;
+                inner = 4;
                 outer = 0;
                 top = 0;
                 bottom = 0;
