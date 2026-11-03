@@ -143,6 +143,49 @@ for collision in untracked ignored local-directory local-file symlink; do
   printf 'ok: %s collision preserves HEAD, index and local content\n' "$collision"
 done
 
+for collision in replaced-file replaced-directory tracked-edit; do
+  new_case "$collision"
+  case "$collision" in
+  replaced-file)
+    printf 'upstream file\n' >"$upstream/notes"
+    git -C "$upstream" add notes
+    git -C "$upstream" commit -qm notes
+    sync_ok
+    rm "$mirror/notes"
+    mkdir "$mirror/notes"
+    local_path="$mirror/notes/CLAUDE.md"
+    ;;
+  replaced-directory)
+    mkdir "$upstream/notes"
+    printf 'upstream file\n' >"$upstream/notes/README.md"
+    git -C "$upstream" add notes/README.md
+    git -C "$upstream" commit -qm notes
+    sync_ok
+    rm -r "$mirror/notes"
+    local_path="$mirror/notes"
+    ;;
+  tracked-edit)
+    printf 'local tracked edit\n' >"$mirror/source.txt"
+    printf 'upstream instructions\n' >"$upstream/CLAUDE.md"
+    git -C "$upstream" add CLAUDE.md
+    git -C "$upstream" commit -qm collision
+    local_path="$mirror/CLAUDE.md"
+    ;;
+  esac
+  printf 'local instructions\n' >"$local_path"
+  before="$(git -C "$mirror" rev-parse HEAD)"
+  status_before="$(git -C "$mirror" status --porcelain --untracked-files=no)"
+  if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
+    fail "$collision collision was accepted"
+  fi
+  grep -Fq 'refusing to overwrite local path' "$case_root/sync.log" || fail 'collision cause missing'
+  [[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'collision changed HEAD'
+  [[ -z $(git -C "$mirror" stash list) ]] || fail 'refused sync created a stash'
+  [[ $(git -C "$mirror" status --porcelain --untracked-files=no) == "$status_before" ]] || fail 'refused sync changed tracked state'
+  [[ $(cat "$local_path") == 'local instructions' ]] || fail 'refused sync removed local content'
+  printf 'ok: %s collision is refused before stashing\n' "$collision"
+done
+
 mkdir -p "$test_root/firefox"
 cd "$test_root/firefox"
 touch .test-root-stamp

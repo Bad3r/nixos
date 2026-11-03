@@ -17,8 +17,8 @@ A spec without a directory is cloned, gets the [maintenance](#maintenance) run, 
 An existing mirror goes through these steps:
 
 1. Fetch every remote, pruning deleted branches.
-2. Stash uncommitted changes to tracked files.
-3. Refuse an update that would overwrite an untracked or ignored local path.
+2. Refuse the sync when stashing or updating would overwrite an untracked or ignored local path.
+3. Stash uncommitted changes to tracked files.
 4. Save `HEAD` on a `git-mirror/backup-<UTC time>` branch when it holds commits the tracking branch lacks.
 5. Update to the tracking branch, or to the remote's default branch when `HEAD` tracks none.
 6. Run [maintenance](#maintenance).

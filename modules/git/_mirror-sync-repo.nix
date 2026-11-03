@@ -142,7 +142,15 @@ pkgs.writeShellApplication {
     # Fetch's auto-maintenance detaches.
     retry_git "fetch" git -C "$dir" -c maintenance.auto=false remote update --prune || exit 1
 
-    # Stash dirty work
+    tracking=$(git -C "$dir" rev-parse --abbrev-ref '@{u}' 2>/dev/null) || \
+      tracking="origin/$(git -C "$dir" remote show origin | awk '/HEAD branch/ {print $3}')"
+
+    local_sha=$(git -C "$dir" rev-parse HEAD)
+    remote_sha=$(git -C "$dir" rev-parse "$tracking")
+
+    # The stash restores HEAD and the reset checks out upstream; refuse before either touches the worktree.
+    python3 ${./_mirror-check-local-files.py} "$dir" "$local_sha" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
+
     if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no)" ]; then
       git -C "$dir" stash push -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: stash failed"; exit 1; }
       # Prune old stashes (reverse order to avoid index shifting)
@@ -150,15 +158,7 @@ pkgs.writeShellApplication {
         tac | xargs -r -I{} git -C "$dir" stash drop {} 2>/dev/null || true
     fi
 
-    # Get tracking branch
-    tracking=$(git -C "$dir" rev-parse --abbrev-ref '@{u}' 2>/dev/null) || \
-      tracking="origin/$(git -C "$dir" remote show origin | awk '/HEAD branch/ {print $3}')"
-
-    local_sha=$(git -C "$dir" rev-parse HEAD)
-    remote_sha=$(git -C "$dir" rev-parse "$tracking")
-
     if [ "$local_sha" != "$remote_sha" ]; then
-      python3 ${./_mirror-check-local-files.py} "$dir" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
       # Backup diverging history
       if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
         backup="git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)"

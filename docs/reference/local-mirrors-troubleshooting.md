@@ -86,9 +86,9 @@ Finish or abort that operation, or move the work into a separate clone, then sta
 
 ## `<spec>: local file check failed; refusing update`
 
-An upstream path conflicts with an untracked or ignored local file or directory.
+An untracked or ignored local file or directory conflicts with a path in upstream or in `HEAD`, such as a local directory where a tracked file was.
 The preceding `refusing to overwrite local path` line names the collision.
-The checkout stays at its previous revision; any tracked edits already sit in a stash.
+The sync stops before stashing, so the checkout, index, and tracked edits stay as they were.
 
 Move the conflicting local path outside the mirror, then start a sync.
 Local files at unrelated paths need no action.
@@ -127,9 +127,8 @@ Fix the sync, or start a docs service by hand to publish from its mirror as it s
 
 ## `refusing to build from a dirty Firefox checkout`
 
-The Firefox mirror has local changes.
-The sync stashes tracked edits, while untracked local files remain in place.
-Move any local files that block documentation builds outside the mirror.
+The Firefox mirror has tracked edits; untracked local files do not trigger this.
+The next sync stashes those edits.
 Start a sync, which starts the docs service when it succeeds.
 
 ## `failed to resolve current stable Python branch`

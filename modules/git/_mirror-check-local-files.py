@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Reject updates that would overwrite untracked or ignored local files."""
 
+import os
 import subprocess
 import sys
 from typing import TYPE_CHECKING
@@ -21,14 +22,16 @@ def _parents(path: bytes) -> Iterator[bytes]:
 
 
 def main() -> int:
-    """Check an upstream revision without changing the index or local files."""
-    repo, revision = sys.argv[1:]
+    """Check revisions without changing the index or local files."""
+    repo, *revisions = sys.argv[1:]
     # Without exclude options, ls-files includes ignored files. Git reset can
     # overwrite those even with --keep, so they need the same collision check.
     local = _git_paths(repo, "ls-files", "--others")
     if not local:
         return 0
-    upstream = _git_paths(repo, "ls-tree", "-r", "--name-only", revision)
+    upstream = set().union(
+        *(_git_paths(repo, "ls-tree", "-r", "--name-only", rev) for rev in revisions)
+    )
     upstream_dirs = {parent for path in upstream for parent in _parents(path)}
     conflicts = sorted(
         path
@@ -38,7 +41,7 @@ def main() -> int:
         or any(parent in upstream for parent in _parents(path))
     )
     for path in conflicts:
-        print(f"refusing to overwrite local path {path!r}", file=sys.stderr)
+        print(f"refusing to overwrite local path {os.fsdecode(path)!r}", file=sys.stderr)
     return int(bool(conflicts))
 
 
