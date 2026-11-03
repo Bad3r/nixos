@@ -74,6 +74,9 @@ UNICODE_KEYSYMS_END = UNICODE_KEYSYMS + 0x110000
 # The Latin-1 capitals xdotool always types with Shift, and the offset to their lowercase.
 SHIFTED_LATIN1 = frozenset(range(0xC0, 0xDF)) - {0xD7}
 LOWERCASE_OFFSET = 0x20
+# A client reads a key press by the keymap of the time it reads it, so keycodes an
+# earlier text used change only once a busy client has had time to catch up.
+REBIND_PAUSE = 1.0
 # X coordinates are signed 16-bit.
 MAX_COORDINATE = 32767
 BUTTONS = {"left": 1, "middle": 2, "right": 3}
@@ -443,6 +446,8 @@ class Gui(Transfer):
         kept = [keycode for keycode in keymap.owned if keycode not in bindings]
         owned = " ".join(map(str, [*kept, *bindings]))
         lines = "".join(f"keycode {code} = {a:#x} {b:#x}\n" for code, (a, b) in bindings.items())
+        if not bindings.keys().isdisjoint(keymap.owned):
+            time.sleep(REBIND_PAUSE)
         result = self.session_command(
             sandbox, ["/bin/sh", "-c", KEYMAP_BIND, "sbx", owned], stdin=lines.encode()
         )

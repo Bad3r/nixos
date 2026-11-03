@@ -38,6 +38,7 @@
 - Characters outside the keyboard layout are bound first, two to a spare keycode, through `xmodmap`, and stay bound.
   xdotool's own binding lasts milliseconds, and a busy client that reads the key press later drops the character.
   The root window's `_SBX_TYPE_KEYCODES` property lists the keycodes `sbx` bound, oldest first, and later texts rebind the oldest first.
+  A text that rebinds keycodes waits a second first, so a client up to that far behind still reads the previous text by its own characters.
   A text that needs more spare keycodes than are free fails with `invalid-argument`; xdotool keeps the lowest empty keycode.
   Any X client in the guest can read the bound characters from the keymap until a later text rebinds their keycodes.
   A sandbox made from a base built before this binding lacks `xmodmap` and fails such a text with `guest-command`; rebuild the base.

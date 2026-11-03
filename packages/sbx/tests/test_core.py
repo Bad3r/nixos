@@ -1670,13 +1670,15 @@ class SandboxesTest(Fixture):
         text = "H\u00e9 \u2713!\n"
         self.backend.exit_queue = [self.keymap_reply(), {"exitcode": 0}]
         with (
-            mock.patch.object(gui.time, "sleep"),
+            mock.patch.object(gui.time, "sleep") as pause,
             mock.patch.object(self.backend, "agent", wraps=self.backend.agent) as agent_call,
         ):
             result, _ = self.dispatch("key", "t1", "ctrl+alt+t", "Return")
             self.assertEqual(result, {"sandbox": "t1", "keys": ["ctrl+alt+t", "Return"]})
+            pause.reset_mock()
             result, _ = self.dispatch("type", "t1", text)
             self.assertEqual(result, {"sandbox": "t1", "characters": len(text)})
+        pause.assert_not_called()
         self.assertEqual([codes for _domain, codes in self.backend.keys], [[29, 56, 20], [28]])
         self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
         *_, started = [
@@ -1703,10 +1705,18 @@ class SandboxesTest(Fixture):
             self.dispatch("type", "t1", "\u2713\u00e9")
         self.assertEqual(len(self.backend.execs), sent + 3)
         self.assertEqual(self.backend.execs[-2][0][-1], gui.KEYMAP_QUERY)
+        # Rebinding a keycode an earlier text bound waits first.
+        owned = b'_SBX_TYPE_KEYCODES = "200"\n'
+        bound = self.keymap_reply(row(200, 0xE9, 0x1002713), owned=owned)
+        self.backend.exit_queue = [bound, {"exitcode": 0}]
+        with mock.patch.object(gui.time, "sleep") as pause:
+            self.dispatch("type", "t1", "\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7")
+        pause.assert_called_once_with(gui.REBIND_PAUSE)
+        self.assertEqual(self.backend.execs[-2][0][-2:], ["sbx", "97 103 120 200"])
 
-    def keymap_reply(self, *rows: bytes) -> dict[str, Any]:
-        """A guest's xmodmap -pk output with no keycodes owned by sbx."""
-        output = HEADER + ROWS + b"".join(rows) + UNOWNED
+    def keymap_reply(self, *rows: bytes, owned: bytes = UNOWNED) -> dict[str, Any]:
+        """A guest's xmodmap -pk output, by default with no keycodes owned by sbx."""
+        output = HEADER + ROWS + b"".join(rows) + owned
         return {"exitcode": 0, "out-data": base64.b64encode(output).decode()}
 
     def test_type_bind_failure(self) -> None:
