@@ -583,7 +583,9 @@
                 titlebar = false;
               };
 
-              # Accent frame on the focused window, base02 on the rest.
+              # Accent frame on the focused window, base02 on the rest. Tab
+              # and stack titles as VS Code tabs: the active one on the
+              # editor color, the others on the sidebar color.
               colors = {
                 focused = {
                   indicator = lib.mkForce palette.focusBorder;
@@ -595,16 +597,22 @@
                   indicator = lib.mkForce stylixColors.base02;
                   border = lib.mkForce stylixColors.base02;
                   childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
                 unfocused = {
                   indicator = lib.mkForce stylixColors.base03;
                   border = lib.mkForce stylixColors.base02;
                   childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
                 placeholder = {
                   indicator = lib.mkForce stylixColors.base03;
                   border = lib.mkForce stylixColors.base02;
                   childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
               };
 
