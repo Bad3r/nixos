@@ -28,7 +28,8 @@ A guest controls what its agent returns, so the unit accepts only one well-forme
 NixOS guests authorize it for root and the owner, and a Windows guest gets it through its `authorizedKeys`, which provisioning writes at each start.
 
 On Songbird, Home Manager decrypts the key to `~/.ssh/keys/workloads-guest`, and `modules/hosts/songbird/ssh-workloads.nix` writes `~/.ssh/hosts/workloads`.
-`~/.ssh/config` includes that file ahead of its `Host *` block, so the guests' names and addresses use the key with `IdentityAgent none`, and every other host keeps the 1Password agent.
+`~/.ssh/config` includes that file ahead of its `Host *` block.
+The guests' names and addresses use the key with `IdentityAgent none`; every other host keeps the 1Password agent.
 Without the secret file, the host warns at evaluation and guests keep the 1Password agent.
 
 ## Verify
@@ -63,7 +64,8 @@ sudo systemctl restart workloads-host-key@<name>.service
 Cause: the guest still runs a configuration from before the key was authorized.
 A Windows guest picks the key up at its next start; a NixOS guest needs a deploy, which itself logs in over SSH.
 
-Fix: deploy the NixOS guest once through the 1Password agent, since `-o` overrides the config file:
+Fix: deploy the NixOS guest once through the 1Password agent, since `-o` overrides the config file.
+From the repository root on the host, with `path:.#` in a linked worktree:
 
 ```sh
 NIX_SSHOPTS="-o IdentityAgent=~/.1password/agent.sock" nixos-rebuild switch --flake .#<name> --target-host root@<name>

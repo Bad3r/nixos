@@ -256,6 +256,8 @@ def main() -> None:
     refresh_parser.add_argument("systemctl")
     refresh_parser.add_argument("unit")
     args = parser.parse_args()
+    # Errors are caught and logged once per change; the default handler prints each to stderr.
+    libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
     if args.command == "capture":
         capture(args.manifest, args.guest)
     else:
