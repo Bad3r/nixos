@@ -62,6 +62,8 @@ in
         {
           block = "temperature";
           interval = 10;
+          # Normal load stays plain.
+          idle = 75.0;
           info = 81.0;
           warning = 90.0;
           format = " $icon $max ";
