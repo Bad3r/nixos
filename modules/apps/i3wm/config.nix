@@ -391,13 +391,22 @@
       # VS Code Dark 2026 colors with no base16 slot.
       palette = {
         focusBorder = "#3994bc"; # focusBorder, tab.activeBorderTop
+        activeItem = "#313233"; # activityBar.activeBackground
+        prominentForeground = "#ffffff"; # statusBarItem.prominentForeground
       };
 
-      # Bar on the sidebar color (base01) instead of base00.
-      barConfigOnSidebar = lib.recursiveUpdate config.stylix.targets.i3.exportedBarConfig {
-        colors = lib.mapAttrsRecursive (
-          _: value: if value == stylixColors.base00 then stylixColors.base01 else value
-        ) config.stylix.targets.i3.exportedBarConfig.colors;
+      stylixBarFonts = config.stylix.targets.i3.exportedBarConfig.fonts;
+      workspaceColors = border: background: text: { inherit border background text; };
+      # Bar on the sidebar color like VS Code's status and activity bars.
+      barColors = {
+        background = stylixColors.base01;
+        statusline = stylixColors.base04;
+        separator = stylixColors.base02;
+        focusedWorkspace = workspaceColors palette.activeItem palette.activeItem stylixColors.base05;
+        activeWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base05;
+        inactiveWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base04;
+        urgentWorkspace = workspaceColors stylixColors.base08 stylixColors.base01 stylixColors.base05;
+        bindingMode = workspaceColors palette.focusBorder palette.focusBorder palette.prominentForeground;
       };
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
@@ -611,28 +620,29 @@
               };
 
               bars = [
-                (
-                  {
-                    mode = "dock";
-                    hiddenState = "hide";
-                    position = "top";
-                    trayOutput = "primary";
-                    workspaceButtons = true;
-                    # Strip "N:" so buttons show only the icon.
-                    workspaceNumbers = false;
-                    statusCommand =
-                      if config.programs.i3status-rust.enable then
-                        lib.getExe config.programs.i3status-rust.package
-                      else
-                        null;
-                  }
-                  // barConfigOnSidebar
-                  // {
-                    fonts = barConfigOnSidebar.fonts // {
-                      names = barConfigOnSidebar.fonts.names ++ [ workspaceIcons.fontFamily ];
-                    };
-                  }
-                )
+                {
+                  mode = "dock";
+                  hiddenState = "hide";
+                  position = "top";
+                  trayOutput = "primary";
+                  workspaceButtons = true;
+                  # Strip "N:" so buttons show only the icon.
+                  workspaceNumbers = false;
+                  statusCommand =
+                    if config.programs.i3status-rust.enable then
+                      lib.getExe config.programs.i3status-rust.package
+                    else
+                      null;
+                  fonts = stylixBarFonts // {
+                    names = stylixBarFonts.names ++ [ workspaceIcons.fontFamily ];
+                  };
+                  colors = barColors;
+                  # Square icon buttons with a small inset at the bar ends.
+                  extraConfig = ''
+                    workspace_min_width 32
+                    padding 0 4px
+                  '';
+                }
               ];
             };
 

@@ -133,11 +133,15 @@
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
             theme = {
               theme = "plain";
-              # Bar on base01; good blocks move up to base02 to stay visible.
+              # VS Code status bar: dim text on base01, no dividers.
               overrides = stylixThemeOverrides // {
+                separator = "";
                 idle_bg = stylixColors.base01;
+                idle_fg = stylixColors.base04;
+                good_bg = stylixColors.base01;
+                good_fg = stylixColors.base05;
                 separator_bg = stylixColors.base01;
-                good_bg = stylixColors.base02;
+                separator_fg = stylixColors.base02;
               };
             };
           };
