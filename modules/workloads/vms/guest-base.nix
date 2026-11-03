@@ -13,6 +13,9 @@ in
       pkgs,
       ...
     }:
+    let
+      guestKeys = metaOwner.sshKeys ++ [ metaOwner.workloadsSshPublicKey ];
+    in
     {
       imports = [
         (modulesPath + "/profiles/qemu-guest.nix")
@@ -100,13 +103,13 @@ in
         networking.firewall.allowedTCPPorts = [ 22 ];
 
         users.users = {
-          root.openssh.authorizedKeys.keys = metaOwner.sshKeys;
+          root.openssh.authorizedKeys.keys = guestKeys;
           ${metaOwner.username} = {
             isNormalUser = true;
             # virtiofsd maps only the host owner's uid and primary group, `users` on both sides.
             inherit (metaOwner) uid;
             extraGroups = [ "wheel" ];
-            openssh.authorizedKeys.keys = metaOwner.sshKeys;
+            openssh.authorizedKeys.keys = guestKeys;
           };
         };
         # The owner's key already logs in as root.

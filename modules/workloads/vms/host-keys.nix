@@ -1,0 +1,151 @@
+_:
+let
+  hostKeysModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.workloads;
+      stateDir = "/var/lib/workloads";
+      keyDir = "${stateDir}/host-keys";
+      knownHosts = "${stateDir}/ssh_known_hosts";
+      captureUnit = "workloads-host-key@";
+      hookName = "workloads-host-key";
+
+      # The agent reads the key without the network; a guest without an interface has no SSH to pin.
+      guests = lib.filterAttrs (
+        _: guest: guest.ensure == "present" && guest.guestAgent && guest.hostnames != [ ]
+      ) cfg.guests;
+
+      manifest = pkgs.writeText "workloads-host-keys.json" (
+        builtins.toJSON {
+          inherit keyDir knownHosts;
+          guests = lib.mapAttrs (_: guest: {
+            inherit (guest) uuid kind;
+            inherit (guest) hostnames;
+          }) guests;
+        }
+      );
+
+      # A stable path, so a capture waiting across a switch reads the new declaration.
+      manifestPath = "/etc/workloads/host-keys.json";
+      python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
+      script = "${python.interpreter} -I ${
+        pkgs.replaceVars ./_host-keys.py {
+          manifest = manifestPath;
+          inherit systemctl;
+          captureUnit = "${captureUnit}%i.service";
+        }
+      }";
+      systemctl = "${config.systemd.package}/bin/systemctl";
+
+      # libvirt waits for a hook, so it only queues the job.
+      hook = pkgs.writeShellScript hookName (
+        if guests == { } then
+          "exit 0\n"
+        else
+          ''
+            case "$1" in
+              ${lib.concatStringsSep " | " (lib.attrNames guests)}) ;;
+              *) exit 0 ;;
+            esac
+            case "$2" in
+              started | reconnect) action=start ;;
+              stopped) action=stop ;;
+              *) exit 0 ;;
+            esac
+            unit="${captureUnit}$1.service"
+            if ! ${systemctl} --no-block "$action" "$unit"; then
+              echo "${hookName}: cannot queue $action of $unit" >&2
+            fi
+          ''
+      );
+    in
+    {
+      config = lib.mkMerge [
+        (lib.mkIf config.virtualisation.libvirtd.enable {
+          virtualisation.libvirtd.hooks.qemu.${hookName} = hook;
+          # libvirtd-config links hooks only when libvirtd starts; this link lands at switch.
+          systemd.tmpfiles.settings.workloads-host-keys."/var/lib/libvirt/hooks/qemu.d/${hookName}"."L+".argument =
+            "${hook}";
+        })
+        (lib.mkIf (guests != { }) {
+          # Only the guests' own names consult the captured file, so it can never vouch for another host.
+          programs.ssh.hosts.${
+            lib.concatStringsSep " " (lib.concatMap (guest: guest.hostnames) (lib.attrValues guests))
+          } =
+            {
+              order = 500;
+              # First value wins, so this repeats the files the generated `Host *` block lists.
+              GlobalKnownHostsFile = lib.concatStringsSep " " (
+                [ "/etc/ssh/ssh_known_hosts" ]
+                ++ map pkgs.copyPathToStore config.programs.ssh.knownHostsFiles
+                ++ [ knownHosts ]
+              );
+            };
+
+          environment.etc."workloads/host-keys.json".source = manifest;
+
+          systemd = {
+            tmpfiles.settings.workloads-host-keys.${keyDir}.d = {
+              mode = "0700";
+              user = "root";
+              group = "root";
+            };
+
+            # Restarts at a switch that changes the manifest, so undeclared guests lose their entries.
+            services.workloads-host-keys = {
+              description = "Write the SSH known_hosts file of workload guests";
+              wantedBy = [ "multi-user.target" ];
+              restartTriggers = [ manifest ];
+              requires = [ "libvirtd.service" ];
+              after = [
+                "libvirtd.service"
+                "systemd-tmpfiles-setup.service"
+              ];
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart = "${script} refresh";
+              };
+            };
+
+            services.${captureUnit} = {
+              description = "Record the SSH host key of the %i workload guest";
+              wants = [ "workloads-host-keys.service" ];
+              after = [ "workloads-host-keys.service" ];
+              # A waiting capture reads the new manifest itself.
+              restartIfChanged = false;
+              serviceConfig = {
+                Type = "oneshot";
+                # The active unit records that the current run of the guest has its key recorded.
+                RemainAfterExit = true;
+                # Windows creates its key only once firstlogon.ps1 installs OpenSSH.
+                TimeoutStartSec = "infinity";
+                ExecStart = "${script} capture %i";
+              };
+            };
+          };
+        })
+      ];
+    };
+in
+{
+  flake.nixosModules."workloads-vms" = hostKeysModule;
+
+  # Guards the parser that sees untrusted guest replies.
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks.workloads-host-keys-parser =
+        pkgs.runCommand "workloads-host-keys-parser"
+          { nativeBuildInputs = [ (pkgs.python3.withPackages (ps: [ ps.hypothesis ])) ]; }
+          ''
+            HYPOTHESIS_STORAGE_DIRECTORY="$TMPDIR/hypothesis" python3 -I ${./_host-keys-test.py} ${./_host-keys.py}
+            touch "$out"
+          '';
+    };
+}

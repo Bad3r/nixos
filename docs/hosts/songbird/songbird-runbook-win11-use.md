@@ -43,12 +43,7 @@ Verification: the Windows desktop responds to keyboard and mouse input.
    ssh vx@win11.vm
    ```
 
-   On the first connection, compare the offered host-key fingerprint with Windows before accepting it.
-   In PowerShell through the VM console, print the ED25519 fingerprint:
-
-   ```powershell
-   & "$env:ProgramFiles\OpenSSH\ssh-keygen.exe" -lf "$env:ProgramData\ssh\ssh_host_ed25519_key.pub"
-   ```
+   Songbird records the guest's host key at each start, so the connection never prompts for it ([guest SSH access](../../apps/libvirt/host-keys.md)).
 
 2. For automation, select the Windows shell explicitly and fail rather than prompt for credentials:
 
