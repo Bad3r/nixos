@@ -1,5 +1,8 @@
 # Local Codex telemetry with content filtering before file export.
-{ pkgs }:
+{
+  pkgs,
+  enabled ? true,
+}:
 let
   # Avoid the default OTLP port used by other local collectors.
   address = "127.0.0.1:14318";
@@ -59,11 +62,21 @@ let
   };
 in
 {
-  codexOtel = {
-    exporter = exporter "logs";
-    trace_exporter = exporter "traces";
-    metrics_exporter = exporter "metrics";
-  };
+  inherit enabled;
+
+  codexOtel =
+    if enabled then
+      {
+        exporter = exporter "logs";
+        trace_exporter = exporter "traces";
+        metrics_exporter = exporter "metrics";
+      }
+    else
+      {
+        exporter = "none";
+        trace_exporter = "none";
+        metrics_exporter = "none";
+      };
 
   collectorConfigFile =
     (pkgs.formats.yaml { }).generate "codex-telemetry-otelcol.yaml"
