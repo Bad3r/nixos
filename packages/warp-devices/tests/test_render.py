@@ -85,10 +85,10 @@ class TableTest(unittest.TestCase):
 
 
 def columns(text: str) -> int:
-    """Return the terminal columns text takes: wide 2, combining 0, else 1."""
+    """Return the terminal columns text takes: wide 2, combining or Mn/Me mark 0, else 1."""
     return sum(
         0
-        if unicodedata.combining(char)
+        if unicodedata.combining(char) or unicodedata.category(char) in {"Mn", "Me"}
         else 2
         if unicodedata.east_asian_width(char) in {"W", "F"}
         else 1
@@ -100,8 +100,14 @@ class WidthTest(unittest.TestCase):
     """Padding counts terminal columns, not characters."""
 
     def test_wide_and_combining_names_align(self) -> None:
-        """CJK, emoji, fullwidth, and combining names keep the next column aligned."""
-        names = ["東京サーバー", "laptop-\U0001f600", "\uff37\uff21\uff32\uff30", "cafe\u0301"]
+        """CJK, emoji, fullwidth, combining, and class-0 mark names keep the next column aligned."""
+        names = [
+            "東京サーバー",
+            "laptop-\U0001f600",
+            "\uff37\uff21\uff32\uff30",
+            "cafe\u0301",
+            "\u0e01\u0e31",
+        ]
         rows = [Row([name, "connected", "now"], "connected") for name in names]
         for color in (False, True):
             with self.subTest(color=color):

@@ -23,6 +23,7 @@ ESCAPED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Zl", "Zp"})
 LATIN1_MAX = 0xFF
 BMP_MAX = 0xFFFF
 WIDE = frozenset({"W", "F"})
+ZERO_WIDTH = frozenset({"Mn", "Me"})
 
 
 @dataclass(frozen=True)
@@ -63,7 +64,11 @@ def printable(text: str) -> str:
 def width(text: str) -> int:
     """Return the terminal columns of escaped text."""
     return sum(
-        0 if unicodedata.combining(char) else 2 if unicodedata.east_asian_width(char) in WIDE else 1
+        0
+        if unicodedata.combining(char) or unicodedata.category(char) in ZERO_WIDTH
+        else 2
+        if unicodedata.east_asian_width(char) in WIDE
+        else 1
         for char in text
     )
 
