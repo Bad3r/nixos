@@ -435,6 +435,14 @@ in
               # Opacity settings for GUI applications
               opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
 
+              # One pointer for X11, GTK, and Qt; unset, each toolkit fell back
+              # to a different theme.
+              cursor = {
+                package = pkgs.bibata-cursors;
+                name = "Bibata-Modern-Ice";
+                size = 24;
+              };
+
               # Icon theme configuration
               icons = {
                 enable = true;
