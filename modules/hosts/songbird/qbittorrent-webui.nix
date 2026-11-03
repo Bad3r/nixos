@@ -3,19 +3,47 @@
 # stock Web UI the service serves in place of its built-in one.
 _:
 let
+  webuiIcons = import ./qbittorrent-webui/_icons.nix;
+
   # The package's own Web UI with the scripts in ./qbittorrent-webui added to
   # two of its pages. They reach the stock code only through the exports,
   # window ids, and WebAPI endpoints the perSystem check below asserts, so a
   # qBittorrent bump that rewrites its internals still builds.
+  # themeCss is appended to the stylesheet every private page loads, icon
+  # replaces the favicon, which also heads each dialog, and the stock images
+  # in ./qbittorrent-webui/_icons.nix become Octicons in colors.
   webuiRootFor =
-    { pkgs, qbittorrentPackage }:
+    {
+      pkgs,
+      qbittorrentPackage,
+      themeCss,
+      icon,
+      colors,
+    }:
     let
       www = "${qbittorrentPackage.src}/src/webui/www";
       scripts = ./qbittorrent-webui;
+      tones = {
+        icon = colors.base04; # icon.foreground
+        muted = colors.base03;
+        error = "f48771"; # errorForeground
+        warning = "cca700"; # notificationsWarningIcon.foreground
+        ok = "73c991"; # gitDecoration.addedResourceForeground
+      };
+      # An image a bump drops is skipped here and fails the check below.
+      replaceImages = pkgs.lib.concatStrings (
+        pkgs.lib.mapAttrsToList (name: entry: ''
+          if [ -e "$out/private/images/${name}.svg" ]; then
+            sed 's|<svg |<svg fill="#${tones.${entry.tone}}" |' \
+              ${../../lib/octicons + "/${entry.octicon}-16.svg"} > "$out/private/images/${name}.svg"
+          fi
+        '') webuiIcons
+      );
     in
     pkgs.runCommand "qbittorrent-webui-root-${qbittorrentPackage.version}"
       {
         nativeBuildInputs = [
+          pkgs.librsvg
           pkgs.nodejs-slim
           pkgs.qt6.qttools
         ];
@@ -36,6 +64,12 @@ let
           --replace-fail '</head>' '<script defer src="scripts/index-hooks.js?v=''${CACHEID}"></script></head>'
         substituteInPlace "$out/private/addtorrent.html" \
           --replace-fail '</head>' '<script defer src="scripts/addtorrent-hooks.js?v=''${CACHEID}"></script></head>'
+        cat ${themeCss} >> "$out/private/css/style.css"
+        install -m 444 ${icon} "$out/public/images/qbittorrent-tray.svg"
+        rsvg-convert -w 32 -h 32 ${icon} > "$out/public/images/qbittorrent32.png"
+        ${replaceImages}
+        printf '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="20"><path d="M0 0h1v20H0z" fill="#%s"/></svg>' \
+          ${colors.base02} > "$out/private/images/toolbox-divider.svg"
         # The flags src/app/CMakeLists.txt builds the built-in copies with.
         for ts in ${www}/translations/*.ts; do
           lrelease -removeidentical -silent "$ts" -qm "$out/translations/$(basename "$ts" .ts).qm"
@@ -54,9 +88,18 @@ in
     let
       cfg = config.services.qbittorrent;
       stagingDir = "/run/qbittorrent-webui-staging";
+      themed =
+        file: extension:
+        config.lib.stylix.colors {
+          template = builtins.readFile file;
+          inherit extension;
+        };
       webuiRoot = webuiRootFor {
         inherit pkgs;
         qbittorrentPackage = cfg.package;
+        themeCss = themed ./qbittorrent-webui/theme.css.mustache ".css";
+        icon = themed ../../stylix/icons/qbittorrent.svg.mustache ".svg";
+        inherit (config.lib.stylix) colors;
       };
     in
     lib.mkMerge [
@@ -100,9 +143,18 @@ in
   perSystem =
     { pkgs, ... }:
     let
+      # No Stylix here: the sheet goes in unrendered, and the icon gets a
+      # stand-in color so rsvg-convert can draw it.
       root = webuiRootFor {
         inherit pkgs;
         qbittorrentPackage = pkgs.qbittorrent-nox;
+        themeCss = ./qbittorrent-webui/theme.css.mustache;
+        icon = pkgs.writeText "qbittorrent.svg" (
+          builtins.replaceStrings [ "{{base05-hex}}" ] [ "bbbebf" ] (
+            builtins.readFile ../../stylix/icons/qbittorrent.svg.mustache
+          )
+        );
+        colors = pkgs.lib.genAttrs [ "base02" "base03" "base04" ] (_: "808080");
       };
       stock = "${pkgs.qbittorrent-nox.src}/src/webui/www/private";
     in
@@ -123,6 +175,15 @@ in
             expect scripts/client.js 'windowId: id'
             expect scripts/client.js '"addtorrent_metadata"'
             expect scripts/addtorrent.js '"api/v2/torrents/fetchMetadata"'
+            # The theme overrides these and replaces the favicon in place.
+            for var in $(grep -o -- '--color-[a-z-]*:' ${./qbittorrent-webui/theme.css.mustache} | sort -u); do
+              expect css/style.css "$var"
+            done
+            expect index.html 'href="images/qbittorrent-tray.svg"'
+            expect index.html 'href="images/qbittorrent32.png"'
+            for image in ${pkgs.lib.escapeShellArgs (builtins.attrNames webuiIcons)} toolbox-divider; do
+              test -e "${stock}/images/$image.svg" || { echo "images/$image.svg is gone" >&2; exit 1; }
+            done
             touch "$out"
           '';
     };
