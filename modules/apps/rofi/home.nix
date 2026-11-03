@@ -8,23 +8,23 @@
   Summary:
     * Provides a customizable launcher supporting modes for running applications, switching windows, SSH, scripts, file browsers, and more.
     * Features themes, keybinding customization, history, and scriptable "modi" to extend functionality beyond launching apps.
-    * Styled after the VS Code command palette, colored from the Stylix palette.
+    * Spotlight-style layout in VS Code Dark 2026 colors, from the Stylix palette.
 
   Features:
-    * VS Code command palette look: top-centered 600px box, rounded input, solid selected row
+    * macOS Spotlight proportions: centered 680px box, large search field, roomy rows
     * Multiple specialized themes: dmenu (apps), powermenu, power-profiles, keyhint
     * Modes: window, drun, run, ssh, combi, filebrowser, calc
     * Calculator mode via rofi-calc plugin (uses libqalculate for natural language math)
     * Terminal integration for running console applications
 
   Config files installed:
-    * ~/.config/rofi/rofidmenu.rasi      - Apps menu (command palette, 12 lines)
+    * ~/.config/rofi/rofidmenu.rasi      - Apps menu (Spotlight layout, 9 lines)
     * ~/.config/rofi/powermenu.rasi      - Power menu layout (east sidebar, 7 lines)
     * ~/.config/rofi/power-profiles.rasi - Power profile selector (east, 4 lines)
     * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
 
   Example Usage:
-    * `rofi -show drun` -- App launcher in the command palette style.
+    * `rofi -show drun` -- App launcher in the Spotlight layout.
     * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps menu with its own placeholder.
     * `rofi -show calc -modi calc -no-show-match -no-sort` -- Calculator with natural language.
     * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` -- Power menu.
@@ -55,16 +55,15 @@ _: {
       # VS Code Dark 2026 quickInput colors with no base16 slot.
       palette = {
         background = "#202122"; # quickInput.background
-        focusBorder = "#3994bcb3"; # focusBorder
         placeholder = "#555555"; # input.placeholderForeground
         selection = "#297aa0"; # quickInputList.focusBackground
         selectionText = "#ffffff"; # quickInputList.focusForeground
         match = "#48a0c7"; # list.highlightForeground
       };
 
-      # VS Code command palette (quick input), from workbench CSS: 600px wide,
-      # 12px window radius, 6px input radius, 22px rows with 3px radius.
-      commandPaletteTheme = {
+      # macOS Spotlight layout: centered box, large search field with a
+      # magnifier, hairline under the field, roomy rows with large icons.
+      launcherTheme = {
         "*" = {
           background-color = mkLiteral "transparent";
           text-color = mkLiteral colors.base05;
@@ -75,19 +74,23 @@ _: {
           separatorcolor = mkLiteral colors.base02;
         };
         window = {
-          location = mkLiteral "north";
+          # Top edge just above center, so the field stays put while results
+          # grow downward and a full list sits centered.
+          location = mkLiteral "center";
           anchor = mkLiteral "north";
-          y-offset = mkLiteral "8%";
-          width = mkLiteral "600px";
+          y-offset = mkLiteral "-15%";
+          width = mkLiteral "680px";
           background-color = mkLiteral palette.background;
           border = mkLiteral "1px";
           border-color = mkLiteral colors.base02;
-          border-radius = mkLiteral "12px";
-          padding = mkLiteral "6px";
+          border-radius = mkLiteral "18px";
+          padding = mkLiteral "10px";
           transparency = "real";
         };
+        # The separator and gap belong to the listview, which rofi collapses to
+        # zero height (margin and border included) when nothing matches.
         mainbox = {
-          spacing = mkLiteral "4px";
+          spacing = mkLiteral "0px";
           children = map mkLiteral [
             "inputbar"
             "message"
@@ -95,16 +98,27 @@ _: {
           ];
         };
         inputbar = {
-          children = map mkLiteral [ "entry" ];
-          background-color = mkLiteral colors.base01;
-          border = mkLiteral "1px";
-          border-color = mkLiteral palette.focusBorder;
-          border-radius = mkLiteral "6px";
-          padding = mkLiteral "4px 6px";
+          children = map mkLiteral [
+            "icon-search"
+            "entry"
+          ];
+          spacing = mkLiteral "10px";
+          padding = mkLiteral "6px 8px";
+        };
+        icon-search = {
+          expand = false;
+          filename = "${config.lib.stylix.colors {
+            template = builtins.readFile ../../stylix/icons/search.svg.mustache;
+            extension = ".svg";
+          }}";
+          size = mkLiteral "22px";
+          vertical-align = mkLiteral "0.5";
         };
         entry = {
-          placeholder = "Type to search";
+          font = "${config.stylix.fonts.sansSerif.name} 16";
+          placeholder = "Search";
           placeholder-color = mkLiteral palette.placeholder;
+          vertical-align = mkLiteral "0.5";
           cursor = mkLiteral "text";
         };
         message = {
@@ -114,17 +128,20 @@ _: {
           text-color = mkLiteral colors.base04;
         };
         listview = {
-          lines = 12;
+          lines = 9;
           fixed-height = false;
           dynamic = true;
           scrollbar = false;
           spacing = mkLiteral "0px";
-          padding = mkLiteral "0px 0px 2px";
+          margin = mkLiteral "6px 0px 0px";
+          border = mkLiteral "1px 0px 0px";
+          border-color = mkLiteral colors.base02;
+          padding = mkLiteral "8px 0px 0px";
         };
         element = {
-          padding = mkLiteral "3px 6px";
-          spacing = mkLiteral "6px";
-          border-radius = mkLiteral "3px";
+          padding = mkLiteral "6px 10px";
+          spacing = mkLiteral "10px";
+          border-radius = mkLiteral "8px";
         };
         "element normal.normal" = {
           text-color = mkLiteral colors.base05;
@@ -157,7 +174,7 @@ _: {
           text-color = mkLiteral palette.selectionText;
         };
         element-icon = {
-          size = mkLiteral "16px";
+          size = mkLiteral "24px";
         };
         element-text = {
           text-color = mkLiteral "inherit";
@@ -210,7 +227,7 @@ _: {
 
       # Apps menu config (rofidmenu.rasi)
       rofidmenuConfig = ''
-        /* Apps menu - command palette */
+        /* Apps menu - Spotlight layout */
         @import "config"
 
         entry {
@@ -357,7 +374,7 @@ _: {
           };
 
           font = "${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.popups}";
-          theme = commandPaletteTheme;
+          theme = launcherTheme;
         };
 
         stylix.targets.rofi.enable = false;
