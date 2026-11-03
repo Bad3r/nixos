@@ -32,6 +32,8 @@ in
     let
       # Installation inputs stay declared only while win11 lists install media.
       win11Installing = config.workloads.guests.win11.install.media != [ ];
+      openshell = config.programs.openshell.extended;
+      openshellTarget = lib.optional openshell.enable "host:openshell";
     in
     {
       imports =
@@ -61,6 +63,13 @@ in
               # matters before the first define.
               images = lib.mkIf win11Installing { virtio-win.expected = "${pkgs.virtio-win.src}"; };
 
+              grants.allow = lib.mkIf openshell.enable [
+                {
+                  from = [ "guest:win11" ];
+                  to = [ "host:openshell" ];
+                  maxTtl = "24h";
+                }
+              ];
               guests.win11 = {
                 uuid = "7d586a9c-6290-4ece-9593-b8b0b7c26300";
                 kind = "windows";
@@ -112,14 +121,20 @@ in
           grantable = true;
         };
 
+        host.services.openshell = lib.mkIf openshell.enable {
+          ports = [ openshell.gatewayPort ];
+          bind = "any";
+          grantable = true;
+        };
+
         grants.allow = [
           {
             from = [ "sbx-*" ];
-            to = [ "host:dev" ];
+            to = [ "host:dev" ] ++ openshellTarget;
           }
           {
             from = [ "guest:nixos-dev" ];
-            to = [ "host:dev" ];
+            to = [ "host:dev" ] ++ openshellTarget;
             maxTtl = "24h";
           }
         ];

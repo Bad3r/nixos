@@ -8,14 +8,19 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "openshell" "extended" "enable" ] false osConfig;
-      gateway = lib.getExe osConfig.programs.openshell.extended.gatewayPackage;
+      inherit (osConfig.programs.openshell.extended) gatewayPackage gatewayPort;
+      gateway = lib.getExe gatewayPackage;
       tlsDir = "%h/.local/state/openshell/tls";
 
       # upstream deploy/rpm/gateway.toml.default
       configFile = (pkgs.formats.toml { }).generate "openshell-gateway.toml" {
         openshell = {
           version = 2;
-          gateway.compute_driver = "podman";
+          gateway = {
+            compute_driver = "podman";
+            # Mesh and workload clients; sandboxes keep using loopback
+            bind_address = "0.0.0.0:${toString gatewayPort}";
+          };
           drivers.podman.health_check_interval_secs = 10;
         };
       };
