@@ -29,6 +29,10 @@ in
             pkgs
             ;
           homeDir = "/home/codex-config-check";
+          codexNotify = import ./_notify.nix {
+            inherit pkgs;
+            icon = pkgs.emptyFile;
+          };
         };
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;

@@ -1,5 +1,6 @@
 {
   agents,
+  codexNotify,
   homeDir,
   lib,
   osConfig,
@@ -83,7 +84,7 @@ let
     show_raw_agent_reasoning = true;
 
     # Notifications
-    notify = [ "notify-send" ];
+    notify = [ (lib.getExe codexNotify) ];
 
     # Privacy/telemetry
     analytics = {

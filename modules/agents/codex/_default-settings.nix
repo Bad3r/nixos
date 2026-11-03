@@ -144,7 +144,7 @@
   file_opener = "vscode";
   hide_agent_reasoning = false;
   show_raw_agent_reasoning = false;
-  # notify = [ "notify-send" ];
+  # notify = [ "/absolute/path/to/program" ]; # gets the turn's JSON payload as its last argument
   # Notice acknowledgements and desktop state are written by Codex itself.
   # notice = { };
   # desktop = { };

@@ -68,9 +68,18 @@
         sbx = if sbxEnabled then osConfig.programs.sbx.extended.finalPackage else null;
       };
 
+      codexNotify = import ./_notify.nix {
+        inherit pkgs;
+        icon = config.lib.stylix.colors {
+          template = builtins.readFile ../../stylix/icons/openai-blossom.svg.mustache;
+          extension = ".svg";
+        };
+      };
+
       codexSettings = import ./_settings.nix {
         inherit
           agents
+          codexNotify
           homeDir
           lib
           osConfig
