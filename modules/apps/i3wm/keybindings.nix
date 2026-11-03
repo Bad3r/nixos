@@ -16,15 +16,18 @@
       inherit (config.gui.i3) commands;
 
       # Workspace bindings (1-10, using 0 for workspace 10)
-      workspaceNumbers = map toString (lib.range 1 10);
-      toWorkspaceKey = ws: if ws == "10" then "0" else ws;
+      inherit (import ./_workspaces.nix { inherit lib; }) workspaces;
+      toWorkspaceKey = ws: toString (lib.mod ws.number 10);
       workspaceBindings = lib.listToAttrs (
-        map (ws: lib.nameValuePair "${mod}+${toWorkspaceKey ws}" "workspace number ${ws}") workspaceNumbers
+        map (
+          ws: lib.nameValuePair "${mod}+${toWorkspaceKey ws}" ''workspace number "${ws.name}"''
+        ) workspaces
       );
       moveContainerBindings = lib.listToAttrs (
         map (
-          ws: lib.nameValuePair "${mod}+Shift+${toWorkspaceKey ws}" "move container to workspace number ${ws}"
-        ) workspaceNumbers
+          ws:
+          lib.nameValuePair "${mod}+Shift+${toWorkspaceKey ws}" ''move container to workspace number "${ws.name}"''
+        ) workspaces
       );
 
       # Resize mode

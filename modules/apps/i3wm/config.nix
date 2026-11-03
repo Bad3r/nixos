@@ -419,48 +419,20 @@
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
-      workspaceOutputAssign = [
-        {
-          workspace = "1";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "2";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "3";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "4";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "5";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "6";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "7";
-          output = [ "eDP-1-1" ];
-        }
-        {
-          workspace = "8";
-          output = [ "DP-1" ];
-        }
-        {
-          workspace = "9";
-          output = [ "DP-1" ];
-        }
-        {
-          workspace = "10";
-          output = [ "DP-1" ];
-        }
-      ];
+      workspaceIcons = import ./_workspaces.nix { inherit lib; };
+      workspaceOutput =
+        number:
+        if number <= 6 then
+          "HDMI-0"
+        else if number == 7 then
+          "eDP-1-1"
+        else
+          "DP-1";
+      # Full names, so i3 creates each workspace with its icon.
+      workspaceOutputAssign = map (ws: {
+        workspace = ws.name;
+        output = [ (workspaceOutput ws.number) ];
+      }) workspaceIcons.workspaces;
 
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
@@ -667,7 +639,8 @@
                     position = "top";
                     trayOutput = "primary";
                     workspaceButtons = true;
-                    workspaceNumbers = true;
+                    # Strip "N:" so buttons show only the icon.
+                    workspaceNumbers = false;
                     statusCommand =
                       if config.programs.i3status-rust.enable then
                         lib.getExe config.programs.i3status-rust.package
@@ -675,6 +648,11 @@
                         null;
                   }
                   // barConfigOnSidebar
+                  // {
+                    fonts = barConfigOnSidebar.fonts // {
+                      names = barConfigOnSidebar.fonts.names ++ [ workspaceIcons.fontFamily ];
+                    };
+                  }
                 )
               ];
             };

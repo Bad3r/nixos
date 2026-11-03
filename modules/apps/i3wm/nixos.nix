@@ -61,6 +61,9 @@ let
           "systemd-lock-handler".enable = lib.mkDefault true;
         };
 
+        # Icon font for the i3bar workspace buttons.
+        fonts.packages = [ ((import ./_workspaces.nix { inherit lib; }).font pkgs) ];
+
         # The i3 Home Manager config needs the packages these rows' gated overlays provide.
         programs = {
           "i3-focus-or-launch".extended.enable = lib.mkOverride 1050 true;
