@@ -212,10 +212,29 @@ before="$(git -C "$mirror" rev-parse HEAD)"
 if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
   fail 'populated submodule replacement was accepted'
 fi
-grep -Fq "refusing to overwrite local path 'sub'" "$case_root/sync.log" || fail 'submodule collision cause missing'
+grep -Fq "refusing to overwrite local path 'sub/CLAUDE.md'" "$case_root/sync.log" || fail 'submodule collision cause missing'
 [[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'submodule collision changed HEAD'
 [[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail 'submodule replacement removed local content'
 printf '%s\n' 'ok: populated submodules survive gitlink bumps and block their replacement'
+
+for conversion in removal directory; do
+  new_case "submodule-$conversion"
+  add_gitlink sub
+  git -C "$upstream" commit -qm submodule
+  sync_ok
+  mkdir -p "$mirror/sub"
+  printf 'local instructions\n' >"$mirror/sub/CLAUDE.md"
+  git -C "$upstream" rm -q --cached sub
+  if [[ $conversion == directory ]]; then
+    mkdir "$upstream/sub"
+    printf 'upstream file\n' >"$upstream/sub/README.md"
+    git -C "$upstream" add sub/README.md
+  fi
+  git -C "$upstream" commit -qm "submodule $conversion"
+  sync_ok
+  [[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail "submodule $conversion removed local content"
+  printf 'ok: submodule %s updates and keeps local files\n' "$conversion"
+done
 
 new_case submodule-added
 mkdir "$mirror/vendor"

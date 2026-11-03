@@ -32,9 +32,11 @@ def _parents(path: bytes) -> Iterator[bytes]:
         yield path
 
 
-def _populated(repo: str, path: bytes) -> bool:
-    directory = Path(repo) / os.fsdecode(path)
-    return directory.is_dir() and any(directory.iterdir())
+def _files_under(repo: str, path: bytes) -> Iterator[bytes]:
+    root = Path(repo)
+    for directory, subdirs, files in (root / os.fsdecode(path)).walk():
+        for name in [*files, *(d for d in subdirs if (directory / d).is_symlink())]:
+            yield os.fsencode((directory / name).relative_to(root))
 
 
 def main() -> int:
@@ -45,29 +47,26 @@ def main() -> int:
     target = _tree(repo, revision)
     trees = [head, target]
 
-    # ls-files skips submodule directories, and a revision without the gitlink
-    # replaces whatever was checked out or left there.
-    conflicts = {
-        path
-        for path, mode in head.items()
-        if mode == GITLINK and target.get(path) != GITLINK and _populated(repo, path)
-    }
-
     # Without exclude options, ls-files includes ignored files. Git reset can
     # overwrite those even with --keep, so they need the same collision check.
     local = _git_paths(repo, "ls-files", "--others")
-    if local:
-        upstream = {path for tree in trees for path in tree}
-        # A gitlink only replaces a path itself; files under it stay in place.
-        upstream_files = {path for tree in trees for path, mode in tree.items() if mode != GITLINK}
-        upstream_dirs = {parent for path in upstream for parent in _parents(path)}
-        conflicts.update(
-            path
-            for path in local
-            if path in upstream
-            or path in upstream_dirs
-            or any(parent in upstream_files for parent in _parents(path))
-        )
+    # ls-files skips submodule directories; their contents become plain local
+    # files once the revision drops or replaces the gitlink.
+    for path, mode in head.items():
+        if mode == GITLINK and target.get(path) != GITLINK:
+            local.update(_files_under(repo, path))
+
+    upstream = {path for tree in trees for path in tree}
+    # A gitlink only replaces a path itself; files under it stay in place.
+    upstream_files = {path for tree in trees for path, mode in tree.items() if mode != GITLINK}
+    upstream_dirs = {parent for path in upstream for parent in _parents(path)}
+    conflicts = {
+        path
+        for path in local
+        if path in upstream
+        or path in upstream_dirs
+        or any(parent in upstream_files for parent in _parents(path))
+    }
 
     for path in sorted(conflicts):
         print(f"refusing to overwrite local path {os.fsdecode(path)!r}", file=sys.stderr)
