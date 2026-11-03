@@ -125,7 +125,9 @@ in
           ];
           # Sidebery maps only a few Firefox theme colors (none on its settings
           # page) and hardcodes the rest: status, badge, and named colors, and
-          # neutral white/black hover, selection, and scrollbar overlays.
+          # neutral white/black hover, selection, and scrollbar overlays. It sits
+          # on base01 like VS Code's sidebar, with VS Code's 8% hover and 13%
+          # selection overlays.
           sideberyUserContent = with config.lib.stylix.colors.withHashtag; ''
             @-moz-document regexp("moz-extension://[^/]+/(sidebar|sidebery|page\\.[a-z]+|popup\\.[a-z-]+)/[a-z-]+\\.html.*") {
             	#root {
@@ -137,24 +139,24 @@ in
             		--badge-fg: ${base00} !important;
             		--badge-urgent-bg: ${base08} !important;
             		--badge-urgent-fg: ${base00} !important;
-            		--frame-bg: ${base00} !important;
+            		--frame-bg: ${base01} !important;
             		--frame-fg: ${base05} !important;
-            		--frame-el-overlay-hover-bg: ${base01} !important;
-            		--frame-el-overlay-clicked-bg: ${base02} !important;
-            		--frame-el-overlay-selected-bg: ${base02} !important;
+            		--frame-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--frame-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--frame-el-overlay-selected-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--frame-scrollbar-color: ${base03} !important;
-            		--toolbar-bg: ${base00} !important;
+            		--toolbar-bg: ${base01} !important;
             		--toolbar-fg: ${base05} !important;
             		--toolbar-fg-active: ${base0D} !important;
-            		--toolbar-el-overlay-hover-bg: ${base01} !important;
-            		--toolbar-el-overlay-clicked-bg: ${base02} !important;
-            		--toolbar-el-overlay-active-bg: ${base02} !important;
-            		--toolbar-el-overlay-selected-bg: ${base02} !important;
+            		--toolbar-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--toolbar-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--toolbar-el-overlay-active-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--toolbar-el-overlay-selected-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--toolbar-scrollbar-color: ${base03} !important;
-            		--active-el-bg: ${base02} !important;
+            		--active-el-bg: color-mix(in srgb, ${base07} 13%, ${base01}) !important;
             		--active-el-fg: ${base05} !important;
-            		--active-el-overlay-hover-bg: ${base03} !important;
-            		--active-el-overlay-clicked-bg: ${base04} !important;
+            		--active-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--active-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--popup-bg: ${base01} !important;
             		--popup-fg: ${base05} !important;
             		--popup-scrollbar-color: ${base03} !important;
@@ -170,7 +172,7 @@ in
             	/* Bookmarks, history, and bottom-bar buttons share --frame-el-shadow;
             	   colorized tabs redeclare --tabs-activated-shadow on .Tab. */
             	.Tab {
-            		--frame-el-shadow: inset 0 0 0 1px ${base00} !important;
+            		--frame-el-shadow: inset 0 0 0 1px ${base01} !important;
             		--tabs-activated-shadow: inset 0 0 0 1px ${base03} !important;
             	}
 
@@ -243,10 +245,10 @@ in
           # with currentColor, which reads lighter than the field.
           urlbarUserChrome = with config.lib.stylix.colors.withHashtag; ''
             :root {
-            	--urlbar-box-background-color: ${base02} !important;
-            	--urlbar-box-background-color-focus: ${base02} !important;
-            	--urlbar-box-background-color-hover: ${base03} !important;
-            	--urlbar-box-background-color-active: ${base04} !important;
+            	--urlbar-box-background-color: ${base01} !important;
+            	--urlbar-box-background-color-focus: ${base01} !important;
+            	--urlbar-box-background-color-hover: ${base02} !important;
+            	--urlbar-box-background-color-active: ${base02} !important;
             }
           '';
           mkThemeColor = name: {
@@ -254,18 +256,22 @@ in
             g = config.lib.stylix.colors."${name}-rgb-g";
             b = config.lib.stylix.colors."${name}-rgb-b";
           };
-          # Base16 has no slot darker than base00; mix it 12% toward black.
-          urlbarFill = lib.mapAttrs (_: c: toString ((lib.toInt c * 88 + 50) / 100)) (mkThemeColor "base00");
+          # VS Code layering: page content on base00 like the editor; frame (which
+          # Sidebery paints its background with), toolbar, sidebar, and menus on
+          # base01 like the title bar and sidebar; base02 edges between them.
           geckoProfiles = lib.genAttrs geckoProfileNames (_: {
             extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors = {
-              # Sidebery paints its background with the theme's frame color, not its sidebar color.
-              frame = lib.mkForce (mkThemeColor "base00");
-              toolbar_field = lib.mkForce urlbarFill;
-              toolbar_field_focus = lib.mkForce urlbarFill;
-              toolbar_field_border = lib.mkForce (mkThemeColor "base00");
-              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base00");
+              toolbar = lib.mkForce (mkThemeColor "base01");
+              toolbar_bottom_separator = lib.mkForce (mkThemeColor "base02");
+              # The URL field sits inset on base00 like a VS Code input.
+              toolbar_field = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_focus = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_border = lib.mkForce (mkThemeColor "base02");
+              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base02");
+              sidebar = lib.mkForce (mkThemeColor "base01");
               # Nova outlines #sidebar-box in this color under a theme.
-              sidebar_border = lib.mkForce (mkThemeColor "base00");
+              sidebar_border = lib.mkForce (mkThemeColor "base02");
+              popup = lib.mkForce (mkThemeColor "base01");
               # Sidebery outlines its menus and draws their separators in this color.
               popup_border = lib.mkForce (mkThemeColor "base02");
             };
