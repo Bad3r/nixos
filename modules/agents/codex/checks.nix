@@ -40,6 +40,10 @@ in
         configDir = "/home/codex-config-check/.config/codex";
       };
       telemetry = import ./_telemetry.nix { inherit pkgs; };
+      telemetryCheck = pkgs.replaceVars ./_telemetry-check.py {
+        collector = lib.getExe pkgs.opentelemetry-collector-contrib;
+        config = telemetry.collectorConfigFile;
+      };
     in
     {
       checks."codex/telemetry-collector" =
@@ -47,8 +51,7 @@ in
           ''
             STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
               --config=${telemetry.collectorConfigFile}
-            ${lib.getExe pkgs.python314} ${./_telemetry-check.py} \
-              ${lib.getExe pkgs.opentelemetry-collector-contrib} ${telemetry.collectorConfigFile}
+            ${lib.getExe pkgs.python314} ${telemetryCheck}
             touch "$out"
           '';
 

@@ -7,7 +7,6 @@ import json
 import os
 import socket
 import subprocess
-import sys
 import time
 from http import HTTPStatus
 from pathlib import Path
@@ -18,8 +17,9 @@ def require(*, condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-collector, config = sys.argv[1:]
-state = Path(os.environ["TMPDIR"]) / "telemetry-state"
+collector = "@collector@"
+config = "@config@"
+state = Path.cwd() / "telemetry-state"
 state.mkdir()
 with socket.socket() as sock:
     sock.bind(("127.0.0.1", 0))
