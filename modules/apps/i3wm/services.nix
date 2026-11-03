@@ -138,6 +138,9 @@
                 };
                 blur-background = true;
                 blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst'" ];
+                # VS Code cornerRadius-large; picom never rounds fullscreen windows.
+                corner-radius = 8;
+                rounded-corners-exclude = [ "window_type = 'dock'" ];
               };
             };
             udiskie = {

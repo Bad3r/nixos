@@ -624,20 +624,21 @@
                 urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
 
                 # Grouped per-state overrides to satisfy linters and avoid repetition
+                # Unfocused frames in the sidebar color.
                 focusedInactive = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base00;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base01;
+                  border = lib.mkForce stylixColorsStrictWithHash.base01;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
                 };
                 unfocused = {
                   indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  border = lib.mkForce stylixColorsStrictWithHash.base01;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
                 };
                 placeholder = {
                   indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  border = lib.mkForce stylixColorsStrictWithHash.base01;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base01;
                 };
               };
 
@@ -645,7 +646,7 @@
               inherit workspaceOutputAssign;
 
               gaps = {
-                inner = 0;
+                inner = 6;
                 outer = 0;
                 top = 0;
                 bottom = 0;
