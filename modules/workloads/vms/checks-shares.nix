@@ -368,6 +368,7 @@ in
             import json
             import shlex
             import time
+            from datetime import timedelta
 
             def agent(command):
                 out = machine.succeed(
@@ -400,7 +401,7 @@ in
 
             def wait_for_guest():
                 machine.wait_until_succeeds(
-                    "virsh qemu-agent-command epsilon '{\"execute\":\"guest-ping\"}'", timeout=600
+                    "virsh qemu-agent-command epsilon '{\"execute\":\"guest-ping\"}'", timeout=timedelta(seconds=600)
                 )
                 for _ in range(120):
                     if guest("findmnt /mnt/rw && findmnt /mnt/ro")[0] == 0:

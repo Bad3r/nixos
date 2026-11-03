@@ -87,6 +87,7 @@ in
             import json
             import shlex
             import string
+            from datetime import timedelta
 
             def as_owner(command):
                 return f"runuser -u ${owner} -- env XDG_RUNTIME_DIR=/run/user/1000 LIBVIRT_AUTOSTART=0 {command}"
@@ -109,7 +110,7 @@ in
 
             with subtest("root reaches the session's display, where a terminal has focus"):
                 try:
-                    machine.wait_until_succeeds(as_owner("sbx exec g -- xdotool search --onlyvisible --class xterm"), timeout=180)
+                    machine.wait_until_succeeds(as_owner("sbx exec g -- xdotool search --onlyvisible --class xterm"), timeout=timedelta(seconds=180))
                 except Exception:
                     diagnose = (
                         "systemctl --failed; "
@@ -127,7 +128,7 @@ in
                 sbx("type", "g", "cat > ~/typed\n")
                 assert sbx("type", "g", text + "\n") == {"sandbox": "g", "characters": len(text) + 1}
                 assert sbx("key", "g", "ctrl+d") == {"sandbox": "g", "keys": ["ctrl+d"]}
-                machine.wait_until_succeeds(as_owner("sbx exec g -- test -s /home/sbx/typed"), timeout=30)
+                machine.wait_until_succeeds(as_owner("sbx exec g -- test -s /home/sbx/typed"), timeout=timedelta(seconds=30))
                 typed = sbx("exec", "g", "--", "cat", "/home/sbx/typed")["stdout"]
                 assert typed == text + "\n", typed
 
@@ -137,7 +138,7 @@ in
                 for step in steps:
                     step()
                 sbx("key", "g", "ctrl+d")
-                machine.wait_until_succeeds(as_owner(f"sbx exec g -- test -s {path}"), timeout=30)
+                machine.wait_until_succeeds(as_owner(f"sbx exec g -- test -s {path}"), timeout=timedelta(seconds=30))
                 return sbx("exec", "g", "--", "cat", path)["stdout"]
 
             def caps_led():
@@ -184,7 +185,7 @@ in
             with subtest("screenshot OCR reads what was typed"):
                 sbx("type", "g", "clear; echo SBXOCROK\n")
                 machine.wait_until_succeeds(
-                    as_owner("sbx --json screenshot g --ocr | grep -q SBXOCROK"), timeout=60
+                    as_owner("sbx --json screenshot g --ocr | grep -q SBXOCROK"), timeout=timedelta(seconds=60)
                 )
 
             with subtest("screenshots get their own files, and --to keeps one"):

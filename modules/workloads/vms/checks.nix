@@ -487,6 +487,7 @@ in
           ''
             import json
             import xml.etree.ElementTree as ET
+            from datetime import timedelta
 
             def journal(unit):
                 return machine.succeed(f"journalctl -b -o cat -u {unit}")
@@ -790,7 +791,7 @@ in
 
                 machine.succeed(as_owner("virsh -c qemu:///session create ${peerDomain}"))
                 try:
-                    peer = machine.wait_until_succeeds(as_owner("${sbxPython} ${leaseOf} ${peerMac}"), timeout=90).strip()
+                    peer = machine.wait_until_succeeds(as_owner("${sbxPython} ${leaseOf} ${peerMac}"), timeout=timedelta(seconds=90)).strip()
                 except Exception:
                     # The guest's console tells a failed boot from a missing lease.
                     print(machine.succeed("cat ${home}/peer.log"))
@@ -798,8 +799,8 @@ in
                 assert peer.startswith("172.16.6."), peer
                 # The host reaches the peer, so only the bridge isolation can block the probe's ping.
                 # Under the periodic refill's 30 s, so only the lease event can add it.
-                machine.wait_until_succeeds("nft list set bridge workload-leases leases-sbx | grep -F ${peerMac}", timeout=10)
-                machine.wait_until_succeeds(f"ping -c 1 -W 1 {peer}", timeout=30)
+                machine.wait_until_succeeds("nft list set bridge workload-leases leases-sbx | grep -F ${peerMac}", timeout=timedelta(seconds=10))
+                machine.wait_until_succeeds(f"ping -c 1 -W 1 {peer}", timeout=timedelta(seconds=30))
 
                 host = machine.succeed("ip -4 -o addr show dev eth1 | awk '{ print $4 }' | cut -d/ -f1").strip()
                 machine.succeed(f"sed -e 's/@PEER@/{peer}/' -e 's/@HOST@/{host}/' ${probeDomain} > /run/probe.xml")

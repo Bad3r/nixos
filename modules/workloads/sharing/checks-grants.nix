@@ -266,6 +266,7 @@ in
         testScript = ''
           import json
           import shlex
+          from datetime import timedelta
 
           machine.wait_for_unit("workload-grants.service")
           machine.wait_for_unit("workload-grantd.socket")
@@ -436,7 +437,7 @@ in
 
           def alive(name):
               before = count(name)
-              machine.sleep(2)
+              machine.sleep(timedelta(seconds=2))
               return count(name) > before
 
           def wait_stopped(names, timeout):
@@ -464,7 +465,7 @@ in
               flow("host-push", "sb", "push-client", "172.16.2.1:8004")
               flow("guest-push", "sb", "push-client", "172.16.1.10:8082")
               for name in ("echo", "host-push", "guest-push"):
-                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=20)
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=timedelta(seconds=20))
                   assert alive(name), name
               wait_stopped(["echo", "host-push", "guest-push"], 20)
               assert live() == {dev_8100: "host:dev:8100"}
@@ -477,7 +478,7 @@ in
               flow("first", "sb", "echo-client", "172.16.2.1:8005")
               flow("second", "sb", "echo-client", "172.16.2.1:8006")
               for name in ("first", "second"):
-                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=20)
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=timedelta(seconds=20))
               workloads("revoke", first)
               wait_stopped(["first"], 5)
               assert alive("second")
@@ -488,30 +489,30 @@ in
               for _ in range(60):
                   if grant_id not in live():
                       return
-                  machine.sleep(1)
+                  machine.sleep(timedelta(seconds=1))
               raise AssertionError(f"{grant_id} outlived its TTL")
 
           with subtest("a later grant outlives an earlier one of the same source"):
               short = grant("sbx-probe", "host:dev:8010", "--ttl", "6s")
               grant("sbx-probe", "host:dev:8011", "--ttl", "40s")
               flow("longer", "sb", "echo-client", "172.16.2.1:8011")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/longer.log) -gt 3", timeout=20)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/longer.log) -gt 3", timeout=timedelta(seconds=20))
               wait_expired(short)
-              machine.sleep(2)
+              machine.sleep(timedelta(seconds=2))
               assert alive("longer")
               workloads("revoke", "--all", "sbx-probe")
               wait_stopped(["longer"], 5)
               # Equal TTLs started apart: the second must not end with the first.
               first = grant("sbx-probe", "host:dev:8012", "--ttl", "20s")
-              machine.sleep(8)
+              machine.sleep(timedelta(seconds=8))
               grant("sbx-probe", "host:dev:8013", "--ttl", "20s")
               flow("equal", "sb", "echo-client", "172.16.2.1:8013")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal.log) -gt 3", timeout=20)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal.log) -gt 3", timeout=timedelta(seconds=20))
               wait_expired(first)
-              machine.sleep(2)
+              machine.sleep(timedelta(seconds=2))
               assert alive("equal")
               flow("equal-new", "sb", "echo-client", "172.16.2.1:8013")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal-new.log) -gt 3", timeout=10)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal-new.log) -gt 3", timeout=timedelta(seconds=10))
               workloads("revoke", "--all", "sbx-probe")
 
           with subtest("a grant follows the leased MAC, not the address"):
@@ -531,7 +532,7 @@ in
               machine.wait_until_succeeds(f"{prefix}ss -ltn | grep -q ':{port} '")
               flow(name, ns, "stream-client", endpoint)
               for log in (name, f"{name}-server"):
-                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{log}.log) -gt 3", timeout=20)
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{log}.log) -gt 3", timeout=timedelta(seconds=20))
 
           with subtest("revoke stops connections the target side keeps sending on"):
               pushed = grant("sbx-probe", "host:dev:8020")
@@ -544,7 +545,7 @@ in
               two_way("forwarded", "sb", "172.16.1.10:8080", "dev")
               server("push-8022", "push-server", "0.0.0.0", 8022, None)
               flow("pushed-udp", "peer", "push-client", "172.16.2.1:8022")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/pushed-udp.log) -gt 3", timeout=20)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/pushed-udp.log) -gt 3", timeout=timedelta(seconds=20))
               for grant_id in (pushed, pushed_udp, forwarded):
                   status, answer = workloads("revoke", grant_id)
                   assert status == 0 and answer == {"revoked": [grant_id]}, answer
@@ -563,7 +564,7 @@ in
 
           def stays_cut(names):
               before = {name: count(name) for name in names}
-              machine.sleep(6)
+              machine.sleep(timedelta(seconds=6))
               grown = [name for name in names if count(name) > before[name]]
               assert not grown, f"{grown} pass traffic again"
 
@@ -588,11 +589,11 @@ in
               silent = grant("sbx-probe", "host:dev:8030")
               two_way("silent", "sb", "172.16.2.1:8030")
               machine.succeed("touch /run/flows/silent-server.pause")
-              machine.sleep(1)
+              machine.sleep(timedelta(seconds=1))
               workloads("revoke", silent)
               machine.succeed("systemctl restart workload-grants.service", "systemctl restart nftables.service")
               machine.wait_for_unit("workload-grants.service")
-              machine.sleep(8)
+              machine.sleep(timedelta(seconds=8))
               machine.succeed("rm /run/flows/silent-server.pause")
               stays_cut(["silent", "silent-server"])
               machine.succeed("ip netns exec sb nft delete table inet deaf")
@@ -601,7 +602,7 @@ in
               first = grant("sbx-probe", "host:dev:8031")
               two_way("regrant", "sb", "172.16.2.1:8031")
               machine.succeed("touch /run/flows/regrant.pause /run/flows/regrant-server.pause")
-              machine.sleep(1)
+              machine.sleep(timedelta(seconds=1))
               workloads("revoke", first)
               grant("sbx-probe", "host:dev:8031")
               machine.succeed("rm /run/flows/regrant.pause /run/flows/regrant-server.pause")
@@ -613,10 +614,10 @@ in
               quiet = grant("sbx-probe", "host:dev:8032/udp")
               server("udp-8032", "udp-echo-server", "0.0.0.0", 8032, None)
               flow("quiet-udp", "sb", "udp-pinger", "172.16.2.1:8032")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/quiet-udp.log) -gt 3", timeout=20)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/quiet-udp.log) -gt 3", timeout=timedelta(seconds=20))
               workloads("revoke", quiet)
               machine.succeed("touch /run/flows/quiet-udp.pause")
-              machine.sleep(5)
+              machine.sleep(timedelta(seconds=5))
               machine.succeed("rm /run/flows/quiet-udp.pause")
               stays_cut(["quiet-udp"])
 
@@ -639,9 +640,9 @@ in
               machine.succeed("touch /run/flows/leak.log")
               flow("leak", "lan", "udp-sink", "172.16.1.10:8083")
               flow("stream", "sb", "udp-pinger", "172.16.1.10:8083")
-              machine.wait_until_succeeds("test $(wc -l < /run/flows/stream.log) -gt 3", timeout=20)
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/stream.log) -gt 3", timeout=timedelta(seconds=20))
               machine.succeed("ip link set vn-desktop down")
-              machine.sleep(3)
+              machine.sleep(timedelta(seconds=3))
               assert not alive("stream")
               assert count("leak") == 0, machine.succeed("cat /run/flows/leak.log | wc -l")
               machine.wait_until_succeeds("curl -sf -m 3 http://172.16.1.10:8080/ | grep -Fx leaked")

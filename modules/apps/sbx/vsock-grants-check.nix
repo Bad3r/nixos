@@ -56,8 +56,9 @@ in
         ))
       '';
       # Runs in the guest. `once` prints `echo` for an echoed line, `host` for a host
-      # listener, or the connect error's type; `hold` logs one line per round trip
-      # until the stream ends, and a stall is told apart from a cut.
+      # listener, `closed` for a stream the relay ends after accepting it, or the
+      # connect error's type; `hold` logs one line per round trip until the stream
+      # ends, and a stall is told apart from a cut.
       stream = pkgs.writeText "vsock-stream.py" ''
         import socket
         import sys
@@ -73,10 +74,13 @@ in
             sys.exit()
         stream = client.makefile("rwb")
         if mode == "once":
-            stream.write(b"x\n")
-            stream.flush()
-            line = stream.readline()
-            print({b"x\n": "echo", b"host\n": "host"}.get(line, repr(line)))
+            try:
+                stream.write(b"x\n")
+                stream.flush()
+                line = stream.readline()
+            except (BrokenPipeError, ConnectionResetError):
+                line = b""
+            print({b"x\n": "echo", b"host\n": "host", b"": "closed"}.get(line, repr(line)))
             sys.exit()
         log = open(sys.argv[3], "a", buffering=1)
         while True:
@@ -239,6 +243,7 @@ in
             import json
             import shlex
             import time
+            from datetime import timedelta
 
             def as_owner(command):
                 return f"runuser -u ${owner} -- env XDG_RUNTIME_DIR=/run/user/1000 TMPDIR=${home}/tmp {command}"
@@ -268,7 +273,7 @@ in
 
             def hold(port, name):
                 in_guest(f"systemd-run --unit {name} $(command -v python3) /root/stream.py hold {port} /root/{name}.log")
-                machine.wait_until_succeeds(as_owner(f"sbx exec v -- grep -q ok /root/{name}.log"), timeout=30)
+                machine.wait_until_succeeds(as_owner(f"sbx exec v -- grep -q ok /root/{name}.log"), timeout=timedelta(seconds=30))
 
             def tail(name):
                 return in_guest(f"tail -n 1 /root/{name}.log")
@@ -277,7 +282,7 @@ in
                 return int(in_guest(f"grep -c ok /root/{name}.log"))
 
             def cut(name, timeout):
-                machine.wait_until_succeeds(as_owner(f"sbx exec v -- grep -q '^cut' /root/{name}.log"), timeout=timeout)
+                machine.wait_until_succeeds(as_owner(f"sbx exec v -- grep -q '^cut' /root/{name}.log"), timeout=timedelta(seconds=timeout))
 
             def until(check, timeout):
                 deadline = time.monotonic() + timeout
@@ -305,7 +310,7 @@ in
             # Host vsock listeners on a granted port and on another; neither may answer a guest.
             machine.succeed("systemd-run --unit vsock-any --uid ${owner} ${python} ${listener} any 8000")
             machine.succeed("systemd-run --unit vsock-host --uid ${owner} ${python} ${listener} 2 8003")
-            machine.wait_until_succeeds("ss -H -l --vsock | grep -F ':8003 '", timeout=10)
+            machine.wait_until_succeeds("ss -H -l --vsock | grep -F ':8003 '", timeout=timedelta(seconds=10))
 
             sbx("create nixos --name v --ttl 30m")
             sbx("cp ${home}/tmp/stream.py v:/root/stream.py")
@@ -322,7 +327,7 @@ in
             with subtest("a bind = any grant reaches a host address, never a loopback-only listener"):
                 wide = grant("host:wide")
                 assert once(8011) == "echo"
-                assert once(8010) == repr(b"")
+                assert once(8010) == "closed"
                 workloads(f"revoke {wide}")
 
             with subtest("revoke cuts that grant's established stream at once, and no other"):
