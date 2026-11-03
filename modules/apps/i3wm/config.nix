@@ -392,6 +392,25 @@
       # Use the already-defined stylixColors for consistency
       stylixColorsStrictWithHash = stylixColors;
 
+      # Muted focus accent: base0D mixed halfway toward base00.
+      focusedBorderColor =
+        let
+          channel =
+            c:
+            (
+              lib.toInt config.lib.stylix.colors."base0D-rgb-${c}"
+              + lib.toInt config.lib.stylix.colors."base00-rgb-${c}"
+            )
+            / 2;
+          hex = n: lib.toLower (lib.fixedWidthString 2 "0" (lib.toHexString n));
+        in
+        "#"
+        + lib.concatMapStrings (c: hex (channel c)) [
+          "r"
+          "g"
+          "b"
+        ];
+
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
       workspaceOutputAssign = [
@@ -598,7 +617,11 @@
               # (indicator equals border per state). Keep scope minimal and
               # avoid self-referencing config to prevent recursion.
               colors = {
-                focused.indicator = lib.mkForce stylixColorsStrictWithHash.base0D;
+                focused = {
+                  indicator = lib.mkForce focusedBorderColor;
+                  border = lib.mkForce focusedBorderColor;
+                  childBorder = lib.mkForce focusedBorderColor;
+                };
                 urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
 
                 # Grouped per-state overrides to satisfy linters and avoid repetition
