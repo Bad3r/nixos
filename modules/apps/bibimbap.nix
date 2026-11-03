@@ -52,6 +52,7 @@ let
             --user-data-dir="''${XDG_DATA_HOME:-$HOME/.local/share}/bibimbap" \
             --no-first-run \
             --no-default-browser-check \
+            --hide-scrollbars \
             "$@"
         '';
       };
@@ -135,17 +136,12 @@ let
 
         # Chrome keeps a chooser grant across reconnects only for devices with
         # a USB serial, and the dongle reports none since firmware 5.08.
-        environment.etc."opt/chrome/policies/managed/bibimbap.json".text = builtins.toJSON {
-          WebHidAllowDevicesForUrls = [
-            {
-              devices = map (productId: {
-                vendor_id = lib.fromHexString vendorId;
-                product_id = lib.fromHexString productId;
-              }) productIds;
-              urls = [ "https://bbb.pulsar.gg" ];
-            }
-          ];
-        };
+        programs.google-chrome.extended.webHidAllowDevicesForUrls = [
+          {
+            devices = map (productId: { inherit vendorId productId; }) productIds;
+            urls = [ "https://bbb.pulsar.gg" ];
+          }
+        ];
       };
     };
 in
