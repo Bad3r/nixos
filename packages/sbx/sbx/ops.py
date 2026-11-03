@@ -781,7 +781,7 @@ OPERATIONS = (
             ),
             Param(
                 "mode",
-                "xdotool types any text in the X session; keys sends US-layout keycodes, "
+                "xdotool types Unicode text in the X session; keys sends US-layout keycodes, "
                 "also before X starts",
                 flag="--mode",
                 enum=TYPE_MODES,
@@ -793,10 +793,11 @@ OPERATIONS = (
         "Type text on the display of a sandbox with a GUI base; returns {sandbox, characters}. "
         "By default xdotool types it in the X session as the user sbx, Unicode included and "
         "whatever the Caps Lock state; newline presses enter, and other control characters "
-        "are refused. Mode keys sends US-layout keycodes from the host instead, for screens "
-        "before X starts; it refuses characters outside that layout and turns Caps Lock off "
-        "around the text when the guest's LED shows it on. The journal records only the "
-        "text's length.",
+        "are refused. Characters outside the keyboard layout take spare keycodes, two to a "
+        "keycode, so a text with more of them than the guest has free is refused. Mode keys "
+        "sends US-layout keycodes from the host instead, for screens before X starts; it "
+        "refuses characters outside that layout and turns Caps Lock off around the text when "
+        "the guest's LED shows it on. The journal records only the text's length.",
         example="sbx type probe 'uname -a'",
     ),
     Operation(

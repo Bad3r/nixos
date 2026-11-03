@@ -158,6 +158,24 @@ in
                 text = typed("/home/sbx/unicode", lambda: sbx("type", "g", "h\u00e9llo \u2713\n"))
                 assert text == "h\u00e9llo \u2713\n", text
 
+            with subtest("type keeps every character outside the layout while the guest is busy"):
+                # Busy loops beside xterm delay its reads of key presses past xdotool's own bindings.
+                busy = "for i in 1 2 3 4 5 6; do sh -c 'while :; do :; done' >/dev/null 2>&1 </dev/null & echo $! >>/run/busy; done"
+                sbx("exec", "g", "--", "sh", "-c", busy)
+                # Capitals that xdotool types with Shift, then a text that rebinds keycodes.
+                greek = "".join(chr(code) for code in range(0x3B1, 0x3C1)) + "\u00c0\u00c9\u00dc\n"
+                cyrillic = "".join(chr(code) for code in range(0x430, 0x440)) + "\n"
+                # Two texts back to back, the second rebinding every keycode the first used.
+                armenian = "".join(chr(code) for code in range(0x561, 0x57B))
+                georgian = "".join(chr(code) for code in range(0x10D0, 0x10EA)) + "\n"
+                back_to_back = " && ".join(shlex.join(["sbx", "--json", "type", "g", sent]) for sent in (armenian, georgian))
+                try:
+                    texts = [typed(f"/home/sbx/busy-{index}", lambda sent=sent: sbx("type", "g", sent)) for index, sent in enumerate((greek, cyrillic))]
+                    texts.append(typed("/home/sbx/busy-2", lambda: machine.succeed(as_owner(f"sh -c {shlex.quote(back_to_back)}"))))
+                finally:
+                    sbx("exec", "g", "--", "sh", "-c", "kill $(cat /run/busy)")
+                assert texts == [greek, cyrillic, armenian + georgian], texts
+
             with subtest("the Caps Lock LED follows X, and --mode keys types through it"):
                 def lit():
                     sbx("key", "g", "capslock")

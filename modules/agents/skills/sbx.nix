@@ -24,9 +24,10 @@ let
     with `DISPLAY=:0`, so
     `sbx exec <name> -- sh -c 'some-app >/dev/null 2>&1 </dev/null &'` opens a
     window there; without the redirections, `exec` waits until the app exits.
-    The terminal itself runs as the user `sbx`. `type` types any text,
-    Unicode included, through xdotool in the session whatever the Caps Lock
-    state (a newline presses enter); `type --mode keys` sends US-layout
+    The terminal itself runs as the user `sbx`. `type` types text, Unicode
+    included, through xdotool in the session whatever the Caps Lock state (a
+    newline presses enter); split a text it refuses for too many distinct
+    characters outside the layout. `type --mode keys` sends US-layout
     keycodes for screens before X starts. `key` takes chords such as `ctrl+c`
     and aliases such as `return` or `escape`.
     `window wait <name> --class RE` (or `--name RE`) waits until X answers and
