@@ -46,6 +46,8 @@ from sbx.model import NS, DomainInfo, ExecOptions, Meta
 from sbx.results import GcAction, Results
 from sbx.sandboxes import Sandboxes
 
+from tests.test_keymap import HEADER, ROWS, UNOWNED, row
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -137,6 +139,8 @@ class FakeBackend:
         self.execs: list[tuple[list[str], bytes]] = []
         self.statuses: dict[int, dict[str, Any]] = {}
         self.exit_status: dict[str, Any] = {"exitcode": 0}
+        # Exits for the next guest-execs, ahead of exit_status.
+        self.exit_queue: list[dict[str, Any]] = []
         # Screenshots taken, and the bytes of each thread's latest one.
         self.lock = threading.Lock()
         self.captures = 0
@@ -230,7 +234,8 @@ class FakeBackend:
                 while not gate.exists():
                     time.sleep(0.05)
             pid = 100 + len(self.execs)
-            self.statuses[pid] = {"exited": True, **self.exit_status}
+            status = self.exit_queue.pop(0) if self.exit_queue else self.exit_status
+            self.statuses[pid] = {"exited": True, **status}
             return {"return": {"pid": pid}}
         return {"return": self.statuses.pop(arguments["pid"])}
 
@@ -1663,6 +1668,7 @@ class SandboxesTest(Fixture):
         """Chords reach the display as Linux keycodes; text goes to xdotool in the session."""
         self.sandboxes().create(self.request(gui=True))
         text = "H\u00e9 \u2713!\n"
+        self.backend.exit_queue = [self.keymap_reply(), {"exitcode": 0}]
         with (
             mock.patch.object(gui.time, "sleep"),
             mock.patch.object(self.backend, "agent", wraps=self.backend.agent) as agent_call,
@@ -1673,17 +1679,54 @@ class SandboxesTest(Fixture):
             self.assertEqual(result, {"sandbox": "t1", "characters": len(text)})
         self.assertEqual([codes for _domain, codes in self.backend.keys], [[29, 56, 20], [28]])
         self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
-        (started,) = [
+        *_, started = [
             call.args[1]["arguments"]
             for call in agent_call.call_args_list
             if call.args[1]["execute"] == "guest-exec"
         ]
         self.assertEqual(started["input-data"], base64.b64encode(text.encode()).decode())
-        (argv, stdin) = self.backend.execs[-1]
+        # é and ✓ are bound on the second-lowest empty keycode before xdotool runs.
+        query, bind, typing = self.backend.execs[-3:]
+        self.assertEqual(query, ([*query[0][:8], "--", "/bin/sh", "-c", gui.KEYMAP_QUERY], b""))
+        self.assertEqual(bind[0][8:], ["--", "/bin/sh", "-c", gui.KEYMAP_BIND, "sbx", "97"])
+        self.assertEqual(bind[1], b"keycode 97 = 0xe9 0x1002713\n")
+        argv, stdin = typing
         self.assertEqual(stdin, text.encode())
         self.assertEqual(argv[4:8], ["sbx", "", "setsid", "DISPLAY=:0"])
         self.assertEqual(argv[8:], ["--", "xdotool", "type", "--clearmodifiers", "--file", "-"])
         self.assert_text_unlogged(text, "type in t1: 6 characters")
+        # ASCII skips the keymap, and characters bound already leave it as it is.
+        sent = len(self.backend.execs)
+        with mock.patch.object(gui.time, "sleep"):
+            self.dispatch("type", "t1", "ascii")
+            self.backend.exit_queue = [self.keymap_reply(row(200, 0xE9, 0x1002713))]
+            self.dispatch("type", "t1", "\u2713\u00e9")
+        self.assertEqual(len(self.backend.execs), sent + 3)
+        self.assertEqual(self.backend.execs[-2][0][-1], gui.KEYMAP_QUERY)
+
+    def keymap_reply(self, *rows: bytes) -> dict[str, Any]:
+        """A guest's xmodmap -pk output with no keycodes owned by sbx."""
+        output = HEADER + ROWS + b"".join(rows) + UNOWNED
+        return {"exitcode": 0, "out-data": base64.b64encode(output).decode()}
+
+    def test_type_bind_failure(self) -> None:
+        """A failing bind stops before xdotool and quotes none of xmodmap's keysyms."""
+        self.sandboxes().create(self.request(gui=True))
+        stderr = base64.b64encode(b"xmodmap: bad keysym name 'U2713'\n").decode()
+        self.backend.exit_queue = [self.keymap_reply(), {"exitcode": 1, "err-data": stderr}]
+        with self.assertRaises(SbxError) as failed:
+            self.dispatch("type", "t1", "\u2713")
+        self.assertEqual(failed.exception.code, "guest-command")
+        self.assertIn("binding keycodes for the text exited 1", str(failed.exception))
+        self.assertNotIn("2713", str(failed.exception))
+        self.assertEqual(self.backend.execs[-1][0][-2:], ["sbx", "97"])
+        too_many = "".join(chr(0x100 + index) for index in range(7))
+        self.backend.exit_queue = [self.keymap_reply()]
+        sent = len(self.backend.execs)
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("type", "t1", too_many)
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(len(self.backend.execs), sent + 1)
 
     def assert_text_unlogged(self, text: str, line: str) -> None:
         """The journal names the text's length and nothing of the text."""
@@ -1775,8 +1818,10 @@ class SandboxesTest(Fixture):
             ((), {"exitcode": 0, "err-data": echoed.decode()}, "\u00e4\u00f6", "guest-command"),
         ]
         records = cast("mock.Mock", gui.journal.record)
+        bound = self.keymap_reply(row(200, 0xE4, 0xF6))
         for flags, status, text, code in cases:
             self.backend.exit_status = status
+            self.backend.exit_queue = [] if flags or "\x07" in text else [bound]
             records.reset_mock()
             with self.subTest(text=text, status=status), self.assertRaises(SbxError) as failed:
                 self.dispatch("type", "t1", *flags, text)

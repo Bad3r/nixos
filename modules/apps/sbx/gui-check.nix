@@ -158,6 +158,19 @@ in
                 text = typed("/home/sbx/unicode", lambda: sbx("type", "g", "h\u00e9llo \u2713\n"))
                 assert text == "h\u00e9llo \u2713\n", text
 
+            with subtest("type keeps every character outside the layout while the guest is busy"):
+                # Busy loops beside xterm delay its reads of key presses past xdotool's own bindings.
+                busy = "for i in 1 2 3 4 5 6; do sh -c 'while :; do :; done' >/dev/null 2>&1 </dev/null & echo $! >>/run/busy; done"
+                sbx("exec", "g", "--", "sh", "-c", busy)
+                # Capitals that xdotool types with Shift, then a text that rebinds keycodes.
+                greek = "".join(chr(code) for code in range(0x3B1, 0x3C1)) + "\u00c0\u00c9\u00dc\n"
+                cyrillic = "".join(chr(code) for code in range(0x430, 0x440)) + "\n"
+                try:
+                    texts = [typed(f"/home/sbx/busy-{index}", lambda sent=sent: sbx("type", "g", sent)) for index, sent in enumerate((greek, cyrillic))]
+                finally:
+                    sbx("exec", "g", "--", "sh", "-c", "kill $(cat /run/busy)")
+                assert texts == [greek, cyrillic], texts
+
             with subtest("the Caps Lock LED follows X, and --mode keys types through it"):
                 def lit():
                     sbx("key", "g", "capslock")

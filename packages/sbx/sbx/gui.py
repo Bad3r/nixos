@@ -55,6 +55,25 @@ CAPS_LED = "cat /sys/class/leds/input*::capslock/brightness"
 LED_VALUE = re.compile(rb"[0-9]{1,3}")
 SKIPPED = b"I don't know which key produces"
 TYPABLE_CONTROLS = "\n\t"
+# xdotool binds a character missing from the keymap to a spare keycode and unbinds it
+# milliseconds after the press, so a client that reads the press later drops the
+# character; sbx binds them before typing and leaves them bound.
+OWNED_KEYCODES = "_SBX_TYPE_KEYCODES"
+KEYMAP_QUERY = f"xmodmap -pk && xprop -root -notype {OWNED_KEYCODES}"
+KEYMAP_BIND = f'xprop -root -f {OWNED_KEYCODES} 8s -set {OWNED_KEYCODES} "$1" && xmodmap -'
+KEYMAP_ROW = re.compile(rb"\s*([0-9]{1,3})\s*\t(.*)")
+KEYMAP_KEYSYM = re.compile(rb"0x([0-9a-f]{1,8}) \(")
+OWNED_LINE = re.compile(rb'_SBX_TYPE_KEYCODES = "([0-9 ]{0,1024})"')
+UNOWNED_LINE = re.compile(rb"_SBX_TYPE_KEYCODES:  (?:not found|no such atom on any window)\.")
+KEYCODES = range(8, 256)
+ASCII_END = 0x80
+# xdotool's keysym for a character: Latin-1 as is, the rest offset into the Unicode keysyms.
+LATIN1_END = 0x100
+UNICODE_KEYSYMS = 0x1000000
+UNICODE_KEYSYMS_END = UNICODE_KEYSYMS + 0x110000
+# The Latin-1 capitals xdotool always types with Shift, and the offset to their lowercase.
+SHIFTED_LATIN1 = frozenset(range(0xC0, 0xDF)) - {0xD7}
+LOWERCASE_OFFSET = 0x20
 # X coordinates are signed 16-bit.
 MAX_COORDINATE = 32767
 BUTTONS = {"left": 1, "middle": 2, "right": 3}
@@ -171,6 +190,99 @@ def _text_refusal(text: str) -> str | None:
             f"{keys.positions(controls)}; press keys with `key`"
         )
     return None
+
+
+@dataclasses.dataclass(frozen=True)
+class Keymap:
+    """The guest's core keymap, keycode to keysyms, and the keycodes sbx bound, oldest first."""
+
+    rows: dict[int, tuple[int, ...]]
+    owned: tuple[int, ...]
+
+
+def parse_keymap(output: bytes) -> Keymap:
+    """Read KEYMAP_QUERY's output; the guest wrote it, so a stray keycode fails."""
+    rows: dict[int, tuple[int, ...]] = {}
+    owned: tuple[int, ...] | None = None
+    for line in output.splitlines():
+        if (row := KEYMAP_ROW.fullmatch(line)) is not None:
+            keycode = int(row[1])
+            if keycode not in KEYCODES or keycode in rows:
+                break
+            rows[keycode] = tuple(int(value, 16) for value in KEYMAP_KEYSYM.findall(row[2]))
+        elif (match := OWNED_LINE.fullmatch(line)) is not None:
+            owned = tuple(dict.fromkeys(int(value) for value in match[1].split()))
+        elif UNOWNED_LINE.fullmatch(line):
+            owned = ()
+    else:
+        if rows and owned is not None and set(owned) <= set(KEYCODES):
+            return Keymap(rows, owned)
+    msg = "the guest's keymap reads as nothing sbx can parse"
+    raise SbxError(msg, code="agent-reply")
+
+
+def _keysym(character: str) -> int:
+    """The keysym xdotool looks for to type a character."""
+    code = ord(character)
+    return code if code < LATIN1_END else UNICODE_KEYSYMS + code
+
+
+def _sbx_row(row: tuple[int, ...]) -> bool:
+    """Whether a keycode holds only character keysyms, as the ones sbx binds do."""
+    return any(row) and all(
+        not keysym
+        or ASCII_END <= keysym < LATIN1_END
+        or UNICODE_KEYSYMS + LATIN1_END <= keysym < UNICODE_KEYSYMS_END
+        for keysym in row
+    )
+
+
+def _shifted(keysym: int) -> bool:
+    """Whether xdotool holds Shift for a keysym wherever the keymap puts it."""
+    return keysym in SHIFTED_LATIN1
+
+
+def keymap_bindings(text: str, keymap: Keymap) -> dict[int, tuple[int, int]]:
+    """Pick spare keycodes for the text's characters the keymap lacks, two to a keycode."""
+    wanted = dict.fromkeys(_keysym(character) for character in text if ord(character) >= ASCII_END)
+
+    def bound(keysym: int) -> bool:
+        return any(
+            row[1:2] == (keysym,) if _shifted(keysym) else keysym in row[:2]
+            for row in keymap.rows.values()
+        )
+
+    plain = [keysym for keysym in wanted if not bound(keysym) and not _shifted(keysym)]
+    pairs: list[tuple[int, int]] = []
+    for keysym in (keysym for keysym in wanted if _shifted(keysym) and not bound(keysym)):
+        # The level-one keysym is its lowercase when the text has that too.
+        lower = keysym + LOWERCASE_OFFSET
+        if lower not in plain:
+            lower = plain[0] if plain else keysym
+        if lower in plain:
+            plain.remove(lower)
+        pairs.append((lower, keysym))
+    pairs += [(first, second) for first, second in zip(plain[::2], plain[1::2], strict=False)]
+    if len(plain) % 2:
+        pairs.append((plain[-1], plain[-1]))
+    if not pairs:
+        return {}
+    empty = sorted(keycode for keycode, row in keymap.rows.items() if not any(row))
+    # Oldest first, so the keycodes the last text used are the last to change.
+    reclaimable = [
+        keycode
+        for keycode in keymap.owned
+        if _sbx_row(keymap.rows.get(keycode, ())) and not wanted.keys() & set(keymap.rows[keycode])
+    ]
+    # xdotool takes the lowest empty keycode for anything still unbound.
+    spare = empty[1:] + reclaimable
+    if len(pairs) > len(spare):
+        msg = (
+            f"the text needs {len(pairs)} spare keycodes for its characters outside the "
+            f"guest's keyboard layout, two to a keycode, and {len(spare)} are free; split the text"
+        )
+        raise SbxError(msg, code="invalid-argument")
+    return dict(zip(spare, pairs, strict=False))
 
 
 def _unreadable(detail: str) -> SbxError:
@@ -321,6 +433,22 @@ class Gui(Transfer):
             raise SbxError(msg, code="agent-reply")
         return any(int(value) for value in values)
 
+    def _bind_keysyms(self, sandbox: Sandbox, text: str) -> None:
+        """Bind the text's characters the guest's keymap lacks, so xdotool binds none."""
+        query = self.session_command(sandbox, ["/bin/sh", "-c", KEYMAP_QUERY])
+        keymap = parse_keymap(checked(query, "reading the guest's keymap").stdout)
+        bindings = keymap_bindings(text, keymap)
+        if not bindings:
+            return
+        kept = [keycode for keycode in keymap.owned if keycode not in bindings]
+        owned = " ".join(map(str, [*kept, *bindings]))
+        lines = "".join(f"keycode {code} = {a:#x} {b:#x}\n" for code, (a, b) in bindings.items())
+        result = self.session_command(
+            sandbox, ["/bin/sh", "-c", KEYMAP_BIND, "sbx", owned], stdin=lines.encode()
+        )
+        # xmodmap's errors quote the keysyms, which spell out the text's characters.
+        checked(dataclasses.replace(result, stderr=b""), "binding keycodes for the text")
+
     def type_text(self, name: str, text: str, *, mode: str = "xdotool") -> TypeResult:
         """Type text with xdotool in the X session, or as US-layout keycodes in `keys` mode."""
         if len(text) > TYPE_LIMIT:
@@ -331,7 +459,7 @@ class Gui(Transfer):
             try:
                 chords = keys.text_chords(text)
             except ValueError as error:
-                msg = f"{error}; --mode keys sends keycodes, and the default mode types any text"
+                msg = f"{error}; --mode keys sends keycodes, and the default mode types Unicode"
                 raise SbxError(msg, code="invalid-argument") from error
         else:
             refusal = _text_refusal(text)
@@ -351,6 +479,8 @@ class Gui(Transfer):
                 chords = [[CAPS_LOCK], *chords, [CAPS_LOCK]]
             self._send(sandbox.domain.name, chords)
         elif text:
+            if any(ord(character) >= ASCII_END for character in text):
+                self._bind_keysyms(sandbox, text)
             command = ["xdotool", "type", "--clearmodifiers", "--file", "-"]
             result = self.session_command(
                 sandbox,

@@ -42,6 +42,8 @@
   environment.systemPackages = with pkgs; [
     xdotool
     xhost
+    xmodmap
+    xprop
     xterm
   ];
 }

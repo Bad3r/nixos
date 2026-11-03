@@ -13,7 +13,7 @@
 | `window list <name>`                    | describe every visible window          |
 
 - Every verb but `screenshot` refuses a sandbox on any other base with `no-display`.
-- Malformed input fails with `invalid-argument` before anything reaches the guest.
+- Malformed input fails with `invalid-argument` before anything reaches the guest, except a `type` text with too many characters outside the keyboard layout, which `sbx` counts against the guest's keymap.
 - A guest helper that fails reports `guest-command` with its own message.
 
 ## Screenshots
@@ -34,7 +34,13 @@
 ## Text
 
 - `type` runs `xdotool type --clearmodifiers --file -` through qemu-ga as the user `sbx` on `DISPLAY=:0`, with the text on its stdin.
-- xdotool releases Caps Lock and held modifiers around the text, and types characters outside the keyboard layout through a spare keycode, so Unicode works.
+- xdotool releases Caps Lock and held modifiers around the text.
+- Characters outside the keyboard layout are bound first, two to a spare keycode, through `xmodmap`, and stay bound.
+  xdotool's own binding lasts milliseconds, and a busy client that reads the key press later drops the character.
+  The root window's `_SBX_TYPE_KEYCODES` property lists the keycodes `sbx` bound, oldest first, and later texts rebind the oldest first.
+  A text that needs more spare keycodes than are free fails with `invalid-argument`; xdotool keeps the lowest empty keycode.
+  Any X client in the guest can read the bound characters from the keymap until a later text rebinds their keycodes.
+  A sandbox made from a base built before this binding lacks `xmodmap` and fails such a text with `guest-command`; rebuild the base.
 - Newline presses Enter and tab presses Tab; any other control character fails, as does text past the length cap.
 - The journal records how many characters `type` sent, never the text.
   A refusal names the positions of the characters at fault, never the characters.
