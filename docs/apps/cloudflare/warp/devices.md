@@ -89,9 +89,10 @@ A failed TLS certificate check or any other status is final, so a 403 fails at o
 A redirect is never followed, which keeps the token off its target host.
 
 A pagination cursor that stops advancing or loops fails the endpoint rather than returning a partial list.
-A failed registrations endpoint fails the command, since it carries the device list and the Mesh addresses.
+`history` exits 1 on any failed endpoint or malformed DEX report.
+
+In `list`, a failed registrations endpoint or malformed registrations data fails the command, since registrations carry the device list and the Mesh addresses.
 A failed physical-devices or DEX endpoint prints a warning naming it, empties its columns or sets `STATUS` to `unknown`, and still exits 0.
-For `list`, malformed DEX data, such as a report without a readable timestamp, degrades the same way; malformed registrations data fails the command.
-`history` exits 1 on a malformed DEX report.
+Malformed DEX data, such as a report without a readable timestamp, degrades the same way.
 
 Source: [Zero Trust devices API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/).
