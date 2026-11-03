@@ -285,6 +285,14 @@
         '';
       };
 
+      # Menu row icon rendered from the Stylix palette.
+      rofiIcon =
+        name:
+        config.lib.stylix.colors {
+          template = builtins.readFile ../../stylix/icons/${name}.svg.mustache;
+          extension = ".svg";
+        };
+
       # Power profile switcher over power-profiles-daemon
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -296,34 +304,18 @@
         text = ''
           set -euo pipefail
 
-          # Get current profile
-          current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
+          # Highlight the active profile.
+          active=()
+          case "$(powerprofilesctl get 2>/dev/null || true)" in
+            power-saver) active=(-a 0 -selected-row 0) ;;
+            balanced) active=(-a 1 -selected-row 1) ;;
+            performance) active=(-a 2 -selected-row 2) ;;
+          esac
 
-          # Mark current profile
-          mark_current() {
-            local profile="$1"
-            local label="$2"
-            if [ "$current" = "$profile" ]; then
-              echo "$label ✓"
-            else
-              echo "$label"
-            fi
-          }
-
-          # Build menu
-          menu=$(printf "%s\n%s\n%s" \
-            "$(mark_current "power-saver" "  Power Saver")" \
-            "$(mark_current "balanced" "  Balanced")" \
-            "$(mark_current "performance" "  Performance")")
-
-          # Show rofi menu (Stylix-themed)
-          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
-            window { width: 320px; }
-            listview { lines: 3; }
-            element selected.normal { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base05}; }
-            element normal.active { text-color: ${stylixColors.base0B}; }
-            element selected.active { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base0B}; }
-          ' || true)
+          chosen=$(printf 'Power Saver\0icon\x1f%s\nBalanced\0icon\x1f%s\nPerformance\0icon\x1f%s\n' \
+            ${rofiIcon "moon"} ${rofiIcon "meter"} ${rofiIcon "zap"} |
+            rofi -dmenu -i "''${active[@]}" \
+              -config "$HOME/.config/rofi/power-profiles.rasi" || true)
 
           # Exit if nothing selected
           [ -z "$chosen" ] && exit 0
@@ -357,7 +349,14 @@
         text = ''
           set -euo pipefail
 
-          chosen=$(printf '%s\n' Lock Logout Suspend Hibernate Reboot Shutdown Cancel |
+          chosen=$(printf '%s\0icon\x1f%s\n' \
+            Lock ${rofiIcon "lock"} \
+            Logout ${rofiIcon "sign-out"} \
+            Suspend ${rofiIcon "moon"} \
+            Hibernate ${rofiIcon "archive"} \
+            Reboot ${rofiIcon "sync"} \
+            Shutdown ${rofiIcon "power"} \
+            Cancel ${rofiIcon "x-circle"} |
             rofi -dmenu -i -config "$HOME/.config/rofi/powermenu.rasi" || true)
 
           case "$chosen" in

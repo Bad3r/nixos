@@ -19,9 +19,9 @@
 
   Config files installed:
     * ~/.config/rofi/rofidmenu.rasi      - Apps menu (Spotlight layout, 9 lines)
-    * ~/.config/rofi/powermenu.rasi      - Power menu layout (east sidebar, 7 lines)
-    * ~/.config/rofi/power-profiles.rasi - Power profile selector (east, 4 lines)
-    * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
+    * ~/.config/rofi/powermenu.rasi      - Power menu (Spotlight layout, 7 lines)
+    * ~/.config/rofi/power-profiles.rasi - Power profile selector (Spotlight layout, 3 lines)
+    * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (Spotlight layout, 10 lines)
 
   Example Usage:
     * `rofi -show drun` -- App launcher in the Spotlight layout.
@@ -186,45 +186,6 @@ _: {
         };
       };
 
-      # Layout-only styles for the sidebar menus
-      commonLayoutStyles = ''
-        element {
-            border:  0;
-            padding: 1px;
-        }
-        scrollbar {
-            width:        4px;
-            border:       0;
-            handle-width: 8px;
-            padding:      0;
-        }
-        mode-switcher {
-            border: 2px 0px 0px;
-        }
-        button {
-            spacing: 0;
-        }
-        inputbar {
-            spacing:  0;
-            padding:  1px;
-            children: [ prompt,textbox-prompt-colon,entry,case-indicator ];
-        }
-        case-indicator {
-            spacing: 0;
-        }
-        entry {
-            spacing: 0;
-        }
-        prompt {
-            spacing: 0;
-        }
-        textbox-prompt-colon {
-            expand: false;
-            str:    ":";
-            margin: 0px 0.3em 0em 0em;
-        }
-      '';
-
       # Apps menu config (rofidmenu.rasi)
       rofidmenuConfig = ''
         /* Apps menu - Spotlight layout */
@@ -235,87 +196,43 @@ _: {
         }
       '';
 
-      # Power menu config (powermenu.rasi)
+      # Session power menu (powermenu.rasi)
       powermenuConfig = ''
-        /* Power menu - east sidebar, 7 lines, no inputbar */
+        /* Power menu - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          10;
-            transparency:     "real";
-            width:            120px;
-            location:         east;
-            anchor:           east;
-            y-offset:         0;
+        entry {
+            placeholder: "Power";
         }
         listview {
-            lines:     7;
-            columns:   1;
-            scrollbar: false;
+            lines: 7;
         }
-        mainbox {
-            children: [listview];
-        }
-        ${commonLayoutStyles}
       '';
 
-      # Power profiles config (power-profiles.rasi)
+      # Power profile selector (power-profiles.rasi)
       powerProfilesConfig = ''
-        /* Power profile selector - east sidebar, 4 lines */
+        /* Power profile selector - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          10;
-            transparency:     "real";
-            width:            170px;
-            location:         east;
-            anchor:           east;
-            y-offset:         0;
+        entry {
+            placeholder: "Power profile";
         }
         listview {
-            lines:   4;
-            columns: 1;
-        }
-        ${commonLayoutStyles}
-        textbox-prompt-colon {
-            str: "Set Power Profile:";
+            lines: 3;
         }
       '';
 
-      # Keyhint menu config (rofikeyhint.rasi)
+      # Keybinding hints (rofikeyhint.rasi)
       rofikeyhintConfig = ''
-        /* Keybinding hints - 1 column, 10 lines */
+        /* Keybinding hints - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          30;
+        entry {
+            placeholder: "Search keybindings";
         }
         listview {
-            lines:        10;
-            columns:      1;
-            fixed-height: 0;
-            border:       8px 0px 0px;
-            border-color: @separatorcolor;
-            spacing:      8px;
-            scrollbar:    false;
-            padding:      2px 0px 0px;
+            lines: 10;
         }
-        mainbox {
-            border:  0;
-            padding: 0;
-        }
-        message {
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            padding:      1px;
-        }
-        ${commonLayoutStyles}
       '';
     in
     {
