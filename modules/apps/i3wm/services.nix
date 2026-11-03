@@ -130,6 +130,14 @@
                 unredir-if-possible = lib.mkDefault true;
                 # Unredirect toggles flash black on NVIDIA; brief fullscreen windows skip them.
                 unredir-if-possible-delay = lib.mkDefault 500;
+                # Frosted glass behind rofi and dunst, which draw translucent
+                # surfaces and set their own corner-radius-rules.
+                blur = {
+                  method = "dual_kawase";
+                  strength = 4;
+                };
+                blur-background = true;
+                blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst'" ];
               };
             };
             udiskie = {

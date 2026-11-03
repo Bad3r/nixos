@@ -52,9 +52,13 @@ _: {
 
       inherit (config.lib.formats.rasi) mkLiteral;
       colors = config.lib.stylix.colors.withHashtag;
+      windowRadius = 18;
+
       # VS Code Dark 2026 quickInput colors with no base16 slot.
       palette = {
         background = "#202122"; # quickInput.background
+        # VS Code's frosted glass: the surface at 92% over a backdrop blur.
+        glass = "#202122eb";
         placeholder = "#555555"; # input.placeholderForeground
         selection = "#297aa0"; # quickInputList.focusBackground
         selectionText = "#ffffff"; # quickInputList.focusForeground
@@ -80,10 +84,10 @@ _: {
           anchor = mkLiteral "north";
           y-offset = mkLiteral "-15%";
           width = mkLiteral "680px";
-          background-color = mkLiteral palette.background;
+          background-color = mkLiteral palette.glass;
           border = mkLiteral "1px";
           border-color = mkLiteral colors.base02;
-          border-radius = mkLiteral "18px";
+          border-radius = mkLiteral "${toString windowRadius}px";
           padding = mkLiteral "10px";
           transparency = "real";
         };
@@ -295,6 +299,9 @@ _: {
         };
 
         stylix.targets.rofi.enable = false;
+
+        # picom blurs and rounds the window at the theme's radius.
+        services.picom.settings.corner-radius-rules = [ "${toString windowRadius}:class_g = 'Rofi'" ];
 
         # Install config files that import the main config (which has the theme)
         xdg.configFile = {

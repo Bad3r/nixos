@@ -23,11 +23,16 @@ _: {
       nixosEnabled = lib.attrByPath [ "programs" "dunst" "extended" "enable" ] false osConfig;
       colors = config.lib.stylix.colors.withHashtag;
       # VS Code Dark 2026 toast surface; no base16 slot holds either value.
-      toastBackground = "#202122"; # notifications.background
+      # The background is VS Code's frosted glass: 92% over a backdrop blur.
+      toastBackground = "#202122eb"; # notifications.background
+      toastRadius = 8;
       toastBorder = "#454545"; # menu.border
     in
     {
       config = lib.mkIf nixosEnabled {
+        # picom blurs and rounds each toast at its radius.
+        services.picom.settings.corner-radius-rules = [ "${toString toastRadius}:class_g = 'Dunst'" ];
+
         services.dunst.settings = {
           global = {
             follow = "mouse";
@@ -45,7 +50,7 @@ _: {
             separator_height = 4;
             line_height = 4;
             frame_width = 1;
-            corner_radius = 8;
+            corner_radius = toastRadius;
 
             markup = "full";
             format = "<b>%s</b>\\n%b";
