@@ -132,7 +132,7 @@ def merge(
             status = field(report, "status") or UNKNOWN
         devices.append(
             Device(
-                name=field(registration, "device", "name") or registration_id,
+                name=field(registration, "device", "name") or device_id or registration_id,
                 registration_id=registration_id,
                 device_id=device_id,
                 status=status,

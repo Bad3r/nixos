@@ -11,11 +11,11 @@ import tempfile
 import unittest
 import unittest.mock
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from warp_devices import devices
 from warp_devices.api import ApiError, Json
-from warp_devices.cli import BROKEN_PIPE_EXIT, LOOKUP_EXIT, USAGE_EXIT, main
+from warp_devices.cli import BROKEN_PIPE_EXIT, LOOKUP_EXIT, USAGE_EXIT, main, with_default_command
 from warp_devices.devices import FLEET_STATUS, PHYSICAL_DEVICES, REGISTRATIONS
 
 from tests.fixtures import (
@@ -246,6 +246,25 @@ class HistoryTest(unittest.TestCase):
         self.assertEqual(payload["device"], {"id": "dev-4", "name": "laptop"})
         self.assertEqual([r["status"] for r in payload["reports"]], ["connected", "connecting"])
 
+    def test_nameless_device_name_resolves(self) -> None:
+        """The NAME list shows for a nameless device is one history resolves."""
+        nameless = registration("unused", 7, minutes_ago=1)
+        cast("Json", nameless["device"]).pop("name")
+        box = hardware(7, name="unused")
+        box.pop("name")
+        client = getter()
+        client.routes[REGISTRATIONS] = static([*REGS, nameless])
+        client.routes[PHYSICAL_DEVICES] = static([*HARDWARE, box])
+        _, out, _ = run("list", "--json", client=client)
+        name = next(
+            d["name"] for d in json.loads(out)["devices"] if d["registration_id"] == "reg-7"
+        )
+        self.assertEqual(name, "dev-7")
+        code, _, err = run("history", name, client=client)
+        self.assertEqual(code, 0, err)
+        raw = next(p for path, p in client.calls if path == FLEET_STATUS and p["source"] == "raw")
+        self.assertEqual(raw["device_id"], "dev-7")
+
     def test_name_line_is_escaped(self) -> None:
         """The device name on the summary line has its controls escaped."""
         client = getter()
@@ -431,6 +450,16 @@ class InvocationTest(unittest.TestCase):
                 code, out, err = run(*flags, "history", "laptop")
                 self.assertEqual((code, err.count("usage")), (0, 0), err)
                 self.assertIn("connecting", out)
+
+    def test_double_dash_ends_command_scan(self) -> None:
+        """A command after `--` stays a positional of list, which rejects it."""
+        self.assertEqual(
+            with_default_command(["--json", "--", "history"]), ["list", "--json", "--", "history"]
+        )
+        client = getter()
+        code, out, err = run("--json", "--", "history", client=client)
+        self.assertEqual((code, out, client.calls), (USAGE_EXIT, "", []))
+        self.assertRegex(err, r"unrecognized arguments: (-- )?history\n")
 
     def test_broken_pipe(self) -> None:
         """Output into a pipe whose reader closed exits 141 with nothing on stderr."""

@@ -160,13 +160,18 @@ def _takes_value(arg: str) -> bool:
 
 
 def with_default_command(argv: Sequence[str]) -> list[str]:
-    """Move a command that follows flags to the front, or run list when none is named."""
+    """Move a command that follows flags to the front, or run list when none is named.
+
+    Scanning stops at `--`, so nothing after it moves.
+    """
     args = list(argv)
     if args and (args[0] in COMMANDS or args[0] in {"-h", "--help"}):
         return args
     index = 0
     while index < len(args):
         arg = args[index]
+        if arg == "--":
+            break
         if not arg.startswith("-"):
             if arg in COMMANDS:
                 return [arg, *args[:index], *args[index + 1 :]]

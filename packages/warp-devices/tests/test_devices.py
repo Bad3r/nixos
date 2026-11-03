@@ -4,7 +4,7 @@
 import threading
 import time
 import unittest
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from warp_devices.api import ApiError, Json
 from warp_devices.devices import (
@@ -84,6 +84,15 @@ class MergeTest(unittest.TestCase):
         fleet = [report(2, "disconnected", 5, registration_id=False)]
         statuses = {d.name: d.status for d in merge(REGS, HARDWARE, latest_reports(fleet))}
         self.assertEqual(statuses["alpha"], "disconnected")
+
+    def test_nameless_registration_falls_back_to_ids(self) -> None:
+        """A nameless registration takes its device ID, or its registration ID without one."""
+        nameless = registration("unused", 7, minutes_ago=1)
+        cast("Json", nameless["device"]).pop("name")
+        deviceless = registration("unused", 8, minutes_ago=2)
+        del deviceless["device"]
+        names = {d.registration_id: d.name for d in merge([nameless, deviceless], [], None)}
+        self.assertEqual(names, {"reg-7": "dev-7", "reg-8": "reg-8"})
 
     def test_hardware_fields(self) -> None:
         """Public IP and OS come from the physical device; absent hardware leaves them empty."""
