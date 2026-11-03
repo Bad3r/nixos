@@ -5,6 +5,7 @@ import unittest
 from typing import TYPE_CHECKING
 
 from warp_devices.history import LookupFailedError, entries, resolve, to_report
+from warp_devices.timefmt import DataError
 
 from tests.fixtures import dex_stamp
 
@@ -103,5 +104,5 @@ class EntriesTest(unittest.TestCase):
 
     def test_report_without_timestamp(self) -> None:
         """A report without a timestamp is malformed data."""
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataError):
             to_report({"status": "connected"})

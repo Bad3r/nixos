@@ -18,6 +18,7 @@ from warp_devices.devices import (
     load,
     merge,
 )
+from warp_devices.timefmt import DataError
 
 from tests.fixtures import (
     NOW,
@@ -166,7 +167,7 @@ class LoadTest(unittest.TestCase):
         broken["last_seen_at"] = 123
         getter = self.routes()
         getter.routes[REGISTRATIONS] = static([broken])
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataError):
             load(getter, NOW)
 
     def test_physical_failure_warns(self) -> None:
@@ -216,12 +217,12 @@ class StrictDataTest(unittest.TestCase):
         """A numeric last_seen_at is an error, not a never-seen device."""
         broken = registration("bravo", 1, minutes_ago=1)
         broken["last_seen_at"] = 123
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataError):
             merge([broken], [], latest_reports([]))
 
     def test_report_without_timestamp(self) -> None:
         """A DEX report with no timestamp is an error, not a silent offline."""
         bare = report(1, CONNECTED, 1)
         del bare["timestamp"]
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataError):
             latest_reports([bare])

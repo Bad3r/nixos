@@ -4,7 +4,7 @@
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from warp_devices.timefmt import ago, local_clock, parse, parse_optional, span
+from warp_devices.timefmt import DataError, ago, local_clock, parse, parse_optional, span
 
 from tests.fixtures import NOW, pin_utc
 
@@ -31,9 +31,9 @@ class ParseTest(unittest.TestCase):
 
     def test_malformed(self) -> None:
         """A malformed value raises instead of reading as missing."""
-        with self.assertRaisesRegex(ValueError, "unrecognized timestamp"):
+        with self.assertRaisesRegex(DataError, "unrecognized timestamp"):
             parse("yesterday")
-        with self.assertRaises(ValueError):
+        with self.assertRaises(DataError):
             parse_optional(17)
 
     def test_absent(self) -> None:

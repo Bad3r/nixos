@@ -3,6 +3,7 @@
 
 import io
 import re
+import unicodedata
 import unittest
 import unittest.mock
 
@@ -65,6 +66,20 @@ class TableTest(unittest.TestCase):
                 self.assertTrue(plain.startswith(r"NA\x09ME"))
                 starts = {len(line) - len(line.split(maxsplit=1)[1]) for line in plain.splitlines()}
                 self.assertEqual(starts, {len(r"evil\x1b]0;pwned\x07\x1b[2J\x9b\x7f") + 2})
+
+    def test_format_characters_are_escaped(self) -> None:
+        """Bidi overrides, zero-width characters, and lone surrogates print as escapes, aligned."""
+        hostile = "evil\u202etxt.exe\u200b\u2066\xad\U000e0001\ud800"
+        escaped = r"evil\u202etxt.exe\u200b\u2066\xad\U000e0001\ud800"
+        rows = [Row([hostile, "connected", "now"], "connected"), *ROWS]
+        for color in (False, True):
+            with self.subTest(color=color):
+                plain = SGR.sub("", table(HEADER, rows, status_column=1, color=color))
+                self.assertFalse(any(unicodedata.category(c) in {"Cf", "Cs"} for c in plain))
+                self.assertIn(escaped, plain)
+                plain.encode()
+                starts = {len(line) - len(line.split(maxsplit=1)[1]) for line in plain.splitlines()}
+                self.assertEqual(starts, {len(escaped) + 2})
 
 
 class ColorChoiceTest(unittest.TestCase):

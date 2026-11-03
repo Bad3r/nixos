@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 from warp_devices.api import ApiError, Getter, Json, paginate_cursor, paginate_pages
-from warp_devices.timefmt import iso_utc, parse_optional
+from warp_devices.timefmt import DataError, iso_utc, parse_optional
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,7 +81,7 @@ class Reports:
 
 
 def latest_reports(fleet: list[Json]) -> Reports:
-    """Index the newest DEX report by registration ID, raising ValueError on a bad timestamp.
+    """Index the newest DEX report by registration ID, raising DataError on a bad timestamp.
 
     Only reports without a registration ID fall back to the device ID, so a
     second registration on one device never inherits another's status.
@@ -92,7 +92,7 @@ def latest_reports(fleet: list[Json]) -> Reports:
         moment = parse_optional(report.get("timestamp"))
         if moment is None:
             msg = "a DEX report has no timestamp"
-            raise ValueError(msg)
+            raise DataError(msg)
         registration_id = field(report, "registrationId")
         kind, key = (
             ("registration", registration_id)
@@ -222,7 +222,7 @@ def load(client: Getter, now: datetime) -> Listing:
     if fleet is not None:
         try:
             reports = latest_reports(fleet)
-        except ValueError as error:
+        except DataError as error:
             warnings.append(f"GET {FLEET_STATUS} returned malformed data: {error}")
     if optional[PHYSICAL_DEVICES] is None:
         warnings.append("public IP and OS columns are empty")

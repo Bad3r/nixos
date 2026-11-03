@@ -45,11 +45,9 @@ let
       };
     };
 
-  # The CLI reads $XDG_CONFIG_HOME/warp-devices/{account-id,api-token}.
   WarpDevicesHomeModule =
     {
       lib,
-      metaOwner,
       osConfig,
       secretsRoot,
       ...
@@ -58,12 +56,12 @@ let
       nixosEnabled = lib.attrByPath [ "programs" "warp-devices" "extended" "enable" ] false osConfig;
       secretFile = secretsRoot + "/${secretFileName}";
       secretExists = builtins.pathExists secretFile;
-      configDir = "/home/${metaOwner.username}/.config/warp-devices";
       credential = file: key: {
         sopsFile = secretFile;
         format = "yaml";
         inherit key;
-        path = "${configDir}/${file}";
+        # sops-nix expands %r to $XDG_RUNTIME_DIR.
+        path = "%r/warp-devices/${file}";
         mode = "0400";
       };
     in

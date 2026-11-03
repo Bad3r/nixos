@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, NoReturn
 from warp_devices import devices, history
 from warp_devices.api import ApiError, Client, Getter
 from warp_devices.render import Row, printable, table, use_color
-from warp_devices.timefmt import ago, local_clock, span
+from warp_devices.timefmt import DataError, ago, local_clock, span
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -27,8 +27,8 @@ COMMANDS = ("list", "history")
 VALUE_FLAGS = ("--account-id-file", "--token-file", "--hours")
 CREDENTIAL_PATTERN = re.compile(r"[\x21-\x7e]+")
 CREDENTIAL_SOURCE = (
-    "the warp-devices app renders it from the zero_trust_read_api_token and account_id keys"
-    " of secrets/cloudflare-warp.yaml"
+    "the warp-devices app renders $XDG_RUNTIME_DIR/warp-devices/{account-id,api-token} from"
+    " the account_id and zero_trust_read_api_token keys of secrets/cloudflare-warp.yaml"
 )
 PERMISSION_HINT = "the token needs the Zero Trust Read and DEX Read account permissions"
 
@@ -46,10 +46,16 @@ class Parser(argparse.ArgumentParser):
         self.exit(USAGE_EXIT, f"{self.prog}: error: {message}\n")
 
 
-def config_dir() -> Path:
-    """Return the directory the app's Home Manager module writes the credentials to."""
-    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    return Path(base) / "warp-devices"
+def credential_dir() -> Path:
+    """Return the runtime directory the app's Home Manager module renders the credentials to."""
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime:
+        msg = (
+            "XDG_RUNTIME_DIR is unset or empty, so the default credential files cannot be found;"
+            " pass --account-id-file and --token-file"
+        )
+        raise CredentialError(msg)
+    return Path(runtime) / "warp-devices"
 
 
 def read_credential(path: Path) -> str:
@@ -94,8 +100,18 @@ def build_parser() -> Parser:
         "--color", dest="color", action="store_true", default=None, help="always color the table"
     )
     color.add_argument("--no-color", dest="color", action="store_false", help="never color")
-    shared.add_argument("--account-id-file", type=Path, metavar="PATH")
-    shared.add_argument("--token-file", type=Path, metavar="PATH")
+    shared.add_argument(
+        "--account-id-file",
+        type=Path,
+        metavar="PATH",
+        help="read the account ID from PATH (default $XDG_RUNTIME_DIR/warp-devices/account-id)",
+    )
+    shared.add_argument(
+        "--token-file",
+        type=Path,
+        metavar="PATH",
+        help="read the API token from PATH (default $XDG_RUNTIME_DIR/warp-devices/api-token)",
+    )
 
     parser = Parser(
         prog="warp-devices",
@@ -163,10 +179,9 @@ def with_default_command(argv: Sequence[str]) -> list[str]:
 
 def make_client(args: argparse.Namespace) -> Client:
     """Build the API client from the credential files."""
-    directory = config_dir()
-    account_id = read_credential(args.account_id_file or directory / "account-id")
-    token = read_credential(args.token_file or directory / "api-token")
-    return Client(account_id, token)
+    account_file = args.account_id_file or credential_dir() / "account-id"
+    token_file = args.token_file or credential_dir() / "api-token"
+    return Client(read_credential(account_file), read_credential(token_file))
 
 
 def run_list(client: Getter, args: argparse.Namespace, now: datetime) -> int:
@@ -247,7 +262,7 @@ def describe(error: Exception) -> str:
     """Word a failure for stderr, adding the permission hint to a 403."""
     if isinstance(error, ApiError):
         text = f"{error}; {PERMISSION_HINT}" if error.status == FORBIDDEN else str(error)
-    elif isinstance(error, ValueError):
+    elif isinstance(error, DataError):
         text = f"unexpected data from Cloudflare: {error}"
     else:
         text = str(error)
@@ -273,7 +288,7 @@ def main(
         code = run(api, args, clock())
         # Flushed here so a closed pipe raises inside the handler, not at interpreter exit.
         sys.stdout.flush()
-    except (CredentialError, ApiError, history.LookupFailedError, ValueError) as error:
+    except (CredentialError, ApiError, history.LookupFailedError, DataError) as error:
         print(f"warp-devices: {describe(error)}", file=sys.stderr)
         return LOOKUP_EXIT if isinstance(error, history.LookupFailedError) else 1
     except KeyboardInterrupt:

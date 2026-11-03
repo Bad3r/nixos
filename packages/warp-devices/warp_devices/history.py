@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from warp_devices.api import Json, paginate_cursor, paginate_pages
 from warp_devices.devices import FLEET_STATUS, PHYSICAL_DEVICES, field
-from warp_devices.timefmt import iso_utc, parse
+from warp_devices.timefmt import DataError, iso_utc, parse
 
 if TYPE_CHECKING:
     from warp_devices.api import Getter
@@ -78,7 +78,7 @@ def to_report(record: Json) -> Report:
     timestamp = field(record, "timestamp")
     if timestamp is None:
         msg = "a DEX report has no timestamp"
-        raise ValueError(msg)
+        raise DataError(msg)
     return Report(
         timestamp=timestamp,
         moment=parse(timestamp),

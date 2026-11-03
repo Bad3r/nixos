@@ -10,6 +10,10 @@ DAY = 86400
 _HOUR_ONLY_OFFSET = re.compile(r"[+-]\d{2}$")
 
 
+class DataError(ValueError):
+    """An API response holds a field the CLI cannot read."""
+
+
 def parse(value: str) -> datetime:
     """Parse an RFC 3339 timestamp or DEX's `2026-11-03 01:24:45.841255+00` form."""
     text = value.strip().replace(" ", "T", 1)
@@ -21,7 +25,7 @@ def parse(value: str) -> datetime:
         moment = datetime.fromisoformat(text)
     except ValueError:
         msg = f"unrecognized timestamp {value!r}"
-        raise ValueError(msg) from None
+        raise DataError(msg) from None
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
@@ -31,7 +35,7 @@ def parse_optional(value: object) -> datetime | None:
         return None
     if not isinstance(value, str):
         msg = f"unrecognized timestamp {value!r}"
-        raise ValueError(msg)  # noqa: TRY004 - a malformed API field, reported as data
+        raise DataError(msg)
     return parse(value)
 
 

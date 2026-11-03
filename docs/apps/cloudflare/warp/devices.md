@@ -11,8 +11,12 @@ It lives at `zero_trust_read_api_token` in `secrets/cloudflare-warp.yaml`, apart
 
 When the app row is on, Home Manager sops renders two files readable only by the owner:
 
-- `~/.config/warp-devices/account-id` from `account_id`
-- `~/.config/warp-devices/api-token` from `zero_trust_read_api_token`
+- `$XDG_RUNTIME_DIR/warp-devices/account-id` from `account_id`
+- `$XDG_RUNTIME_DIR/warp-devices/api-token` from `zero_trust_read_api_token`
+
+Each is a symlink into the sops-nix generation under the same per-user tmpfs, so the plaintext is never written to a disk filesystem.
+Like any tmpfs page, it can still move to swap.
+With `XDG_RUNTIME_DIR` unset or empty, the CLI fails unless both flags below name the files.
 
 The key must exist in the secrets file before the switch, since one missing key fails Home Manager's sops activation for every secret.
 `--account-id-file` and `--token-file` point the CLI at other files, for example a process substitution:
@@ -63,7 +67,9 @@ The table prints the first and last report and every report whose status, colo, 
 
 `--json` prints every field with the API's raw timestamps, plus a `warnings` list for `list`.
 Color is on for a terminal unless `NO_COLOR` holds a non-empty value; `--color` and `--no-color` override it.
-Tables and stderr show control characters in API text as `\x1b`-style escapes, so a device name cannot drive the terminal; `--json` keeps them as JSON escapes.
+Tables and stderr show control characters in API text as `\x1b`-style escapes, so a device name cannot drive the terminal.
+Bidi overrides, zero-width spaces, other format characters, and unpaired surrogates show as `\u202e`-style escapes, so a name cannot reorder, hide, or break the output.
+`--json` keeps both as JSON escapes.
 
 | Code | Meaning                            |
 | ---- | ---------------------------------- |
@@ -78,11 +84,12 @@ Tables and stderr show control characters in API text as `\x1b`-style escapes, s
 
 The device endpoints stall now and then for over 30 seconds or cut a response short.
 Each request waits 20 seconds and makes up to five attempts, with backoff, on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
-Any other status is final, so a 403 fails at once.
+Network errors retry the same way, such as a DNS failure, a refused or unreachable connection, or a TLS error.
+A failed TLS certificate check or any other status is final, so a 403 fails at once and names the two permissions the token needs.
+
 A pagination cursor that stops advancing fails the endpoint rather than returning a partial list.
 A failed registrations endpoint fails the command, since it carries the device list and the Mesh addresses.
 A failed physical-devices or DEX endpoint prints a warning naming it, empties its columns or sets `STATUS` to `unknown`, and still exits 0.
 Malformed DEX data, such as a report without a readable timestamp, degrades the same way; malformed registrations data fails the command.
-A 403 names the two permissions the token needs.
 
 Source: [Zero Trust devices API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/).

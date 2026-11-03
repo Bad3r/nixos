@@ -9,9 +9,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from warp_devices import devices
 from warp_devices.api import ApiError, Json
 from warp_devices.cli import BROKEN_PIPE_EXIT, LOOKUP_EXIT, USAGE_EXIT, main
 from warp_devices.devices import FLEET_STATUS, PHYSICAL_DEVICES, REGISTRATIONS
@@ -143,6 +145,24 @@ class ListTest(unittest.TestCase):
         self.assertEqual((code, out), (1, ""))
         self.assertIn("unexpected data from Cloudflare", err)
 
+    def test_malformed_timestamp_fails(self) -> None:
+        """An unparsable registrations timestamp is reported as Cloudflare data and exits 1."""
+        client = getter()
+        broken = registration("songbird", 9, minutes_ago=1)
+        broken["last_seen_at"] = "not a time"
+        client.routes[REGISTRATIONS] = static([broken])
+        code, out, err = run(client=client)
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("unexpected data from Cloudflare: unrecognized timestamp 'not a time'", err)
+
+    def test_local_value_error_is_not_masked(self) -> None:
+        """A ValueError outside API data handling surfaces instead of blaming Cloudflare."""
+        with (
+            unittest.mock.patch.object(devices, "merge", side_effect=ValueError("local bug")),
+            self.assertRaisesRegex(ValueError, "local bug"),
+        ):
+            run()
+
     def test_stderr_controls_are_escaped(self) -> None:
         """API text in warnings and errors reaches stderr with its controls escaped."""
         client = getter()
@@ -256,6 +276,66 @@ class InvocationTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn(str(missing), err.getvalue())
         self.assertIn("zero_trust_read_api_token", err.getvalue())
+
+    def test_default_credentials_from_runtime_dir(self) -> None:
+        """Without flags, the credentials come from $XDG_RUNTIME_DIR/warp-devices."""
+        pin_utc()
+        with tempfile.TemporaryDirectory() as runtime:
+            directory = Path(runtime) / "warp-devices"
+            directory.mkdir()
+            (directory / "account-id").write_text("acct\n")
+            (directory / "api-token").write_text("tok\n")
+            out = io.StringIO()
+            with (
+                unittest.mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}),
+                unittest.mock.patch("warp_devices.cli.Client", return_value=getter()) as client,
+                contextlib.redirect_stdout(out),
+            ):
+                code = main([], clock=lambda: NOW)
+        client.assert_called_once_with("acct", "tok")
+        self.assertEqual(code, 0)
+        self.assertIn("songbird", out.getvalue())
+
+    def test_unset_runtime_dir(self) -> None:
+        """Without XDG_RUNTIME_DIR, only explicit files for both credentials work."""
+        for value in (None, ""):
+            for argv in ([], ["--token-file", "token"], ["--account-id-file", "acct"]):
+                with (
+                    self.subTest(value=value, argv=argv),
+                    unittest.mock.patch.dict(os.environ),
+                    unittest.mock.patch("warp_devices.cli.Client") as client,
+                ):
+                    os.environ.pop("XDG_RUNTIME_DIR", None)
+                    if value is not None:
+                        os.environ["XDG_RUNTIME_DIR"] = value
+                    err = io.StringIO()
+                    with contextlib.redirect_stderr(err):
+                        code = main(argv)
+                    self.assertEqual(code, 1)
+                    self.assertIn("XDG_RUNTIME_DIR is unset or empty", err.getvalue())
+                    self.assertIn("--account-id-file and --token-file", err.getvalue())
+                    client.assert_not_called()
+
+    def test_flags_need_no_runtime_dir(self) -> None:
+        """Both flags given, XDG_RUNTIME_DIR is never consulted."""
+        pin_utc()
+        with tempfile.TemporaryDirectory() as directory:
+            account = Path(directory) / "account-id"
+            account.write_text("acct\n")
+            token = Path(directory) / "api-token"
+            token.write_text("tok\n")
+            with (
+                unittest.mock.patch.dict(os.environ),
+                unittest.mock.patch("warp_devices.cli.Client", return_value=getter()) as client,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                os.environ.pop("XDG_RUNTIME_DIR", None)
+                code = main(
+                    ["--account-id-file", str(account), "--token-file", str(token)],
+                    clock=lambda: NOW,
+                )
+        client.assert_called_once_with("acct", "tok")
+        self.assertEqual(code, 0)
 
     def test_empty_credential(self) -> None:
         """An empty credential file is an error, not an empty token."""

@@ -2,7 +2,7 @@
 """Aligned, optionally colored tables."""
 
 import os
-import re
+import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TextIO
 
@@ -19,7 +19,10 @@ STATUS_STYLES = {
     "offline": "31",
     "unknown": DIM,
 }
-CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# control, format (bidi, zero-width), and lone-surrogate characters
+ESCAPED_CATEGORIES = frozenset({"Cc", "Cf", "Cs"})
+LATIN1_MAX = 0xFF
+BMP_MAX = 0xFFFF
 
 
 @dataclass(frozen=True)
@@ -37,9 +40,23 @@ def use_color(choice: bool | None, stream: TextIO) -> bool:  # noqa: FBT001 - tr
     return stream.isatty() and not os.environ.get("NO_COLOR")
 
 
+def _escape(char: str) -> str:
+    code = ord(char)
+    if code <= LATIN1_MAX:
+        return f"\\x{code:02x}"
+    if code <= BMP_MAX:
+        return f"\\u{code:04x}"
+    return f"\\U{code:08x}"
+
+
 def printable(text: str) -> str:
-    r"""Replace C0, DEL, and C1 controls with `\x1b`-style escapes, keeping API text inert."""
-    return CONTROL.sub(lambda match: f"\\x{ord(match.group()):02x}", text)
+    r"""Escape control, format, and surrogate characters as `\x1b`, `\u202e`, or `\U000e0001`.
+
+    API text then cannot drive the terminal, reorder a line, hide characters, or fail to encode.
+    """
+    return "".join(
+        _escape(char) if unicodedata.category(char) in ESCAPED_CATEGORIES else char for char in text
+    )
 
 
 def _sgr(text: str, code: str | None, *, color: bool) -> str:
