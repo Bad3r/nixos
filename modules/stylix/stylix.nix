@@ -110,6 +110,8 @@ in
         }:
         let
           graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
+          # VS Code Dark 2026 color with no base16 slot.
+          accent = "#3994bc"; # focusBorder
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
@@ -444,11 +446,24 @@ in
               # Application theming targets
               targets = {
                 # GTK theming (adw-gtk3 theme + CSS)
-                gtk.enable = true;
-                gtk.flatpakSupport.enable = true;
+                gtk = {
+                  enable = true;
+                  flatpakSupport.enable = true;
+                  extraCss = ''
+                    @define-color accent_color ${accent};
+                    @define-color accent_bg_color ${accent};
+                  '';
+                };
 
                 # Qt theming (Kvantum + qtct)
-                qt.enable = true;
+                qt = {
+                  enable = true;
+                  # Accent for selection (base0E) and controls (base0D); a fresh
+                  # scheme, as overriding config.lib.stylix.colors keeps withHashtag.
+                  colors.override = (config.stylix.base16.mkSchemeAttrs config.stylix.base16Scheme).override (
+                    config.stylix.override // lib.genAttrs [ "base0D" "base0E" ] (_: lib.removePrefix "#" accent)
+                  );
+                };
 
                 # Firefox profile theming (only if enabled)
                 firefox = lib.mkIf firefoxEnabled {
@@ -476,6 +491,19 @@ in
 
             # Keep Dunst icon size centralized with Stylix icon theme settings.
             services.dunst.iconTheme.size = "32x32";
+
+            # GTK 4 accent; GTK 3 rejects custom properties.
+            xdg.configFile."gtk-4.0/gtk.css".source = lib.mkForce (
+              pkgs.concatText "gtk.css" [
+                config.xdg.configFile."gtk-3.0/gtk.css".source
+                (pkgs.writeText "gtk4-accent.css" ''
+                  :root {
+                    --accent-bg-color: ${accent};
+                    --accent-color: ${accent};
+                  }
+                '')
+              ]
+            );
 
             xdg.dataFile = lib.mkIf (
               (config.gtk.iconTheme.name or null) == "Qogir-Dark"
