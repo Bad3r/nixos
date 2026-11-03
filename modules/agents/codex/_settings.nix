@@ -105,7 +105,9 @@ let
     suppress_unstable_features_warning = true;
 
     # Feature flags
-    features = import ./_features.nix;
+    features = (import ./_features.nix) // {
+      runtime_metrics = telemetry.enabled;
+    };
 
     memories = {
       use_memories = true;

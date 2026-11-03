@@ -202,7 +202,7 @@ _: {
           };
         };
 
-        systemd.user.services.codex-telemetry = {
+        systemd.user.services.codex-telemetry = lib.mkIf telemetry.enabled {
           Unit.Description = "Local OpenTelemetry collector for Codex sessions";
           Service = {
             ExecStart = "${lib.getExe pkgs.opentelemetry-collector-contrib} --config=${telemetry.collectorConfigFile}";
