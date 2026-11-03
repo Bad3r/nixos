@@ -168,13 +168,14 @@ in
                   # Tab bar configuration
                   tab_bar_edge = "bottom";
                   tab_bar_margin_width = "0.0";
-                  tab_bar_style = "fade";
+                  tab_bar_margin_height = "4.0 4.0";
+                  tab_bar_style = "powerline";
+                  tab_powerline_style = "round";
                   tab_bar_min_tabs = 2;
-                  tab_fade = "0.25 0.5 0.75 1";
-                  tab_separator = "\" ┇\"";
-                  tab_title_template = "\"{title}\"";
+                  tab_title_template = "\" {title} \"";
+                  tab_title_max_length = 32;
                   active_tab_title_template = "none";
-                  active_tab_font_style = "bold-italic";
+                  active_tab_font_style = "bold";
                   inactive_tab_font_style = "normal";
                   # Glass over picom's blur.
                   background_opacity = "0.7";
@@ -294,9 +295,9 @@ in
               url_color = "#48a0c7"; # textLink.foreground
               active_border_color = colors.base03;
               inactive_border_color = colors.base01;
-              tab_bar_background = colors.base01;
-              active_tab_background = colors.base00;
-              active_tab_foreground = colors.base05;
+              tab_bar_background = colors.base00;
+              active_tab_background = colors.base02;
+              active_tab_foreground = colors.base07;
               inactive_tab_background = colors.base01;
               inactive_tab_foreground = colors.base04;
             };
