@@ -44,7 +44,10 @@ in
           homeDir = "/home/codex-config-check";
           configDir = "/home/codex-config-check/.config/codex";
         };
-      telemetry = import ./_telemetry.nix { inherit pkgs; };
+      telemetry = import ./_telemetry.nix {
+        inherit pkgs;
+        enabled = true;
+      };
       disabledSettings = mkSettings (
         import ./_telemetry.nix {
           inherit pkgs;
