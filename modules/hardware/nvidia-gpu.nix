@@ -88,9 +88,12 @@ let
                   description = "Display device name as the X log lists it, not the RandR output name.";
                 };
                 edid = lib.mkOption {
-                  type = lib.types.str;
+                  type = lib.types.pathWith {
+                    absolute = true;
+                    inStore = false;
+                  };
                   example = "/run/secrets/songbird/monitor-edid";
-                  description = "Absolute path of the panel's raw EDID, read when X starts in place of the panel's own.";
+                  description = "Absolute path of the panel's raw EDID outside the Nix store, read when X starts in place of the panel's own.";
                 };
               };
             }

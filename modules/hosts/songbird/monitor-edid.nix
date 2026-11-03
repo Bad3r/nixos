@@ -15,7 +15,6 @@ in
     {
       config = lib.mkMerge [
         (lib.mkIf ready {
-          # The EDID carries the panel's serial number.
           sops.secrets."songbird/monitor-edid" = {
             sopsFile = secretFile;
             format = "binary";
