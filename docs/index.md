@@ -285,6 +285,8 @@
   - Running untrusted images under gVisor with no network through `podman --module untrusted`.
 - [usage/rustdesk.md](usage/rustdesk.md)
   - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, non-NixOS device setup, troubleshooting.
+- [usage/rustdesk-windows.md](usage/rustdesk-windows.md)
+  - Installing RustDesk on a Windows device from PowerShell and pointing it at the fleet's ID server.
 
 ## Hosts
 

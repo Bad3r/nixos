@@ -8,6 +8,7 @@ User-facing documentation for specific modules and features.
 | [Pentesting Devshell](pentesting-devshell.md) | Security tools devshell usage and customization        |
 | [Untrusted Containers](podman-untrusted.md)   | gVisor containers with no network through Podman       |
 | [RustDesk](rustdesk.md)                       | Remote desktop between devices over Cloudflare Mesh    |
+| [RustDesk on Windows](rustdesk-windows.md)    | PowerShell install and server setup for Windows        |
 
 The duplicati-r2 maintainer reference is [apps/duplicati](../apps/duplicati/README.md).
 

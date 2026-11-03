@@ -51,6 +51,7 @@ A session that cannot connect directly runs through the relay and loads the serv
 ## Set up a non-NixOS device
 
 Precondition: the device is connected to the Zero Trust team and reaches the Mesh.
+On Windows, [RustDesk on Windows](rustdesk-windows.md) installs the app from PowerShell and covers steps 1 and 2.
 
 1. On a host, from the repository root, read the server host's Mesh address, the public key, and the password:
 
