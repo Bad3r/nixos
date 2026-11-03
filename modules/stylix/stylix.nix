@@ -320,6 +320,13 @@ in
               names = [ "electron-mail" ];
             }
             {
+              id = "flameshot-tray";
+              source = themedIcon "flameshot-tray";
+              names = [ "flameshot-tray" ];
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
+            }
+            {
               id = "protonvpn-tray";
               source = themedIcon "protonvpn-tray";
               names = [ "protonvpn-tray" ];
