@@ -1,8 +1,9 @@
 # Local Codex telemetry with content filtering before file export.
-{ pkgs }:
+{
+  pkgs,
+  enabled ? true,
+}:
 let
-  enabled = true;
-
   # Avoid the default OTLP port used by other local collectors.
   address = "127.0.0.1:14318";
 

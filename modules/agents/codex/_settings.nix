@@ -4,6 +4,7 @@
   lib,
   osConfig,
   pkgs,
+  telemetry ? import ./_telemetry.nix { inherit pkgs; },
 }:
 let
   # MCP servers via compiled agents.mcp client profile
@@ -36,8 +37,6 @@ let
 
   # Commented entries in the catalog leave the upstream default in effect.
   codexDefaultSettings = import ./_default-settings.nix;
-
-  telemetry = import ./_telemetry.nix { inherit pkgs; };
 
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {

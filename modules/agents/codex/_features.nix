@@ -212,6 +212,9 @@
   # Track and report a shared token budget across a session's agent threads.
   # rollout_budget = false; # UnderDevelopment; upstream: false
 
+  # Runtime snapshots follow local capture in _settings.nix and _telemetry.nix.
+  # runtime_metrics = false; # UnderDevelopment; upstream: false
+
   # Allow root agents to send async user messages without model catalog support.
   # send_message_to_user_async = false; # UnderDevelopment; upstream: false
 
