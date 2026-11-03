@@ -111,7 +111,6 @@
               # Core settings
               core = {
                 # editor uses $EDITOR env var (set via default-apps.nix)
-                # pager is set by programs.delta when enabled
                 whitespace = "trailing-space,space-before-tab";
               };
 
@@ -225,14 +224,24 @@
           }
         ];
 
-        # Delta diff viewer (moved from programs.git.delta to programs.delta)
         delta = {
           enable = true;
+          # Sets core.pager and interactive.diffFilter.
+          enableGitIntegration = true;
           options = {
             navigate = true;
             light = false;
             side-by-side = false;
             line-numbers = true;
+            # PAGER is bat, which hides less from navigate.
+            pager = "less --RAW-CONTROL-CHARS --quit-if-one-screen";
+            # Stylix's bat theme.
+            syntax-theme = "base16-stylix";
+            # VS Code Dark 2026 diffEditor colors over editor.background.
+            minus-style = "syntax #2d1919"; # removedLineBackground
+            minus-emph-style = "syntax #693331"; # removedTextBackground
+            plus-style = "syntax #17231a"; # insertedLineBackground
+            plus-emph-style = "syntax #2a4c2d"; # insertedTextBackground
           };
         };
       };
