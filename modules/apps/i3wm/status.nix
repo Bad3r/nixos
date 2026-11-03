@@ -1,5 +1,9 @@
 # i3status-rust configuration
 # Configures the status bar with system metrics, media controls, and theming
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -127,7 +131,9 @@
           blocks = i3statusBlocks;
           settings = {
             icons = {
+              # Octicons over Font Awesome; headphones, microphones, and batteries stay Font Awesome.
               icons = "awesome6";
+              overrides = octicons.status;
             };
           }
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
