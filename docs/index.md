@@ -491,7 +491,7 @@
 
 ### OpenShell
 
-- [apps/openshell.md](apps/openshell.md)
+- [apps/openshell/README.md](apps/openshell/README.md)
   - Registering the gateway, connecting from Mesh peers and workload VMs over mTLS, and reissuing the client bundle.
 
 ### PDF Tooling

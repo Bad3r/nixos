@@ -1,6 +1,6 @@
 # OpenShell
 
-`openshell` creates agent sandboxes through the `openshell-gateway` user service ([nixos.nix](../../modules/apps/openshell/nixos.nix), [home.nix](../../modules/apps/openshell/home.nix)).
+`openshell` creates agent sandboxes through the `openshell-gateway` user service ([nixos.nix](../../../modules/apps/openshell/nixos.nix), [home.nix](../../../modules/apps/openshell/home.nix)).
 The gateway admits only mTLS clients holding its client bundle, and every holder controls it fully: sandboxes, providers, and rule approvals.
 Upstream docs: <https://docs.nvidia.com/openshell/latest/>
 
@@ -37,7 +37,7 @@ The server certificate names `host.openshell.internal`, so a client dials that n
    workloads grant sbx-<name> host:openshell --ttl 2h
    ```
 
-   The grant rules live in `modules/hosts/songbird/workloads.nix`; [workload grants](../networking/workload-grants.md) covers TTLs and revocation.
+   The grant rules live in `modules/hosts/songbird/workloads.nix`; [workload grants](../../networking/workload-grants.md) covers TTLs and revocation.
 
 4. Register the gateway on the client:
 
@@ -52,4 +52,6 @@ Verify with `openshell status` on the client, which reports `Authenticated (mTLS
 ## Revoke access
 
 The bundle cannot be revoked per client.
-Stop `openshell-gateway`, delete `~/.local/state/openshell/tls/` and the host's bundle directory, then start the service to issue a new PKI and copy the new bundle to the clients that keep access.
+Stop `openshell-gateway`, delete `~/.local/state/openshell/tls/` and the host's bundle directory, then start the service.
+Its first start issues a new PKI and rewrites the host's bundle, which the host's existing registration keeps using.
+Copy the new bundle to the clients that keep access; a client holding the old bundle fails to connect.

@@ -13,7 +13,7 @@
 
   Options:
     gateway add --local https://127.0.0.1:17670: Register the local gateway once; picks up its mTLS client bundle.
-    Remote clients: docs/apps/openshell.md.
+    Remote clients: docs/apps/openshell/README.md.
     sandbox: Create, list, connect to, and delete sandboxes.
     rule: Review and approve the network rules a sandbox requests.
     doctor check: Validate gateway prerequisites.
