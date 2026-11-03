@@ -37,6 +37,8 @@ let
   # Commented entries in the catalog leave the upstream default in effect.
   codexDefaultSettings = import ./_default-settings.nix;
 
+  telemetry = import ./_telemetry.nix { inherit pkgs; };
+
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
@@ -92,6 +94,12 @@ let
       enabled = false;
     };
     check_for_update_on_startup = false;
+    # Keep diagnostic signals local without enabling conversation content logging.
+    otel = telemetry.codexOtel // {
+      log_user_prompt = false;
+      log_agent_responses = false;
+      log_guardian_assessments = false;
+    };
 
     # Experimental settings
     suppress_unstable_features_warning = true;

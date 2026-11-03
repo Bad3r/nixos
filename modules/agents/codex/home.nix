@@ -23,7 +23,8 @@
       (modules/agents/system-prompt.nix)
     * Private helpers: _default-settings.nix (settings catalog), _settings.nix
       (site policy and MCP composition), _features.nix (feature flags),
-      _env.nix (process environment), _wrapper.nix (runtime config merge).
+      _env.nix (process environment), _wrapper.nix (runtime config merge),
+      _telemetry.nix (OTLP exporters and the local collector).
     * Installs the wrapper around programs.codex.extended.package (modules/agents/codex/nixos.nix), which comes from llm-agents.nix.
     * Config is split into four TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
@@ -56,6 +57,7 @@ _: {
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
+      telemetry = import ./_telemetry.nix { inherit pkgs; };
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
 
@@ -198,6 +200,24 @@ _: {
           sessionVariables = codexEnv.vars // {
             CODEX_HOME = lib.mkDefault configDir;
           };
+        };
+
+        systemd.user.services.codex-telemetry = {
+          Unit.Description = "Local OpenTelemetry collector for Codex sessions";
+          Service = {
+            ExecStart = "${lib.getExe pkgs.opentelemetry-collector-contrib} --config=${telemetry.collectorConfigFile}";
+            Restart = "on-failure";
+            StateDirectory = "codex-telemetry";
+            StateDirectoryMode = "0700";
+            UMask = "0077";
+            NoNewPrivileges = true;
+            RestrictAddressFamilies = [
+              "AF_UNIX"
+              "AF_INET"
+              "AF_INET6"
+            ];
+          };
+          Install.WantedBy = [ "default.target" ];
         };
 
         xdg.configFile = {
