@@ -57,9 +57,44 @@ Precondition: the device is connected to the Zero Trust team and reaches the Mes
 7. Reopen RustDesk, type a host's ID followed by `/r`, such as `<id>/r`, and connect with the fleet password, as in [Set up a non-NixOS device](rustdesk.md#set-up-a-non-nixos-device) step 3.
    The suffix forces the relay: a direct session from Windows ends in `Reset by the peer` without falling back to it.
    Type the ID, never the address, since a host refuses direct IP sessions.
-   The host's card menu under Recent sessions has Always connect via relay, which keeps later sessions on the relay without the suffix.
+   The suffix also saves Always connect via relay for that host, so later sessions from Recent sessions take the relay without it.
 
 Verification: the status bar reads Ready with no prompt to set up a server, and a session's shield shows an encrypted connection.
+
+## Let the hosts connect to the device
+
+Precondition: the device runs RustDesk as installed above, and WARP connects at boot before a user signs in, which an enrolled device does unless multi-user mode is on.
+
+1. In RustDesk on the device, open Settings, Security, and Unlock security settings, then:
+
+   - under Password, choose Use permanent password and set one;
+   - set Approve mode to Accept sessions via password;
+   - turn on Use IP Whitelisting with the Mesh range that `nix eval --raw .#lib.nixos._cloudflareWarpMeshRange` prints on a host.
+
+2. Keep the device awake on AC power, since a sleeping device leaves the Mesh:
+
+   ```powershell
+   powercfg /change standby-timeout-ac 0
+   powercfg /change hibernate-timeout-ac 0
+   ```
+
+3. Print the salt RustDesk hashes the password with; the main window shows the ID:
+
+   ```powershell
+   Select-String '^salt' "$env:windir\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk.toml"
+   ```
+
+4. On a host, from the repository root, add the device to the `peers` key as `secrets/rustdesk.yaml.example` shows, then push the secrets repository's `main`:
+
+   ```sh
+   sops secrets/rustdesk.yaml
+   git -C secrets commit -am "chore: add <device> to the RustDesk peers"
+   git -C secrets push origin HEAD:main
+   ```
+
+5. Commit the submodule bump and switch; the service writes the device into Favorites with its login and the relay forced.
+
+Verification: the device appears by name under Favorites on each host, and a session opens without a password prompt, also at the Windows sign-in screen after a reboot.
 
 ## Upgrade
 

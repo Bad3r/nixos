@@ -81,6 +81,10 @@ let
       hostFlags = hostsRegistry.${hostName} or { };
       secretFile = secretsRoot + "/rustdesk.yaml";
       secretExists = builtins.pathExists secretFile;
+      # optional peers key, read from the cleartext key names
+      peersDeclared =
+        secretExists
+        && lib.any (lib.hasPrefix "peers:") (lib.splitString "\n" (builtins.readFile secretFile));
       sopsReady = hostFlags.sopsRuntimeReady or false;
       warpEnrolled = config.programs.cloudflare-warp.extended.enrolled;
       serverHost = if builtins.length serverHosts == 1 then builtins.head serverHosts else null;
@@ -98,6 +102,7 @@ let
       publicKeySecret = "rustdesk/server-public-key";
       secretKeySecret = "rustdesk/server-secret-key";
       passwordSecret = "rustdesk/password";
+      peersSecret = "rustdesk/peers";
       serverAddressSecret = warpSecretName "mesh-host-${serverHost}";
       optionsTemplate = "rustdesk/options.json";
       hbbsEnvTemplate = "rustdesk/hbbs.env";
@@ -108,6 +113,7 @@ let
 
       seedPython = pkgs.python3.withPackages (ps: [
         ps.pynacl
+        ps.pyyaml
         ps.tomli-w
       ]);
       # Mirrors hbb_common in rustdesk-flutter 1.5.0: symmetric_crypt and its "00"
@@ -126,6 +132,7 @@ let
         import nacl.exceptions
         import nacl.secret
         import tomli_w
+        import yaml
 
 
         @functools.cache
@@ -221,6 +228,10 @@ let
             if not options.get("alias"):
                 options["alias"] = login["info"]["hostname"]
                 changed = True
+            # relay only, for devices outside the hosts
+            if login.get("relay") and options.get("force-always-relay") != "Y":
+                options["force-always-relay"] = "Y"
+                changed = True
             return changed
 
 
@@ -231,7 +242,40 @@ let
             return bool(missing)
 
 
-        def plan(password_file, key_file, me, user, *hosts):
+        def external_peers(peers_file):
+            if not peers_file:
+                return []
+            try:
+                entries = yaml.safe_load(Path(peers_file).read_text(encoding="utf-8")) or []
+            except yaml.YAMLError as error:
+                print(f"rustdesk-seed: ignoring peers, not YAML: {error}", file=sys.stderr)
+                return []
+            if not isinstance(entries, list):
+                print("rustdesk-seed: ignoring peers, not a list", file=sys.stderr)
+                return []
+            fields = ("hostname", "platform", "id", "salt", "password")
+            peers = []
+            for number, raw in enumerate(entries, 1):
+                # accept an unquoted ID or salt
+                entry = {
+                    field: str(raw[field])
+                    for field in fields
+                    if isinstance(raw, dict) and isinstance(raw.get(field), (str, int)) and not isinstance(raw.get(field), bool)
+                }
+                if not all(entry.get(field) for field in fields):
+                    print(f"rustdesk-seed: skipping peers entry {number}: needs {', '.join(fields)}", file=sys.stderr)
+                    continue
+                h1 = hashlib.sha256((entry["password"] + entry["salt"]).encode()).digest()
+                peers.append({
+                    "id": entry["id"],
+                    "h1": base64.b64encode(h1).decode(),
+                    "info": {"username": "", "platform": entry["platform"], "hostname": entry["hostname"]},
+                    "relay": True,
+                })
+            return peers
+
+
+        def plan(password_file, key_file, peers_file, me, user, *hosts):
             password = Path(password_file).read_bytes()
             key = Path(key_file).read_bytes()
             if not password or not key:
@@ -251,7 +295,7 @@ let
             info = {"username": user, "platform": "Linux"}
             peers = [
                 logins[host] | {"info": info | {"hostname": host}} for host in hosts if host != me
-            ]
+            ] + external_peers(peers_file)
             json.dump({"self": logins[me], "peers": peers}, sys.stdout)
 
 
@@ -334,6 +378,7 @@ let
 
           plan=$(seed plan ${config.sops.secrets.${passwordSecret}.path} \
             ${config.sops.secrets.${publicKeySecret}.path} \
+            ${lib.escapeShellArg (lib.optionalString peersDeclared config.sops.secrets.${peersSecret}.path)} \
             ${hostName} ${owner.name} ${lib.escapeShellArgs ([ hostName ] ++ clientHosts)})
           account=$(jq -c --slurpfile options "$options" '{options: $options[0], login: .self}' <<<"$plan")
 
@@ -398,23 +443,32 @@ let
         (lib.mkIf clientActive {
           environment.systemPackages = [ cfg.package ];
 
-          sops.secrets.${passwordSecret} = {
-            sopsFile = secretFile;
-            format = "yaml";
-            key = "password";
-            restartUnits = [ "rustdesk.service" ];
-          };
+          sops = {
+            secrets.${passwordSecret} = {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "password";
+              restartUnits = [ "rustdesk.service" ];
+            };
 
-          sops.templates.${optionsTemplate} = {
-            content = builtins.toJSON (
-              managedOptions
-              // {
-                "custom-rendezvous-server" = placeholder serverAddressSecret;
-                "relay-server" = placeholder serverAddressSecret;
-                key = placeholder publicKeySecret;
-              }
-            );
-            restartUnits = [ "rustdesk.service" ];
+            secrets.${peersSecret} = lib.mkIf peersDeclared {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "peers";
+              restartUnits = [ "rustdesk.service" ];
+            };
+
+            templates.${optionsTemplate} = {
+              content = builtins.toJSON (
+                managedOptions
+                // {
+                  "custom-rendezvous-server" = placeholder serverAddressSecret;
+                  "relay-server" = placeholder serverAddressSecret;
+                  key = placeholder publicKeySecret;
+                }
+              );
+              restartUnits = [ "rustdesk.service" ];
+            };
           };
 
           systemd.services.rustdesk = {

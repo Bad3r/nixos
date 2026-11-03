@@ -30,6 +30,7 @@ Some traffic stays visible:
 
 Every host accepts the password in `secrets/rustdesk.yaml`, kept in RustDesk's configuration as a salted hash.
 Every other host appears by name under Favorites and Recent sessions, carrying that login, so a session between hosts opens without a prompt.
+Devices outside the NixOS hosts listed under `peers` in `secrets/rustdesk.yaml` appear there too, each with its own login and the relay forced: [Let the hosts connect to the device](rustdesk-windows.md#let-the-hosts-connect-to-the-device).
 Those entries skip the default codec, frame rate, and a few other Display settings, so set them per host from the session toolbar.
 
 The service rewrites the ID, the password, the stored logins, the favorites, and the managed settings at every start.
