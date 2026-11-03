@@ -8,24 +8,24 @@
   Summary:
     * Provides a customizable launcher supporting modes for running applications, switching windows, SSH, scripts, file browsers, and more.
     * Features themes, keybinding customization, history, and scriptable "modi" to extend functionality beyond launching apps.
-    * Theme colors automatically synced with Stylix configuration.
+    * Styled after the VS Code command palette, colored from the Stylix palette.
 
   Features:
-    * Colors automatically managed by stylix.targets.rofi (base16 scheme)
+    * VS Code command palette look: top-centered 600px box, rounded input, solid selected row
     * Multiple specialized themes: dmenu (apps), powermenu, power-profiles, keyhint
     * Modes: window, drun, run, ssh, combi, filebrowser, calc
     * Calculator mode via rofi-calc plugin (uses libqalculate for natural language math)
     * Terminal integration for running console applications
 
   Config files installed:
-    * ~/.config/rofi/rofidmenu.rasi      - Apps menu layout (single column, 6 lines)
+    * ~/.config/rofi/rofidmenu.rasi      - Apps menu (command palette, 12 lines)
     * ~/.config/rofi/powermenu.rasi      - Power menu layout (east sidebar, 7 lines)
     * ~/.config/rofi/power-profiles.rasi - Power profile selector (east, 4 lines)
     * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
 
   Example Usage:
-    * `rofi -show drun` -- Default app launcher with stylix colors.
-    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps in compact single-column list.
+    * `rofi -show drun` -- App launcher in the command palette style.
+    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps menu with its own placeholder.
     * `rofi -show calc -modi calc -no-show-match -no-sort` -- Calculator with natural language.
     * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` -- Power menu.
     * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` -- Show keybindings.
@@ -50,7 +50,126 @@ _: {
         in
         i3Commands.terminal or "${lib.getExe pkgs.kitty}";
 
-      # Layout-only styles (colors handled by stylix via programs.rofi.theme)
+      inherit (config.lib.formats.rasi) mkLiteral;
+      colors = config.lib.stylix.colors.withHashtag;
+      # VS Code Dark 2026 quickInput colors with no base16 slot.
+      palette = {
+        background = "#202122"; # quickInput.background
+        focusBorder = "#3994bcb3"; # focusBorder
+        placeholder = "#555555"; # input.placeholderForeground
+        selection = "#297aa0"; # quickInputList.focusBackground
+        selectionText = "#ffffff"; # quickInputList.focusForeground
+        match = "#48a0c7"; # list.highlightForeground
+      };
+
+      # VS Code command palette (quick input), from workbench CSS: 600px wide,
+      # 12px window radius, 6px input radius, 22px rows with 3px radius.
+      commandPaletteTheme = {
+        "*" = {
+          background-color = mkLiteral "transparent";
+          text-color = mkLiteral colors.base05;
+          # Named colors read by the other .rasi files.
+          background = mkLiteral palette.background;
+          foreground = mkLiteral colors.base05;
+          border-color = mkLiteral colors.base02;
+          separatorcolor = mkLiteral colors.base02;
+        };
+        window = {
+          location = mkLiteral "north";
+          anchor = mkLiteral "north";
+          y-offset = mkLiteral "8%";
+          width = mkLiteral "600px";
+          background-color = mkLiteral palette.background;
+          border = mkLiteral "1px";
+          border-color = mkLiteral colors.base02;
+          border-radius = mkLiteral "12px";
+          padding = mkLiteral "6px";
+          transparency = "real";
+        };
+        mainbox = {
+          spacing = mkLiteral "4px";
+          children = map mkLiteral [
+            "inputbar"
+            "message"
+            "listview"
+          ];
+        };
+        inputbar = {
+          children = map mkLiteral [ "entry" ];
+          background-color = mkLiteral colors.base01;
+          border = mkLiteral "1px";
+          border-color = mkLiteral palette.focusBorder;
+          border-radius = mkLiteral "6px";
+          padding = mkLiteral "4px 6px";
+        };
+        entry = {
+          placeholder = "Type to search";
+          placeholder-color = mkLiteral palette.placeholder;
+          cursor = mkLiteral "text";
+        };
+        message = {
+          padding = mkLiteral "4px 6px";
+        };
+        textbox = {
+          text-color = mkLiteral colors.base04;
+        };
+        listview = {
+          lines = 12;
+          fixed-height = false;
+          dynamic = true;
+          scrollbar = false;
+          spacing = mkLiteral "0px";
+          padding = mkLiteral "0px 0px 2px";
+        };
+        element = {
+          padding = mkLiteral "3px 6px";
+          spacing = mkLiteral "6px";
+          border-radius = mkLiteral "3px";
+        };
+        "element normal.normal" = {
+          text-color = mkLiteral colors.base05;
+        };
+        "element alternate.normal" = {
+          text-color = mkLiteral colors.base05;
+        };
+        "element normal.active" = {
+          text-color = mkLiteral colors.base0D;
+        };
+        "element alternate.active" = {
+          text-color = mkLiteral colors.base0D;
+        };
+        "element normal.urgent" = {
+          text-color = mkLiteral colors.base08;
+        };
+        "element alternate.urgent" = {
+          text-color = mkLiteral colors.base08;
+        };
+        "element selected.normal" = {
+          background-color = mkLiteral palette.selection;
+          text-color = mkLiteral palette.selectionText;
+        };
+        "element selected.active" = {
+          background-color = mkLiteral palette.selection;
+          text-color = mkLiteral palette.selectionText;
+        };
+        "element selected.urgent" = {
+          background-color = mkLiteral colors.base08;
+          text-color = mkLiteral palette.selectionText;
+        };
+        element-icon = {
+          size = mkLiteral "16px";
+        };
+        element-text = {
+          text-color = mkLiteral "inherit";
+          highlight = mkLiteral "bold ${palette.match}";
+          vertical-align = mkLiteral "0.5";
+        };
+        "element-text selected" = {
+          highlight = mkLiteral "bold ${palette.selectionText}";
+        };
+      };
+
+      # Layout-only styles for the sidebar menus
       commonLayoutStyles = ''
         element {
             border:  0;
@@ -90,37 +209,13 @@ _: {
       '';
 
       # Apps menu config (rofidmenu.rasi)
-      # Imports main config.rasi for stylix colors, then overrides layout
       rofidmenuConfig = ''
-        /* Apps menu - compact single column, 6 lines */
+        /* Apps menu - command palette */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           5;
-            border-color:     @border-color;
-            padding:          5;
-            transparency:     "none";
+        entry {
+            placeholder: "Search applications";
         }
-        listview {
-            lines:        6;
-            fixed-height: 0;
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            spacing:      10px;
-            scrollbar:    true;
-            padding:      2px 0px 0px;
-        }
-        mainbox {
-            border:  0;
-            padding: 0;
-        }
-        message {
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            padding:      1px;
-        }
-        ${commonLayoutStyles}
       '';
 
       # Power menu config (powermenu.rasi)
@@ -135,6 +230,8 @@ _: {
             transparency:     "real";
             width:            120px;
             location:         east;
+            anchor:           east;
+            y-offset:         0;
         }
         listview {
             lines:     7;
@@ -159,6 +256,8 @@ _: {
             transparency:     "real";
             width:            170px;
             location:         east;
+            anchor:           east;
+            y-offset:         0;
         }
         listview {
             lines:   4;
@@ -257,11 +356,13 @@ _: {
             filebrowser-sorting-method = "name";
           };
 
-          # Theme is set by stylix - it creates ~/.local/share/rofi/themes/custom.rasi
-          # with all the base16 color definitions
+          font = "${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.popups}";
+          theme = commandPaletteTheme;
         };
 
-        # Install config files that import the main config (which has stylix theme)
+        stylix.targets.rofi.enable = false;
+
+        # Install config files that import the main config (which has the theme)
         xdg.configFile = {
           "rofi/rofidmenu.rasi".text = rofidmenuConfig;
           "rofi/powermenu.rasi".text = powermenuConfig;
