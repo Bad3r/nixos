@@ -70,5 +70,6 @@ The Mesh range itself is public: `meshRange` in `cloudflare-warp.nix` sits betwe
 
 - [Deployment](deployment.md): Cloudflare objects, the sops payload, host enrollment, Mesh address changes, token rotation.
 - [Troubleshooting](troubleshooting.md): symptoms with cause, diagnostic, and fix.
+- [warp-devices](devices.md): list devices with status and addresses, and one device's report history.
 
 Source: [Cloudflare One client on Linux](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/).
