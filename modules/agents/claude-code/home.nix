@@ -32,6 +32,7 @@
         _env.nix               environment variables
         _claude-json.nix       ~/.claude.json preferences
         _keybindings.nix       ~/.claude/keybindings.json
+        _theme.nix             ~/.claude/themes/<slug>.json, the `theme` in _settings.nix
       Plumbing: _activation.nix (jq merge and optional bun install) and
       _launcher.nix (launcher environment and binary selection).
 */
@@ -60,6 +61,11 @@ _: {
       } osConfig;
 
       claudeEnv = import ./_env.nix;
+      themeSlug = lib.removePrefix "custom:" (import ./_settings.nix).theme;
+      claudeTheme = import ./_theme.nix {
+        inherit lib;
+        colors = config.lib.stylix.colors.withHashtag;
+      };
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
       registryClaudeSkills = lib.filterAttrs (
         _name: skill: skill ? claude && skill.enabledOn osConfig
@@ -175,6 +181,8 @@ _: {
             ".claude/CLAUDE.md".text = claudeInstructions;
 
             ".claude/keybindings.json".text = builtins.toJSON (import ./_keybindings.nix);
+
+            ".claude/themes/${themeSlug}.json".text = builtins.toJSON claudeTheme;
 
             ".local/bin/claude" = {
               source = lib.getExe claudeRuntime.claudeWrapped;

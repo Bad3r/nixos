@@ -315,8 +315,9 @@
   # Emit OSC 9;4 progress sequences during long operations
   terminalProgressBarEnabled = true;
 
-  # Color theme for the UI
-  theme = "dark";
+  # Color theme for the UI; custom:<slug> loads ~/.claude/themes/<slug>.json
+  # (_theme.nix)
+  theme = "custom:vscode-dark-2026";
 
   # Terminal UI renderer. "fullscreen" uses the flicker-free alt-screen
   # renderer with virtualized scrollback (equivalent to
