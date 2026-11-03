@@ -56,8 +56,9 @@ in
         ))
       '';
       # Runs in the guest. `once` prints `echo` for an echoed line, `host` for a host
-      # listener, or the connect error's type; `hold` logs one line per round trip
-      # until the stream ends, and a stall is told apart from a cut.
+      # listener, `closed` for a stream the relay ends after accepting it, or the
+      # connect error's type; `hold` logs one line per round trip until the stream
+      # ends, and a stall is told apart from a cut.
       stream = pkgs.writeText "vsock-stream.py" ''
         import socket
         import sys
@@ -73,10 +74,13 @@ in
             sys.exit()
         stream = client.makefile("rwb")
         if mode == "once":
-            stream.write(b"x\n")
-            stream.flush()
-            line = stream.readline()
-            print({b"x\n": "echo", b"host\n": "host"}.get(line, repr(line)))
+            try:
+                stream.write(b"x\n")
+                stream.flush()
+                line = stream.readline()
+            except (BrokenPipeError, ConnectionResetError):
+                line = b""
+            print({b"x\n": "echo", b"host\n": "host", b"": "closed"}.get(line, repr(line)))
             sys.exit()
         log = open(sys.argv[3], "a", buffering=1)
         while True:
@@ -322,7 +326,7 @@ in
             with subtest("a bind = any grant reaches a host address, never a loopback-only listener"):
                 wide = grant("host:wide")
                 assert once(8011) == "echo"
-                assert once(8010) == repr(b"")
+                assert once(8010) == "closed"
                 workloads(f"revoke {wide}")
 
             with subtest("revoke cuts that grant's established stream at once, and no other"):
