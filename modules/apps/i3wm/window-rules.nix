@@ -1,5 +1,9 @@
 # i3 window rules configuration
 # Defines workspace assignments and per-window commands
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -10,7 +14,7 @@
     }:
     let
       cfg = config.gui.i3;
-      workspaceName = (import ./_workspaces.nix { inherit lib; }).nameOf;
+      workspaceName = octicons.nameOf;
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
         "claude-desktop"

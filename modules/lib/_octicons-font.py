@@ -2,9 +2,10 @@
 """Build an OpenType icon font from square SVG icons.
 
 Usage:
-    python3 _workspace-font.py OUTPUT FAMILY ICON_DIR CODEPOINT=NAME...
+    python3 _octicons-font.py OUTPUT FAMILY ICON_DIR CODEPOINT=NAME...
 
-Each NAME resolves to ICON_DIR/NAME-16.svg and is mapped to CODEPOINT.
+Each NAME resolves to ICON_DIR/NAME-16.svg and is mapped to CODEPOINT; a NAME
+repeated under several codepoints shares one glyph.
 """
 
 import re
@@ -57,9 +58,9 @@ def main() -> None:
     cmap: dict[int, str] = {}
     for mapping in mappings:
         codepoint, name = mapping.split("=", 1)
-        charstring, metrics[name] = icon_charstring(Path(icon_dir) / f"{name}-16.svg")
-        glyph_order.append(name)
-        charstrings[name] = charstring
+        if name not in charstrings:
+            charstrings[name], metrics[name] = icon_charstring(Path(icon_dir) / f"{name}-16.svg")
+            glyph_order.append(name)
         cmap[int(codepoint)] = name
 
     ps_name = family.replace(" ", "")

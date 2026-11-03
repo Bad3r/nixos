@@ -1,6 +1,10 @@
 # i3 core configuration
 # Defines options, scripts, startup commands, colors, and bar settings
 # Window rules are in window-rules.nix
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -411,7 +415,6 @@
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
-      workspaceIcons = import ./_workspaces.nix { inherit lib; };
       workspaceOutput =
         number:
         if number <= 6 then
@@ -424,7 +427,7 @@
       workspaceOutputAssign = map (ws: {
         workspace = ws.name;
         output = [ (workspaceOutput ws.number) ];
-      }) workspaceIcons.workspaces;
+      }) octicons.workspaces;
 
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
@@ -642,7 +645,7 @@
                     else
                       null;
                   fonts = stylixBarFonts // {
-                    names = stylixBarFonts.names ++ [ workspaceIcons.fontFamily ];
+                    names = stylixBarFonts.names ++ [ octicons.family ];
                   };
                   colors = barColors;
                   # Square icon buttons with a small inset at the bar ends.

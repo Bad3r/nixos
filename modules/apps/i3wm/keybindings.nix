@@ -1,5 +1,9 @@
 # i3 keybindings configuration
 # Defines all keyboard shortcuts, workspace bindings, and mode configurations
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -16,7 +20,7 @@
       inherit (config.gui.i3) commands;
 
       # Workspace bindings (1-10, using 0 for workspace 10)
-      inherit (import ./_workspaces.nix { inherit lib; }) workspaces;
+      inherit (octicons) workspaces;
       toWorkspaceKey = ws: toString (lib.mod ws.number 10);
       workspaceBindings = lib.listToAttrs (
         map (
