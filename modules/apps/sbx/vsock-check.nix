@@ -137,6 +137,7 @@ in
           ''
             import json
             import re
+            from datetime import timedelta
 
             def as_owner(command):
                 return f"runuser -u ${owner} -- env XDG_RUNTIME_DIR=/run/user/1000 TMPDIR=${home}/tmp {command}"
@@ -151,7 +152,7 @@ in
             def listen(unit, cid, port, reply, wrap=""):
                 machine.succeed(f"systemd-run --unit {unit} --uid ${owner} {wrap} ${python} ${listener} {cid} {port} {reply}")
                 listening = as_owner(f"{wrap} ss -H -l --vsock") if wrap else "ss -H -l --vsock"
-                machine.wait_until_succeeds(f"{listening} | grep -F ':{port} '", timeout=10)
+                machine.wait_until_succeeds(f"{listening} | grep -F ':{port} '", timeout=timedelta(seconds=10))
 
             def guest_reaches(name, cid, port):
                 result = sbx(f"exec {name} -- python3 /root/probe.py {cid} {port}")

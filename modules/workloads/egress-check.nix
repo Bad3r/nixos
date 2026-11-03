@@ -60,6 +60,7 @@ in
 
         testScript = ''
           import json
+          from datetime import timedelta
 
           def count(name):
               out = json.loads(machine.succeed(f"nft -j list counter inet probe {name}"))
@@ -81,7 +82,7 @@ in
 
           machine.wait_for_unit("multi-user.target")
           machine.succeed("ip route replace default via 192.168.1.254 dev eth1 onlink")
-          machine.wait_until_succeeds("ip rule | grep -F 'iif vn-off'", timeout=60)
+          machine.wait_until_succeeds("ip rule | grep -F 'iif vn-off'", timeout=timedelta(seconds=60))
 
           # The tunnel end answers, so the warp flow is established before the band
           # goes. warp-svc adds its rule without a preference, one below the lowest in use.
@@ -104,7 +105,7 @@ in
           client("off", 2)
 
           with subtest("warp traffic leaves through the tunnel, none traffic through nothing"):
-              machine.wait_until_succeeds("nft list counter inet probe warp | grep -Eq 'packets [0-9]{3,}'", timeout=60)
+              machine.wait_until_succeeds("nft list counter inet probe warp | grep -Eq 'packets [0-9]{3,}'", timeout=timedelta(seconds=60))
               assert count("sealed") == 0, "a none network reached WARP through its host rule"
 
           with subtest("restarts keep the band and a foreign rule in it"):
@@ -118,7 +119,7 @@ in
               machine.succeed(
                   "ip rule show | awk -F: '$1 >= 31000 && $1 <= 31999 && /iif vn-/ { print \"rule del pref \" $1 }' | ip -batch -"
               )
-              machine.wait_until_succeeds("nft list counter inet probe routed | grep -Eq 'packets [0-9]{3,}'", timeout=60)
+              machine.wait_until_succeeds("nft list counter inet probe routed | grep -Eq 'packets [0-9]{3,}'", timeout=timedelta(seconds=60))
               machine.succeed("systemctl restart workload-egress.service")
               machine.fail("ip route get 1.1.1.1 from 172.16.1.10 iif vn-out")
 
