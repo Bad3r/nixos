@@ -69,7 +69,8 @@ _: {
               copyPathAfterSave = true;
               savePath = mkScreenshotDir;
               savePathFixed = true;
-              uiColor = getColor "base0D";
+              uiColor = "#245c73"; # editor.selectionBackground over editor.background
+              # Selected tool button.
               contrastUiColor = getColor "base01";
               useX11LegacyScreenshot = true;
             };
