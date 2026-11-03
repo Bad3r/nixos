@@ -34,6 +34,10 @@ import libvirt_qemu
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+# Substituted at build time, so no path or command comes from the command line.
+MANIFEST = Path("@manifest@")
+SYSTEMCTL = "@systemctl@"
+CAPTURE_UNIT = "@captureUnit@"
 KEY_PATHS = {
     "windows": r"C:\ProgramData\ssh\ssh_host_ed25519_key.pub",
     "nixos": "/etc/ssh/ssh_host_ed25519_key.pub",
@@ -187,15 +191,22 @@ def read_key(uuid: str, path: str) -> bytes:
         conn.close()
 
 
-def capture(manifest_path: Path, name: str) -> None:
+def declared(manifest: dict, requested: str) -> str | None:
+    """Return the manifest's own name for a requested guest, so paths never use the argument."""
+    return next((name for name in manifest["guests"] if name == requested), None)
+
+
+def capture(manifest_path: Path, requested: str) -> None:
     """Wait for the guest's host key, then store it and render known_hosts."""
     waiting = None
     while True:
         # Re-read each round, so a switch while the guest is waiting takes effect.
-        guest = load(manifest_path)["guests"].get(name)
-        if guest is None:
-            log(f"{name} is not a declared guest with a guest agent; nothing to record")
+        manifest = load(manifest_path)
+        name = declared(manifest, requested)
+        if name is None:
+            log(f"{requested!r} is not a declared guest with a guest agent; nothing to record")
             return
+        guest = manifest["guests"][name]
         path = KEY_PATHS[guest["kind"]]
         try:
             blob = read_key(guest["uuid"], path)
@@ -212,7 +223,7 @@ def capture(manifest_path: Path, name: str) -> None:
 
     with locked(manifest_path):
         manifest = load(manifest_path)
-        if name not in manifest["guests"]:
+        if declared(manifest, name) is None:
             log(f"{name}: undeclared while waiting; the key is not recorded")
             return
         stored = Path(manifest["keyDir"], f"{name}.key")
@@ -226,7 +237,7 @@ def capture(manifest_path: Path, name: str) -> None:
         render(manifest)
 
 
-def refresh(manifest_path: Path, systemctl: str, unit: str) -> None:
+def refresh(manifest_path: Path) -> None:
     """Render known_hosts, then queue a capture for each running declared guest."""
     with locked(manifest_path):
         manifest = load(manifest_path)
@@ -240,7 +251,7 @@ def refresh(manifest_path: Path, systemctl: str, unit: str) -> None:
                 running = False
             if running:
                 subprocess.run(
-                    [systemctl, "--no-block", "start", unit.replace("%i", name)], check=True
+                    [SYSTEMCTL, "--no-block", "start", CAPTURE_UNIT.replace("%i", name)], check=True
                 )
     finally:
         conn.close()
@@ -249,19 +260,16 @@ def refresh(manifest_path: Path, systemctl: str, unit: str) -> None:
 def main() -> None:
     """Parse arguments and run one command."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("manifest", type=Path)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("capture").add_argument("guest")
-    refresh_parser = commands.add_parser("refresh")
-    refresh_parser.add_argument("systemctl")
-    refresh_parser.add_argument("unit")
+    commands.add_parser("refresh")
     args = parser.parse_args()
     # Errors are caught and logged once per change; the default handler prints each to stderr.
     libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
     if args.command == "capture":
-        capture(args.manifest, args.guest)
+        capture(MANIFEST, args.guest)
     else:
-        refresh(args.manifest, args.systemctl, args.unit)
+        refresh(MANIFEST)
 
 
 if __name__ == "__main__":

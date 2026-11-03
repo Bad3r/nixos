@@ -30,10 +30,16 @@ let
         }
       );
 
-      python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
       # A stable path, so a capture waiting across a switch reads the new declaration.
       manifestPath = "/etc/workloads/host-keys.json";
-      script = "${python.interpreter} -I ${./_host-keys.py} ${manifestPath}";
+      python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
+      script = "${python.interpreter} -I ${
+        pkgs.replaceVars ./_host-keys.py {
+          manifest = manifestPath;
+          inherit systemctl;
+          captureUnit = "${captureUnit}%i.service";
+        }
+      }";
       systemctl = "${config.systemd.package}/bin/systemctl";
 
       # libvirt waits for a hook, so it only queues the job.
@@ -103,7 +109,7 @@ let
               serviceConfig = {
                 Type = "oneshot";
                 RemainAfterExit = true;
-                ExecStart = "${script} refresh ${systemctl} ${captureUnit}%%i.service";
+                ExecStart = "${script} refresh";
               };
             };
 
@@ -129,4 +135,17 @@ let
 in
 {
   flake.nixosModules."workloads-vms" = hostKeysModule;
+
+  # Guards the parser that sees untrusted guest replies.
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks.workloads-host-keys-parser =
+        pkgs.runCommand "workloads-host-keys-parser"
+          { nativeBuildInputs = [ (pkgs.python3.withPackages (ps: [ ps.hypothesis ])) ]; }
+          ''
+            HYPOTHESIS_STORAGE_DIRECTORY="$TMPDIR/hypothesis" python3 -I ${./_host-keys-test.py} ${./_host-keys.py}
+            touch "$out"
+          '';
+    };
 }
