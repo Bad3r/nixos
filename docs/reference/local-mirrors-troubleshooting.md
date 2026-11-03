@@ -84,6 +84,16 @@ git -C "$LOCAL_MIRRORS/<dir>" status
 
 Finish or abort that operation, or move the work into a separate clone, then start a sync.
 
+## `<spec>: local file check failed; refusing update`
+
+An untracked or ignored local file or directory conflicts with a path in upstream or in `HEAD`, such as a local directory where a tracked file was.
+A non-empty submodule directory also blocks an upstream revision that drops or replaces that submodule.
+The preceding `refusing to overwrite local path` line names the collision.
+The sync stops before stashing, so the checkout, index, and tracked edits stay as they were.
+
+Move the conflicting local path outside the mirror, then start a sync.
+Local files at unrelated paths need no action.
+
 ## `<spec>: backup branch failed`
 
 Git could not write the backup branch, so the sync stopped before the reset with the diverged commits still on `HEAD`.
@@ -118,7 +128,8 @@ Fix the sync, or start a docs service by hand to publish from its mirror as it s
 
 ## `refusing to build from a dirty Firefox checkout`
 
-The Firefox mirror has local changes, which the next sync stashes and cleans.
+The Firefox mirror has tracked edits; untracked local files do not trigger this.
+The next sync stashes those edits.
 Start a sync, which starts the docs service when it succeeds.
 
 ## `failed to resolve current stable Python branch`
