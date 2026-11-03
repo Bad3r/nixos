@@ -28,7 +28,7 @@ Some traffic stays visible:
 
 ## Logins
 
-Every host accepts the password in `secrets/rustdesk.yaml`, kept in RustDesk's configuration as a salted hash.
+Every host accepts the `hosts_password` in `secrets/rustdesk.yaml`, kept in RustDesk's configuration as a salted hash.
 Every other host appears by name under Favorites and Recent sessions, carrying that login, so a session between hosts opens without a prompt.
 Devices outside the NixOS hosts listed under `peers` in `secrets/rustdesk.yaml` appear there too, each with its own login and the relay forced: [Let the hosts connect to the device](rustdesk-windows.md#let-the-hosts-connect-to-the-device).
 Those entries skip the default codec, frame rate, and a few other Display settings, so set them per host from the session toolbar.
@@ -59,7 +59,7 @@ On Windows, [RustDesk on Windows](rustdesk-windows.md) installs the app from Pow
    ```sh
    getent hosts <server>.internal
    sops -d --extract '["server_public_key"]' secrets/rustdesk.yaml
-   sops -d --extract '["password"]' secrets/rustdesk.yaml
+   sops -d --extract '["hosts_password"]' secrets/rustdesk.yaml
    ```
 
 2. In the RustDesk app, open Settings, ID/Relay server, enter the address as the ID server and the public key as the Key, and leave the API server empty.

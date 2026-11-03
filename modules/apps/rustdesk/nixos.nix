@@ -447,7 +447,7 @@ let
             secrets.${passwordSecret} = {
               sopsFile = secretFile;
               format = "yaml";
-              key = "password";
+              key = "hosts_password";
               restartUnits = [ "rustdesk.service" ];
             };
 
