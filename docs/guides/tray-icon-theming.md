@@ -61,7 +61,7 @@ across all connected outputs is not supported in a reliable way.
 | App       | Current Protocol | Themeability Risk | Notes                                                                                                                |
 | --------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
 | nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed.                        |
-| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`); local Qogir-Dark override provides `drive-removable-media-usb-panel`. |
+| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`); local icon-theme override provides `drive-removable-media-usb-panel`. |
 | steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                               |
 | ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                               |
 | flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.                  |

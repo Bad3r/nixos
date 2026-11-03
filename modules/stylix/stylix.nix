@@ -278,17 +278,17 @@ in
               template = builtins.readFile ./icons/${name}.svg.mustache;
               extension = ".svg";
             };
-          qogirDarkFixedIconSizes = {
-            "16/apps" = 16;
-            "22/apps" = 22;
-            "32/apps" = 32;
-            "48/apps" = 48;
-            "16@2x/apps" = 32;
-            "22@2x/apps" = 44;
-            "32@2x/apps" = 64;
-            "48@2x/apps" = 96;
+          iconTheme = config.gtk.iconTheme;
+          # Override directories; each must appear in the icon theme's index.theme.
+          appFixedIconSizes = {
+            "16/panel" = 16;
+            "22/panel" = 22;
+            "32/status" = 32;
+            "16@2x/panel" = 32;
+            "22@2x/panel" = 44;
+            "32@2x/status" = 64;
           };
-          qogirDarkPanelFixedIconSizes = {
+          statusFixedIconSizes = {
             "16/panel" = 16;
             "22/panel" = 22;
             "24/panel" = 24;
@@ -296,15 +296,15 @@ in
             "22@2x/panel" = 44;
             "24@2x/panel" = 48;
           };
-          qogirDarkScalableIconDirs = [
+          appScalableIconDirs = [
             "scalable/apps"
             "scalable@2x/apps"
           ];
-          qogirDarkPanelScalableIconDirs = [
-            "scalable/panel"
-            "scalable@2x/panel"
+          statusScalableIconDirs = [
+            "scalable/applets"
+            "scalable@2x/applets"
           ];
-          qogirDarkIconDefinitions = [
+          themedIconDefinitions = [
             {
               id = "onepassword";
               source = themedIcon "1password-outline";
@@ -323,15 +323,15 @@ in
               id = "protonvpn-tray";
               source = themedIcon "protonvpn-tray";
               names = [ "protonvpn-tray" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
             {
               id = "remmina-tray";
               source = themedIcon "remmina-tray";
               names = [ "org.remmina.Remmina-status" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
             {
               id = "teams-for-linux";
@@ -342,23 +342,31 @@ in
               id = "udiskie-tray";
               source = themedIcon "udiskie-tray";
               names = [ "drive-removable-media-usb-panel" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
           ];
-          qogirDarkIconSet =
+          themedIconSet =
             {
               id,
               source,
               names,
-              fixedIconSizes ? qogirDarkFixedIconSizes,
-              scalableIconDirs ? qogirDarkScalableIconDirs,
+              fixedIconSizes ? appFixedIconSizes,
+              scalableIconDirs ? appScalableIconDirs,
             }:
-            pkgs.runCommand "qogir-dark-${id}-icons"
+            pkgs.runCommand "${id}-themed-icons"
               {
                 nativeBuildInputs = [ pkgs.librsvg ];
+                themeIndex = "${iconTheme.package}/share/icons/${iconTheme.name}/index.theme";
               }
               ''
+                for iconDir in ${lib.escapeShellArgs (scalableIconDirs ++ builtins.attrNames fixedIconSizes)}; do
+                  grep -qxF "[$iconDir]" "$themeIndex" || {
+                    echo "${iconTheme.name} does not list $iconDir in $themeIndex" >&2
+                    exit 1
+                  }
+                done
+
                 renderIcon() {
                   local size="$1"
                   local input="$2"
@@ -391,43 +399,26 @@ in
                   )}
                 done
               '';
-          qogirDarkIconFiles =
+          themedIconFiles =
             {
-              id,
-              source,
               names,
-              fixedIconSizes ? qogirDarkFixedIconSizes,
-              scalableIconDirs ? qogirDarkScalableIconDirs,
-            }:
+              fixedIconSizes ? appFixedIconSizes,
+              scalableIconDirs ? appScalableIconDirs,
+              ...
+            }@definition:
             let
-              renderedIcons = qogirDarkIconSet {
-                inherit
-                  fixedIconSizes
-                  id
-                  names
-                  scalableIconDirs
-                  source
-                  ;
+              renderedIcons = themedIconSet definition;
+              mkFile = iconDir: file: {
+                name = "icons/${iconTheme.name}/${iconDir}/${file}";
+                value.source = "${renderedIcons}/${iconDir}/${file}";
               };
-              scalableFiles = lib.concatMap (
-                iconName:
-                map (iconDir: {
-                  name = "icons/Qogir-Dark/${iconDir}/${iconName}.svg";
-                  value.source = "${renderedIcons}/${iconDir}/${iconName}.svg";
-                }) scalableIconDirs
-              ) names;
-              fixedFiles = lib.concatMap (
-                iconName:
-                lib.mapAttrsToList (iconDir: _size: {
-                  name = "icons/Qogir-Dark/${iconDir}/${iconName}.png";
-                  value.source = "${renderedIcons}/${iconDir}/${iconName}.png";
-                }) fixedIconSizes
-              ) names;
             in
-            scalableFiles ++ fixedFiles;
-          qogirDarkThemedIconFiles = lib.listToAttrs (
-            lib.concatMap qogirDarkIconFiles qogirDarkIconDefinitions
-          );
+            lib.concatMap (
+              iconName:
+              map (iconDir: mkFile iconDir "${iconName}.svg") scalableIconDirs
+              ++ map (iconDir: mkFile iconDir "${iconName}.png") (builtins.attrNames fixedIconSizes)
+            ) names;
+          themedIconOverrides = lib.listToAttrs (lib.concatMap themedIconFiles themedIconDefinitions);
         in
         {
           config = lib.mkIf graphicalDesktop {
@@ -446,9 +437,9 @@ in
               # Icon theme configuration
               icons = {
                 enable = true;
-                package = pkgs.qogir-icon-theme;
-                dark = "Qogir-Dark";
-                light = "Qogir-Light";
+                package = pkgs.fluent-icon-theme.override { colorVariants = [ "grey" ]; };
+                dark = "Fluent-grey-dark";
+                light = "Fluent-grey-light";
               };
 
               # Application theming targets
@@ -513,9 +504,7 @@ in
               ]
             );
 
-            xdg.dataFile = lib.mkIf (
-              (config.gtk.iconTheme.name or null) == "Qogir-Dark"
-            ) qogirDarkThemedIconFiles;
+            xdg.dataFile = lib.mkIf (iconTheme != null) themedIconOverrides;
 
             programs = {
               firefox.profiles = lib.mkIf firefoxEnabled geckoProfiles;

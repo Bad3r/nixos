@@ -2,11 +2,12 @@
 
 A tray app that bypasses the icon theme gets a package-level override that points its tray at a themed icon.
 Each themed icon is a base16 mustache template under `modules/stylix/icons/`, rendered with the active Stylix palette through `config.lib.stylix.colors`, so a scheme change recolors every icon.
+A tray that looks icons up by name gets them from `$XDG_DATA_HOME/icons/<icon theme>/` instead (`modules/stylix/stylix.nix`), in directories the theme's `index.theme` lists, since Gtk ignores the rest; the build fails when the theme does not list one of them.
 
 ## ProtonVPN Tray Icon
 
 Upstream ProtonVPN starts with `IconName = proton-vpn-sign`, then switches tray states to bundled absolute SVG paths such as `state-disconnected.svg`.
-Absolute paths bypass Gtk icon-theme lookup, so they do not pick up the Qogir-Dark panel style used by `flameshot-tray`.
+Absolute paths bypass Gtk icon-theme lookup, so they do not pick up the icon theme's panel style used by `flameshot-tray`.
 
 The local ProtonVPN overlay (`modules/apps/proton-vpn/overlay.nix`) rewrites the tray startup and connection-state icons to the theme-provided `protonvpn-tray` icon name.
 `snixembed` then resolves that name through the active Gtk icon theme, the same color and style path that themed SNI icons such as Flameshot take.
@@ -25,7 +26,7 @@ Replacing the loose PNG files alone is not enough, because `QIcon(":tray")` and 
 
 The local NormCap module (`modules/apps/normcap.nix`) renders the templates `modules/stylix/icons/normcap-tray.svg.mustache` and `modules/stylix/icons/normcap-tray-done.svg.mustache` into the installed `tray.png` and `tray_done.png`.
 It then regenerates `resources.py` with Qt's resource compiler.
-The PNG render uses the same `11/16` glyph scale as the Qogir-Dark panel icon generation, so the tray glyph fits the rest of the custom tray icon set.
+The PNG render uses the same `11/16` glyph scale as the icon-theme overrides, so the tray glyph fits the rest of the custom tray icon set.
 
 ## Teams for Linux Tray Icon
 
@@ -40,12 +41,12 @@ It renders the palette-mapped logo `modules/stylix/icons/teams-for-linux.svg.mus
 
 The same override extracts and repacks `app.asar`, replacing every bundled tray base icon with the panel-oriented template `modules/stylix/icons/teams-for-linux-tray.svg.mustache`.
 That template uses `base05` for the glyph and `base00` for the front tile letter, so it stays legible against the dark i3bar panel.
-The tray PNG render uses the same `11/16` glyph scale as the Qogir-Dark panel icon generation, so the Electron tray image does not fill the entire icon frame.
+The tray PNG render uses the same `11/16` glyph scale as the icon-theme overrides, so the Electron tray image does not fill the entire icon frame.
 
 ## udiskie Tray Icon
 
 udiskie looks up tray icons through `Gtk.IconTheme`.
-Its default `media` icon list starts with `drive-removable-media-usb-panel`, then falls back to the stock Qogir-Dark removable-device icons.
+Its default `media` icon list starts with `drive-removable-media-usb-panel`, then falls back to the icon theme's stock removable-device icons.
 
 The custom `drive-removable-media-usb-panel` source lives at `modules/stylix/icons/udiskie-tray.svg.mustache` and uses the `base05` foreground.
 Its stroke is thickened before rendering, so antialiasing does not make the tray icon look dimmer than filled panel icons.
