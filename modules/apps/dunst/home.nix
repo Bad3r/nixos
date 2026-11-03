@@ -5,13 +5,15 @@
   Documentation: https://dunst-project.org/documentation/
 
   Notes:
-    * Behavior and geometry only. Stylix owns colors, font and icon theme (modules/stylix/stylix.nix),
-      and the i3 session enables the service (modules/apps/i3wm/services.nix).
+    * Stylix owns font, icon theme, text and accent colors (modules/stylix/stylix.nix); the toast
+      surface and border follow VS Code Dark 2026's notification toast. The i3 session enables the
+      service (modules/apps/i3wm/services.nix).
 */
 
 _: {
   flake.homeManagerModules.apps.dunst =
     {
+      config,
       osConfig,
       lib,
       pkgs,
@@ -19,6 +21,10 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "dunst" "extended" "enable" ] false osConfig;
+      colors = config.lib.stylix.colors.withHashtag;
+      # VS Code Dark 2026 toast surface; no base16 slot holds either value.
+      toastBackground = "#202122"; # notifications.background
+      toastBorder = "#454545"; # menu.border
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -32,14 +38,17 @@ _: {
             notification_limit = 50;
             offset = "(10, 44)";
 
-            padding = 20;
-            horizontal_padding = 20;
+            padding = 14;
+            horizontal_padding = 16;
+            # Separate cards, like VS Code toasts, instead of one stacked box.
+            gap_size = 8;
             separator_height = 4;
             line_height = 4;
-            frame_width = 0;
+            frame_width = 1;
+            corner_radius = 8;
 
             markup = "full";
-            format = "%s\\n%b";
+            format = "<b>%s</b>\\n%b";
             show_indicators = false;
             min_icon_size = 0;
             max_icon_size = 48;
@@ -54,8 +63,20 @@ _: {
 
           experimental.per_monitor_dpi = true;
 
-          urgency_low.timeout = 3;
-          urgency_normal.timeout = 5;
+          urgency_low = {
+            timeout = 3;
+            background = lib.mkForce toastBackground;
+            frame_color = lib.mkForce toastBorder;
+          };
+          urgency_normal = {
+            timeout = 5;
+            background = lib.mkForce toastBackground;
+            frame_color = lib.mkForce toastBorder;
+          };
+          urgency_critical = {
+            background = lib.mkForce toastBackground;
+            frame_color = lib.mkForce colors.base08;
+          };
         };
       };
     };
