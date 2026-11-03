@@ -125,6 +125,14 @@
               package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault true;
+              # Shadow under rofi only.
+              shadow = true;
+              shadowOffsets = [
+                (-24)
+                (-16)
+              ];
+              shadowOpacity = 0.55;
+              shadowExclude = [ "class_g != 'Rofi'" ];
               # Composited windows never reach G-SYNC Compatible scanout.
               settings = {
                 unredir-if-possible = lib.mkDefault true;
@@ -138,6 +146,7 @@
                 };
                 blur-background = true;
                 blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst'" ];
+                shadow-radius = 24;
                 # VS Code cornerRadius-large; picom never rounds fullscreen windows.
                 corner-radius = 8;
                 rounded-corners-exclude = [ "window_type = 'dock'" ];

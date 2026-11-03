@@ -54,11 +54,9 @@ _: {
       colors = config.lib.stylix.colors.withHashtag;
       windowRadius = 18;
 
-      # VS Code Dark 2026 quickInput colors with no base16 slot.
+      # VS Code Dark 2026 colors with no base16 slot.
       palette = {
         background = "#202122"; # quickInput.background
-        # VS Code's frosted glass: the surface at 92% over a backdrop blur.
-        glass = "#202122eb";
         placeholder = "#555555"; # input.placeholderForeground
         selection = "#297aa0"; # quickInputList.focusBackground
         selectionText = "#ffffff"; # quickInputList.focusForeground
@@ -84,7 +82,8 @@ _: {
           anchor = mkLiteral "north";
           y-offset = mkLiteral "-15%";
           width = mkLiteral "680px";
-          background-color = mkLiteral palette.glass;
+          # Frosted glass: the sidebar color at 75% over picom's backdrop blur.
+          background-color = mkLiteral "${colors.base01}bf";
           border = mkLiteral "1px";
           border-color = mkLiteral colors.base02;
           border-radius = mkLiteral "${toString windowRadius}px";
