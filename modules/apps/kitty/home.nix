@@ -164,8 +164,8 @@ in
               active_tab_font_style = "bold-italic";
               inactive_tab_font_style = "normal";
               tab_bar_background = "none";
-              # Background opacity stays in sync with Stylix theme
-              background_opacity = "1.000000";
+              # Glass over picom's blur; Stylix's terminal opacity stays 1.
+              background_opacity = lib.mkForce "0.7";
               background_image = "none";
               background_image_layout = "tiled";
               background_image_linear = "no";

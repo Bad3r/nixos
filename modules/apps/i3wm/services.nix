@@ -138,14 +138,14 @@
                 unredir-if-possible = lib.mkDefault true;
                 # Unredirect toggles flash black on NVIDIA; brief fullscreen windows skip them.
                 unredir-if-possible-delay = lib.mkDefault 500;
-                # Frosted glass behind rofi and dunst, which draw translucent
-                # surfaces and set their own corner-radius-rules.
+                # Frosted glass behind rofi, dunst, and kitty, which draw
+                # translucent surfaces.
                 blur = {
                   method = "dual_kawase";
                   strength = 4;
                 };
                 blur-background = true;
-                blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst'" ];
+                blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst' && class_g != 'kitty'" ];
                 shadow-radius = 24;
                 # VS Code cornerRadius-large; picom never rounds fullscreen windows.
                 corner-radius = 8;
