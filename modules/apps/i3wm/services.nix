@@ -125,14 +125,17 @@
               package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault true;
-              # Shadow under rofi and dunst only.
+              # Shadow under rofi, dunst, and floating windows, not fullscreen ones.
               shadow = true;
               shadowOffsets = [
                 (-24)
                 (-16)
               ];
               shadowOpacity = 0.55;
-              shadowExclude = [ "class_g != 'Rofi' && class_g != 'Dunst'" ];
+              shadowExclude = [
+                "class_g != 'Rofi' && class_g != 'Dunst' && !I3_FLOATING_WINDOW@"
+                "fullscreen"
+              ];
               # Composited windows never reach G-SYNC Compatible scanout.
               settings = {
                 unredir-if-possible = lib.mkDefault true;
