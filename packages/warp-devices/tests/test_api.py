@@ -56,6 +56,13 @@ class RetryTest(unittest.TestCase):
         client(transport, sleeps).get("devices", {})
         self.assertEqual(sleeps, [7.0])
 
+    def test_rate_limit_honors_zero_retry_after(self) -> None:
+        """A 429 with Retry-After 0 retries at once instead of backing off."""
+        sleeps: list[float] = []
+        transport = FakeTransport(Response(429, b"{}", "0"), ok(GOOD))
+        client(transport, sleeps).get("devices", {})
+        self.assertEqual(sleeps, [0.0])
+
     def test_cut_off_body_then_success(self) -> None:
         """A 200 whose body is cut off mid-string is retried."""
         sleeps: list[float] = []

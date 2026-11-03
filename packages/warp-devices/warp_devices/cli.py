@@ -71,7 +71,7 @@ def read_credential(path: Path) -> str:
     if not value:
         msg = f"{path} is empty; {CREDENTIAL_SOURCE}"
         raise CredentialError(msg)
-    # The value never reaches the message: a malformed token is still a secret.
+    # keep the token out of the message
     if not CREDENTIAL_PATTERN.fullmatch(value):
         msg = f"{path} holds more than one printable token (whitespace or control characters)"
         raise CredentialError(msg)
@@ -286,7 +286,7 @@ def main(
         api = client or make_client(args)
         run = run_history if args.command == "history" else run_list
         code = run(api, args, clock())
-        # Flushed here so a closed pipe raises inside the handler, not at interpreter exit.
+        # surface a closed pipe here
         sys.stdout.flush()
     except (CredentialError, ApiError, history.LookupFailedError, DataError) as error:
         print(f"warp-devices: {describe(error)}", file=sys.stderr)
@@ -294,7 +294,7 @@ def main(
     except KeyboardInterrupt:
         return INTERRUPT_EXIT
     except BrokenPipeError:
-        # Point stdout at /dev/null so the interpreter's final flush cannot raise again.
+        # silence the exit flush
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
         return BROKEN_PIPE_EXIT

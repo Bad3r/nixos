@@ -60,7 +60,7 @@ let
         sopsFile = secretFile;
         format = "yaml";
         inherit key;
-        # sops-nix expands %r to $XDG_RUNTIME_DIR.
+        # keep on the runtime tmpfs
         path = "%r/warp-devices/${file}";
         mode = "0400";
       };
@@ -89,9 +89,7 @@ in
   perSystem =
     { pkgs, ... }:
     {
-      # passthru opts this check into the runtime step of .github/workflows/check.yml, which
-      # builds it and so runs the package's unit tests; nothing else in CI builds an
-      # overlay-only package.
+      # run the unit tests in CI
       checks."apps/warp-devices" =
         pkgs.runCommand "warp-devices-check"
           {

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 CONNECTED = "connected"
 OFFLINE = "offline"
 UNKNOWN = "unknown"
-# DEX rejects a last_seen window longer than an hour.
+# longest window DEX accepts
 STATUS_WINDOW = timedelta(minutes=60)
 REGISTRATIONS = "devices/registrations"
 PHYSICAL_DEVICES = "devices/physical-devices"
@@ -116,7 +116,7 @@ def merge(
     index = reports or Reports({}, {})
     devices: list[Device] = []
     for registration in registrations:
-        # Validates the raw field, so a non-string timestamp fails instead of reading as never seen.
+        # reject a malformed last_seen_at
         parse_optional(registration.get("last_seen_at"))
         registration_id = field(registration, "id") or ""
         device_id = field(registration, "device", "id")

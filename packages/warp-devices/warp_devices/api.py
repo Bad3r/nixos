@@ -39,7 +39,7 @@ class Response:
     retry_after: str | None = None
 
 
-# Sends one GET with the headers and timeout and returns the answer.
+# send one GET
 type Transport = Callable[[str, Mapping[str, str], float], Response]
 
 
@@ -73,8 +73,6 @@ def urllib_transport(url: str, headers: Mapping[str, str], timeout: float) -> Re
             try:
                 body = error.read()
             except OSError, http.client.HTTPException:
-                # The status is the answer; a body that fails to arrive must not turn a final
-                # 4xx into a retryable stall.
                 body = b""
             return Response(error.code, body, retry_after)
 
@@ -168,13 +166,14 @@ class Client:
                     raise ApiError(path, msg) from None
                 reason = f"{type(error).__name__}: {error}".rstrip(": ")
             except ValueError:
-                # http.client quotes the offending header, the token included.
+                # keep the token out of the error
                 msg = "the request could not be built (invalid header or URL)"
                 raise ApiError(path, msg) from None
             else:
                 if response.status in RETRY_STATUSES or response.status >= SERVER_ERROR:
                     reason = f"HTTP {response.status}"
-                    delay = _retry_after(response.retry_after) or delay
+                    wait = _retry_after(response.retry_after)
+                    delay = delay if wait is None else wait
                 else:
                     body = self._decode(path, response)
                     if body is not None:

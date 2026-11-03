@@ -67,9 +67,11 @@ The table prints the first and last report and every report whose status, colo, 
 
 `--json` prints every field with the API's raw timestamps, plus a `warnings` list for `list`.
 Color is on for a terminal unless `NO_COLOR` holds a non-empty value; `--color` and `--no-color` override it.
+
 Tables and stderr show control characters in API text as `\x1b`-style escapes, so a device name cannot drive the terminal.
-Bidi overrides, zero-width spaces, other format characters, and unpaired surrogates show as `\u202e`-style escapes, so a name cannot reorder, hide, or break the output.
-`--json` keeps both as JSON escapes.
+Format characters such as bidi overrides and zero-width spaces show as `\u202e`-style escapes, so a name cannot reorder or hide text.
+Line and paragraph separators, private-use characters, and unpaired surrogates escape the same way, so a name cannot break the output.
+`--json` keeps all of them as JSON escapes.
 
 | Code | Meaning                            |
 | ---- | ---------------------------------- |
@@ -82,8 +84,8 @@ Bidi overrides, zero-width spaces, other format characters, and unpaired surroga
 
 ## Failures
 
-The device endpoints stall now and then for over 30 seconds or cut a response short.
-Each request waits 20 seconds and makes up to five attempts, with backoff, on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
+The device endpoints stall now and then for over 30 seconds or cut a response short, so connecting and each read time out after 20 seconds.
+A request makes up to five attempts, with backoff, on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
 Network errors retry the same way, such as a DNS failure, a refused or unreachable connection, or a TLS error.
 A failed TLS certificate check or any other status is final, so a 403 fails at once and names the two permissions the token needs.
 

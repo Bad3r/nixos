@@ -19,8 +19,7 @@ STATUS_STYLES = {
     "offline": "31",
     "unknown": DIM,
 }
-# control, format (bidi, zero-width), and lone-surrogate characters
-ESCAPED_CATEGORIES = frozenset({"Cc", "Cf", "Cs"})
+ESCAPED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Zl", "Zp"})
 LATIN1_MAX = 0xFF
 BMP_MAX = 0xFFFF
 
@@ -50,9 +49,10 @@ def _escape(char: str) -> str:
 
 
 def printable(text: str) -> str:
-    r"""Escape control, format, and surrogate characters as `\x1b`, `\u202e`, or `\U000e0001`.
+    r"""Escape control, format, surrogate, private-use, and line or paragraph separators.
 
-    API text then cannot drive the terminal, reorder a line, hide characters, or fail to encode.
+    The `\x1b`, `\u202e`, or `\U000e0001` forms keep API text from driving the terminal,
+    reordering or breaking a line, hiding characters, or failing to encode.
     """
     return "".join(
         _escape(char) if unicodedata.category(char) in ESCAPED_CATEGORIES else char for char in text

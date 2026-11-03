@@ -13,10 +13,10 @@ if TYPE_CHECKING:
     from warp_devices.api import Getter
 
 MIN_HOURS = 1
-# DEX keeps raw reports for seven days.
+# DEX raw retention
 MAX_HOURS = 168
 DEFAULT_HOURS = 24
-# An awake client reports every two minutes and a sleeping one every twenty.
+# quiet-client threshold
 GAP_SECONDS = 300
 
 
