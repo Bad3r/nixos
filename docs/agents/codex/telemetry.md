@@ -1,6 +1,6 @@
 # Codex telemetry
 
-Every Codex process exports its OpenTelemetry metrics, logs, and traces to a collector on loopback.
+When local capture is enabled, every Codex process exports its OpenTelemetry metrics, logs, and traces to a collector on loopback.
 That covers interactive sessions, `codex exec`, and the shared background server.
 The [telemetry helper](../../../modules/agents/codex/_telemetry.nix) sets the exporter endpoints and the collector configuration.
 The [Home Manager module](../../../modules/agents/codex/home.nix) runs the collector as the `codex-telemetry` user service.
@@ -62,7 +62,13 @@ journalctl --user -u codex-telemetry
 
 ## Apply a change
 
-Home Manager starts or restarts the service on switch.
+Set `enabled` in the [telemetry helper](../../../modules/agents/codex/_telemetry.nix) to control local capture.
+It controls the collector service, all three exporters, and the internal runtime metrics snapshot reader together.
+Disabling capture explicitly selects `none` for every exporter; it does not select OpenAI or Statsig as a fallback.
+Analytics and feedback remain disabled independently of this switch.
+Existing capture files are retained.
+
+Apply the NixOS configuration to start, restart, or remove the collector service.
 Each Codex process reads the exporters when it starts, so a new launch picks up a change.
 The background server keeps its startup configuration; restart it, which interrupts the sessions attached to it:
 
