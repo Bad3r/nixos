@@ -37,6 +37,7 @@ warp-devices --json | jq '.devices[] | select(.status == "connected") | .name'
 `list` is the default command.
 The table shows `NAME`, `STATUS`, `MESH_IPV4`, `PUBLIC_IP`, `OS`, and `LAST_SEEN`; `--ipv6` adds the Mesh IPv6 column and `--user` the enrolled user.
 Devices enrolled with a service token show `non_identity@<team>.cloudflareaccess.com` as their user.
+
 Connected devices come first, then the rest by most recent contact.
 `LAST_SEEN` reads as an age under a day and as a local date and time past it.
 
@@ -85,6 +86,7 @@ Tables and stderr print control and format characters in API text escaped, so a 
 The device endpoints stall now and then or cut a response short, so connecting and each read time out.
 A request retries with backoff on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
 Network errors retry the same way, such as a DNS failure, a refused or unreachable connection, or a TLS error.
+
 A failed TLS certificate check or any other status is final, so a 403 fails at once and names the two permissions the token needs.
 A redirect is never followed, which keeps the token off its target host.
 
