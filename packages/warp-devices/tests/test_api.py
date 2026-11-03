@@ -53,6 +53,13 @@ class RetryTest(unittest.TestCase):
         transport = FakeTransport(ok({"success": False}, 503), ok(GOOD))
         self.assertEqual(client(transport, sleeps).get("devices", {}), GOOD)
 
+    def test_request_timeout_then_success(self) -> None:
+        """A 408 is retried."""
+        sleeps: list[float] = []
+        transport = FakeTransport(ok({"success": False}, 408), ok(GOOD))
+        self.assertEqual(client(transport, sleeps).get("devices", {}), GOOD)
+        self.assertEqual(len(transport.requests), 2)
+
     def test_rate_limit_honors_retry_after(self) -> None:
         """A 429 waits for its Retry-After seconds."""
         sleeps: list[float] = []

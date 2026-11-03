@@ -60,9 +60,8 @@ let
         sopsFile = secretFile;
         format = "yaml";
         inherit key;
-        # keep on the runtime tmpfs
+        # outside ~/.config
         path = "%r/warp-devices/${file}";
-        mode = "0400";
       };
     in
     {

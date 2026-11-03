@@ -379,6 +379,26 @@ class InvocationTest(unittest.TestCase):
         self.assertNotIn("SECRET-TOKEN", err.getvalue())
         self.assertIn(str(token), err.getvalue())
 
+    def test_inner_whitespace_or_control_token_is_rejected_unseen(self) -> None:
+        """A token with an inner space, tab, or control character fails without printing it."""
+        for content in ("SECRET-TOKEN rest\n", "SECRET-TOKEN\trest\n", "SECRET-TOKEN\x07rest\n"):
+            with (
+                self.subTest(content=content),
+                tempfile.TemporaryDirectory() as directory,
+                unittest.mock.patch("warp_devices.cli.Client") as client,
+            ):
+                account = Path(directory) / "account-id"
+                account.write_text("acct\n")
+                token = Path(directory) / "api-token"
+                token.write_text(content)
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    code = main(["--account-id-file", str(account), "--token-file", str(token)])
+                self.assertEqual(code, 1)
+                self.assertIn(f"{token} holds more than one printable token", err.getvalue())
+                self.assertNotIn("SECRET-TOKEN", err.getvalue())
+                client.assert_not_called()
+
     def test_non_utf8_credential(self) -> None:
         """A binary credential file is a credential error, not bad Cloudflare data."""
         with tempfile.TemporaryDirectory() as directory:

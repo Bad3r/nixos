@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Bad3r
 """Timestamp parsing and age wording."""
 
+import os
+import time
 import unittest
 from datetime import UTC, datetime, timedelta
 
@@ -65,6 +67,31 @@ class AgoTest(unittest.TestCase):
         for delta, wording in cases.items():
             with self.subTest(delta=delta):
                 self.assertEqual(ago(NOW - delta, NOW), wording)
+
+    def test_year_shown_across_local_new_year(self) -> None:
+        """A moment in another local year than now shows the year; the same year does not."""
+        new_year = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
+        cases = [
+            (datetime(2026, 1, 1, 0, 0, tzinfo=UTC), new_year, "Thu Jan 1, 00:00 (1 day ago)"),
+            (
+                datetime(2025, 12, 31, 23, 59, tzinfo=UTC),
+                new_year,
+                "Wed Dec 31 2025, 23:59 (1 day ago)",
+            ),
+            (NOW - timedelta(days=372), NOW, "Mon Oct 27 2025, 03:30 (372 days ago)"),
+        ]
+        for moment, now, wording in cases:
+            with self.subTest(moment=moment):
+                self.assertEqual(ago(moment, now), wording)
+
+    def test_year_follows_the_local_zone(self) -> None:
+        """Past local midnight on New Year, no year shows while UTC is still in the old one."""
+        self.addCleanup(pin_utc)
+        os.environ["TZ"] = "<+09>-9"
+        time.tzset()
+        moment = datetime(2025, 12, 31, 16, 0, tzinfo=UTC)
+        now = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
+        self.assertEqual(ago(moment, now), "Thu Jan 1, 01:00 (1 day ago)")
 
 
 class FormatTest(unittest.TestCase):

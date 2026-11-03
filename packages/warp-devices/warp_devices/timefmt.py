@@ -44,7 +44,10 @@ def _count(number: int, unit: str) -> str:
 
 
 def ago(moment: datetime, now: datetime) -> str:
-    """Say how long ago a moment was; past a day, give the local date and time too."""
+    """Say how long ago a moment was; past a day, give the local date and time too.
+
+    The date carries the year when the moment falls in another local year than now.
+    """
     seconds = (now - moment).total_seconds()
     if seconds < MINUTE:
         return "just now"
@@ -53,7 +56,9 @@ def ago(moment: datetime, now: datetime) -> str:
     if seconds < DAY:
         return f"{_count(int(seconds // HOUR), 'hour')} ago"
     local = moment.astimezone()
-    return f"{local:%a %b} {local.day}, {local:%H:%M} ({_count(int(seconds // DAY), 'day')} ago)"
+    year = "" if local.year == now.astimezone().year else f" {local.year}"
+    days = _count(int(seconds // DAY), "day")
+    return f"{local:%a %b} {local.day}{year}, {local:%H:%M} ({days} ago)"
 
 
 def span(seconds: float) -> str:
