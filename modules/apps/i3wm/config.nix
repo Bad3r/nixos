@@ -391,6 +391,13 @@
       # Use the already-defined stylixColors for consistency
       stylixColorsStrictWithHash = stylixColors;
 
+      # Bar on the sidebar color (base01) instead of base00.
+      barConfigOnSidebar = lib.recursiveUpdate config.stylix.targets.i3.exportedBarConfig {
+        colors = lib.mapAttrsRecursive (
+          _: value: if value == stylixColors.base00 then stylixColors.base01 else value
+        ) config.stylix.targets.i3.exportedBarConfig.colors;
+      };
+
       # Muted focus accent: base0D mixed halfway toward base00.
       focusedBorderColor =
         let
@@ -667,7 +674,7 @@
                       else
                         null;
                   }
-                  // config.stylix.targets.i3.exportedBarConfig
+                  // barConfigOnSidebar
                 )
               ];
             };

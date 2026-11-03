@@ -11,6 +11,7 @@
     }:
     let
       inherit (config.gui.i3) netInterface;
+      stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
       netBlockBase = {
@@ -132,7 +133,12 @@
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
             theme = {
               theme = "plain";
-              overrides = stylixThemeOverrides;
+              # Bar on base01; good blocks move up to base02 to stay visible.
+              overrides = stylixThemeOverrides // {
+                idle_bg = stylixColors.base01;
+                separator_bg = stylixColors.base01;
+                good_bg = stylixColors.base02;
+              };
             };
           };
         };
