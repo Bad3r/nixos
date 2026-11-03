@@ -11,19 +11,14 @@
 
   Notes:
     * The profile lives in $XDG_DATA_HOME/realforce-connect.
-    * A managed Chrome policy grants the site HID usage 0xFF00:0x01, so launches reconnect without the HID chooser.
+    * A managed Chrome policy grants the site, in every Chrome profile, any HID interface with usage 0xFF00:0x01, so launches reconnect without the HID chooser.
 */
 _:
 let
   vendorId = "0853";
-  # GX1 Plus US TKL (X1P). It reports no USB serial, so Chrome keeps a
-  # chooser grant only for the session.
+  # GX1 Plus US TKL
   productId = "0323";
-  # Interface 2 is the vendor-defined (usage page 0xFF00) configuration
-  # channel. Interfaces 0, 1, and 3 carry key and pointer input.
   configInterface = "02";
-  # The site reopens the named device on a menu URL when it already holds a
-  # grant for it, and falls back to its connect page otherwise.
   startUrl = "https://realforce-connect.online/apc/REALFORCE%20X1P%20US%20TKL";
 
   realforceConnectPackage =
@@ -87,8 +82,6 @@ let
     let
       cfg = config.programs.realforce-connect.extended;
 
-      # Sort window is 61..72: 60-persistent-hidraw.rules sets the ID_USB_*
-      # properties matched below, and 73-seat-late.rules acts on uaccess.
       udevRules = pkgs.writeTextFile {
         name = "realforce-connect-udev-rules";
         destination = "/etc/udev/rules.d/70-realforce-connect.rules";
@@ -121,9 +114,6 @@ let
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ udevRules ];
 
-        # A vendor and product ID grant would also expose the input
-        # interfaces, and the site reopens the first granted interface with
-        # the keyboard's name, which the session user cannot open.
         programs.google-chrome.extended.webHidAllowDevicesWithHidUsagesForUrls = [
           {
             usages = [

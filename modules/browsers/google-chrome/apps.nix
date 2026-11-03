@@ -120,9 +120,10 @@ let
           );
           default = [ ];
           description = ''
-            Entries of the managed WebHidAllowDevicesWithHidUsagesForUrls policy,
-            which grants single HID interfaces where the vendor and product ID
-            policy grants every interface of a device.
+            Entries of the managed WebHidAllowDevicesWithHidUsagesForUrls policy.
+            The listed origins get, without the HID chooser and in every Chrome
+            profile, every HID interface of any vendor with a matching top-level
+            collection, subject to OS device permissions.
           '';
         };
       };
