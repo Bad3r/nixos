@@ -10,9 +10,10 @@ Technical documentation for Cloudflare's developer platform services.
 
 ## Zero Trust
 
-| Topic                    | Purpose                                |
-| ------------------------ | -------------------------------------- |
-| [WARP](./warp/README.md) | Enroll fleet hosts with service tokens |
+| Topic                             | Purpose                                |
+| --------------------------------- | -------------------------------------- |
+| [WARP](./warp/README.md)          | Enroll fleet hosts with service tokens |
+| [warp-devices](./warp/devices.md) | List devices and their history         |
 
 ## NixOS samples
 

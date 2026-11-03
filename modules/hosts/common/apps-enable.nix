@@ -517,6 +517,7 @@ let
       wafw00f.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
+      "warp-devices".extended.enable = lib.mkOverride 1100 false;
       weasyprint.extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 false;
       webex.extended.enable = lib.mkOverride 1100 true;

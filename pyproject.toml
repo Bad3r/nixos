@@ -71,6 +71,7 @@ convention = "google"
 "packages/*/update.py" = ["EXE003", "EXE005"]
 "packages/sbx/tests/*" = ["PT009", "PT027"]
 "packages/workloads/tests/*" = ["PT009", "PT027"]
+"packages/warp-devices/tests/*" = ["PT009", "PT027"]
 # TODO: Remove each temporary quarantine in its own cleanup commit:
 # 1. packages/duplicati-r2-tools/**
 # 2. scripts/url-catalog-add.py

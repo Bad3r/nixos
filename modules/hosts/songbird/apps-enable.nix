@@ -16,6 +16,7 @@
 let
   appEnable = {
     "cloudflare-warp" = true;
+    "warp-devices" = true;
     assetripper = true;
     "protonmail-bridge" = true;
     lact = true;

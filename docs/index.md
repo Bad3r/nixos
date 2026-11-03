@@ -427,6 +427,8 @@
   - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
 - [apps/cloudflare/warp/deployment.md](apps/cloudflare/warp/deployment.md)
   - Runbook: Cloudflare objects, the sops payload, host enrollment, recording the Mesh address, token rotation.
+- [apps/cloudflare/warp/devices.md](apps/cloudflare/warp/devices.md)
+  - warp-devices: device status and addresses, per-device DEX history, its read-only token.
 - [apps/cloudflare/warp/troubleshooting.md](apps/cloudflare/warp/troubleshooting.md)
   - WARP symptoms with cause, diagnostic, and fix.
 
