@@ -89,43 +89,6 @@ let
             of writing a policy file of its own.
           '';
         };
-
-        webHidAllowDevicesWithHidUsagesForUrls = lib.mkOption {
-          type = lib.types.listOf (
-            lib.types.submodule {
-              options = {
-                urls = lib.mkOption {
-                  type = lib.types.listOf lib.types.str;
-                  description = "Origins granted the devices.";
-                };
-                usages = lib.mkOption {
-                  type = lib.types.listOf (
-                    lib.types.submodule {
-                      options = {
-                        usagePage = lib.mkOption {
-                          type = lib.types.ints.u16;
-                          description = "HID usage page of a top-level collection.";
-                        };
-                        usage = lib.mkOption {
-                          type = lib.types.ints.u16;
-                          description = "HID usage within the page.";
-                        };
-                      };
-                    }
-                  );
-                  description = "Top-level collections the origins may open without the HID chooser.";
-                };
-              };
-            }
-          );
-          default = [ ];
-          description = ''
-            Entries of the managed WebHidAllowDevicesWithHidUsagesForUrls policy.
-            The listed origins get, without the HID chooser and in every Chrome
-            profile, every HID interface of any vendor with a matching top-level
-            collection, subject to OS device permissions.
-          '';
-        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -151,28 +114,17 @@ let
             builtins.toJSON managedDefaultSearchProvider;
           "opt/chrome/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
           "opt/chrome/policies/managed/webhid-allow-devices.json" =
-            lib.mkIf (cfg.webHidAllowDevicesForUrls != [ ] || cfg.webHidAllowDevicesWithHidUsagesForUrls != [ ])
+            lib.mkIf (cfg.webHidAllowDevicesForUrls != [ ])
               {
-                text = builtins.toJSON (
-                  lib.optionalAttrs (cfg.webHidAllowDevicesForUrls != [ ]) {
-                    WebHidAllowDevicesForUrls = map (entry: {
-                      inherit (entry) urls;
-                      devices = map (device: {
-                        vendor_id = lib.fromHexString device.vendorId;
-                        product_id = lib.fromHexString device.productId;
-                      }) entry.devices;
-                    }) cfg.webHidAllowDevicesForUrls;
-                  }
-                  // lib.optionalAttrs (cfg.webHidAllowDevicesWithHidUsagesForUrls != [ ]) {
-                    WebHidAllowDevicesWithHidUsagesForUrls = map (entry: {
-                      inherit (entry) urls;
-                      usages = map (u: {
-                        usage_page = u.usagePage;
-                        inherit (u) usage;
-                      }) entry.usages;
-                    }) cfg.webHidAllowDevicesWithHidUsagesForUrls;
-                  }
-                );
+                text = builtins.toJSON {
+                  WebHidAllowDevicesForUrls = map (entry: {
+                    inherit (entry) urls;
+                    devices = map (device: {
+                      vendor_id = lib.fromHexString device.vendorId;
+                      product_id = lib.fromHexString device.productId;
+                    }) entry.devices;
+                  }) cfg.webHidAllowDevicesForUrls;
+                };
               };
         };
       };

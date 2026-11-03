@@ -11,7 +11,8 @@
 
   Notes:
     * The profile lives in $XDG_DATA_HOME/realforce-connect.
-    * A managed Chrome policy grants the site, in every Chrome profile, any HID interface with usage 0xFF00:0x01, so launches reconnect without the HID chooser.
+    * A managed Chrome policy grants the site the GX1 Plus by vendor and product ID in every Chrome profile, so launches reconnect without the HID chooser.
+    * The launcher hides the keyboard's input interfaces from WebHID, so the site reconnects to the configuration interface.
 */
 _:
 let
@@ -19,6 +20,11 @@ let
   # GX1 Plus US TKL
   productId = "0323";
   configInterface = "02";
+  # keyboard input interfaces
+  hiddenUsagePages = [
+    "0001"
+    "000c"
+  ];
   startUrl = "https://realforce-connect.online/apc/REALFORCE%20X1P%20US%20TKL";
 
   realforceConnectPackage =
@@ -30,6 +36,10 @@ let
       chrome,
     }:
     let
+      blocklistAdditions = lib.replaceStrings [ ":" "," ] [ "%3A" "%2C" ] (
+        lib.concatMapStringsSep "," (usagePage: "${vendorId}:${productId}:${usagePage}:::") hiddenUsagePages
+      );
+
       launcher = writeShellApplication {
         name = "realforce-connect";
         text = ''
@@ -39,6 +49,7 @@ let
             --no-first-run \
             --no-default-browser-check \
             --hide-scrollbars \
+            --enable-features=WebHIDBlocklist:blocklist_additions/${blocklistAdditions} \
             "$@"
         '';
       };
@@ -114,14 +125,9 @@ let
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ udevRules ];
 
-        programs.google-chrome.extended.webHidAllowDevicesWithHidUsagesForUrls = [
+        programs.google-chrome.extended.webHidAllowDevicesForUrls = [
           {
-            usages = [
-              {
-                usagePage = lib.fromHexString "ff00";
-                usage = 1;
-              }
-            ];
+            devices = [ { inherit vendorId productId; } ];
             urls = [ "https://realforce-connect.online" ];
           }
         ];
