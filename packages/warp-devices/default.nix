@@ -45,6 +45,8 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "List Cloudflare Zero Trust WARP devices with status, Mesh and public IPs, and per-device DEX history";
+    homepage = "https://github.com/Bad3r/nixos";
+    license = lib.licenses.agpl3Only;
     mainProgram = "warp-devices";
     platforms = lib.platforms.linux;
   };

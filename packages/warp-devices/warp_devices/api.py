@@ -4,6 +4,7 @@
 import http.client
 import json
 import random
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -104,6 +105,12 @@ def _retry_after(value: str | None) -> float | None:
     return min(max(seconds, 0.0), RETRY_AFTER_CAP_SECONDS)
 
 
+def _certificate_failure(error: Exception) -> ssl.SSLCertVerificationError | None:
+    """Return the certificate error behind a failed request, bare or wrapped by urllib."""
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    return reason if isinstance(reason, ssl.SSLCertVerificationError) else None
+
+
 def _is_object_list(value: object) -> bool:
     return isinstance(value, list) and all(
         isinstance(item, dict) for item in cast("list[object]", value)
@@ -155,6 +162,10 @@ class Client:
             try:
                 response = self._transport(url, self._headers, TIMEOUT_SECONDS)
             except (OSError, http.client.HTTPException) as error:
+                if (failure := _certificate_failure(error)) is not None:
+                    detail = getattr(failure, "verify_message", None) or failure.strerror
+                    msg = f"TLS certificate verification failed: {detail or failure}"
+                    raise ApiError(path, msg) from None
                 reason = f"{type(error).__name__}: {error}".rstrip(": ")
             except ValueError:
                 # http.client quotes the offending header, the token included.
@@ -186,14 +197,15 @@ class Client:
             raise ApiError(path, msg, status=response.status) from None
         envelope = cast("Json", body) if isinstance(body, dict) else None
         success = envelope.get("success") if envelope is not None else None
-        if ok and (
-            not isinstance(success, bool)
-            or (success and not _is_object_list(envelope.get("result") if envelope else None))
-        ):
+        listed = envelope is not None and _is_object_list(envelope.get("result"))
+        if ok and (not isinstance(success, bool) or (success and not listed)):
             return None
         if envelope is None or success is not True:
             message = cloudflare_messages(envelope) or f"HTTP {response.status}"
             raise ApiError(path, message, status=response.status)
+        if not listed:
+            msg = f"HTTP {response.status} without a result list"
+            raise ApiError(path, msg, status=response.status)
         return envelope
 
 

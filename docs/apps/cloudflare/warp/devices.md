@@ -38,11 +38,11 @@ Connected devices come first, then the rest by most recent contact.
 
 `STATUS` is the newest DEX fleet-status report from the past 60 minutes, the longest window the endpoint accepts:
 
-| Value                                          | Meaning                           |
-| ---------------------------------------------- | --------------------------------- |
-| `connected`, `connecting`, `disconnected`, ... | the client's last report, as sent |
-| `offline`                                      | no report in the past hour        |
-| `unknown`                                      | the DEX endpoint failed           |
+| Value                                          | Meaning                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| `connected`, `connecting`, `disconnected`, ... | the client's last report, as sent                                               |
+| `offline`                                      | no report in the past hour                                                      |
+| `unknown`                                      | the DEX endpoint failed or returned malformed data, or the report had no status |
 
 An awake client reports every two minutes and a sleeping one about every twenty.
 A device that loses power or network keeps its last reported status, often `connecting`, until its report ages out of the hour.
@@ -63,6 +63,7 @@ The table prints the first and last report and every report whose status, colo, 
 
 `--json` prints every field with the API's raw timestamps, plus a `warnings` list for `list`.
 Color is on for a terminal unless `NO_COLOR` holds a non-empty value; `--color` and `--no-color` override it.
+Tables and stderr show control characters in API text as `\x1b`-style escapes, so a device name cannot drive the terminal; `--json` keeps them as JSON escapes.
 
 | Code | Meaning                            |
 | ---- | ---------------------------------- |
@@ -81,6 +82,7 @@ Any other status is final, so a 403 fails at once.
 A pagination cursor that stops advancing fails the endpoint rather than returning a partial list.
 A failed registrations endpoint fails the command, since it carries the device list and the Mesh addresses.
 A failed physical-devices or DEX endpoint prints a warning naming it, empties its columns or sets `STATUS` to `unknown`, and still exits 0.
+Malformed DEX data, such as a report without a readable timestamp, degrades the same way; malformed registrations data fails the command.
 A 403 names the two permissions the token needs.
 
 Source: [Zero Trust devices API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/devices/).

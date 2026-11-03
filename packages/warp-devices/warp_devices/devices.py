@@ -72,8 +72,16 @@ class Listing:
     warnings: list[str]
 
 
-def _latest_reports(fleet: list[Json]) -> tuple[dict[str, Json], dict[str, Json]]:
-    """Index the newest DEX report by registration ID.
+@dataclass(frozen=True)
+class Reports:
+    """The newest DEX report of each registration, and of each device for reports without one."""
+
+    by_registration: dict[str, Json]
+    by_device: dict[str, Json]
+
+
+def latest_reports(fleet: list[Json]) -> Reports:
+    """Index the newest DEX report by registration ID, raising ValueError on a bad timestamp.
 
     Only reports without a registration ID fall back to the device ID, so a
     second registration on one device never inherits another's status.
@@ -97,26 +105,26 @@ def _latest_reports(fleet: list[Json]) -> tuple[dict[str, Json], dict[str, Json]
         if seen is None or moment > seen:
             newest[kind, key] = moment
             indexes[kind][key] = report
-    return indexes["registration"], indexes["device"]
+    return Reports(indexes["registration"], indexes["device"])
 
 
 def merge(
-    registrations: list[Json], physical: list[Json] | None, fleet: list[Json] | None
+    registrations: list[Json], physical: list[Json] | None, reports: Reports | None
 ) -> list[Device]:
-    """Join the three endpoints; None marks an endpoint that failed."""
+    """Join the three endpoints; None marks an endpoint that failed or sent malformed data."""
     hardware = {key: item for item in physical or [] if (key := field(item, "id"))}
-    by_registration, by_device = _latest_reports(fleet or [])
+    index = reports or Reports({}, {})
     devices: list[Device] = []
     for registration in registrations:
         # Validates the raw field, so a non-string timestamp fails instead of reading as never seen.
         parse_optional(registration.get("last_seen_at"))
         registration_id = field(registration, "id") or ""
         device_id = field(registration, "device", "id")
-        report = by_registration.get(registration_id) or (
-            by_device.get(device_id) if device_id else None
+        report = index.by_registration.get(registration_id) or (
+            index.by_device.get(device_id) if device_id else None
         )
         box = hardware.get(device_id or "", {})
-        if fleet is None:
+        if reports is None:
             status = UNKNOWN
         elif report is None:
             status = OFFLINE
@@ -184,7 +192,7 @@ class _Job(threading.Thread):
 def load(client: Getter, now: datetime) -> Listing:
     """Fetch the three endpoints concurrently and merge them.
 
-    Registrations are required; the other two degrade to a warning.
+    Registrations are required; the other two degrade to a warning, and so does malformed DEX data.
     """
     window = {
         "source": "last_seen",
@@ -209,10 +217,15 @@ def load(client: Getter, now: datetime) -> Listing:
         except ApiError as error:
             warnings.append(str(error))
             optional[name] = None
+    fleet = optional[FLEET_STATUS]
+    reports: Reports | None = None
+    if fleet is not None:
+        try:
+            reports = latest_reports(fleet)
+        except ValueError as error:
+            warnings.append(f"GET {FLEET_STATUS} returned malformed data: {error}")
     if optional[PHYSICAL_DEVICES] is None:
         warnings.append("public IP and OS columns are empty")
-    if optional[FLEET_STATUS] is None:
+    if reports is None:
         warnings.append("STATUS shows unknown")
-    return Listing(
-        merge(registrations, optional[PHYSICAL_DEVICES], optional[FLEET_STATUS]), warnings
-    )
+    return Listing(merge(registrations, optional[PHYSICAL_DEVICES], reports), warnings)

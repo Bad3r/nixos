@@ -19,6 +19,7 @@ from warp_devices.devices import FLEET_STATUS, PHYSICAL_DEVICES, REGISTRATIONS
 from tests.fixtures import (
     NOW,
     FakeGetter,
+    Handler,
     envelope,
     hardware,
     pin_utc,
@@ -120,6 +121,48 @@ class ListTest(unittest.TestCase):
         self.assertIn("warning: GET dex/fleet-status/devices failed", err)
         self.assertIn("unknown", out)
 
+    def test_malformed_dex_degrades(self) -> None:
+        """A DEX report with a bad timestamp still lists, exits 0, and warns."""
+        client = getter()
+        bad = report(9, "connected", 2)
+        bad["timestamp"] = "not a time"
+        client.routes[FLEET_STATUS] = lambda _params: envelope([bad], total_pages=1)
+        code, out, err = run(client=client)
+        self.assertEqual(code, 0)
+        self.assertIn("warning: GET dex/fleet-status/devices returned malformed data", err)
+        self.assertIn("warning: STATUS shows unknown", err)
+        self.assertEqual(out.splitlines()[1].split()[:2], ["songbird", "unknown"])
+
+    def test_malformed_registration_fails(self) -> None:
+        """A bad registrations timestamp exits 1 instead of guessing."""
+        client = getter()
+        broken = registration("songbird", 9, minutes_ago=1)
+        broken["last_seen_at"] = 123
+        client.routes[REGISTRATIONS] = static([broken])
+        code, out, err = run(client=client)
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("unexpected data from Cloudflare", err)
+
+    def test_stderr_controls_are_escaped(self) -> None:
+        """API text in warnings and errors reaches stderr with its controls escaped."""
+        client = getter()
+
+        def hostile(path: str) -> Handler:
+            def handler(_params: Mapping[str, str]) -> Json:
+                raise ApiError(path, "Bad\x1b]0;pwned\x07\x9b")
+
+            return handler
+
+        client.routes[FLEET_STATUS] = hostile(FLEET_STATUS)
+        code, _, err = run(client=client)
+        self.assertEqual(code, 0)
+        self.assertIn(r"warning: GET dex/fleet-status/devices failed: Bad\x1b]0;pwned\x07\x9b", err)
+        client.routes[REGISTRATIONS] = hostile(REGISTRATIONS)
+        code, _, err = run(client=client)
+        self.assertEqual(code, 1)
+        self.assertIn(r"GET devices/registrations failed: Bad\x1b]0;pwned\x07\x9b", err)
+        self.assertNotRegex(err, r"[\x1b\x07\x9b]")
+
     def test_forbidden_hint(self) -> None:
         """A 403 on registrations exits 1 and names the needed permissions."""
         client = getter()
@@ -165,6 +208,15 @@ class HistoryTest(unittest.TestCase):
         payload = json.loads(out)
         self.assertEqual(payload["device"], {"id": "dev-4", "name": "laptop"})
         self.assertEqual([r["status"] for r in payload["reports"]], ["connected", "connecting"])
+
+    def test_name_line_is_escaped(self) -> None:
+        """The device name on the summary line has its controls escaped."""
+        client = getter()
+        client.routes[PHYSICAL_DEVICES] = static([hardware(4, name="lap\x1b[2Jtop")])
+        code, _, err = run("history", "dev-4", client=client)
+        self.assertEqual(code, 0)
+        self.assertIn(r"lap\x1b[2Jtop: past 24 hours", err)
+        self.assertNotIn("\x1b", err)
 
     def test_unknown_device(self) -> None:
         """An unknown device exits 3."""
@@ -247,6 +299,21 @@ class InvocationTest(unittest.TestCase):
         code, out, _ = run("--no-color", "history", "laptop")
         self.assertEqual(code, 0)
         self.assertIn("connecting", out)
+
+    def test_value_flag_before_command(self) -> None:
+        """A flag's value before the command is not mistaken for the device or a list argument."""
+        pin_utc()
+        for flags in (
+            ["--token-file", "token"],
+            ["--token-file=token"],
+            ["--account-id-file", "acct", "--no-color"],
+            ["--token", "token"],
+            ["--hours", "2"],
+        ):
+            with self.subTest(flags=flags):
+                code, out, err = run(*flags, "history", "laptop")
+                self.assertEqual((code, err.count("usage")), (0, 0), err)
+                self.assertIn("connecting", out)
 
     def test_broken_pipe(self) -> None:
         """Output into a pipe whose reader closed exits 141 with nothing on stderr."""

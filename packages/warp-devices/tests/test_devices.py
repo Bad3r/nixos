@@ -14,6 +14,7 @@ from warp_devices.devices import (
     PHYSICAL_DEVICES,
     REGISTRATIONS,
     UNKNOWN,
+    latest_reports,
     load,
     merge,
 )
@@ -56,12 +57,15 @@ class MergeTest(unittest.TestCase):
     def test_newest_report_wins(self) -> None:
         """An older disconnected report does not hide a newer connected one."""
         fleet = [report(1, "disconnected", 20), report(1, CONNECTED, 2)]
-        device = merge(REGS, HARDWARE, fleet)[0]
+        device = merge(REGS, HARDWARE, latest_reports(fleet))[0]
         self.assertEqual((device.name, device.status), ("bravo", CONNECTED))
 
     def test_missing_report_is_offline(self) -> None:
         """A registration without a report in the window is offline."""
-        statuses = {d.name: d.status for d in merge(REGS, HARDWARE, [report(1, CONNECTED, 2)])}
+        statuses = {
+            d.name: d.status
+            for d in merge(REGS, HARDWARE, latest_reports([report(1, CONNECTED, 2)]))
+        }
         self.assertEqual(statuses["alpha"], OFFLINE)
 
     def test_failed_fleet_is_unknown(self) -> None:
@@ -72,17 +76,17 @@ class MergeTest(unittest.TestCase):
         """A report of another registration on the same device is not borrowed."""
         other = report(1, CONNECTED, 1)
         other["registrationId"] = "reg-99"
-        self.assertEqual(merge(REGS, HARDWARE, [other])[0].status, OFFLINE)
+        self.assertEqual(merge(REGS, HARDWARE, latest_reports([other]))[0].status, OFFLINE)
 
     def test_device_id_fallback(self) -> None:
         """A report without a registration ID matches on the device ID."""
         fleet = [report(2, "disconnected", 5, registration_id=False)]
-        statuses = {d.name: d.status for d in merge(REGS, HARDWARE, fleet)}
+        statuses = {d.name: d.status for d in merge(REGS, HARDWARE, latest_reports(fleet))}
         self.assertEqual(statuses["alpha"], "disconnected")
 
     def test_hardware_fields(self) -> None:
         """Public IP and OS come from the physical device; absent hardware leaves them empty."""
-        devices = {d.name: d for d in merge(REGS, HARDWARE, [])}
+        devices = {d.name: d for d in merge(REGS, HARDWARE, latest_reports([]))}
         self.assertEqual(
             (devices["alpha"].public_ip, devices["alpha"].os), ("203.0.113.2", "windows")
         )
@@ -92,13 +96,13 @@ class MergeTest(unittest.TestCase):
     def test_sort_order(self) -> None:
         """Connected first, then most recently seen, never-seen last."""
         fleet = [report(2, CONNECTED, 1), report(1, "disconnected", 1)]
-        names = [d.name for d in merge(REGS, HARDWARE, fleet)]
+        names = [d.name for d in merge(REGS, HARDWARE, latest_reports(fleet))]
         self.assertEqual(names, ["alpha", "bravo", "charlie", "delta"])
 
     def test_sort_ties_by_name(self) -> None:
         """Equal last-seen times order by name, case-insensitively."""
         regs = [registration("Zulu", 1, minutes_ago=5), registration("echo", 2, minutes_ago=5)]
-        self.assertEqual([d.name for d in merge(regs, [], [])], ["echo", "Zulu"])
+        self.assertEqual([d.name for d in merge(regs, [], latest_reports([]))], ["echo", "Zulu"])
 
 
 class LoadTest(unittest.TestCase):
@@ -133,6 +137,37 @@ class LoadTest(unittest.TestCase):
         listing = load(self.routes(fleet=False), NOW)
         self.assertTrue(any(FLEET_STATUS in warning for warning in listing.warnings))
         self.assertEqual({d.status for d in listing.devices}, {UNKNOWN})
+
+    def test_malformed_fleet_degrades(self) -> None:
+        """A DEX report with a bad timestamp warns like a failed fetch, not a failed listing."""
+        for label, value in (("missing", None), ("number", 123), ("garbage", "yesterday")):
+            bad = report(1, CONNECTED, 2)
+            if value is None:
+                del bad["timestamp"]
+            else:
+                bad["timestamp"] = value
+            getter = self.routes()
+            getter.routes[FLEET_STATUS] = lambda _p, bad=bad: envelope([bad], total_pages=1)
+            with self.subTest(timestamp=label):
+                listing = load(getter, NOW)
+                self.assertTrue(
+                    any(
+                        FLEET_STATUS in warning and "malformed" in warning
+                        for warning in listing.warnings
+                    ),
+                    listing.warnings,
+                )
+                self.assertIn("STATUS shows unknown", listing.warnings)
+                self.assertEqual({d.status for d in listing.devices}, {UNKNOWN})
+
+    def test_malformed_registration_raises(self) -> None:
+        """A bad registrations timestamp still fails the listing."""
+        broken = registration("bravo", 1, minutes_ago=1)
+        broken["last_seen_at"] = 123
+        getter = self.routes()
+        getter.routes[REGISTRATIONS] = static([broken])
+        with self.assertRaises(ValueError):
+            load(getter, NOW)
 
     def test_physical_failure_warns(self) -> None:
         """A physical-devices failure leaves the hardware columns empty."""
@@ -182,11 +217,11 @@ class StrictDataTest(unittest.TestCase):
         broken = registration("bravo", 1, minutes_ago=1)
         broken["last_seen_at"] = 123
         with self.assertRaises(ValueError):
-            merge([broken], [], [])
+            merge([broken], [], latest_reports([]))
 
     def test_report_without_timestamp(self) -> None:
         """A DEX report with no timestamp is an error, not a silent offline."""
         bare = report(1, CONNECTED, 1)
         del bare["timestamp"]
         with self.assertRaises(ValueError):
-            merge(REGS, HARDWARE, [bare])
+            latest_reports([bare])

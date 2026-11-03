@@ -50,6 +50,22 @@ class TableTest(unittest.TestCase):
         self.assertIn("\033[2mtpnix", lines[3])
         self.assertIn("\033[2m-", lines[2])
 
+    def test_controls_are_escaped(self) -> None:
+        """Terminal controls in API text print as visible escapes, and columns stay aligned."""
+        hostile = "evil\x1b]0;pwned\x07\x1b[2J\x9b\x7f"
+        rows = [Row([hostile, "connected", "now"], "connected"), *ROWS]
+        for color in (False, True):
+            with self.subTest(color=color):
+                output = table(
+                    ["NA\tME", "STATUS", "LAST_SEEN"], rows, status_column=1, color=color
+                )
+                plain = SGR.sub("", output)
+                self.assertNotRegex(plain, r"[\x00-\x09\x0b-\x1f\x7f-\x9f]")
+                self.assertIn(r"evil\x1b]0;pwned\x07\x1b[2J\x9b\x7f", plain)
+                self.assertTrue(plain.startswith(r"NA\x09ME"))
+                starts = {len(line) - len(line.split(maxsplit=1)[1]) for line in plain.splitlines()}
+                self.assertEqual(starts, {len(r"evil\x1b]0;pwned\x07\x1b[2J\x9b\x7f") + 2})
+
 
 class ColorChoiceTest(unittest.TestCase):
     """Explicit flags win; otherwise a terminal without NO_COLOR gets color."""

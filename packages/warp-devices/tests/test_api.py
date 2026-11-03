@@ -3,6 +3,7 @@
 
 import email.message
 import http.client
+import ssl
 import unittest
 import unittest.mock
 import urllib.error
@@ -177,6 +178,21 @@ class EnvelopeShapeTest(unittest.TestCase):
         transport = FakeTransport(ok({"success": False, "errors": []}, 502), ok(GOOD))
         self.assertEqual(client(transport, sleeps).get("devices", {}), GOOD)
 
+    def test_success_without_list_off_200_is_final(self) -> None:
+        """A non-200 claiming success without a result list is final and keeps its status."""
+        cases: tuple[tuple[int, Json], ...] = (
+            (201, {"success": True}),
+            (404, {"success": True, "result": {}}),
+        )
+        for status, body in cases:
+            with self.subTest(status=status):
+                sleeps: list[float] = []
+                transport = FakeTransport(ok(body, status), ok(GOOD))
+                with self.assertRaisesRegex(ApiError, "without a result list") as caught:
+                    client(transport, sleeps).get("devices", {})
+                self.assertEqual(caught.exception.status, status)
+                self.assertEqual((len(transport.requests), sleeps), (1, []))
+
     def test_non_json_client_error_is_final(self) -> None:
         """An HTML 404 is final and keeps its status."""
         sleeps: list[float] = []
@@ -185,6 +201,32 @@ class EnvelopeShapeTest(unittest.TestCase):
             client(transport, sleeps).get("devices", {})
         self.assertEqual(caught.exception.status, 404)
         self.assertEqual(sleeps, [])
+
+
+class CertificateTest(unittest.TestCase):
+    """A failed certificate check is final; retrying cannot change the certificate."""
+
+    def test_certificate_failure_is_final(self) -> None:
+        """Wrapped by urllib or bare, it raises after one attempt and names the check."""
+        failure = ssl.SSLCertVerificationError(
+            1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"
+        )
+        failure.verify_message = "unable to get local issuer certificate"
+        cases: tuple[tuple[str, Exception], ...] = (
+            ("urllib", urllib.error.URLError(failure)),
+            ("bare", failure),
+        )
+        for label, raised in cases:
+            with self.subTest(label=label):
+                sleeps: list[float] = []
+                transport = FakeTransport(raised, ok(GOOD))
+                with self.assertRaises(ApiError) as caught:
+                    client(transport, sleeps).get("devices", {})
+                message = str(caught.exception)
+                self.assertIn("TLS certificate verification failed", message)
+                self.assertIn("unable to get local issuer certificate", message)
+                self.assertNotIn(TOKEN, message)
+                self.assertEqual((len(transport.requests), sleeps), (1, []))
 
 
 class TransportTest(unittest.TestCase):

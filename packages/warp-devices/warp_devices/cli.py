@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, NoReturn
 
 from warp_devices import devices, history
 from warp_devices.api import ApiError, Client, Getter
-from warp_devices.render import Row, table, use_color
+from warp_devices.render import Row, printable, table, use_color
 from warp_devices.timefmt import ago, local_clock, span
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ BROKEN_PIPE_EXIT = 141
 INTERRUPT_EXIT = 130
 FORBIDDEN = 403
 COMMANDS = ("list", "history")
+VALUE_FLAGS = ("--account-id-file", "--token-file", "--hours")
 CREDENTIAL_PATTERN = re.compile(r"[\x21-\x7e]+")
 CREDENTIAL_SOURCE = (
     "the warp-devices app renders it from the zero_trust_read_api_token and account_id keys"
@@ -100,8 +101,8 @@ def build_parser() -> Parser:
         prog="warp-devices",
         description="List Cloudflare Zero Trust WARP devices, or one device's recent history.",
         epilog=(
-            "Without a command, runs list. Color defaults to on for a terminal unless NO_COLOR"
-            " is set."
+            "Without a command, runs list. Color is on for a terminal unless NO_COLOR holds a"
+            " non-empty value."
         ),
     )
     commands = parser.add_subparsers(dest="command", parser_class=Parser)
@@ -139,16 +140,24 @@ def build_parser() -> Parser:
     return parser
 
 
+def _takes_value(arg: str) -> bool:
+    """Tell whether a flag consumes the next argument, abbreviations included."""
+    return len(arg) > len("--") and any(flag.startswith(arg) for flag in VALUE_FLAGS)
+
+
 def with_default_command(argv: Sequence[str]) -> list[str]:
-    """Move a command that follows valueless flags to the front, or run list when none is named."""
+    """Move a command that follows flags to the front, or run list when none is named."""
     args = list(argv)
     if args and (args[0] in COMMANDS or args[0] in {"-h", "--help"}):
         return args
-    for index, arg in enumerate(args):
+    index = 0
+    while index < len(args):
+        arg = args[index]
         if not arg.startswith("-"):
             if arg in COMMANDS:
                 return [arg, *args[:index], *args[index + 1 :]]
             break
+        index += 2 if _takes_value(arg) else 1
     return ["list", *args]
 
 
@@ -164,7 +173,7 @@ def run_list(client: Getter, args: argparse.Namespace, now: datetime) -> int:
     """Print the device table or JSON."""
     listing = devices.load(client, now)
     for warning in listing.warnings:
-        print(f"warp-devices: warning: {warning}", file=sys.stderr)
+        print(f"warp-devices: warning: {printable(warning)}", file=sys.stderr)
     if args.json:
         payload = {
             "devices": [device.to_json() for device in listing.devices],
@@ -209,7 +218,7 @@ def run_history(client: Getter, args: argparse.Namespace, now: datetime) -> int:
         print(json.dumps(payload, indent=2))
         return 0
     if not kept:
-        print(f"{name}: no DEX reports in the past {args.hours} hours", file=sys.stderr)
+        print(f"{printable(name)}: no DEX reports in the past {args.hours} hours", file=sys.stderr)
         return 0
     header = ["TIME", "GAP", "STATUS", "COLO", "ISP", "LAN", "HANDSHAKE", "LOSS"]
     rows = [
@@ -229,7 +238,7 @@ def run_history(client: Getter, args: argparse.Namespace, now: datetime) -> int:
         for entry in kept
     ]
     shown = "" if args.all else f", {len(kept)} of {len(reports)} reports shown"
-    print(f"{name}: past {args.hours} hours{shown}", file=sys.stderr)
+    print(f"{printable(name)}: past {args.hours} hours{shown}", file=sys.stderr)
     sys.stdout.write(table(header, rows, status_column=2, color=use_color(args.color, sys.stdout)))
     return 0
 
@@ -237,10 +246,12 @@ def run_history(client: Getter, args: argparse.Namespace, now: datetime) -> int:
 def describe(error: Exception) -> str:
     """Word a failure for stderr, adding the permission hint to a 403."""
     if isinstance(error, ApiError):
-        return f"{error}; {PERMISSION_HINT}" if error.status == FORBIDDEN else str(error)
-    if isinstance(error, ValueError):
-        return f"unexpected data from Cloudflare: {error}"
-    return str(error)
+        text = f"{error}; {PERMISSION_HINT}" if error.status == FORBIDDEN else str(error)
+    elif isinstance(error, ValueError):
+        text = f"unexpected data from Cloudflare: {error}"
+    else:
+        text = str(error)
+    return printable(text)
 
 
 def utc_now() -> datetime:
