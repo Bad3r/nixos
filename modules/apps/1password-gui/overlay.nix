@@ -4,8 +4,14 @@ let
     { config, lib, ... }:
     let
       cfg = config.programs."1password-gui".extended;
+      onePasswordTemplate = builtins.readFile ../../stylix/icons/1password-outline.svg.mustache;
       onePasswordIcon = config.lib.stylix.colors {
-        template = builtins.readFile ../../stylix/icons/1password-outline.svg.mustache;
+        template = onePasswordTemplate;
+        extension = ".svg";
+      };
+      # Tray glyph in the bar's status text color.
+      onePasswordTrayIcon = config.lib.stylix.colors {
+        template = builtins.replaceStrings [ "{{base05-hex}}" ] [ "{{base04-hex}}" ] onePasswordTemplate;
         extension = ".svg";
       };
       iconSizes = [
@@ -23,8 +29,9 @@ let
           ];
           postInstall = (old.postInstall or "") + ''
             renderOnePasswordIcon() {
-              local size="$1"
-              local output="$2"
+              local source="$1"
+              local size="$2"
+              local output="$3"
               local glyphSize="$((size * 11 / 16))"
               local offset="$(((size - glyphSize) / 2))"
 
@@ -36,21 +43,21 @@ let
                 --left "$offset" \
                 --top "$offset" \
                 --keep-aspect-ratio \
-                ${onePasswordIcon} > "$output"
+                "$source" > "$output"
             }
 
             for size in ${lib.escapeShellArgs (map toString iconSizes)}; do
               for iconRoot in "$out/share/icons/hicolor" "$out/share/1password/resources/icons/hicolor"; do
                 iconDir="$iconRoot/''${size}x''${size}/apps"
                 mkdir -p "$iconDir"
-                renderOnePasswordIcon "$size" "$iconDir/1password.png"
+                renderOnePasswordIcon ${onePasswordIcon} "$size" "$iconDir/1password.png"
               done
             done
 
             asarRoot="$(mktemp -d)"
             ${final.asar}/bin/asar extract "$out/share/1password/resources/app.asar" "$asarRoot/app"
 
-            renderOnePasswordIcon 256 "$asarRoot/tray.png"
+            renderOnePasswordIcon ${onePasswordTrayIcon} 256 "$asarRoot/tray.png"
             for trayIcon in tray_locked tray_prompt tray_unlocked; do
               install -m 444 "$asarRoot/tray.png" "$asarRoot/app/images/$trayIcon.png"
             done
