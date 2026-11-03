@@ -23,6 +23,7 @@ let
     babashka = true;
     bibimbap = true;
     "realforce-connect" = true;
+    openshell = true;
     "clojure-cli" = true;
     "clojure-lsp" = true;
     leiningen = true;

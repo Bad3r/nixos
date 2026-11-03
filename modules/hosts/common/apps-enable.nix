@@ -348,6 +348,7 @@ let
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
       opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
+      openshell.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 false;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
