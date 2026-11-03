@@ -30,3 +30,42 @@ Verification:
 - `ip -br link` shows `eth0`, `eth1`, and `wlan0`.
 - `powerprofilesctl get` reports `performance`.
 - `systemctl hibernate` round-trips, and `/portal` remounts on resume.
+
+## Capture the monitor EDID
+
+Precondition: the monitor is awake, `xrandr` lists `DP-4 connected`, and X runs without a stored EDID.
+X reports the stored EDID in place of the panel's own, so for a new monitor first remove `secrets/songbird-monitor.edid` with a commit in `secrets`, commit the submodule bump, switch, and restart X.
+A build reads `secrets/` at its committed revision, so an uncommitted deletion leaves the stored EDID in place.
+`grep CustomEDID /var/log/X.0.log` prints nothing once X runs without it.
+
+1. From the repository root, capture the panel's EDID into a temporary file and decode it:
+
+   ```sh
+   edid=$(mktemp)
+   DISPLAY=:0 xrandr --props |
+     awk '/^DP-4 connected/ {o = 1; next} /^[^ \t]/ {o = 0}
+          o && /EDID:/ {e = 1; next} e && /^\t\t[0-9a-f]+$/ {gsub(/\t/, ""); printf "%s", $0; next} {e = 0}' |
+     xxd -r -p > "$edid"
+   nix shell nixpkgs#edid-decode -c edid-decode "$edid" | grep 'Display Product Name'
+   ```
+
+   Stop when the last command prints nothing, since the capture then holds no EDID.
+
+2. Encrypt it into the secrets repository and push that repository's `main`:
+
+   ```sh
+   sops encrypt --input-type binary --output-type binary \
+     --filename-override secrets/songbird-monitor.edid --output secrets/songbird-monitor.edid "$edid"
+   rm "$edid"
+   git -C secrets add songbird-monitor.edid
+   git -C secrets commit -m "chore: update songbird-monitor.edid"
+   git -C secrets push origin HEAD:main
+   ```
+
+3. Commit the submodule bump, switch, and restart X, which ends the desktop session:
+
+   ```sh
+   sudo systemctl restart display-manager
+   ```
+
+Verification: with the monitor off, `DISPLAY=:0 xrandr --listactivemonitors` still lists `DP-4`.

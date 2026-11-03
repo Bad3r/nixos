@@ -78,6 +78,37 @@ let
           '';
         };
 
+        alwaysConnected = lib.mkOption {
+          type = lib.types.nullOr (
+            lib.types.submodule {
+              options = {
+                device = lib.mkOption {
+                  type = lib.types.str;
+                  example = "DFP-5";
+                  description = "Display device name as the X log lists it, not the RandR output name.";
+                };
+                edid = lib.mkOption {
+                  type = lib.types.pathWith {
+                    absolute = true;
+                    inStore = false;
+                  };
+                  example = "/run/secrets/songbird/monitor-edid";
+                  description = "Absolute path of the panel's raw EDID outside the Nix store, read when X starts in place of the panel's own.";
+                };
+              };
+            }
+          );
+          default = null;
+          description = ''
+            Display the X driver treats as connected whether or not the panel
+            answers, with a stored EDID. The X screen and its MetaModes then
+            survive a panel that leaves the bus in standby or is switched off,
+            so screen capture keeps a screen to share. The driver detects no
+            other display while this is set, and an EDID that does not match
+            the panel can drive it out of spec.
+          '';
+        };
+
         vaapi.backend = lib.mkOption {
           type = lib.types.enum [
             "nvidia"
@@ -108,10 +139,16 @@ let
                   ]
                   ++ lib.optional (cfg.metamode != "nvidia-auto-select") "nvidia-auto-select";
                 in
-                lib.mkDefault ''
-                  Option "ForceFullCompositionPipeline" "false"
-                  Option "metamodes" "${lib.concatMapStringsSep "; " metaMode modes}"
-                '';
+                lib.mkDefault (
+                  ''
+                    Option "ForceFullCompositionPipeline" "false"
+                    Option "metamodes" "${lib.concatMapStringsSep "; " metaMode modes}"
+                  ''
+                  + lib.optionalString (cfg.alwaysConnected != null) ''
+                    Option "ConnectedMonitor" "${cfg.alwaysConnected.device}"
+                    Option "CustomEDID" "${cfg.alwaysConnected.device}:${cfg.alwaysConnected.edid}"
+                  ''
+                );
             };
 
             hardware = {
