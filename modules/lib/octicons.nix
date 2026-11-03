@@ -1,4 +1,5 @@
 # Primer Octicons 19.42.0 icon font for the i3bar, i3status-rust, and the shell prompt.
+# ./octicons holds the release's full SVG set; the font takes only the glyphs mapped below.
 { lib, ... }:
 let
   family = "Primer Octicons";
