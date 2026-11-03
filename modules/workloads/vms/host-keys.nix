@@ -31,7 +31,9 @@ let
       );
 
       python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
-      script = "${python.interpreter} -I ${./_host-keys.py} ${manifest}";
+      # A stable path, so a capture waiting across a switch reads the new declaration.
+      manifestPath = "/etc/workloads/host-keys.json";
+      script = "${python.interpreter} -I ${./_host-keys.py} ${manifestPath}";
       systemctl = "${config.systemd.package}/bin/systemctl";
 
       # libvirt waits for a hook, so it only queues the job.
@@ -71,8 +73,15 @@ let
           } =
             {
               order = 500;
-              GlobalKnownHostsFile = "/etc/ssh/ssh_known_hosts ${knownHosts}";
+              # First value wins, so this repeats the files the generated `Host *` block lists.
+              GlobalKnownHostsFile = lib.concatStringsSep " " (
+                [ "/etc/ssh/ssh_known_hosts" ]
+                ++ map pkgs.copyPathToStore config.programs.ssh.knownHostsFiles
+                ++ [ knownHosts ]
+              );
             };
+
+          environment.etc."workloads/host-keys.json".source = manifest;
 
           systemd = {
             tmpfiles.settings.workloads-host-keys.${keyDir}.d = {
@@ -81,10 +90,11 @@ let
               group = "root";
             };
 
-            # Restarts at switch through its manifest, so undeclared guests lose their entries.
+            # Restarts at a switch that changes the manifest, so undeclared guests lose their entries.
             services.workloads-host-keys = {
               description = "Write the SSH known_hosts file of workload guests";
               wantedBy = [ "multi-user.target" ];
+              restartTriggers = [ manifest ];
               requires = [ "libvirtd.service" ];
               after = [
                 "libvirtd.service"
@@ -101,7 +111,7 @@ let
               description = "Record the SSH host key of the %i workload guest";
               wants = [ "workloads-host-keys.service" ];
               after = [ "workloads-host-keys.service" ];
-              # The next start of the guest records its key with the new manifest.
+              # A waiting capture reads the new manifest itself.
               restartIfChanged = false;
               serviceConfig = {
                 Type = "oneshot";

@@ -118,9 +118,9 @@ def write_atomic(path: Path, data: bytes, mode: int) -> None:
 
 
 @contextlib.contextmanager
-def locked(manifest: dict) -> Iterator[None]:
+def locked(manifest_path: Path) -> Iterator[None]:
     """Hold the lock that serializes changes to the stored keys."""
-    with Path(manifest["keyDir"], ".lock").open("w") as handle:
+    with Path(load(manifest_path)["keyDir"], ".lock").open("w") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         yield
 
@@ -158,32 +158,47 @@ def read_guest_file(domain: libvirt.virDomain, path: str) -> bytes:
     handle = call("guest-file-open", path=path, mode="rb")
     data = b""
     try:
-        # Windows reports the end only on the read after the last byte.
+        # Windows reports the end only on the read after the last byte; an
+        # empty read ends it too, so a guest cannot keep the loop spinning.
         while True:
             chunk = call("guest-file-read", handle=handle, count=MAX_KEY_FILE)
-            data += base64.b64decode(chunk["buf-b64"])  # type: ignore[index]
+            piece = base64.b64decode(chunk["buf-b64"])  # type: ignore[index]
+            data += piece
             if len(data) > MAX_KEY_FILE:
                 msg = f"the key file is larger than {MAX_KEY_FILE} bytes"
                 raise KeyFormatError(msg)
-            if chunk["eof"] or not chunk["count"]:  # type: ignore[index]
+            if chunk["eof"] or not piece:  # type: ignore[index]
                 return data
     finally:
         call("guest-file-close", handle=handle)
 
 
-def capture(manifest: dict, name: str) -> None:
-    """Wait for the guest's host key, then store it and render known_hosts."""
-    guest = manifest["guests"].get(name)
-    if guest is None:
-        log(f"{name} is not a declared guest with a guest agent; nothing to record")
-        return
+def load(path: Path) -> dict:
+    """Read the manifest of the running system."""
+    return json.loads(path.read_text())
+
+
+def read_key(uuid: str, path: str) -> bytes:
+    """Read one guest's host key over a fresh connection, which survives a libvirtd restart."""
     conn = libvirt.open("qemu:///system")
-    path = KEY_PATHS[guest["kind"]]
+    try:
+        return parse_key(read_guest_file(conn.lookupByUUIDString(uuid), path))
+    finally:
+        conn.close()
+
+
+def capture(manifest_path: Path, name: str) -> None:
+    """Wait for the guest's host key, then store it and render known_hosts."""
     waiting = None
     while True:
+        # Re-read each round, so a switch while the guest is waiting takes effect.
+        guest = load(manifest_path)["guests"].get(name)
+        if guest is None:
+            log(f"{name} is not a declared guest with a guest agent; nothing to record")
+            return
+        path = KEY_PATHS[guest["kind"]]
         try:
-            domain = conn.lookupByUUIDString(guest["uuid"])
-            blob = parse_key(read_guest_file(domain, path))
+            blob = read_key(guest["uuid"], path)
             break
         except libvirt.libvirtError as error:
             reason = error.get_error_message()
@@ -191,12 +206,16 @@ def capture(manifest: dict, name: str) -> None:
         except (KeyFormatError, KeyError, TypeError, ValueError) as error:
             reason = f"unusable reply: {error}"
         if reason != waiting:
-            log(f"{name}: waiting for {path}: {reason}")
+            log(f"{name}: waiting for {path}: {reason!r}")
             waiting = reason
         time.sleep(POLL_SECONDS)
 
-    stored = Path(manifest["keyDir"], f"{name}.key")
-    with locked(manifest):
+    with locked(manifest_path):
+        manifest = load(manifest_path)
+        if name not in manifest["guests"]:
+            log(f"{name}: undeclared while waiting; the key is not recorded")
+            return
+        stored = Path(manifest["keyDir"], f"{name}.key")
         previous = stored.read_bytes() if stored.exists() else None
         if previous != blob:
             write_atomic(stored, blob, 0o600)
@@ -207,18 +226,24 @@ def capture(manifest: dict, name: str) -> None:
         render(manifest)
 
 
-def refresh(manifest: dict, systemctl: str, unit: str) -> None:
+def refresh(manifest_path: Path, systemctl: str, unit: str) -> None:
     """Render known_hosts, then queue a capture for each running declared guest."""
-    with locked(manifest):
+    with locked(manifest_path):
+        manifest = load(manifest_path)
         render(manifest)
     conn = libvirt.open("qemu:///system")
-    for name, guest in sorted(manifest["guests"].items()):
-        try:
-            running = conn.lookupByUUIDString(guest["uuid"]).isActive()
-        except libvirt.libvirtError:
-            running = False
-        if running:
-            subprocess.run([systemctl, "--no-block", "start", unit.replace("%i", name)], check=True)
+    try:
+        for name, guest in sorted(manifest["guests"].items()):
+            try:
+                running = conn.lookupByUUIDString(guest["uuid"]).isActive()
+            except libvirt.libvirtError:
+                running = False
+            if running:
+                subprocess.run(
+                    [systemctl, "--no-block", "start", unit.replace("%i", name)], check=True
+                )
+    finally:
+        conn.close()
 
 
 def main() -> None:
@@ -231,11 +256,10 @@ def main() -> None:
     refresh_parser.add_argument("systemctl")
     refresh_parser.add_argument("unit")
     args = parser.parse_args()
-    manifest = json.loads(args.manifest.read_text())
     if args.command == "capture":
-        capture(manifest, args.guest)
+        capture(args.manifest, args.guest)
     else:
-        refresh(manifest, args.systemctl, args.unit)
+        refresh(args.manifest, args.systemctl, args.unit)
 
 
 if __name__ == "__main__":

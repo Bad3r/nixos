@@ -1,6 +1,6 @@
-# Guest SSH host keys
+# Guest SSH access
 
-The host's SSH client trusts each declared guest's host key without a first-connection prompt.
+The host's SSH client trusts each declared guest's host key without a first-connection prompt, and logs in with a key that needs no 1Password unlock.
 `modules/workloads/vms/host-keys.nix` covers every present guest that has a guest agent and an interface.
 
 ## How a key is recorded
@@ -21,6 +21,15 @@ It drops the keys of undeclared guests and queues a capture for every running gu
 Other hosts never consult it, so a guest can vouch only for its own names.
 
 A guest controls what its agent returns, so the unit accepts only one well-formed ED25519 key and builds each line from the declared hostnames.
+
+## The guest login key
+
+`secrets/workloads-ssh.yaml` holds a dedicated client key, and its public half is `workloadsSshPublicKey` in `modules/meta/_owner-profile.nix`.
+NixOS guests authorize it for root and the owner, and a Windows guest gets it through its `authorizedKeys`, which provisioning writes at each start.
+
+On Songbird, Home Manager decrypts the key to `~/.ssh/keys/workloads-guest`, and `modules/hosts/songbird/ssh-workloads.nix` writes `~/.ssh/hosts/workloads`.
+`~/.ssh/config` includes that file ahead of its `Host *` block, so the guests' names and addresses use the key with `IdentityAgent none`, and every other host keeps the 1Password agent.
+Without the secret file, the host warns at evaluation and guests keep the 1Password agent.
 
 ## Verify
 
@@ -48,3 +57,16 @@ Fix: start the guest, or restart the unit once its agent runs:
 ```sh
 sudo systemctl restart workloads-host-key@<name>.service
 ```
+
+## A guest refuses the login key
+
+Cause: the guest still runs a configuration from before the key was authorized.
+A Windows guest picks the key up at its next start; a NixOS guest needs a deploy, which itself logs in over SSH.
+
+Fix: deploy the NixOS guest once through the 1Password agent, since `-o` overrides the config file:
+
+```sh
+NIX_SSHOPTS="-o IdentityAgent=~/.1password/agent.sock" nixos-rebuild switch --flake .#<name> --target-host root@<name>
+```
+
+For a Windows guest, restart it from Windows or with `virsh -c qemu:///system reboot <name>`.

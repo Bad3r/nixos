@@ -98,7 +98,7 @@ Verification: `ssh root@<name> systemctl is-system-running` prints `running`.
 
 ## Host key
 
-The host trusts the guest's SSH host key from its first boot, as [guest SSH host keys](host-keys.md) describes.
+The host trusts the guest's SSH host key from its first boot, as [guest SSH access](host-keys.md) describes.
 
 ## Deploy a configuration change
 

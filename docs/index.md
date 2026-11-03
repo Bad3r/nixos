@@ -450,7 +450,7 @@
 - [apps/libvirt/guests.md](apps/libvirt/guests.md)
   - Declared guests: trust classes, how the reconciler defines them, disks and NVRAM, growth, removal, orphans, and failures.
 - [apps/libvirt/host-keys.md](apps/libvirt/host-keys.md)
-  - Guest SSH host keys: capture through the guest agent, the guest-scoped known-hosts file, and failures.
+  - Guest SSH access: host keys captured through the guest agent, the guest-scoped known-hosts file, the 1Password-free login key, and failures.
 - [apps/libvirt/nixos-guests.md](apps/libvirt/nixos-guests.md)
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, and deploys over SSH.
 - [apps/libvirt/shares.md](apps/libvirt/shares.md)

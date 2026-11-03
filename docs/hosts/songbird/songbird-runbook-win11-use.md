@@ -43,7 +43,7 @@ Verification: the Windows desktop responds to keyboard and mouse input.
    ssh vx@win11.vm
    ```
 
-   Songbird records the guest's host key at each start, so the connection never prompts for it ([guest SSH host keys](../../apps/libvirt/host-keys.md)).
+   Songbird records the guest's host key at each start, so the connection never prompts for it ([guest SSH access](../../apps/libvirt/host-keys.md)).
 
 2. For automation, select the Windows shell explicitly and fail rather than prompt for credentials:
 
