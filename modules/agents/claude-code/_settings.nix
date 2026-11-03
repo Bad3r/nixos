@@ -239,8 +239,9 @@
   # "https://reviews.example.com/{owner}/{repo}/pull/{number}"
   # prUrlTemplate = ""; # [string]
 
-  # Preferred OS notification channel
-  preferredNotifChannel = "iterm2_with_bell";
+  # Preferred OS notification channel. Off: the claude-notify Notification
+  # hook (modules/agents/hooks/claude-notify.nix) shows the toasts.
+  preferredNotifChannel = "notifications_disabled";
 
   # Reduce or disable animations for accessibility (spinner shimmer, flash
   # effects, etc.)
