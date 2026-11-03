@@ -4,10 +4,11 @@
 import unittest
 from typing import TYPE_CHECKING
 
-from warp_devices.history import LookupFailedError, entries, resolve, to_report
+from warp_devices.devices import FLEET_STATUS, PHYSICAL_DEVICES
+from warp_devices.history import LookupFailedError, entries, load, resolve, to_report
 from warp_devices.timefmt import DataError
 
-from tests.fixtures import dex_stamp
+from tests.fixtures import NOW, FakeGetter, dex_stamp, static
 
 if TYPE_CHECKING:
     from warp_devices.api import Json
@@ -106,3 +107,16 @@ class EntriesTest(unittest.TestCase):
         """A report without a timestamp is malformed data."""
         with self.assertRaises(DataError):
             to_report({"status": "connected"})
+
+
+class LoadTest(unittest.TestCase):
+    """A matched device without an ID never widens the report query."""
+
+    def test_device_without_id(self) -> None:
+        """A device matched by name but lacking an ID is malformed data."""
+        getter = FakeGetter(
+            {PHYSICAL_DEVICES: static([{"name": "no-id"}]), FLEET_STATUS: static([raw(1)])}
+        )
+        with self.assertRaises(DataError):
+            load(getter, "no-id", 24, NOW)
+        self.assertEqual([path for path, _ in getter.calls], [PHYSICAL_DEVICES])

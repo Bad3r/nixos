@@ -3,6 +3,7 @@
 
 import http.client
 import json
+import math
 import random
 import ssl
 import time
@@ -99,6 +100,8 @@ def _retry_after(value: str | None) -> float | None:
     try:
         seconds = float(value)
     except ValueError:
+        return None
+    if not math.isfinite(seconds):
         return None
     return min(max(seconds, 0.0), RETRY_AFTER_CAP_SECONDS)
 
@@ -224,19 +227,21 @@ def paginate_cursor(
     """Collect every page of a cursor-paginated endpoint."""
     items: list[Json] = []
     cursor: str | None = None
+    requested: set[str] = set()
     for _ in range(MAX_PAGES):
         query = {**(params or {}), "per_page": str(CURSOR_PAGE_SIZE)}
         if cursor:
             query["cursor"] = cursor
+            requested.add(cursor)
         envelope = client.get(path, query)
         page = results(envelope)
         following = _info(envelope).get("cursor")
-        if page and following and following == cursor:
-            msg = "the cursor stopped advancing, so the listing would be incomplete"
-            raise ApiError(path, msg)
         items.extend(page)
         if not page or not isinstance(following, str) or not following:
             return items
+        if following in requested:
+            msg = "the cursor stopped advancing or looped, so the listing would be incomplete"
+            raise ApiError(path, msg)
         cursor = following
     raise ApiError(path, f"more than {MAX_PAGES} pages")
 

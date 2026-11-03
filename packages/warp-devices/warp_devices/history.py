@@ -130,7 +130,10 @@ def entries(reports: list[Report], *, show_all: bool) -> list[Entry]:
 def load(client: Getter, query: str, hours: int, now: datetime) -> tuple[Json, list[Report]]:
     """Resolve the device and fetch its raw reports over the past hours."""
     device = resolve(paginate_cursor(client, PHYSICAL_DEVICES), query)
-    device_id = field(device, "id") or ""
+    device_id = field(device, "id")
+    if device_id is None:
+        msg = "the matched device has no ID"
+        raise DataError(msg)
     window = {
         "source": "raw",
         "device_id": device_id,

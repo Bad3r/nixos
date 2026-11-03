@@ -64,7 +64,6 @@ aliases continue to route directly to the recorded IPv4 Mesh addresses.
 and one token section per host named after its `networking.hostName`; the `.example` file beside it
 in the secrets repository shows the shape.
 The team name, Mesh host addresses, and tokens remain encrypted in the repository.
-`zero_trust_read_api_token` is the read-only token [warp-devices](devices.md) uses.
 The Mesh range itself is public: `meshRange` in `cloudflare-warp.nix` sits between the two CGNAT excludes.
 
 ## Pages

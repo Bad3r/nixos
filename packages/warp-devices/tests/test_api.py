@@ -63,6 +63,15 @@ class RetryTest(unittest.TestCase):
         client(transport, sleeps).get("devices", {})
         self.assertEqual(sleeps, [0.0])
 
+    def test_rate_limit_ignores_non_finite_retry_after(self) -> None:
+        """A 429 with Retry-After nan or inf falls back to the backoff delay."""
+        for value in ("nan", "inf", "-inf"):
+            with self.subTest(value=value):
+                sleeps: list[float] = []
+                transport = FakeTransport(Response(429, b"{}", value), ok(GOOD))
+                self.assertEqual(client(transport, sleeps).get("devices", {}), GOOD)
+                self.assertEqual(sleeps, [1.0])
+
     def test_cut_off_body_then_success(self) -> None:
         """A 200 whose body is cut off mid-string is retried."""
         sleeps: list[float] = []
@@ -137,6 +146,18 @@ class PaginationTest(unittest.TestCase):
         with self.assertRaisesRegex(ApiError, "stopped advancing"):
             paginate_cursor(getter, "r")
         self.assertEqual(len(getter.calls), 2)
+
+    def test_cursor_cycle_fails(self) -> None:
+        """A cursor that loops back to an earlier page is an error, not a run to the page cap."""
+        pages = {
+            "": envelope([{"id": "0"}], cursor="a"),
+            "a": envelope([{"id": "1"}], cursor="b"),
+            "b": envelope([{"id": "2"}], cursor="a"),
+        }
+        getter = FakeGetter({"r": lambda params: pages[params.get("cursor", "")]})
+        with self.assertRaisesRegex(ApiError, "stopped advancing"):
+            paginate_cursor(getter, "r")
+        self.assertEqual(len(getter.calls), 3)
 
     def test_numbered_pages(self) -> None:
         """Pages are read up to total_pages."""
