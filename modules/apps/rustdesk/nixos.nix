@@ -59,6 +59,8 @@ let
     "disable-discovery-panel" = "Y";
     # palette.json recolors only the dark theme.
     theme = "dark";
+    # i3 closes and resizes the windows.
+    "hide-window-buttons" = "Y";
   };
 
   # Loopback carries hbbs's self-test.
