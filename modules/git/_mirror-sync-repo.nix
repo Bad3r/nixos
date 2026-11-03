@@ -148,10 +148,14 @@ pkgs.writeShellApplication {
     local_sha=$(git -C "$dir" rev-parse HEAD)
     remote_sha=$(git -C "$dir" rev-parse "$tracking")
 
-    # Refuse before the stash or reset touches the worktree.
-    python3 ${./_mirror-check-local-files.py} "$dir" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
+    dirty=$(git -C "$dir" status --porcelain --untracked-files=no)
 
-    if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no)" ]; then
+    # Refuse before the stash or reset touches the worktree.
+    if [ -n "$dirty" ] || [ "$local_sha" != "$remote_sha" ]; then
+      python3 ${./_mirror-check-local-files.py} "$dir" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
+    fi
+
+    if [ -n "$dirty" ]; then
       git -C "$dir" -c submodule.recurse=false stash push -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: stash failed"; exit 1; }
       # Prune old stashes (reverse order to avoid index shifting)
       git -C "$dir" stash list | awk -F: '/git-mirror:/ {print $1}' | tail -n +"$((max_backups + 1))" | \
