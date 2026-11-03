@@ -4,7 +4,7 @@
   lib,
   osConfig,
   pkgs,
-  telemetry ? import ./_telemetry.nix { inherit pkgs; },
+  telemetry,
 }:
 let
   # MCP servers via compiled agents.mcp client profile
