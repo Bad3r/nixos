@@ -62,11 +62,11 @@ let
     up_to_date = "check";
     conflicted = "alert";
     untracked = "question";
-    stashed = "archive";
-    modified = "diff-modified";
-    staged = "diff-added";
-    renamed = "diff-renamed";
-    deleted = "diff-removed";
+    stashed = "inbox";
+    modified = "dot-fill";
+    staged = "plus";
+    renamed = "arrow-right";
+    deleted = "dash";
     read_only = "lock";
     cmd_duration = "stopwatch";
     nix_shell = "package";

@@ -22,8 +22,14 @@
     * `kitty @ set-font-size 14` -- Adjust the font size of a running instance via remote control.
 */
 
-{ inputs, lib, ... }:
+{
+  config,
+  inputs,
+  lib,
+  ...
+}:
 let
+  inherit (config.flake.lib) octicons;
   # kssh's randomized theme set: tinted-kitty's pre-built kitty confs, already in the lock graph via stylix.
   kittyThemesDir = "${inputs.stylix.inputs.tinted-kitty}/colors";
   kittyThemeFiles = lib.pipe (builtins.readDir kittyThemesDir) [
@@ -250,6 +256,9 @@ in
             extraConfig = ''
               # Prefer an Arabic-capable font for Arabic codepoint ranges.
               symbol_map ${arabicRanges} Noto Sans Arabic UI
+              # Octicon prompt glyphs, one cell each.
+              symbol_map ${octicons.unicodeRange} ${octicons.family}
+              narrow_symbols ${octicons.unicodeRange} 1
             '';
           };
         };
