@@ -67,7 +67,8 @@ _: {
           activation.checkLibreWolfXdgProfileRoot = xdgProfileRoot.activation;
 
           # Seed Dark Reader storage once as a writable file so the extension's
-          # runtime changes survive home-manager switches.
+          # runtime changes survive home-manager switches; palette colors are
+          # refreshed here and on each launch.
           activation.seedDarkreaderLibrewolf = gecko.mkDarkreaderSeed {
             profilesPath = legacyProfilesPath;
             profiles = lib.attrNames config.programs.librewolf.profiles;
@@ -85,7 +86,9 @@ _: {
           # Home Manager's declarative user.js, customKeys.json, extension
           # storage, and profile-scoped packages, so the XDG leaf is a symlink.
           configPath = legacyProfilesPath;
-          package = gecko.withIgpuVideoDecode osConfig.programs.librewolf.extended.package;
+          package = gecko.withDarkreaderRefresh legacyProfilesPath (
+            gecko.withIgpuVideoDecode osConfig.programs.librewolf.extended.package
+          );
           # See modules/browsers/firefox/home.nix for why this uses the browser
           # native-messaging option instead of `home.packages`, and why the
           # firefoxpwa connector manifest is added when firefoxpwa is enabled.

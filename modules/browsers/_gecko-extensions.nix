@@ -213,18 +213,35 @@ let
     scrollbarColor = colors.base00;
     selectionColor = colors.base0D;
   };
-  withDarkreaderStylixColors = theme: theme // darkreaderStylixThemeColors;
-  # Stylix owns colors only for the dynamicTheme engine; cssFilter/svgFilter
-  # entries derive their output from the page, so the scheme colors are inert
-  # there and would just be dead keys in storage.
-  withStylixColorsIfDynamic =
-    theme: if (theme.engine or null) == "dynamicTheme" then withDarkreaderStylixColors theme else theme;
+  # Stylix owns colors only for the engines that paint with them; cssFilter and
+  # svgFilter entries derive their output from the page, so the scheme colors
+  # are inert there and would just be dead keys in storage.
+  darkreaderColorEngines = [
+    "dynamicTheme"
+    "staticTheme"
+  ];
+  withStylixColors =
+    theme:
+    if builtins.elem (theme.engine or null) darkreaderColorEngines then
+      theme // darkreaderStylixThemeColors
+    else
+      theme;
   darkreaderSettings = darkreaderBaseSettings // {
-    theme = withStylixColorsIfDynamic darkreaderBaseSettings.theme;
+    theme = withStylixColors darkreaderBaseSettings.theme;
     customThemes = builtins.map (
-      customTheme: customTheme // { theme = withStylixColorsIfDynamic customTheme.theme; }
+      customTheme: customTheme // { theme = withStylixColors customTheme.theme; }
     ) darkreaderBaseSettings.customThemes;
   };
+  # The same rule as a jq filter, applied to an existing storage.js so a
+  # palette change reaches themes added at runtime.
+  darkreaderPaletteFilter = pkgs.writeText "darkreader-palette.jq" ''
+    def themed:
+      if (.engine | IN(${lib.concatMapStringsSep ", " builtins.toJSON darkreaderColorEngines}))
+      then . + ${builtins.toJSON darkreaderStylixThemeColors}
+      else . end;
+    (if .theme then .theme |= themed else . end)
+    | (if .customThemes then .customThemes |= map(if .theme then .theme |= themed else . end) else . end)
+  '';
   # Seed payload for Dark Reader. Written once as a writable file by
   # mkDarkreaderSeed (_gecko-mk-profile.nix) instead of through
   # extensions.settings, which force-rewrites storage.js on every activation
@@ -339,7 +356,7 @@ in
   };
 
   inherit userChrome;
-  inherit darkreaderStorageSeed;
+  inherit darkreaderStorageSeed darkreaderPaletteFilter;
 
   extensionStorage = {
     # uBO
@@ -426,8 +443,9 @@ in
 
     # Dark Reader is intentionally absent here: extensions.settings force-writes
     # storage.js on every activation, discarding the user's runtime Dark Reader
-    # changes. It is seeded once as a writable file instead; see
-    # darkreaderStorageSeed above and mkDarkreaderSeed in _gecko-mk-profile.nix.
+    # changes. It is seeded as a writable file whose palette colors activation
+    # refreshes instead; see darkreaderStorageSeed and darkreaderPaletteFilter
+    # above and mkDarkreaderSeed in _gecko-mk-profile.nix.
 
     # Tabliss is intentionally unmanaged: it is not in the extension policy set,
     # and the archived dotfiles export (tabliss/tabliss.json) is dropped rather

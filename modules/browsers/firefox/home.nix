@@ -48,7 +48,8 @@ _: {
           activation.checkFirefoxXdgProfileRoot = xdgProfileRoot.activation;
 
           # Seed Dark Reader storage once as a writable file so the extension's
-          # runtime changes survive home-manager switches.
+          # runtime changes survive home-manager switches; palette colors are
+          # refreshed here and on each launch.
           activation.seedDarkreaderFirefox = gecko.mkDarkreaderSeed {
             profilesPath = legacyProfilesPath;
             profiles = lib.attrNames config.programs.firefox.profiles;
@@ -66,7 +67,9 @@ _: {
           # Home Manager's declarative user.js, customKeys.json, extension
           # storage, and profile-scoped packages, so the XDG leaf is a symlink.
           configPath = legacyProfilesPath;
-          package = gecko.withIgpuVideoDecode osConfig.programs.firefox.extended.package;
+          package = gecko.withDarkreaderRefresh legacyProfilesPath (
+            gecko.withIgpuVideoDecode osConfig.programs.firefox.extended.package
+          );
           # `home.packages` is not on Firefox's native-messaging discovery
           # path. Use HM's browser-native option so manifests land in
           # ~/.mozilla/native-messaging-hosts. firefoxpwa ships the PWA connector
