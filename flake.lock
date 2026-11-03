@@ -198,11 +198,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793702345,
-        "narHash": "sha256-9c6rxxl3qcUlTEG0b0YB3GJt7wL+x7ddSxz9EwqwIt4=",
+        "lastModified": 1793708781,
+        "narHash": "sha256-pHZQvK5o1SZiBml9Ud4pSmj53qflV+i9GZxDBySUUws=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "acebf1b3a9c4962b6801cecc5f589a1ea464dd0e",
+        "rev": "642e90316645e6908a9d2b8e70138c2d3ede9f0b",
         "type": "github"
       },
       "original": {
@@ -685,11 +685,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793702451,
-        "narHash": "sha256-Aa1mBhx84BsXfInZnaR7xhwet7Fg9AGwmwm/lcfJD6o=",
+        "lastModified": 1793706443,
+        "narHash": "sha256-6MAE4SEfGvPALZwt85/1TWfim6KK0i8OP1txZOZUvRo=",
         "ref": "refs/heads/master",
-        "rev": "0ef27309b78d054832e44a95a6fb9314d4b7363c",
-        "revCount": 12082,
+        "rev": "749db7f034d43d6de01a01f6d8c872d02afa6c7b",
+        "revCount": 12086,
         "type": "git",
         "url": "https://github.com/ggml-org/llama.cpp"
       },
@@ -711,11 +711,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793675487,
-        "narHash": "sha256-9tJiIAqgZJKg3cMHKmndu1Gz63cSr/PuVeJsR778w0k=",
+        "lastModified": 1793710426,
+        "narHash": "sha256-JX6PA9JxRCnrxSpQ/nP7xLVObCsiRYzgkeQ9Sx4ppwk=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "41ece7e98c6eb7822cfedc381fbc1da2a3f483d4",
+        "rev": "972b2272ec782b8aab66938c784ac2f68ed3311c",
         "type": "github"
       },
       "original": {
