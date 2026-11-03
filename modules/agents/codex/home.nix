@@ -74,6 +74,7 @@ _: {
           lib
           osConfig
           pkgs
+          telemetry
           ;
       };
 
