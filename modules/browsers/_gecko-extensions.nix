@@ -46,17 +46,7 @@ let
 
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
-  stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
-  stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
-  colorWithHash = color: if builtins.substring 0 1 color == "#" then color else "#${color}";
-  getStylixColor =
-    name: fallback:
-    if lib.hasAttr name stylixColorsWithHash then
-      stylixColorsWithHash.${name}
-    else if lib.hasAttr name stylixColors then
-      colorWithHash stylixColors.${name}
-    else
-      fallback;
+  colors = config.lib.stylix.colors.withHashtag;
   ublockOriginUiTheme =
     if
       stylixEnabled
@@ -68,7 +58,7 @@ let
       stylixPolarity
     else
       "auto";
-  ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
+  ublockOriginAccentColor = colors.base0D;
 
   # Browser-side trust manifest for the managed 1Password extension. The
   # 1Password GUI module owns the /run/wrappers/bin target.
@@ -163,11 +153,10 @@ let
   };
   mkToolbarIcon =
     name:
-    pkgs.writeText "${name}-toolbar.svg" (
-      builtins.replaceStrings [ "#d3dae3" ] [ (getStylixColor "base05" "#d3dae3") ] (
-        builtins.readFile ../stylix/icons/${name}-outline.svg
-      )
-    );
+    config.lib.stylix.colors {
+      template = builtins.readFile ../stylix/icons/${name}-outline.svg.mustache;
+      extension = ".svg";
+    };
   userChrome =
     lib.concatStrings (
       lib.mapAttrsToList (extension: name: ''
@@ -217,12 +206,12 @@ let
 
   darkreaderBaseSettings = lib.importJSON ./_gecko-darkreader-settings.json;
   darkreaderStylixThemeColors = {
-    darkSchemeBackgroundColor = getStylixColor "base00" "#282c34";
-    darkSchemeTextColor = getStylixColor "base05" "#abb2bf";
-    lightSchemeBackgroundColor = getStylixColor "base06" "#b6bdca";
-    lightSchemeTextColor = getStylixColor "base00" "#282c34";
-    scrollbarColor = getStylixColor "base00" "#282c34";
-    selectionColor = getStylixColor "base0D" "#aca0f7";
+    darkSchemeBackgroundColor = colors.base00;
+    darkSchemeTextColor = colors.base05;
+    lightSchemeBackgroundColor = colors.base06;
+    lightSchemeTextColor = colors.base00;
+    scrollbarColor = colors.base00;
+    selectionColor = colors.base0D;
   };
   withDarkreaderStylixColors = theme: theme // darkreaderStylixThemeColors;
   # Stylix owns colors only for the dynamicTheme engine; cssFilter/svgFilter

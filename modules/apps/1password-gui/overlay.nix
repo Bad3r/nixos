@@ -4,7 +4,10 @@ let
     { config, lib, ... }:
     let
       cfg = config.programs."1password-gui".extended;
-      onePasswordIcon = ../../stylix/icons/1password-outline.svg;
+      onePasswordIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../../stylix/icons/1password-outline.svg.mustache;
+        extension = ".svg";
+      };
       iconSizes = [
         32
         64

@@ -158,7 +158,7 @@ let
     # TUI settings
     tui = {
       notifications = true;
-      theme = "one-half-dark";
+      theme = "base16-stylix";
       vim_mode_default = true;
       status_line = [
         # Configure Status Line: Select which items to display in the status line.

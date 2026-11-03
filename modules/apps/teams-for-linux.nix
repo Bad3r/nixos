@@ -24,8 +24,14 @@ let
     }:
     let
       cfg = config.programs.teams-for-linux.extended;
-      teamsIcon = ../stylix/icons/teams-for-linux.svg;
-      teamsTrayIcon = ../stylix/icons/teams-for-linux-tray.svg;
+      teamsIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../stylix/icons/teams-for-linux.svg.mustache;
+        extension = ".svg";
+      };
+      teamsTrayIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../stylix/icons/teams-for-linux-tray.svg.mustache;
+        extension = ".svg";
+      };
       appIconSizes = [
         16
         24

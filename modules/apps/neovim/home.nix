@@ -52,7 +52,7 @@ _: {
           {
             # Stylix's nixvim target is disabled at module level in
             # modules/stylix/stylix.nix (disabledModules), so we cannot set
-            # stylix.targets.nixvim.enable here. Theming uses navarasu/onedark.
+            # stylix.targets.nixvim.enable here. Theming uses projekt0n/github-nvim-theme.
             programs.nixvim = {
               enable = true;
               package = nvimPkg;
@@ -69,7 +69,47 @@ _: {
                 taplo
               ];
 
-              colorschemes.onedark.enable = true;
+              colorschemes.github-theme = {
+                enable = true;
+                # VS Code Dark 2026 greys over GitHub's dark syntax colors.
+                settings = {
+                  palettes.github_dark_default.border = {
+                    default = "#2a2b2c";
+                    muted = "#2a2b2c";
+                  };
+                  specs.github_dark_default = {
+                    bg0 = "#191a1b";
+                    bg1 = "#121314";
+                    bg2 = "#202122";
+                    bg3 = "#242526";
+                    bg4 = "#555555";
+                    fg0 = "#858889";
+                    fg1 = "#bbbebf";
+                    fg2 = "#8c8c8c";
+                    fg3 = "#858889";
+                    sel0 = "#245c73";
+                    sel1 = "#414243";
+                    sel2 = "#1a3540";
+                    syntax = {
+                      bracket = "#bbbebf";
+                      ident = "#c9d1d9";
+                      param = "#c9d1d9";
+                      variable = "#c9d1d9";
+                    };
+                  };
+                  groups.github_dark_default = {
+                    Pmenu = {
+                      fg = "fg1";
+                      bg = "#202122";
+                    };
+                    Underlined = {
+                      fg = "#48a0c7";
+                      style = "underline";
+                    };
+                  };
+                };
+              };
+              colorscheme = "github_dark_default";
 
               # Nixvim builds its own pkgs instance, so the system-level
               # allowUnfreePredicate doesn't apply. Forward it so unfree

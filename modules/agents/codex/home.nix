@@ -40,7 +40,8 @@
         trust_level = "trusted"
 */
 
-_: {
+{ inputs, ... }:
+{
   flake.homeManagerModules.apps.codex =
     {
       osConfig,
@@ -230,6 +231,12 @@ _: {
 
           # Nix-managed execpolicy rules (read-only symlink to store)
           "codex/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
+
+          # Stylix palette as a syntax theme, from Stylix's bat template
+          "codex/themes/base16-stylix.tmTheme".source = config.lib.stylix.colors {
+            template = builtins.readFile "${inputs.stylix}/modules/bat/base16-stylix.tmTheme.mustache";
+            extension = ".tmTheme";
+          };
 
           # User-level Codex instructions under XDG config home
           "codex/AGENTS.md".text = codexInstructions;

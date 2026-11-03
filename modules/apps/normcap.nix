@@ -25,8 +25,14 @@ let
     }:
     let
       cfg = config.programs.normcap.extended;
-      normcapTrayIcon = ../stylix/icons/normcap-tray.svg;
-      normcapTrayDoneIcon = ../stylix/icons/normcap-tray-done.svg;
+      normcapTrayIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../stylix/icons/normcap-tray.svg.mustache;
+        extension = ".svg";
+      };
+      normcapTrayDoneIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../stylix/icons/normcap-tray-done.svg.mustache;
+        extension = ".svg";
+      };
 
       # normcap's Python code derives tessdata_path as $TESSDATA_PREFIX/tessdata, so
       # TESSDATA_PREFIX must point to the *parent* of the tessdata/ directory.  The

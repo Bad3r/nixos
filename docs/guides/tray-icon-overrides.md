@@ -1,6 +1,7 @@
 # Tray icon overrides
 
 A tray app that bypasses the icon theme gets a package-level override that points its tray at a themed icon.
+Each themed icon is a base16 mustache template under `modules/stylix/icons/`, rendered with the active Stylix palette through `config.lib.stylix.colors`, so a scheme change recolors every icon.
 
 ## ProtonVPN Tray Icon
 
@@ -10,7 +11,7 @@ Absolute paths bypass Gtk icon-theme lookup, so they do not pick up the Qogir-Da
 The local ProtonVPN overlay (`modules/apps/proton-vpn/overlay.nix`) rewrites the tray startup and connection-state icons to the theme-provided `protonvpn-tray` icon name.
 `snixembed` then resolves that name through the active Gtk icon theme, the same color and style path that themed SNI icons such as Flameshot take.
 
-The custom `protonvpn-tray` source lives at `modules/stylix/icons/protonvpn-tray.svg`.
+The custom `protonvpn-tray` source lives at `modules/stylix/icons/protonvpn-tray.svg.mustache`.
 
 ## NormCap Tray Icon
 
@@ -22,7 +23,7 @@ NormCap uses Qt resource aliases for the tray:
 Those aliases are generated from `normcap/resources/icons/resources.qrc` into `normcap/gui/resources.py`.
 Replacing the loose PNG files alone is not enough, because `QIcon(":tray")` and `QIcon(":tray_done")` read from the compiled Qt resource data.
 
-The local NormCap module (`modules/apps/normcap.nix`) renders the OneDark sources `modules/stylix/icons/normcap-tray.svg` and `modules/stylix/icons/normcap-tray-done.svg` into the installed `tray.png` and `tray_done.png`.
+The local NormCap module (`modules/apps/normcap.nix`) renders the templates `modules/stylix/icons/normcap-tray.svg.mustache` and `modules/stylix/icons/normcap-tray-done.svg.mustache` into the installed `tray.png` and `tray_done.png`.
 It then regenerates `resources.py` with Qt's resource compiler.
 The PNG render uses the same `11/16` glyph scale as the Qogir-Dark panel icon generation, so the tray glyph fits the rest of the custom tray icon set.
 
@@ -35,10 +36,10 @@ teams-for-linux has two icon surfaces:
   The 16px variants are kept for the same selector on macOS and in case upstream code paths change.
 
 The local teams-for-linux module (`modules/apps/teams-for-linux.nix`) patches the configured package after install.
-It renders the OneDark-adjusted source logo `modules/stylix/icons/teams-for-linux.svg` into the hicolor launcher sizes from `16` to `1024` and installs the scalable SVG variant.
+It renders the palette-mapped logo `modules/stylix/icons/teams-for-linux.svg.mustache` into the hicolor launcher sizes from `16` to `1024` and installs the scalable SVG variant.
 
-The same override extracts and repacks `app.asar`, replacing every bundled tray base icon with the panel-oriented OneDark source `modules/stylix/icons/teams-for-linux-tray.svg`.
-That source uses OneDark `base05` (`#abb2bf`) for the glyph and `base00` (`#282c34`) for the front tile letter, so it stays legible against the dark i3bar panel and matches the active palette.
+The same override extracts and repacks `app.asar`, replacing every bundled tray base icon with the panel-oriented template `modules/stylix/icons/teams-for-linux-tray.svg.mustache`.
+That template uses `base05` for the glyph and `base00` for the front tile letter, so it stays legible against the dark i3bar panel.
 The tray PNG render uses the same `11/16` glyph scale as the Qogir-Dark panel icon generation, so the Electron tray image does not fill the entire icon frame.
 
 ## udiskie Tray Icon
@@ -46,7 +47,7 @@ The tray PNG render uses the same `11/16` glyph scale as the Qogir-Dark panel ic
 udiskie looks up tray icons through `Gtk.IconTheme`.
 Its default `media` icon list starts with `drive-removable-media-usb-panel`, then falls back to the stock Qogir-Dark removable-device icons.
 
-The custom `drive-removable-media-usb-panel` source lives at `modules/stylix/icons/udiskie-tray.svg` and uses Qogir-Dark's panel text color (`#d3dae3`).
+The custom `drive-removable-media-usb-panel` source lives at `modules/stylix/icons/udiskie-tray.svg.mustache` and uses the `base05` foreground.
 Its stroke is thickened before rendering, so antialiasing does not make the tray icon look dimmer than filled panel icons.
 
 ## Bridge Patches

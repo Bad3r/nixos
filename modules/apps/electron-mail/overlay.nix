@@ -10,7 +10,10 @@ let
         nixpkgs.overlays = [
           (final: _prev: {
             "electron-mail" = final.callPackage ../../../packages/electron-mail {
-              themedTrayIcon = ../../stylix/icons/electron-mail-outline.svg;
+              themedTrayIcon = config.lib.stylix.colors {
+                template = builtins.readFile ../../stylix/icons/electron-mail-outline.svg.mustache;
+                extension = ".svg";
+              };
             };
           })
         ];

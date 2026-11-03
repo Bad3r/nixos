@@ -81,9 +81,67 @@ _: {
             stylua
           ];
 
+          themes.vscode_dark_2026 = {
+            inherits = "github_dark";
+            palette = {
+              "canvas.default" = "#121314";
+              "border.default" = "#2a2b2c";
+            };
+            "ui.text" = "#bfbfbf";
+            "ui.text.focus" = "#bbbebf";
+            "ui.text.inactive" = "#555555";
+            "ui.text.directory" = "#48a0c7";
+            "ui.background.separator" = "#2a2b2c";
+            "ui.linenr" = "#858889";
+            "ui.linenr.selected" = "#bbbebf";
+            "ui.virtual" = "#3a3b3c";
+            "ui.virtual.ruler".bg = "#242526";
+            "ui.statusline" = {
+              fg = "#8c8c8c";
+              bg = "#191a1b";
+            };
+            "ui.statusline.active" = {
+              fg = "#bbbebf";
+              bg = "#191a1b";
+            };
+            "ui.statusline.normal" = {
+              fg = "#ffffff";
+              bg = "#276782";
+            };
+            "ui.statusline.insert" = {
+              fg = "#ffffff";
+              bg = "#3994bc";
+            };
+            "ui.menu" = {
+              fg = "#bbbebf";
+              bg = "#202122";
+            };
+            "ui.menu.selected".bg = "#414243";
+            "ui.menu.scroll" = {
+              fg = "#555555";
+              bg = "#202122";
+            };
+            "ui.popup".bg = "#202122";
+            "ui.popup.info" = {
+              fg = "#bbbebf";
+              bg = "#202122";
+            };
+            "ui.help" = {
+              fg = "#bbbebf";
+              bg = "#202122";
+            };
+            "ui.selection".bg = "#1d4a5c";
+            "ui.selection.primary".bg = "#276782";
+            "ui.cursorline.primary".bg = "#242526";
+            "markup.link.text" = {
+              fg = "#48a0c7";
+              modifiers = [ "underlined" ];
+            };
+          };
+
           settings = {
-            # Built-in OneDark theme; with the Stylix helix target off, no generated `stylix` theme collides.
-            theme = "onedark";
+            # VS Code Dark 2026 look (GitHub Dark syntax, Dark 2026 UI greys).
+            theme = "vscode_dark_2026";
 
             editor = {
               line-number = "relative";

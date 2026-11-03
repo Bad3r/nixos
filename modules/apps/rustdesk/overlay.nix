@@ -4,7 +4,10 @@ let
     { config, lib, ... }:
     let
       cfg = config.programs.rustdesk.extended;
-      trayIcon = ../../stylix/icons/rustdesk-tray.svg;
+      trayIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../../stylix/icons/rustdesk-tray.svg.mustache;
+        extension = ".svg";
+      };
     in
     {
       config = lib.mkIf cfg.enable {

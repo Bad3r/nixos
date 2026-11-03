@@ -27,19 +27,10 @@ _: {
     {
       osConfig,
       lib,
-      pkgs,
       ...
     }:
     let
       enabled = lib.attrByPath [ "programs" "vscode-fhs" "extended" "enable" ] false osConfig;
-      themeExtension = pkgs.vscode-utils.extensionsFromVscodeMarketplace [
-        {
-          hash = "sha256-XimGw20lrQDuCRHg9KK2vwLiVgaHRNkbbYWp11vpWns=";
-          name = "onedark-zed";
-          publisher = "premier213";
-          version = "1.0.6";
-        }
-      ];
     in
     {
       config = lib.mkIf enabled {
@@ -48,11 +39,8 @@ _: {
         programs.vscode = {
           enable = true;
           package = null;
-          profiles.default = {
-            extensions = themeExtension;
-            userSettings = {
-              "workbench.colorTheme" = "OneDark Dark+ Vivid";
-            };
+          profiles.default.userSettings = {
+            "workbench.colorTheme" = "Dark 2026";
           };
         };
       };

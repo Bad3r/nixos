@@ -8,7 +8,7 @@ let
   baseTheme = {
     enable = true;
     enableReleaseChecks = false;
-    base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
+    base16Scheme = lib.mkDefault ./vscode-dark-2026.base16.yaml;
     polarity = lib.mkDefault "dark";
   };
 
@@ -84,7 +84,7 @@ in
           # `config.lib.stylix.mkEnableTargetWith ...`. Evaluating
           # `home-manager.users.<u>.lib` therefore loops through itself.
           # Targets under modules/neovim/ (neovim, neovide, nixvim, nvf, vim) are
-          # all unused in this configuration (nixvim theming uses onedark.nvim),
+          # all unused in this configuration (nixvim theming uses github-nvim-theme),
           # so disabling the whole hm.nix target group is safe and breaks the
           # cycle without losing functionality.
           disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
@@ -270,6 +270,12 @@ in
             userChrome = lib.mkAfter urlbarUserChrome;
             userContent = lib.mkAfter sideberyUserContent;
           });
+          themedIcon =
+            name:
+            config.lib.stylix.colors {
+              template = builtins.readFile ./icons/${name}.svg.mustache;
+              extension = ".svg";
+            };
           qogirDarkFixedIconSizes = {
             "16/apps" = 16;
             "22/apps" = 22;
@@ -299,7 +305,7 @@ in
           qogirDarkIconDefinitions = [
             {
               id = "onepassword";
-              source = ./icons/1password-outline.svg;
+              source = themedIcon "1password-outline";
               names = [
                 "1password"
                 "appimagekit-1password"
@@ -308,31 +314,31 @@ in
             }
             {
               id = "electron-mail";
-              source = ./icons/electron-mail-outline.svg;
+              source = themedIcon "electron-mail-outline";
               names = [ "electron-mail" ];
             }
             {
               id = "protonvpn-tray";
-              source = ./icons/protonvpn-tray.svg;
+              source = themedIcon "protonvpn-tray";
               names = [ "protonvpn-tray" ];
               fixedIconSizes = qogirDarkPanelFixedIconSizes;
               scalableIconDirs = qogirDarkPanelScalableIconDirs;
             }
             {
               id = "remmina-tray";
-              source = ./icons/remmina-tray.svg;
+              source = themedIcon "remmina-tray";
               names = [ "org.remmina.Remmina-status" ];
               fixedIconSizes = qogirDarkPanelFixedIconSizes;
               scalableIconDirs = qogirDarkPanelScalableIconDirs;
             }
             {
               id = "teams-for-linux";
-              source = ./icons/teams-for-linux.svg;
+              source = themedIcon "teams-for-linux";
               names = [ "teams-for-linux" ];
             }
             {
               id = "udiskie-tray";
-              source = ./icons/udiskie-tray.svg;
+              source = themedIcon "udiskie-tray";
               names = [ "drive-removable-media-usb-panel" ];
               fixedIconSizes = qogirDarkPanelFixedIconSizes;
               scalableIconDirs = qogirDarkPanelScalableIconDirs;
