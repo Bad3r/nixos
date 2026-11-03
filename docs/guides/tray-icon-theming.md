@@ -17,7 +17,10 @@ session sub-options.
 - `i3status-rust` only provides status blocks via `status_command`.
 - `snixembed` owns `org.kde.StatusNotifierWatcher` on the user bus and bridges
   StatusNotifierItem/AppIndicator tray icons into the XEmbed tray hosted by
-  `i3bar`.
+  `i3bar`, and draws their right-click menus with GTK 3.
+- GTK 3 reads `gtk.css` and `settings.ini` only at startup, so a switch that
+  changes either restarts `snixembed`, `nm-applet`, and `udiskie`;
+  restarting a bridged app alone leaves its menu on the old theme.
 
 Tray apps are launched as user services that depend on `tray.target`:
 

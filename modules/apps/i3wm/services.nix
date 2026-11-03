@@ -52,6 +52,19 @@
             "--clock"
           ];
           lockCommand = lib.replaceStrings [ "%" ] [ "%%" ] (lib.escapeShellArgs lockArgs);
+          # restart GTK tray menus on theme change
+          gtkThemeTriggers = map (name: "${config.xdg.configFile.${name}.source}") (
+            builtins.filter (name: config.xdg.configFile ? ${name}) [
+              "gtk-3.0/gtk.css"
+              "gtk-3.0/settings.ini"
+            ]
+          );
+          gtkTrayServices = lib.genAttrs [ "network-manager-applet" "udiskie" ] (
+            name:
+            lib.mkIf config.services.${name}.enable {
+              Unit.X-Restart-Triggers = gtkThemeTriggers;
+            }
+          );
           screensaverSeconds = 60;
           screensaverScript = pkgs.writeShellApplication {
             name = "i3-idle-screensaver";
@@ -189,6 +202,7 @@
                 PartOf = [ "tray.target" ];
                 After = [ "graphical-session-pre.target" ];
                 Before = [ "tray.target" ];
+                X-Restart-Triggers = gtkThemeTriggers;
               };
               Install.WantedBy = [ "tray.target" ];
               Service = {
@@ -279,7 +293,8 @@
                 Restart = "on-failure";
               };
             };
-          };
+          }
+          // gtkTrayServices;
         }
       );
     };
