@@ -59,8 +59,12 @@ _: {
             markup = "full";
             format = "<b>%s</b>\\n%b";
             show_indicators = false;
-            min_icon_size = 0;
-            max_icon_size = 48;
+            # Icons by name from Stylix's icon theme and its parents; icon_path goes unread.
+            enable_recursive_icon_lookup = true;
+            icon_theme = config.services.dunst.iconTheme.name;
+            # The theme lookup matches min_icon_size exactly; one size for every toast icon.
+            min_icon_size = 32;
+            max_icon_size = 32;
 
             sort = false;
             idle_threshold = 120;

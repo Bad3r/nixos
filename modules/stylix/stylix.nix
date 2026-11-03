@@ -495,9 +495,6 @@ in
               };
             };
 
-            # Keep Dunst icon size centralized with Stylix icon theme settings.
-            services.dunst.iconTheme.size = "32x32";
-
             # GTK 4 accent; GTK 3 rejects custom properties.
             xdg.configFile."gtk-4.0/gtk.css".source = lib.mkForce (
               pkgs.concatText "gtk.css" [
