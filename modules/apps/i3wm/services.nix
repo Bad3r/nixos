@@ -21,10 +21,10 @@
           stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
           toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
           lockPalette = lib.mapAttrs (_: toLockColor) {
-            background = stylixColors.base00;
+            background = stylixColors.base01;
             ring = stylixColors.base04;
             ringWrong = stylixColors.base08;
-            ringVerify = stylixColors.base0B;
+            ringVerify = "#3994bc"; # focusBorder
             line = stylixColors.base03;
             text = stylixColors.base05;
           };
