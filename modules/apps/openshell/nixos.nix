@@ -7,13 +7,14 @@
 
   Summary:
     * Creates sandboxes for agents and enforces declared file, network, credential, and inference policy.
-    * Starts and manages a local gateway on Docker, Podman, or host virtualization.
+    * Runs a local gateway as the `openshell-gateway` user service on rootless Podman, with mTLS on 127.0.0.1:17670.
+    * Both binaries are built without upstream's anonymous telemetry.
 
   Options:
+    gateway add --local https://127.0.0.1:17670: Register the local gateway once; picks up its mTLS client bundle.
     sandbox: Create, list, connect to, and delete sandboxes.
-    policy: Inspect and change a sandbox's policy.
-    gateway: Start, stop, and select gateways.
-    doctor: Diagnose gateway issues.
+    rule: Review and approve the network rules a sandbox requests.
+    doctor check: Validate gateway prerequisites.
     term: Launch the interactive TUI.
 */
 _:
@@ -37,9 +38,14 @@ let
         };
 
         package = lib.mkPackageOption pkgs "openshell" { };
+
+        gatewayPackage = lib.mkPackageOption pkgs "openshell-gateway" { };
       };
 
       config = lib.mkIf cfg.enable {
+        # the gateway runs sandboxes on the rootless Podman socket
+        programs.podman.extended.enable = lib.mkOverride 1050 true;
+
         environment.systemPackages = [ cfg.package ];
       };
     };
