@@ -94,8 +94,7 @@ let
       enabled = false;
     };
     check_for_update_on_startup = false;
-    # Explicit OTLP exporters bypass analytics.enabled; these go to the local
-    # collector in _telemetry.nix. Content logging stays off.
+    # Keep diagnostic signals local without enabling conversation content logging.
     otel = telemetry.codexOtel // {
       log_user_prompt = false;
       log_agent_responses = false;

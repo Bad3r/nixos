@@ -6,7 +6,8 @@ The [telemetry helper](../../../modules/agents/codex/_telemetry.nix) sets the ex
 The [Home Manager module](../../../modules/agents/codex/home.nix) runs the collector as the `codex-telemetry` user service.
 
 Analytics events, feedback uploads, and the built-in Statsig metrics upload stay off in the [site policy](../../../modules/agents/codex/_settings.nix).
-Prompt text, agent responses, and Guardian assessments are not logged.
+Codex disables prompt, agent-response, and Guardian-assessment logging.
+The collector removes tool arguments and output from log records because those fields can contain delegated prompts and subagent replies.
 
 ## Files
 
@@ -22,7 +23,7 @@ The directory is readable only by its owner.
 - Metrics: turn latency, token usage, tool calls, startup phases, and storage counters, tagged with model, auth mode, originator, and version.
 - Logs: one record per event, such as conversation starts, API requests, stream events, tool decisions, and tool results.
 - Log records carry the conversation ID, host name, approval and sandbox policy, and token counts.
-- A tool result record holds the call's arguments and the start of its output, capped by `otel.tool_result.max_bytes`.
+- Tool result records retain call metadata; the collector removes their `arguments` and `output` attributes before writing them to disk.
 - A user prompt record holds `[REDACTED]` and the prompt length.
 - Traces: spans for each turn down to individual file reads, with token usage attributes.
 - The `codex.turn.cost_microusd` metric and `codex.turn_cost` log event report a finished turn's estimated cost, fetched as described under caveats.

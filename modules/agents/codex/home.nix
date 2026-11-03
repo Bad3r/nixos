@@ -25,9 +25,6 @@
       (site policy and MCP composition), _features.nix (feature flags),
       _env.nix (process environment), _wrapper.nix (runtime config merge),
       _telemetry.nix (OTLP exporters and the local collector).
-    * The codex-telemetry user service receives every session's OTLP signals on
-      loopback and writes them to $XDG_STATE_HOME/codex-telemetry
-      (docs/agents/codex/telemetry.md).
     * Installs the wrapper around programs.codex.extended.package (modules/agents/codex/nixos.nix), which comes from llm-agents.nix.
     * Config is split into four TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)

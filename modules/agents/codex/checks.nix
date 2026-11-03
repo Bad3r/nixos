@@ -47,6 +47,8 @@ in
           ''
             STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
               --config=${telemetry.collectorConfigFile}
+            ${lib.getExe pkgs.python314} ${./_telemetry-check.py} \
+              ${lib.getExe pkgs.opentelemetry-collector-contrib} ${telemetry.collectorConfigFile}
             touch "$out"
           '';
 
