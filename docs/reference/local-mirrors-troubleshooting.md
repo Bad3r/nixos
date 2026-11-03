@@ -87,6 +87,7 @@ Finish or abort that operation, or move the work into a separate clone, then sta
 ## `<spec>: local file check failed; refusing update`
 
 An untracked or ignored local file or directory conflicts with a path in upstream or in `HEAD`, such as a local directory where a tracked file was.
+A non-empty submodule directory also blocks an upstream revision that drops or replaces that submodule.
 The preceding `refusing to overwrite local path` line names the collision.
 The sync stops before stashing, so the checkout, index, and tracked edits stay as they were.
 

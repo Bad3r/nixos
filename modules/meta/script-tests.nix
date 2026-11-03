@@ -54,7 +54,7 @@ let
             };
           })
         ];
-      extraInputs = _: [ ];
+      extraInputs = pkgs: [ pkgs.gnugrep ];
     };
     duplicati-r2-repair = {
       dir = ../../tests/duplicati-r2-repair;

@@ -143,14 +143,18 @@ for collision in untracked ignored local-directory local-file symlink; do
   printf 'ok: %s collision preserves HEAD, index and local content\n' "$collision"
 done
 
-for collision in replaced-file replaced-directory tracked-edit; do
+for collision in replaced-file replaced-file-deleted-upstream replaced-directory tracked-edit; do
   new_case "$collision"
   case "$collision" in
-  replaced-file)
+  replaced-file | replaced-file-deleted-upstream)
     printf 'upstream file\n' >"$upstream/notes"
     git -C "$upstream" add notes
     git -C "$upstream" commit -qm notes
     sync_ok
+    if [[ $collision == replaced-file-deleted-upstream ]]; then
+      git -C "$upstream" rm -q notes
+      git -C "$upstream" commit -qm 'remove notes'
+    fi
     rm "$mirror/notes"
     mkdir "$mirror/notes"
     local_path="$mirror/notes/CLAUDE.md"
@@ -185,6 +189,43 @@ for collision in replaced-file replaced-directory tracked-edit; do
   [[ $(cat "$local_path") == 'local instructions' ]] || fail 'refused sync removed local content'
   printf 'ok: %s collision is refused before stashing\n' "$collision"
 done
+
+add_gitlink() {
+  git -C "$upstream" update-index --add --cacheinfo "160000,$(git -C "$upstream" rev-parse HEAD),$1"
+}
+
+new_case submodule-removed
+add_gitlink sub
+git -C "$upstream" commit -qm submodule
+sync_ok
+mkdir -p "$mirror/sub"
+printf 'local instructions\n' >"$mirror/sub/CLAUDE.md"
+add_gitlink sub
+git -C "$upstream" commit -qm 'submodule bump'
+sync_ok
+[[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail 'gitlink bump removed local content'
+git -C "$upstream" rm -q --cached sub
+printf 'upstream file\n' >"$upstream/sub"
+git -C "$upstream" add sub
+git -C "$upstream" commit -qm 'submodule to file'
+before="$(git -C "$mirror" rev-parse HEAD)"
+if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
+  fail 'populated submodule replacement was accepted'
+fi
+grep -Fq "refusing to overwrite local path 'sub'" "$case_root/sync.log" || fail 'submodule collision cause missing'
+[[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'submodule collision changed HEAD'
+[[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail 'submodule replacement removed local content'
+printf '%s\n' 'ok: populated submodules survive gitlink bumps and block their replacement'
+
+new_case submodule-added
+mkdir "$mirror/vendor"
+printf 'local build\n' >"$mirror/vendor/local"
+printf 'vendor/\n' >>"$mirror/.git/info/exclude"
+add_gitlink vendor
+git -C "$upstream" commit -qm submodule
+sync_ok
+[[ $(cat "$mirror/vendor/local") == 'local build' ]] || fail 'new gitlink removed local content'
+printf '%s\n' 'ok: a new gitlink over a local directory updates and keeps its files'
 
 mkdir -p "$test_root/firefox"
 cd "$test_root/firefox"

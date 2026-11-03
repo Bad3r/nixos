@@ -148,11 +148,11 @@ pkgs.writeShellApplication {
     local_sha=$(git -C "$dir" rev-parse HEAD)
     remote_sha=$(git -C "$dir" rev-parse "$tracking")
 
-    # The stash restores HEAD and the reset checks out upstream; refuse before either touches the worktree.
-    python3 ${./_mirror-check-local-files.py} "$dir" "$local_sha" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
+    # Refuse before the stash or reset touches the worktree.
+    python3 ${./_mirror-check-local-files.py} "$dir" "$remote_sha" || { log "$spec: local file check failed; refusing update"; exit 1; }
 
     if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no)" ]; then
-      git -C "$dir" stash push -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: stash failed"; exit 1; }
+      git -C "$dir" -c submodule.recurse=false stash push -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: stash failed"; exit 1; }
       # Prune old stashes (reverse order to avoid index shifting)
       git -C "$dir" stash list | awk -F: '/git-mirror:/ {print $1}' | tail -n +"$((max_backups + 1))" | \
         tac | xargs -r -I{} git -C "$dir" stash drop {} 2>/dev/null || true
@@ -168,7 +168,7 @@ pkgs.writeShellApplication {
           refs/heads/git-mirror/backup-* | tail -n +"$max_backups" | \
           xargs -r -I{} git -C "$dir" branch -D {} 2>/dev/null || true
       fi
-      git -C "$dir" reset --keep "$remote_sha" || { log "$spec: update failed"; exit 1; }
+      git -C "$dir" -c submodule.recurse=false reset --keep "$remote_sha" || { log "$spec: update failed"; exit 1; }
     fi
 
     run_maintenance
