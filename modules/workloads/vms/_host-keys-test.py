@@ -36,8 +36,6 @@ if spec is None or spec.loader is None:
 hk = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hk)
 
-KEY_BLOB_SIZE = 51
-
 
 def expect(condition: object, what: str, /) -> None:
     """Fail the check with a message; assert statements vanish under -O."""
@@ -78,14 +76,32 @@ def accepts_valid(raw: bytes, comment: str, end: str) -> None:
 
 @settings(max_examples=3000, derandomize=True)
 @given(st.binary(max_size=200))
-def any_bytes_give_one_line(data: bytes) -> None:
-    """Whatever a guest returns, an accepted key renders as exactly one declared line."""
+def any_bytes_parse_or_refuse(data: bytes) -> None:
+    """Arbitrary bytes raise nothing but KeyFormatError."""
+    rejected(data)
+
+
+accepted: list[bytes] = []
+
+
+@settings(max_examples=3000, derandomize=True)
+@given(st.binary(min_size=32, max_size=32), st.binary(max_size=80))
+def suffixed_key_gives_one_line(raw: bytes, tail: bytes) -> None:
+    """A valid key followed by anything is refused or renders as exactly one declared line."""
+    data = line(raw).encode() + tail
     if rejected(data):
         return
+    accepted.append(data)
+    expect(hk.parse_key(data) == blob(raw), repr(data))
     host, kind, key = hk.known_hosts_line(HOSTS, hk.parse_key(data)).removesuffix("\n").split(" ")
     expect(host == ",".join(HOSTS), host)
     expect(kind == "ssh-ed25519", kind)
-    expect(len(base64.b64decode(key)) == KEY_BLOB_SIZE, key)
+    expect(base64.b64decode(key) == blob(raw), key)
+
+
+def suffixes_reach_acceptance() -> None:
+    """The suffix property exercised its accepting branch, not only refusals."""
+    expect(len(accepted) > 0, "no suffixed key was accepted")
 
 
 def rejects_malformed() -> None:
@@ -122,6 +138,14 @@ def read_loop_ends() -> None:
         raise AssertionError(msg)
 
 
-for check in (accepts_valid, any_bytes_give_one_line, rejects_malformed, read_loop_ends):
+for check in (
+    accepts_valid,
+    any_bytes_parse_or_refuse,
+    suffixed_key_gives_one_line,
+    suffixes_reach_acceptance,
+    rejects_malformed,
+    read_loop_ends,
+):
     check()
     print(f"{check.__name__}: ok")
+print(f"suffixed keys accepted: {len(accepted)}")
