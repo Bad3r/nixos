@@ -256,6 +256,18 @@ in
             g = config.lib.stylix.colors."${name}-rgb-g";
             b = config.lib.stylix.colors."${name}-rgb-b";
           };
+          # VS Code Dark 2026 quickInputList.focusBackground (#297aa0) and
+          # quickInputList.focusForeground, which have no base16 slot.
+          quickInputFocus = {
+            r = 41;
+            g = 122;
+            b = 160;
+          };
+          quickInputFocusText = {
+            r = 255;
+            g = 255;
+            b = 255;
+          };
           # VS Code layering: page content on base00 like the editor; frame (which
           # Sidebery paints its background with), toolbar, sidebar, and menus on
           # base01 like the title bar and sidebar; base02 edges between them.
@@ -271,9 +283,14 @@ in
               sidebar = lib.mkForce (mkThemeColor "base01");
               # Nova outlines #sidebar-box in this color under a theme.
               sidebar_border = lib.mkForce (mkThemeColor "base02");
+              sidebar_highlight = lib.mkForce quickInputFocus;
+              sidebar_highlight_text = lib.mkForce quickInputFocusText;
               popup = lib.mkForce (mkThemeColor "base01");
               # Sidebery outlines its menus and draws their separators in this color.
               popup_border = lib.mkForce (mkThemeColor "base02");
+              # Selected URL bar result.
+              popup_highlight = lib.mkForce quickInputFocus;
+              popup_highlight_text = lib.mkForce quickInputFocusText;
             };
             userChrome = lib.mkAfter urlbarUserChrome;
             userContent = lib.mkAfter sideberyUserContent;
