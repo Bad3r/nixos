@@ -158,7 +158,7 @@ class LoadTest(unittest.TestCase):
                     ),
                     listing.warnings,
                 )
-                self.assertIn("STATUS shows unknown", listing.warnings)
+                self.assertIn("device status is unknown", listing.warnings)
                 self.assertEqual({d.status for d in listing.devices}, {UNKNOWN})
 
     def test_malformed_registration_raises(self) -> None:

@@ -84,6 +84,35 @@ class TableTest(unittest.TestCase):
                 self.assertEqual(starts, {len(escaped) + 2})
 
 
+def columns(text: str) -> int:
+    """Return the terminal columns text takes: wide 2, combining 0, else 1."""
+    return sum(
+        0
+        if unicodedata.combining(char)
+        else 2
+        if unicodedata.east_asian_width(char) in {"W", "F"}
+        else 1
+        for char in text
+    )
+
+
+class WidthTest(unittest.TestCase):
+    """Padding counts terminal columns, not characters."""
+
+    def test_wide_and_combining_names_align(self) -> None:
+        """CJK, emoji, fullwidth, and combining names keep the next column aligned."""
+        names = ["東京サーバー", "laptop-\U0001f600", "\uff37\uff21\uff32\uff30", "cafe\u0301"]
+        rows = [Row([name, "connected", "now"], "connected") for name in names]
+        for color in (False, True):
+            with self.subTest(color=color):
+                lines = SGR.sub("", table(HEADER, [*rows, *ROWS], status_column=1, color=color))
+                starts = {
+                    columns(line[: len(line) - len(line.split(maxsplit=1)[1])])
+                    for line in lines.splitlines()
+                }
+                self.assertEqual(starts, {columns("東京サーバー") + 2})
+
+
 class ColorChoiceTest(unittest.TestCase):
     """Explicit flags win; otherwise a terminal without NO_COLOR gets color."""
 

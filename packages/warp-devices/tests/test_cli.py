@@ -132,7 +132,7 @@ class ListTest(unittest.TestCase):
         code, out, err = run(client=client)
         self.assertEqual(code, 0)
         self.assertIn("warning: GET dex/fleet-status/devices returned malformed data", err)
-        self.assertIn("warning: STATUS shows unknown", err)
+        self.assertIn("warning: device status is unknown", err)
         self.assertEqual(out.splitlines()[1].split()[:2], ["songbird", "unknown"])
 
     def test_malformed_registration_fails(self) -> None:

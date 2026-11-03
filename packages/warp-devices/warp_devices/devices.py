@@ -225,7 +225,7 @@ def load(client: Getter, now: datetime) -> Listing:
         except DataError as error:
             warnings.append(f"GET {FLEET_STATUS} returned malformed data: {error}")
     if optional[PHYSICAL_DEVICES] is None:
-        warnings.append("public IP and OS columns are empty")
+        warnings.append("public IP and OS are unknown")
     if reports is None:
-        warnings.append("STATUS shows unknown")
+        warnings.append("device status is unknown")
     return Listing(merge(registrations, optional[PHYSICAL_DEVICES], reports), warnings)

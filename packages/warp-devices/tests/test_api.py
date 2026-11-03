@@ -3,12 +3,16 @@
 
 import email.message
 import http.client
+import http.server
+import json
 import ssl
+import threading
 import unittest
 import unittest.mock
 import urllib.error
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
+from warp_devices import api as api_module
 from warp_devices.api import (
     ATTEMPTS,
     ApiError,
@@ -267,7 +271,7 @@ class TransportTest(unittest.TestCase):
         )
         with (
             unittest.mock.patch.object(error, "read", side_effect=http.client.IncompleteRead(b"{")),
-            unittest.mock.patch("urllib.request.urlopen", side_effect=error) as opened,
+            unittest.mock.patch.object(api_module.OPENER, "open", side_effect=error) as opened,
         ):
             api = Client("acct", TOKEN, sleep=lambda _s: None)
             with self.assertRaises(ApiError) as caught:
@@ -282,3 +286,79 @@ class TransportTest(unittest.TestCase):
         with self.assertRaises(ApiError) as caught:
             api.get("devices", {})
         self.assertNotIn("SECRET-TOKEN", str(caught.exception))
+
+
+class _Recorder(http.server.BaseHTTPRequestHandler):
+    """Record each request and answer with the server's canned reply."""
+
+    def do_GET(self) -> None:
+        """Answer one GET."""
+        server = cast("_Server", self.server)
+        server.seen.append(dict(self.headers.items()))
+        status, headers, body = server.reply
+        self.send_response(status)
+        for name, value in headers.items():
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - base signature
+        """Keep the test output quiet."""
+
+
+class _Server(http.server.ThreadingHTTPServer):
+    """A loopback server with one canned reply and a log of request headers."""
+
+    def __init__(self, reply: tuple[int, dict[str, str], bytes]) -> None:
+        super().__init__(("127.0.0.1", 0), _Recorder)
+        self.reply = reply
+        self.seen: list[dict[str, str]] = []
+
+    @property
+    def url(self) -> str:
+        """Return the server's base URL."""
+        return f"http://127.0.0.1:{self.server_address[1]}"
+
+
+class RedirectTest(unittest.TestCase):
+    """A redirect is final and never carries the token to its target."""
+
+    def test_redirect_is_final(self) -> None:
+        """A 3xx raises after one attempt with its status, even with a good body."""
+        for status in (301, 302, 303, 307, 308):
+            with self.subTest(status=status):
+                sleeps: list[float] = []
+                transport = FakeTransport(ok(GOOD, status), ok(GOOD))
+                with self.assertRaises(ApiError) as caught:
+                    client(transport, sleeps).get("devices", {})
+                self.assertEqual(caught.exception.status, status)
+                self.assertNotIn(TOKEN, str(caught.exception))
+                self.assertEqual((len(transport.requests), sleeps), (1, []))
+
+    def start(self, reply: tuple[int, dict[str, str], bytes]) -> _Server:
+        """Serve one canned reply on an ephemeral loopback port until tearDown."""
+        server = _Server(reply)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server
+
+    def test_redirect_is_not_followed(self) -> None:
+        """The urllib transport stops at a 302, so its target never sees the token."""
+        target = self.start((200, {"Content-Type": "application/json"}, json.dumps(GOOD).encode()))
+        origin = self.start((302, {"Location": f"{target.url}/stolen"}, b""))
+        with (
+            unittest.mock.patch.dict("os.environ", {"no_proxy": "*"}),
+            unittest.mock.patch.object(api_module, "API_ROOT", origin.url),
+        ):
+            api = Client("acct", TOKEN, sleep=lambda _s: None)
+            with self.assertRaises(ApiError) as caught:
+                api.get("devices", {})
+        self.assertEqual(caught.exception.status, 302)
+        self.assertNotIn(TOKEN, str(caught.exception))
+        self.assertEqual(len(origin.seen), 1)
+        self.assertEqual(origin.seen[0].get("Authorization"), f"Bearer {TOKEN}")
+        self.assertEqual(target.seen, [])

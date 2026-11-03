@@ -86,6 +86,7 @@ The device endpoints stall now and then or cut a response short, so connecting a
 A request retries with backoff on a timeout, a cut-off or malformed body, HTTP 408, 429 (honoring `Retry-After`), or any 5xx.
 Network errors retry the same way, such as a DNS failure, a refused or unreachable connection, or a TLS error.
 A failed TLS certificate check or any other status is final, so a 403 fails at once and names the two permissions the token needs.
+A redirect is never followed, which keeps the token off its target host.
 
 A pagination cursor that stops advancing or loops fails the endpoint rather than returning a partial list.
 A failed registrations endpoint fails the command, since it carries the device list and the Mesh addresses.

@@ -22,6 +22,7 @@ STATUS_STYLES = {
 ESCAPED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Zl", "Zp"})
 LATIN1_MAX = 0xFF
 BMP_MAX = 0xFFFF
+WIDE = frozenset({"W", "F"})
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,14 @@ def printable(text: str) -> str:
     )
 
 
+def width(text: str) -> int:
+    """Return the terminal columns of escaped text."""
+    return sum(
+        0 if unicodedata.combining(char) else 2 if unicodedata.east_asian_width(char) in WIDE else 1
+        for char in text
+    )
+
+
 def _sgr(text: str, code: str | None, *, color: bool) -> str:
     if not color or not code:
         return text
@@ -66,21 +75,21 @@ def _sgr(text: str, code: str | None, *, color: bool) -> str:
 
 
 def table(header: Sequence[str], rows: Sequence[Row], *, status_column: int, color: bool) -> str:
-    """Escape and pad on plain text, then wrap each padded cell in its style.
+    """Escape and pad on plain text by display width, then wrap each padded cell in its style.
 
     A row whose status is not connected is dimmed except for its status cell,
     which takes the status color; missing values print as a dim dash.
     """
     titles = [printable(title) for title in header]
     plain = [[printable(cell or MISSING) for cell in row.cells] for row in rows]
-    widths = [len(title) for title in titles]
+    widths = [width(title) for title in titles]
     for cells in plain:
         for index, cell in enumerate(cells):
-            widths[index] = max(widths[index], len(cell))
+            widths[index] = max(widths[index], width(cell))
     last = len(titles) - 1
 
     def pad(index: int, cell: str) -> str:
-        return cell if index == last else cell.ljust(widths[index] + GUTTER)
+        return cell if index == last else cell + " " * (widths[index] + GUTTER - width(cell))
 
     lines = ["".join(_sgr(pad(i, title), BOLD, color=color) for i, title in enumerate(titles))]
     for row, cells in zip(rows, plain, strict=True):

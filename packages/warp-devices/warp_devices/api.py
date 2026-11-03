@@ -11,10 +11,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import IO, TYPE_CHECKING, Protocol, cast, override
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
+    from email.message import Message
 
 API_ROOT = "https://api.cloudflare.com/client/v4"
 TIMEOUT_SECONDS = 20.0
@@ -27,6 +28,7 @@ NUMBERED_PAGE_SIZE = 50
 HTTP_OK = 200
 SERVER_ERROR = 500
 RETRY_STATUSES = frozenset({408, 429})
+REDIRECTS = range(300, 400)
 
 type Json = dict[str, object]
 
@@ -62,11 +64,31 @@ class Getter(Protocol):
         ...
 
 
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Refuse every redirect."""
+
+    @override
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: Message,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        """Raise the redirect as its own status."""
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+OPENER = urllib.request.build_opener(_RefuseRedirects())
+
+
 def urllib_transport(url: str, headers: Mapping[str, str], timeout: float) -> Response:
-    """Send one GET through urllib."""
+    """Send one GET through urllib, never following a redirect."""
     request = urllib.request.Request(url, headers=dict(headers))  # noqa: S310 - API_ROOT is https
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as answer:  # noqa: S310
+        with OPENER.open(request, timeout=timeout) as answer:
             return Response(answer.status, answer.read(), answer.headers.get("Retry-After"))
     except urllib.error.HTTPError as error:
         with error:
@@ -189,6 +211,9 @@ class Client:
     @staticmethod
     def _decode(path: str, response: Response) -> Json | None:
         """Return the envelope, None for a retryable bad 200 body, or raise for an error answer."""
+        if response.status in REDIRECTS:
+            msg = f"HTTP {response.status} redirect, which is never followed"
+            raise ApiError(path, msg, status=response.status)
         ok = response.status == HTTP_OK
         try:
             body: object = json.loads(response.body)
