@@ -261,6 +261,12 @@ in
                   "kitty_mod+alt+down" = "resize_window shorter";
                 };
 
+                # Middle-click pastes the primary selection even when an app (fzf, nvim) grabs the mouse.
+                mouseBindings = {
+                  "middle release" = "grabbed paste_from_selection";
+                  "middle press" = "grabbed discard_event";
+                };
+
                 extraConfig = ''
                   # Prefer an Arabic-capable font for Arabic codepoint ranges.
                   symbol_map ${arabicRanges} Noto Sans Arabic UI
