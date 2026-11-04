@@ -24,6 +24,11 @@ let
   sambaSecretsReady = songbirdSopsRuntimeReady && sambaSecretExists;
   sambaMediaPathSecret = "songbird/samba-media-path";
   sambaMediaShareTemplate = "songbird/samba-media-share.conf";
+  sambaTransferPathSecret = "songbird/samba-transfer-path";
+  sambaTransferLoginSecret = "songbird/samba-transfer-login";
+  sambaTransferPasswordSecret = "songbird/samba-transfer-password";
+  sambaTransferShareTemplate = "songbird/samba-transfer-share.conf";
+  sambaUsernameMapTemplate = "songbird/samba-username-map";
 in
 {
   configurations.nixos.songbird.module =
@@ -132,6 +137,77 @@ in
                 "samba-smbd.service"
                 "samba-nmbd.service"
               ];
+            };
+          }
+          {
+            services.samba.settings = {
+              global."username map" = config.sops.templates.${sambaUsernameMapTemplate}.path;
+              transfer = {
+                include = config.sops.templates.${sambaTransferShareTemplate}.path;
+                "read only" = "no";
+                "guest ok" = "no";
+                "valid users" = metaOwner.username;
+                "smb encrypt" = "required";
+              };
+            };
+
+            sops.secrets = {
+              ${sambaTransferPathSecret} = {
+                sopsFile = sambaSecretFile;
+                key = "samba_transfer_path";
+                owner = "root";
+                group = "root";
+                mode = "0400";
+              };
+              ${sambaTransferLoginSecret} = {
+                sopsFile = sambaSecretFile;
+                key = "samba_transfer_login";
+                owner = "root";
+                group = "root";
+                mode = "0400";
+              };
+              ${sambaTransferPasswordSecret} = {
+                sopsFile = sambaSecretFile;
+                key = "samba_transfer_password";
+                owner = "root";
+                group = "root";
+                mode = "0400";
+                restartUnits = [ "samba-transfer-password.service" ];
+              };
+            };
+
+            sops.templates = {
+              ${sambaTransferShareTemplate} = {
+                content = "path = ${config.sops.placeholder.${sambaTransferPathSecret}}\n";
+                owner = "root";
+                group = "root";
+                mode = "0400";
+                reloadUnits = [ "samba-smbd.service" ];
+              };
+              # Maps the remote device's login to the owner's Samba account.
+              ${sambaUsernameMapTemplate} = {
+                content = "${metaOwner.username} = ${config.sops.placeholder.${sambaTransferLoginSecret}}\n";
+                owner = "root";
+                group = "root";
+                mode = "0400";
+                reloadUnits = [ "samba-smbd.service" ];
+              };
+            };
+
+            systemd.services.samba-transfer-password = {
+              description = "Set the owner's Samba password";
+              wantedBy = [ "samba-smbd.service" ];
+              before = [ "samba-smbd.service" ];
+              unitConfig.RequiresMountsFor = "/var/lib/samba";
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+              };
+              script = ''
+                password=$(<${config.sops.secrets.${sambaTransferPasswordSecret}.path})
+                printf '%s\n%s\n' "$password" "$password" |
+                  ${config.services.samba.package}/bin/smbpasswd -s -a ${metaOwner.username}
+              '';
             };
           }
         ]
