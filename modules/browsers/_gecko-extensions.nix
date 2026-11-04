@@ -233,14 +233,17 @@ let
     ) darkreaderBaseSettings.customThemes;
   };
   # The same rule as a jq filter, applied to an existing storage.js so a
-  # palette change reaches themes added at runtime.
+  # palette change reaches themes added at runtime; prints nothing when the
+  # colors already match.
   darkreaderPaletteFilter = pkgs.writeText "darkreader-palette.jq" ''
     def themed:
       if (.engine | IN(${lib.concatMapStringsSep ", " builtins.toJSON darkreaderColorEngines}))
       then . + ${builtins.toJSON darkreaderStylixThemeColors}
       else . end;
-    (if .theme then .theme |= themed else . end)
+    . as $stored
+    | (if .theme then .theme |= themed else . end)
     | (if .customThemes then .customThemes |= map(if .theme then .theme |= themed else . end) else . end)
+    | select(. != $stored)
   '';
   # Seed payload for Dark Reader. Written once as a writable file by
   # mkDarkreaderSeed (_gecko-mk-profile.nix) instead of through

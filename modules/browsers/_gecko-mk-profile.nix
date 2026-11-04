@@ -173,7 +173,7 @@ let
           echo "darkreader: cannot apply palette colors to $dr_file; left unchanged" >&2
           continue
         fi
-        if [ "$dr_new" = "$(jq -c . "$dr_file")" ]; then
+        if [ -z "$dr_new" ]; then
           continue
         fi
         if [ -n "''${DARKREADER_DRY_RUN:-}" ]; then
