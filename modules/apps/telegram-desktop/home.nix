@@ -39,6 +39,7 @@ _: {
         accent = vscode.focusBorder;
         link = vscode."textLink.foreground";
         selection = vscode."quickInputList.focusBackground";
+        editorSelection = vscode."editor.selectionBackground";
         popup = vscode."quickInput.background";
         hover = vscode."activityBar.activeBackground";
         badge = vscode."badge.background";

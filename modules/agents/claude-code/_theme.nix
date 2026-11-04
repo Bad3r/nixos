@@ -36,16 +36,9 @@ let
   success = vscode."gitDecoration.addedResourceForeground";
   warning = vscode."list.warningForeground";
   error = vscode.errorForeground;
-  chart = {
-    red = "#ef8773";
-    orange = "#cd861a";
-    yellow = "#e0b97f";
-    green = "#86cf86";
-    blue = "#57a3f8";
-    purple = "#ad80d7";
-  };
-  insertedLine = over "#347d39" 38 editor; # diffEditor.insertedLineBackground
-  removedLine = over "#c93c37" 38 editor; # diffEditor.removedLineBackground
+  chart = lib.genAttrs [ "red" "orange" "yellow" "green" "blue" "purple" ] (
+    hue: vscode."charts.${hue}"
+  );
 in
 {
   name = "VS Code Dark 2026";
@@ -85,19 +78,19 @@ in
     inherit success error warning;
     warningShimmer = shimmer warning;
 
-    diffAdded = insertedLine;
-    diffRemoved = removedLine;
+    diffAdded = vscode."diffEditor.insertedLineBackground";
+    diffRemoved = vscode."diffEditor.removedLineBackground";
     diffAddedDimmed = over "#347d39" 19 editor;
     diffRemovedDimmed = over "#c93c37" 19 editor;
-    diffAddedWord = over "#57ab5a" 77 insertedLine; # diffEditor.insertedTextBackground
-    diffRemovedWord = over "#f47067" 77 removedLine; # diffEditor.removedTextBackground
+    diffAddedWord = vscode."diffEditor.insertedTextBackground";
+    diffRemovedWord = vscode."diffEditor.removedTextBackground";
 
-    userMessageBackground = over "#ffffff" 19 editor; # chat.requestBubbleBackground
-    userMessageBackgroundHover = over "#ffffff" 34 editor; # chat.requestBubbleHoverBackground
+    userMessageBackground = vscode."chat.requestBubbleBackground";
+    userMessageBackgroundHover = vscode."chat.requestBubbleHoverBackground";
     composerSidebarBackground = colors.base01; # sideBar.background
-    selectionBg = over "#276782" 221 editor; # editor.selectionBackground
+    selectionBg = vscode."editor.selectionBackground";
     bashMessageBackgroundColor = vscode."textCodeBlock.background";
-    memoryBackgroundColor = "#1e3a47"; # inputValidation.infoBackground
+    memoryBackgroundColor = vscode."inputValidation.infoBackground";
     rate_limit_fill = accent;
     rate_limit_empty = vscode."input.border";
 

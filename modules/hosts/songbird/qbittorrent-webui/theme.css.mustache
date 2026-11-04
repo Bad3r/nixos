@@ -11,17 +11,17 @@
     scrollbar-color: rgb(168 169 170 / 52%) transparent; /* scrollbarSlider.background */
 
     --color-accent-blue: #3994bc; /* focusBorder */
-    --color-text-blue: #48a0c7; /* textLink.foreground */
-    --color-text-orange: #e5ba7d; /* list.warningForeground */
-    --color-text-red: #f48771; /* errorForeground */
-    --color-text-green: #73c991; /* gitDecoration.addedResourceForeground */
-    --color-text-white: #ededed; /* list.activeSelectionForeground */
-    --color-text-disabled: #555555; /* disabledForeground */
+    --color-text-blue: {{vscode-textLink.foreground}};
+    --color-text-orange: {{vscode-list.warningForeground}};
+    --color-text-red: {{vscode-errorForeground}};
+    --color-text-green: {{vscode-gitDecoration.addedResourceForeground}};
+    --color-text-white: {{vscode-list.activeSelectionForeground}};
+    --color-text-disabled: {{vscode-disabledForeground}};
     --color-text-default: #{{base05-hex}};
     --color-background-primary: #{{base00-hex}};
     /* Only the progress bar fill keeps this. */
-    --color-background-blue: #297aa0; /* button.background */
-    --color-background-popup: #202122; /* editorWidget.background */
+    --color-background-blue: {{vscode-button.background}};
+    --color-background-popup: {{vscode-editorWidget.background}};
     --color-background-default: #{{base01-hex}};
     --color-background-hover: rgb(255 255 255 / 8%); /* list.hoverBackground */
     --color-border-blue: #3994bc; /* focusBorder */
@@ -33,10 +33,10 @@
 :root #torrentTrackersTableDiv tr,
 :root.dark #torrentTrackersTableDiv tr {
     --color-tracker-disabled: #{{base03-hex}};
-    --color-tracker-not-contacted: #e5ba7d; /* list.warningForeground */
-    --color-tracker-working: #73c991; /* gitDecoration.addedResourceForeground */
-    --color-tracker-updating: #48a0c7; /* textLink.foreground */
-    --color-tracker-not-working: #f48771; /* errorForeground */
+    --color-tracker-not-contacted: {{vscode-list.warningForeground}};
+    --color-tracker-working: {{vscode-gitDecoration.addedResourceForeground}};
+    --color-tracker-updating: {{vscode-textLink.foreground}};
+    --color-tracker-not-working: {{vscode-errorForeground}};
 }
 
 /* Dialogs: framed pages and in-page windows. The dialog sits on base01 like
@@ -44,13 +44,13 @@
    background. */
 :root:not(:has(#desktop)),
 :root .mocha {
-    --color-background-primary: #202122; /* editorWidget.background */
+    --color-background-primary: {{vscode-editorWidget.background}};
     --color-background-popup: #{{base01-hex}}; /* panel.background */
 }
 
 :root:not(:has(#desktop)) :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"]), textarea, select, .vsb-main button, .select-watched-folder-editable),
 :root .mocha :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"]), textarea, select, .vsb-main button, .select-watched-folder-editable) {
-    background-color: #202122; /* editorWidget.background */
+    background-color: {{vscode-editorWidget.background}};
 }
 
 :root:not(:has(#desktop)) .select-watched-folder-editable :is(input, select),
@@ -84,7 +84,7 @@
 }
 
 :root #desktopNavbar > ul > li > a:hover {
-    background-color: #242526; /* menubar.selectionBackground */
+    background-color: {{vscode-menubar.selectionBackground}};
     color: #{{base05-hex}};
 }
 
@@ -101,7 +101,7 @@
 :root .contextMenu,
 :root .contextMenu li ul,
 :root .vsb-menu {
-    background-color: #202122; /* menu.background */
+    background-color: {{vscode-menu.background}};
     border: 1px solid #{{base02-hex}}; /* menu.border */
     border-radius: 6px;
     box-shadow: rgb(0 0 0 / 36%) 0 0 8px 2px; /* widget.shadow */
@@ -167,7 +167,7 @@
 
 :root .selectedFilter > span.link {
     background-color: rgb(255 255 255 / 13%); /* list.activeSelectionBackground */
-    color: #ededed; /* list.activeSelectionForeground */
+    color: {{vscode-list.activeSelectionForeground}};
 }
 
 /* Lists. */
@@ -185,7 +185,7 @@
 
 :root .dynamicTableDiv table.dynamicTable tbody tr.selected {
     background-color: rgb(255 255 255 / 13%); /* list.activeSelectionBackground */
-    color: #ededed; /* list.activeSelectionForeground */
+    color: {{vscode-list.activeSelectionForeground}};
 }
 
 :root .altRowColors tbody tr:nth-child(odd of :not(.invisible)) {
@@ -273,7 +273,7 @@
 :root select,
 :root .vsb-main button {
     background-color: #{{base01-hex}}; /* input.background, dropdown.background */
-    border: 1px solid #333536; /* input.border, dropdown.border */
+    border: 1px solid {{vscode-input.border}};
     border-radius: 4px;
     color: #{{base05-hex}}; /* input.foreground */
 }
@@ -284,7 +284,7 @@
 
 :root input::placeholder,
 :root textarea::placeholder {
-    color: #555555; /* input.placeholderForeground */
+    color: {{vscode-input.placeholderForeground}};
 }
 
 :root input[type="number"] {
@@ -336,11 +336,11 @@
 :root input[type="checkbox"],
 :root input[type="radio"] {
     appearance: none;
-    background-color: #242526; /* checkbox.background */
+    background-color: {{vscode-checkbox.background}};
     background-position: center;
     background-repeat: no-repeat;
     background-size: 11px;
-    border: 1px solid #707070; /* checkbox.border */
+    border: 1px solid {{vscode-checkbox.border}};
     border-radius: 3px;
     flex: none;
     /* The browser's own size, which the dialogs' heights assume. */
@@ -377,7 +377,7 @@
 :root input[type="submit"],
 :root input[type="reset"] {
     background-color: transparent; /* button.secondaryBackground */
-    border: 1px solid #333536; /* button.secondaryBorder */
+    border: 1px solid {{vscode-button.secondaryBorder}};
     border-radius: 4px;
     color: #{{base05-hex}}; /* button.secondaryForeground */
 }
@@ -409,9 +409,9 @@
 :root #confirmRecheckButton,
 :root #confirmAutoTmmButton,
 :root #confirmAPIKeyButton {
-    background-color: #297aa0; /* button.background */
-    border-color: #297aa0; /* button.border */
-    color: #ffffff; /* button.foreground */
+    background-color: {{vscode-button.background}};
+    border-color: {{vscode-button.border}};
+    color: {{vscode-button.foreground}};
 }
 
 :root button[type="submit"]:hover:not(:disabled),
@@ -435,7 +435,7 @@
 :root #confirmRecheckButton:hover:not(:disabled),
 :root #confirmAutoTmmButton:hover:not(:disabled),
 :root #confirmAPIKeyButton:hover:not(:disabled) {
-    background-color: #2b7da3; /* button.hoverBackground */
+    background-color: {{vscode-button.hoverBackground}};
 }
 
 :root button:focus-visible,
@@ -461,7 +461,7 @@
 /* The add dialog's category field: a text box over a dropdown. */
 :root .select-watched-folder-editable {
     background-color: #{{base01-hex}}; /* input.background */
-    border: 1px solid #333536; /* input.border */
+    border: 1px solid {{vscode-input.border}};
     border-radius: 4px;
 }
 

@@ -21,7 +21,7 @@ from pathlib import Path
 
 type Color = tuple[int, int, int, int]
 
-TOKENS = ("accent", "link", "selection", "popup", "hover", "badge")
+TOKENS = ("accent", "link", "selection", "editorSelection", "popup", "hover", "badge")
 BASES = tuple(f"base0{digit}" for digit in "0123456789ABCDEF")
 ARGC = 5
 OPAQUE = 255
@@ -148,7 +148,7 @@ MAP = {
     "introTitleFg": "base07",
     "introDescriptionFg": "base04",
     "introCoverTopBg": "#1a3540",
-    "introCoverBottomBg": "#245c73",
+    "introCoverBottomBg": "editorSelection",
     "introCoverIconsFg": "selection",
     "introCoverPlaneTrace": "badge",
     "introCoverPlaneInner": "base06",
@@ -231,7 +231,7 @@ MAP = {
     "msgInBg": "popup",
     "msgInBgSelected": "#23404d",
     "msgOutBg": "#1a3540",
-    "msgOutBgSelected": "#245c73",
+    "msgOutBgSelected": "editorSelection",
     "msgSelectOverlay": "selection/4c",
     "msgStickerOverlay": "selection/7f",
     "msgInServiceFg": "link",
@@ -347,7 +347,7 @@ MAP = {
     "callAnswerBgOuter": "#2ea04326",
     "callHangupBg": "#da3633",
     "callHangupRipple": "#f85149",
-    "callBarBg": "#245c73",
+    "callBarBg": "editorSelection",
     "callBarMuteRipple": "selection",
     "callBarBgMuted": "base02",
     "groupCallActiveFg": "link",

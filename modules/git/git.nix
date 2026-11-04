@@ -14,6 +14,7 @@
       githubUnsignedEmail = "github@unsigned.sh";
       githubUnsignedSigningKey = metaOwner.gitSigningPublicKey;
       gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
+      vscode = import ../stylix/_vscode-dark-2026.nix;
 
       # Home Manager defines git-maintenance@ only under both switches.
       maintenanceEnabled = config.programs.git.enable && config.programs.git.maintenance.enable;
@@ -237,11 +238,10 @@
             pager = "less --RAW-CONTROL-CHARS --quit-if-one-screen";
             # Stylix's bat theme.
             syntax-theme = "base16-stylix";
-            # VS Code Dark 2026 diffEditor colors over editor.background.
-            minus-style = "syntax #2d1919"; # removedLineBackground
-            minus-emph-style = "syntax #693331"; # removedTextBackground
-            plus-style = "syntax #17231a"; # insertedLineBackground
-            plus-emph-style = "syntax #2a4c2d"; # insertedTextBackground
+            minus-style = "syntax ${vscode."diffEditor.removedLineBackground"}";
+            minus-emph-style = "syntax ${vscode."diffEditor.removedTextBackground"}";
+            plus-style = "syntax ${vscode."diffEditor.insertedLineBackground"}";
+            plus-emph-style = "syntax ${vscode."diffEditor.insertedTextBackground"}";
           };
         };
       };

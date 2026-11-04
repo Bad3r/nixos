@@ -1,9 +1,26 @@
 # The Web UI side of the qBittorrent service in qbittorrent.nix: the desktop
 # handler that torrent files and magnet links open in, and the copy of the
 # stock Web UI the service serves in place of its built-in one.
-_:
+{ lib, ... }:
 let
   webuiIcons = import ./qbittorrent-webui/_icons.nix;
+  vscode = import ../../stylix/_vscode-dark-2026.nix;
+
+  # theme.css.mustache with {{vscode-<id>}} filled in before the Stylix render.
+  themeTemplate =
+    let
+      ids = builtins.attrNames vscode;
+      sheet = builtins.replaceStrings (map (id: "{{vscode-${id}}}") ids) (map (id: vscode.${id}) ids) (
+        builtins.readFile ./qbittorrent-webui/theme.css.mustache
+      );
+      unknown = lib.unique (
+        lib.concatLists (lib.filter lib.isList (builtins.split "\\{\\{vscode-([A-Za-z0-9.]*)" sheet))
+      );
+    in
+    if unknown == [ ] then
+      sheet
+    else
+      throw "qbittorrent-webui/theme.css.mustache: unknown VS Code colors: ${toString unknown}";
 
   # The package's own Web UI with the scripts in ./qbittorrent-webui added to
   # two of its pages. They reach the stock code only through the exports,
@@ -23,19 +40,17 @@ let
     let
       www = "${qbittorrentPackage.src}/src/webui/www";
       scripts = ./qbittorrent-webui;
-      vscode = pkgs.lib.mapAttrs (_: pkgs.lib.removePrefix "#") (
-        import ../../stylix/_vscode-dark-2026.nix
-      );
+      vscodeHex = lib.mapAttrs (_: lib.removePrefix "#") vscode;
       tones = {
         icon = colors.base04; # icon.foreground
         muted = colors.base03;
-        error = vscode.errorForeground;
-        warning = "cca700"; # notificationsWarningIcon.foreground
-        ok = vscode."gitDecoration.addedResourceForeground";
+        error = vscodeHex.errorForeground;
+        warning = vscodeHex."notificationsWarningIcon.foreground";
+        ok = vscodeHex."gitDecoration.addedResourceForeground";
       };
       # An image a bump drops is skipped here and fails the check below.
-      replaceImages = pkgs.lib.concatStrings (
-        pkgs.lib.mapAttrsToList (name: entry: ''
+      replaceImages = lib.concatStrings (
+        lib.mapAttrsToList (name: entry: ''
           if [ -e "$out/private/images/${name}.svg" ]; then
             sed 's|<svg |<svg fill="#${tones.${entry.tone}}" |' \
               ${../../lib/octicons + "/${entry.octicon}-16.svg"} > "$out/private/images/${name}.svg"
@@ -92,16 +107,15 @@ in
       cfg = config.services.qbittorrent;
       stagingDir = "/run/qbittorrent-webui-staging";
       themed =
-        file: extension:
+        template: extension:
         config.lib.stylix.colors {
-          template = builtins.readFile file;
-          inherit extension;
+          inherit template extension;
         };
       webuiRoot = webuiRootFor {
         inherit pkgs;
         qbittorrentPackage = cfg.package;
-        themeCss = themed ./qbittorrent-webui/theme.css.mustache ".css";
-        icon = themed ../../stylix/icons/qbittorrent.svg.mustache ".svg";
+        themeCss = themed themeTemplate ".css";
+        icon = themed (builtins.readFile ../../stylix/icons/qbittorrent.svg.mustache) ".svg";
         inherit (config.lib.stylix) colors;
       };
     in
@@ -151,7 +165,7 @@ in
       root = webuiRootFor {
         inherit pkgs;
         qbittorrentPackage = pkgs.qbittorrent-nox;
-        themeCss = ./qbittorrent-webui/theme.css.mustache;
+        themeCss = pkgs.writeText "theme.css.mustache" themeTemplate;
         icon = pkgs.writeText "qbittorrent.svg" (
           builtins.replaceStrings [ "{{base05-hex}}" ] [ "bbbebf" ] (
             builtins.readFile ../../stylix/icons/qbittorrent.svg.mustache

@@ -90,15 +90,15 @@ _: {
               "canvas.default" = colors.base00;
               "border.default" = colors.base02;
             };
-            "ui.text" = "#bfbfbf";
+            "ui.text" = vscode.foreground;
             "ui.text.focus" = colors.base05;
             "ui.text.inactive" = vscode.disabledForeground;
             "ui.text.directory" = vscode."textLink.foreground";
             "ui.background.separator" = colors.base02;
-            "ui.linenr" = "#858889";
+            "ui.linenr" = vscode."editorLineNumber.foreground";
             "ui.linenr.selected" = colors.base05;
             "ui.virtual" = "#3a3b3c";
-            "ui.virtual.ruler".bg = "#242526";
+            "ui.virtual.ruler".bg = vscode."editor.lineHighlightBackground";
             "ui.statusline" = {
               fg = colors.base04;
               bg = colors.base01;
@@ -108,18 +108,18 @@ _: {
               bg = colors.base01;
             };
             "ui.statusline.normal" = {
-              fg = "#ffffff";
-              bg = "#276782";
+              fg = vscode."statusBarItem.prominentForeground";
+              bg = vscode."editor.selectionBackground";
             };
             "ui.statusline.insert" = {
-              fg = "#ffffff";
+              fg = vscode."statusBarItem.prominentForeground";
               bg = vscode.focusBorder;
             };
             "ui.menu" = {
               fg = colors.base05;
               bg = vscode."editorWidget.background";
             };
-            "ui.menu.selected".bg = "#414243";
+            "ui.menu.selected".bg = vscode."editorSuggestWidget.selectedBackground";
             "ui.menu.scroll" = {
               fg = vscode.disabledForeground;
               bg = vscode."editorWidget.background";
@@ -134,8 +134,8 @@ _: {
               bg = vscode."editorWidget.background";
             };
             "ui.selection".bg = "#1d4a5c";
-            "ui.selection.primary".bg = "#276782";
-            "ui.cursorline.primary".bg = "#242526";
+            "ui.selection.primary".bg = vscode."editor.selectionBackground";
+            "ui.cursorline.primary".bg = vscode."editor.lineHighlightBackground";
             "markup.link.text" = {
               fg = vscode."textLink.foreground";
               modifiers = [ "underlined" ];
