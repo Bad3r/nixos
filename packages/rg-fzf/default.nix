@@ -54,13 +54,14 @@ writeShellApplication {
 
     # Run fzf in live-reload mode
     selected=$(
+      # shellcheck disable=SC2016 # the preview shell expands $FZF_PREVIEW_COLUMNS
       fzf --ansi \
           --disabled \
           --query "$INITIAL_QUERY" \
           --bind "start:reload:$RG_PREFIX {q} $SEARCH_DIR || true" \
           --bind "change:reload:sleep 0.1; $RG_PREFIX {q} $SEARCH_DIR || true" \
           --delimiter : \
-          --preview 'bat --style=numbers --color=always --highlight-line {2} {1} 2>/dev/null || echo "No preview available"' \
+          --preview 'bat --style=numbers --color=always --terminal-width "$FZF_PREVIEW_COLUMNS" --highlight-line {2} {1} 2>/dev/null || echo "No preview available"' \
           --preview-window 'right:60%:+{2}-5:wrap' \
           --layout reverse \
           --border rounded \
