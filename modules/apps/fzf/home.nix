@@ -80,7 +80,7 @@ _: {
 
           # File preview with bat
           fileWidget.options = [
-            "--preview '${batExe} --style=numbers --color=always --line-range=:500 {}'"
+            "--preview '${batExe} --style=numbers --color=always --terminal-width \\$FZF_PREVIEW_COLUMNS --line-range=:500 {}'"
           ];
 
           # Directory preview with eza or tree
@@ -103,29 +103,6 @@ _: {
           # Colors automatically managed by stylix.targets.fzf
         };
 
-        # Environment variables for fzf integration
-        home.sessionVariables = {
-          # Use fd for fzf's default command
-          FZF_DEFAULT_COMMAND = lib.mkDefault "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-
-          # Options for Ctrl-T (file widget)
-          FZF_CTRL_T_COMMAND = lib.mkDefault "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-          FZF_CTRL_T_OPTS = lib.mkDefault (
-            lib.concatStringsSep " " [
-              "--preview '${batExe} --style=numbers --color=always --line-range=:500 {}'"
-              "--preview-window=right:60%"
-            ]
-          );
-
-          # Options for Alt-C (directory widget)
-          FZF_ALT_C_COMMAND = lib.mkDefault "${pkgs.fd}/bin/fd --type d --hidden --follow --exclude .git";
-          FZF_ALT_C_OPTS = lib.mkDefault (
-            lib.concatStringsSep " " [
-              "--preview '${pkgs.eza}/bin/eza --tree --level=2 --color=always {} | head -200'"
-              "--preview-window=right:60%"
-            ]
-          );
-        };
       };
     };
 }

@@ -47,6 +47,8 @@
           # After aliases (1100): forgit's ga, gd, gco and friends replace the plain git ones.
           (lib.mkIf forgitCfg.enable (
             lib.mkOrder 1150 ''
+              # delta never wraps unified diffs; fzf's wrap drops their gutter (alt-w toggles it back)
+              export FORGIT_FZF_DEFAULT_OPTS="--preview-window=nowrap"
               source ${forgitCfg.package}/share/zsh/zsh-forgit/forgit.plugin.zsh
             ''
           ))
