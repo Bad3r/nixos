@@ -27,14 +27,18 @@ _: {
       toastRadius = 8;
       toastBorder = colors.base02;
       i3Gap = config.xsession.windowManager.i3.config.gaps.inner;
-      # dunst multiplies offsets by dpi / 96, and per_monitor_dpi takes dpi from the
+      # dunst multiplies sizes by dpi / 96, and per_monitor_dpi takes dpi from the
       # monitor's EDID size: 1440 px over 340 mm is 107 dpi.
-      unscale = px: builtins.floor (px * 96.0 / 107 + 0.5);
+      dpiScale = 107 / 96.0;
+      scale = px: builtins.floor (px * dpiScale + 0.5);
+      unscale = px: builtins.floor (px / dpiScale + 0.5);
     in
     {
       config = lib.mkIf nixosEnabled {
-        # picom blurs and rounds each toast at its radius.
-        services.picom.settings.corner-radius-rules = [ "${toString toastRadius}:class_g = 'Dunst'" ];
+        # picom blurs the toast stack and rounds it at dunst's drawn radius.
+        services.picom.settings.corner-radius-rules = [
+          "${toString (scale toastRadius)}:class_g = 'Dunst'"
+        ];
 
         services.dunst.settings = {
           global = {
@@ -49,9 +53,11 @@ _: {
 
             padding = 14;
             horizontal_padding = 16;
-            # Separate cards, like VS Code toasts, instead of one stacked box.
-            gap_size = 8;
-            separator_height = 4;
+            # One glass box for the whole stack.
+            gap_size = 0;
+            # A frame-colored hairline between toasts.
+            separator_height = 1;
+            separator_color = lib.mkForce "frame";
             line_height = 4;
             frame_width = 1;
             corner_radius = toastRadius;
