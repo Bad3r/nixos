@@ -31,7 +31,7 @@ let
   vscode = import ../../stylix/_vscode-dark-2026.nix;
 
   editor = colors.base00; # editor.background
-  accent = vscode.focusBorder;
+  accent = vscode."statusBarItem.prominentBackground";
   link = vscode."textLink.foreground";
   success = vscode."gitDecoration.addedResourceForeground";
   warning = vscode."list.warningForeground";

@@ -396,7 +396,8 @@ in
 
       vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        inherit (vscode) focusBorder;
+        activeTab = vscode."tab.activeBorderTop";
+        prominentBackground = vscode."statusBarItem.prominentBackground";
         activeItem = vscode."activityBar.activeBackground";
         prominentForeground = vscode."statusBarItem.prominentForeground";
       };
@@ -412,7 +413,9 @@ in
         activeWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base05;
         inactiveWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base04;
         urgentWorkspace = workspaceColors stylixColors.base08 stylixColors.base01 stylixColors.base05;
-        bindingMode = workspaceColors palette.focusBorder palette.focusBorder palette.prominentForeground;
+        bindingMode =
+          workspaceColors palette.prominentBackground palette.prominentBackground
+            palette.prominentForeground;
       };
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
@@ -593,9 +596,9 @@ in
               # editor color, the others on the sidebar color.
               colors = {
                 focused = {
-                  indicator = lib.mkForce palette.focusBorder;
-                  border = lib.mkForce palette.focusBorder;
-                  childBorder = lib.mkForce palette.focusBorder;
+                  indicator = lib.mkForce palette.activeTab;
+                  border = lib.mkForce palette.activeTab;
+                  childBorder = lib.mkForce palette.activeTab;
                 };
                 urgent.indicator = lib.mkForce stylixColors.base08;
                 focusedInactive = {

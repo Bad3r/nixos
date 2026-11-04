@@ -24,7 +24,7 @@
             background = stylixColors.base01;
             ring = stylixColors.base04;
             ringWrong = stylixColors.base08;
-            ringVerify = (import ../../stylix/_vscode-dark-2026.nix).focusBorder;
+            ringVerify = (import ../../stylix/_vscode-dark-2026.nix)."statusBarItem.prominentBackground";
             line = stylixColors.base03;
             text = stylixColors.base05;
           };

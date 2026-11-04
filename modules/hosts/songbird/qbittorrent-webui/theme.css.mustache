@@ -10,7 +10,7 @@
     color-scheme: dark;
     scrollbar-color: rgb(168 169 170 / 52%) transparent; /* scrollbarSlider.background */
 
-    --color-accent-blue: #3994bc; /* focusBorder */
+    --color-accent-blue: {{vscode-statusBarItem.prominentBackground}};
     --color-text-blue: {{vscode-textLink.foreground}};
     --color-text-orange: {{vscode-list.warningForeground}};
     --color-text-red: {{vscode-errorForeground}};
@@ -24,7 +24,7 @@
     --color-background-popup: {{vscode-editorWidget.background}};
     --color-background-default: #{{base01-hex}};
     --color-background-hover: rgb(255 255 255 / 8%); /* list.hoverBackground */
-    --color-border-blue: #3994bc; /* focusBorder */
+    --color-border-blue: {{vscode-menu.selectionBorder}};
     --color-border-default: #{{base02-hex}};
     /* Icons are drawn in icon.foreground; hover lifts them to foreground. */
     --color-icon-hover: brightness(1.36);
@@ -120,7 +120,7 @@
     background-color: rgb(57 148 188 / 15%); /* menu.selectionBackground */
     border-radius: 4px;
     color: #{{base05-hex}}; /* menu.selectionForeground */
-    outline: 1px solid #3994bc; /* menu.selectionBorder */
+    outline: 1px solid {{vscode-menu.selectionBorder}};
     outline-offset: -1px;
 }
 
@@ -145,7 +145,7 @@
 
 :root .tab-menu li.selected a {
     background-color: transparent;
-    box-shadow: inset 0 -1px 0 #3994bc; /* panelTitle.activeBorder */
+    box-shadow: inset 0 -1px 0 {{vscode-panelTitle.activeBorder}};
     color: #{{base05-hex}}; /* panelTitle.activeForeground */
 }
 
@@ -321,7 +321,7 @@
 :root textarea:focus,
 :root select:focus,
 :root .vsb-main button:focus {
-    border-color: #3994bc; /* focusBorder */
+    border-color: {{vscode-menu.selectionBorder}};
     outline: none;
 }
 
@@ -367,7 +367,7 @@
 
 :root input[type="checkbox"]:focus-visible,
 :root input[type="radio"]:focus-visible {
-    outline: 1px solid #3994bc; /* focusBorder */
+    outline: 1px solid {{vscode-menu.selectionBorder}};
     outline-offset: 1px;
 }
 
@@ -441,7 +441,7 @@
 :root button:focus-visible,
 :root input[type="button"]:focus-visible,
 :root input[type="submit"]:focus-visible {
-    outline: 1px solid #3994bc; /* focusBorder */
+    outline: 1px solid {{vscode-menu.selectionBorder}};
     outline-offset: 2px;
 }
 

@@ -88,7 +88,7 @@ let
       vscode = import ../../stylix/_vscode-dark-2026.nix;
       # Keys of the package's flutter/lib/common/palette.dart, in VS Code Dark 2026 colors.
       palette = {
-        accent = vscode.focusBorder;
+        accent = vscode."statusBarItem.prominentBackground";
         background = colors.base00; # editor.background
         dialog = colors.base01; # panel.background
         surface = colors.base01; # sideBar.background

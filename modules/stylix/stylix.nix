@@ -111,7 +111,7 @@ in
         let
           graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
           vscode = import ./_vscode-dark-2026.nix;
-          accent = vscode.focusBorder;
+          accent = vscode."statusBarItem.prominentBackground";
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;

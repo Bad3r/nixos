@@ -26,7 +26,9 @@ _: {
 
       vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        inherit (vscode) focusBorder;
+        focusRing = vscode."menu.selectionBorder";
+        prominent = vscode."statusBarItem.prominentBackground";
+        activeTab = vscode."tab.activeBorderTop";
         link = vscode."textLink.foreground";
         listSelection = vscode."quickInputList.focusBackground";
         listSelectionText = vscode."quickInputList.focusForeground";
@@ -59,22 +61,22 @@ _: {
         	--toolbar-background-color: ${base01} !important;
         	--toolbar-field-background-color: ${base00} !important;
         	--toolbar-field-border-color: ${base02} !important;
-        	--toolbar-field-focus-border-color: ${palette.focusBorder} !important;
+        	--toolbar-field-focus-border-color: ${palette.focusRing} !important;
         	--chrome-content-separator-color: ${base02} !important;
         	--sidebar-background-color: ${base01} !important;
         	--sidebar-border-color: ${base02} !important;
         	--selected-item-color: ${palette.listSelection} !important;
         	--selected-item-text-color: ${palette.listSelectionText} !important;
-        	--focus-outline-color: ${palette.focusBorder} !important;
+        	--focus-outline-color: ${palette.focusRing} !important;
         	--link-color: ${palette.link} !important;
         	--tree-view-bg: ${base00} !important;
         	--tree-pane-background: ${base00} !important;
-        	--tree-card-border-focus: ${palette.focusBorder} !important;
+        	--tree-card-border-focus: ${palette.focusRing} !important;
         	--listbox-selected-bg: ${palette.activeItem} !important;
         	--folderpane-unread-count-background: ${base02} !important;
         	--folderpane-unread-count-text: ${base05} !important;
-        	--folderpane-unread-new-count-background: ${palette.focusBorder} !important;
-        	--tabline-color: ${palette.focusBorder} !important;
+        	--folderpane-unread-new-count-background: ${palette.prominent} !important;
+        	--tabline-color: ${palette.activeTab} !important;
         	--tabs-toolbar-background-color: ${base01} !important;
         	--tabs-toolbar-box-shadow: none !important;
         	scrollbar-color: ${base03} transparent;

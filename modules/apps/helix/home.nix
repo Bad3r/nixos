@@ -113,7 +113,7 @@ _: {
             };
             "ui.statusline.insert" = {
               fg = vscode."statusBarItem.prominentForeground";
-              bg = vscode.focusBorder;
+              bg = vscode."statusBarItem.prominentBackground";
             };
             "ui.menu" = {
               fg = colors.base05;

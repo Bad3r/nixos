@@ -2,8 +2,11 @@
 # (theme-defaults/themes/2026-dark.json, VS Code 1.144). Translucent colors
 # are blended over editor.background (base00).
 {
-  "focusBorder" = "#3994bc";
   "foreground" = "#bfbfbf";
+  "menu.selectionBorder" = "#3994bc";
+  "panelTitle.activeBorder" = "#3994bc";
+  "statusBarItem.prominentBackground" = "#3994bc";
+  "tab.activeBorderTop" = "#3994bc";
   "textLink.foreground" = "#48a0c7";
   "list.highlightForeground" = "#48a0c7";
   "list.activeSelectionForeground" = "#ededed";

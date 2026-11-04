@@ -36,7 +36,7 @@ _: {
 
       vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        accent = vscode.focusBorder;
+        accent = vscode."statusBarItem.prominentBackground";
         link = vscode."textLink.foreground";
         selection = vscode."quickInputList.focusBackground";
         editorSelection = vscode."editor.selectionBackground";
