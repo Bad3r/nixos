@@ -6,7 +6,7 @@ palette:
   base00: "#121314" # editor.background
   base01: "#191a1b" # sideBar.background
   base02: "#2a2b2c" # widget.border
-  base03: "#616161" # textBlockQuote.border
+  base03: "#7d8590" # comment text (GitHub dark fg.muted)
   base04: "#8c8c8c" # descriptionForeground
   base05: "#bbbebf" # editor.foreground
   base06: "#c9d1d9" # variable.other token
