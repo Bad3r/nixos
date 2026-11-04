@@ -31,7 +31,11 @@
     * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` -- Show keybindings.
 */
 
-_: {
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
+{
   flake.homeManagerModules.apps.rofi =
     {
       osConfig,
@@ -106,7 +110,7 @@ _: {
         icon-search = {
           expand = false;
           filename = "${config.lib.stylix.colors {
-            template = builtins.readFile ../../stylix/icons/search.svg.mustache;
+            template = octicons.template "search" 24 "base04";
             extension = ".svg";
           }}";
           size = mkLiteral "22px";

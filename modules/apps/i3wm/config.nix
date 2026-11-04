@@ -289,13 +289,15 @@ in
         '';
       };
 
-      # Menu row icon rendered from the Stylix palette.
-      rofiIcon =
-        name:
+      # Menu row icons in the status text color, rendered from the Stylix palette.
+      renderIcon =
+        template:
         config.lib.stylix.colors {
-          template = builtins.readFile ../../stylix/icons/${name}.svg.mustache;
+          inherit template;
           extension = ".svg";
         };
+      rofiIcon = name: renderIcon (octicons.template name 24 "base04");
+      powerIcon = renderIcon (builtins.readFile ../../stylix/icons/power.svg.mustache);
 
       # Power profile switcher over power-profiles-daemon
       powerProfileScript = pkgs.writeShellApplication {
@@ -359,7 +361,7 @@ in
             Suspend ${rofiIcon "moon"} \
             Hibernate ${rofiIcon "archive"} \
             Reboot ${rofiIcon "sync"} \
-            Shutdown ${rofiIcon "power"} \
+            Shutdown ${powerIcon} \
             Cancel ${rofiIcon "x-circle"} |
             rofi -dmenu -i -config "$HOME/.config/rofi/powermenu.rasi" || true)
 

@@ -1,4 +1,5 @@
-# Primer Octicons 19.42.0 icon font for the i3bar, i3status-rust, and the shell prompt.
+# Primer Octicons 19.42.0: an icon font for the i3bar, i3status-rust, and the shell prompt, and
+# palette-colored SVG templates for the rofi menus.
 # ./octicons holds the release's full SVG set; the font takes only the glyphs mapped below.
 { lib, ... }:
 let
@@ -105,7 +106,7 @@ in
 {
   options.flake.lib.octicons = lib.mkOption {
     type = lib.types.raw;
-    description = "Primer Octicons font, its family name, and the glyphs each consumer uses.";
+    description = "Primer Octicons font, its family name, the glyphs each consumer uses, and SVG templates.";
   };
 
   config.flake.lib.octicons = {
@@ -114,6 +115,13 @@ in
     status = lib.mapAttrs (_: entry: glyph entry.codepoint) status;
     prompt = lib.mapAttrs (_: entry: glyph entry.codepoint) prompt;
     unicodeRange = "U+${lib.toHexString (blockStart 0)}-U+${lib.toHexString (blockStart 3 - 1)}";
+
+    # An Octicon as a base16 mustache template drawn in a palette slot.
+    template =
+      name: size: slot:
+      builtins.replaceStrings [ "<svg " ] [ ''<svg fill="#{{${slot}-hex}}" '' ] (
+        builtins.readFile ./octicons/${name}-${toString size}.svg
+      );
 
     font =
       pkgs:
