@@ -6,6 +6,7 @@
 let
   # Prints shell assignments for summary and body, or nothing to skip.
   filter = pkgs.writeText "codex-notify.jq" ''
+    # The body takes markup; the summary is plain text.
     def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
     def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
     def text: if type == "string" then . else "" end;
@@ -24,7 +25,7 @@ let
       end
     else {summary: "Codex", body: ("Event: " + (.type | text | if . == "" then "unknown" else . end))}
     end
-    | @sh "summary=\(.summary | esc) body=\(.body | esc)"
+    | @sh "summary=\(.summary) body=\(.body | esc)"
   '';
 in
 pkgs.writeShellApplication {

@@ -10,6 +10,7 @@ _: {
       let
         # Prints shell assignments for summary and body.
         filter = pkgs.writeText "claude-notify.jq" ''
+          # The body takes markup; the summary is plain text.
           def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
           def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
           def text: if type == "string" then . else "" end;
@@ -21,7 +22,7 @@ _: {
               summary: ("Claude Code" + (if $dir == "" then "" else " · " + $dir end)),
               body: ($msg | split("\n") | map(select(test("\\S"))) | .[:3] | join("\n") | clip(200))
             }
-          | @sh "summary=\(.summary | esc) body=\(.body | esc)"
+          | @sh "summary=\(.summary) body=\(.body | esc)"
         '';
       in
       pkgs.writeShellApplication {
