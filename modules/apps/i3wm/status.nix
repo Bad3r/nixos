@@ -15,7 +15,7 @@ in
     }:
     let
       inherit (config.gui.i3) netInterface;
-      stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+      stylixColors = config.lib.stylix.colors.withHashtag;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
       netBlockBase = {
