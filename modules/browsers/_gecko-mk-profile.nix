@@ -306,6 +306,7 @@ in
     igpuVulkanDecodeExecutables
     mkXdgProfileRoot
     mkDarkreaderSeed
+    darkreaderPaletteRefresh
     policies
     ;
   inherit (geckoShortcuts) mkCustomKeysFiles;
