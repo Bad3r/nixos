@@ -9,6 +9,8 @@
 # Bash detection is a heuristic over the command text: it cannot see paths
 # built at runtime or written by interpreters, and a /tmp path inside a quoted
 # string or heredoc can trip it; the deny reason tells the agent how to retry.
+# Arguments that run elsewhere, an sbx guest command or an ssh remote command,
+# are skipped when the command splits cleanly.
 
 input="$(cat)"
 tool="$(jq -r '.tool_name // ""' <<<"$input")"
@@ -238,27 +240,51 @@ splitWords() {
   [ "$inWord" -eq 0 ] || words+=("$word")
 }
 
-# splitWords keeps expansions literal, so a host target is resolved here the
-# way the shell would, and refused when it cannot be.
+# splitWords keeps expansions literal, so a host path is resolved here the
+# way the shell would, and refused when it cannot be. The mode is checkPath's.
 # shellcheck disable=SC2016,SC2088
 checkHostPath() {
-  local path="$1"
+  local path="$1" mode="${2:-dest}"
   case "$path" in
   '$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
   '${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
   '~' | '~/'*) path="$HOME${path#'~'}" ;;
   esac
   case "$path" in
-  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out. $hint" ;;
+  *[\$\`*?[]*) deny "Cannot resolve the host path $1. Spell it out. $hint" ;;
   esac
-  checkPath "$path" dest
+  checkPath "$path" "$mode"
+}
+
+# Index of the command word after wrappers that run it locally, in cmdAt;
+# fails on a wrapper option it does not know.
+findCommand() {
+  local n=0
+  while :; do
+    case "${words[n]-}" in
+    nohup) n=$((n + 1)) ;;
+    timeout)
+      n=$((n + 1))
+      while [[ ${words[n]-} == -* ]]; do
+        case "${words[n]}" in
+        -k | -s) n=$((n + 2)) ;;
+        -k?* | -s?* | -v | --kill-after=* | --signal=* | --preserve-status | --foreground | --verbose) n=$((n + 1)) ;;
+        *) return 1 ;;
+        esac
+      done
+      n=$((n + 1))
+      ;;
+    *) break ;;
+    esac
+  done
+  cmdAt=$n
 }
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
 # only --to and a host cp destination write on the host.
 checkSbx() {
   local n word verb="" positional=()
-  for ((n = 1; n < ${#words[@]}; n++)); do
+  for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
     word="${words[n]}"
     case "$word" in
     --)
@@ -283,10 +309,107 @@ checkSbx() {
   fi
 }
 
+# Checks the host paths ssh writes: its log, control socket, and known hosts.
+# Fails on an option that runs a local command, so the segment is checked whole.
+checkSshOption() {
+  local opt="$1" value="$2" key
+  case "$opt" in
+  E | S)
+    checkSshPath "$value"
+    return 0
+    ;;
+  o) ;;
+  *) return 0 ;;
+  esac
+  # ssh_config form: optional quotes around the key, whitespace and at most
+  # one = between key and value, quoted values, several files per value.
+  trimSpace
+  if [ "${value:0:1}" = '"' ]; then
+    value="${value:1}"
+    key="${value%%\"*}"
+    value="${value#"$key"}"
+    value="${value#\"}"
+  else
+    key="${value%%[=[:space:]]*}"
+    value="${value#"$key"}"
+  fi
+  case "${key,,}" in
+  controlpath | userknownhostsfile) ;;
+  proxycommand | localcommand | knownhostscommand) return 1 ;;
+  *) return 0 ;;
+  esac
+  trimSpace
+  value="${value#=}"
+  trimSpace
+  while [ -n "$value" ]; do
+    if [ "${value:0:1}" = '"' ]; then
+      value="${value:1}"
+      key="${value%%\"*}"
+      value="${value#"$key"}"
+      value="${value#\"}"
+    else
+      key="${value%%[[:space:]]*}"
+      value="${value#"$key"}"
+    fi
+    checkSshPath "$key"
+    trimSpace
+  done
+}
+
+trimSpace() {
+  value="${value#"${value%%[![:space:]]*}"}"
+}
+
+checkSshPath() {
+  case "$1" in
+  "" | none | /dev/null) ;;
+  *) checkHostPath "$1" create ;;
+  esac
+}
+
+# ssh parses options on both sides of the destination, up to -- or the first
+# word after it; the rest runs on the remote host. Fails on an option letter
+# ssh does not take, so the segment is checked whole.
+checkSsh() {
+  local n word j c value dest=0
+  for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
+    word="${words[n]}"
+    case "$word" in
+    --) return 0 ;;
+    -?*) ;;
+    *)
+      [ "$dest" -eq 0 ] || return 0
+      dest=1
+      continue
+      ;;
+    esac
+    for ((j = 1; j < ${#word}; j++)); do
+      c="${word:j:1}"
+      case "$c" in
+      [46AaCfGgKkMNnqsTtVvXxYyZ]) ;;
+      [BbcDEeFIiJLlmOoPpQRSWw])
+        value="${word:j+1}"
+        if [ -z "$value" ]; then
+          n=$((n + 1))
+          value="${words[n]-}"
+        fi
+        checkSshOption "$c" "$value" || return 1
+        break
+        ;;
+      *) return 1 ;;
+      esac
+    done
+  done
+}
+
 flushSegment() {
-  if [[ $segment =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$segment"; then
-    checkSbx
-    elided+=" sbx$redirs "
+  if [[ $segment == *s[bs][xh]* ]] && splitWords "$segment" && findCommand &&
+    case "${words[cmdAt]-}" in
+    sbx) checkSbx ;;
+    ssh) checkSsh ;;
+    *) false ;;
+    esac then
+    elided+=" ${words[*]:0:cmdAt} ${words[cmdAt]}$redirs "
   else
     elided+="$raw"
   fi
@@ -358,11 +481,12 @@ readRedirect() {
   raw+="${s:start:i-start}"
 }
 
-# Checks each sbx command between unquoted shell operators and replaces it with
-# a bare sbx plus its redirections, so the patterns below see host-side pipes
-# and redirections but not guest arguments. Fails on substitutions, comments,
-# and heredocs, which can hide operators from the split.
-elideSbx() {
+# Checks each sbx or ssh command between unquoted shell operators and replaces
+# it with its wrappers, the bare command, and its redirections, so the patterns
+# below see host-side pipes and redirections but not arguments that run
+# elsewhere. Fails on substitutions, comments, and heredocs, which can hide
+# operators from the split.
+elideRemote() {
   local s="$1" c next quote="" i=0
   segment="" raw="" redirs="" elided=""
   while [ "$i" -lt "${#s}" ]; do
@@ -418,7 +542,7 @@ elideSbx() {
   flushSegment
 }
 
-if [[ $command == *sbx* ]] && elideSbx "$command"; then
+if [[ $command == *s[bs][xh]* ]] && elideRemote "$command"; then
   command="$elided"
 fi
 
@@ -440,7 +564,7 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest arguments of an sbx command are not checked unless it has an env prefix or the command holds a substitution, comment, or heredoc."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution, comment, or heredoc."
   fi
 done
 
