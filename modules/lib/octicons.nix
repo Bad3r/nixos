@@ -1,5 +1,5 @@
 # Primer Octicons 19.42.0: an icon font for the i3bar, i3status-rust, and the shell prompt, and
-# palette-colored SVG templates for the rofi menus.
+# palette-colored SVGs for the rofi menus and the qBittorrent Web UI.
 # ./octicons holds the release's full SVG set; the font takes only the glyphs mapped below.
 { lib, ... }:
 let
@@ -102,15 +102,30 @@ let
   prompt = mkBlock 2 promptIcons;
 
   mappings = workspaces ++ lib.attrValues status ++ lib.attrValues prompt;
+
+  # An Octicon's SVG text drawn in fill.
+  svg =
+    name: size: fill:
+    let
+      file = "${name}-${toString size}";
+      text = builtins.readFile ./octicons/${file}.svg;
+    in
+    assert lib.assertMsg (!lib.hasInfix "fill=" text) "octicons.svg: ${file} sets its own fill";
+    builtins.replaceStrings [ "<svg " ] [ ''<svg fill="${fill}" '' ] text;
 in
 {
   options.flake.lib.octicons = lib.mkOption {
     type = lib.types.raw;
-    description = "Primer Octicons font, its family name, the glyphs each consumer uses, and SVG templates.";
+    description = "Primer Octicons font, its family name, the glyphs each consumer uses, and colored SVGs.";
   };
 
   config.flake.lib.octicons = {
-    inherit family glyph workspaces;
+    inherit
+      family
+      glyph
+      workspaces
+      svg
+      ;
     nameOf = number: (lib.elemAt workspaces (number - 1)).name;
     status = lib.mapAttrs (_: entry: glyph entry.codepoint) status;
     prompt = lib.mapAttrs (_: entry: glyph entry.codepoint) prompt;
@@ -119,9 +134,7 @@ in
     # An Octicon as a base16 mustache template drawn in a palette slot.
     template =
       name: size: slot:
-      builtins.replaceStrings [ "<svg " ] [ ''<svg fill="#{{${slot}-hex}}" '' ] (
-        builtins.readFile ./octicons/${name}-${toString size}.svg
-      );
+      svg name size "#{{${slot}-hex}}";
 
     font =
       pkgs:

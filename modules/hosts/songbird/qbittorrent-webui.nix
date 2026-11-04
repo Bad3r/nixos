@@ -1,8 +1,9 @@
 # The Web UI side of the qBittorrent service in qbittorrent.nix: the desktop
 # handler that torrent files and magnet links open in, and the copy of the
 # stock Web UI the service serves in place of its built-in one.
-{ lib, ... }:
+{ config, lib, ... }:
 let
+  inherit (config.flake.lib) octicons;
   webuiIcons = import ./qbittorrent-webui/_icons.nix;
   vscode = import ../../stylix/_vscode-dark-2026.nix;
 
@@ -52,8 +53,9 @@ let
       replaceImages = lib.concatStrings (
         lib.mapAttrsToList (name: entry: ''
           if [ -e "$out/private/images/${name}.svg" ]; then
-            sed 's|<svg |<svg fill="#${tones.${entry.tone}}" |' \
-              ${../../lib/octicons + "/${entry.octicon}-16.svg"} > "$out/private/images/${name}.svg"
+            printf '%s' ${
+              lib.escapeShellArg (octicons.svg entry.octicon 16 "#${tones.${entry.tone}}")
+            } > "$out/private/images/${name}.svg"
           fi
         '') webuiIcons
       );
