@@ -21,7 +21,7 @@ let
         512
       ];
       colors = config.lib.stylix.colors.withHashtag;
-      accent = "#3994bc"; # focusBorder
+      accent = (import ../../stylix/_vscode-dark-2026.nix).focusBorder;
       shade = percent: base: "color-mix(in srgb, ${accent} ${toString percent}%, ${base})";
       # VS Code layering: content on base00, sidebar and popups on base01.
       themeTokens = {

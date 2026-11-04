@@ -34,14 +34,14 @@ _: {
       inherit (osConfig.programs.telegram-desktop.extended.package.unwrapped) src;
       colors = config.lib.stylix.colors.withHashtag;
 
-      # VS Code Dark 2026 colors with no base16 slot.
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        accent = "#3994bc"; # statusBarItem.prominentBackground
-        link = "#48a0c7"; # textLink.foreground
-        selection = "#297aa0"; # list.activeSelectionBackground
-        popup = "#202122"; # quickInput.background
-        hover = "#313233"; # activityBar.activeBackground
-        badge = "#307e9f"; # badge.background
+        accent = vscode.focusBorder;
+        link = vscode."textLink.foreground";
+        selection = vscode."quickInputList.focusBackground";
+        popup = vscode."quickInput.background";
+        hover = vscode."activityBar.activeBackground";
+        badge = vscode."badge.background";
       };
 
       baseNames = map (digit: "base0${digit}") (lib.stringToCharacters "0123456789ABCDEF");

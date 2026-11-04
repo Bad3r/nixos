@@ -27,6 +27,7 @@ _: {
 
   flake.homeManagerModules.apps.nixvim =
     {
+      config,
       inputs,
       lib,
       pkgs,
@@ -35,6 +36,8 @@ _: {
     }:
     let
       inherit (lib) mkDefault;
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       nvimEnabled = lib.attrByPath [ "programs" "neovim" "extended" "enable" ] false osConfig;
       nvimPkg = lib.attrByPath [
         "programs"
@@ -74,36 +77,36 @@ _: {
                 # VS Code Dark 2026 greys over GitHub's dark syntax colors.
                 settings = {
                   palettes.github_dark_default.border = {
-                    default = "#2a2b2c";
-                    muted = "#2a2b2c";
+                    default = colors.base02;
+                    muted = colors.base02;
                   };
                   specs.github_dark_default = {
-                    bg0 = "#191a1b";
-                    bg1 = "#121314";
-                    bg2 = "#202122";
+                    bg0 = colors.base01;
+                    bg1 = colors.base00;
+                    bg2 = vscode."editorWidget.background";
                     bg3 = "#242526";
-                    bg4 = "#555555";
+                    bg4 = vscode.disabledForeground;
                     fg0 = "#858889";
-                    fg1 = "#bbbebf";
-                    fg2 = "#8c8c8c";
+                    fg1 = colors.base05;
+                    fg2 = colors.base04;
                     fg3 = "#858889";
-                    sel0 = "#245c73";
+                    sel0 = vscode."editor.selectionBackground";
                     sel1 = "#414243";
                     sel2 = "#1a3540";
                     syntax = {
-                      bracket = "#bbbebf";
-                      ident = "#c9d1d9";
-                      param = "#c9d1d9";
-                      variable = "#c9d1d9";
+                      bracket = colors.base05;
+                      ident = colors.base06;
+                      param = colors.base06;
+                      variable = colors.base06;
                     };
                   };
                   groups.github_dark_default = {
                     Pmenu = {
                       fg = "fg1";
-                      bg = "#202122";
+                      bg = vscode."editorWidget.background";
                     };
                     Underlined = {
-                      fg = "#48a0c7";
+                      fg = vscode."textLink.foreground";
                       style = "underline";
                     };
                   };

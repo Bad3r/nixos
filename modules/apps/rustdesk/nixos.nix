@@ -85,15 +85,16 @@ let
     let
       cfg = config.programs.rustdesk.extended;
       colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       # Keys of the package's flutter/lib/common/palette.dart, in VS Code Dark 2026 colors.
       palette = {
-        accent = "#3994bc"; # focusBorder
+        accent = vscode.focusBorder;
         background = colors.base00; # editor.background
         dialog = colors.base01; # panel.background
         surface = colors.base01; # sideBar.background
-        input = "#202122"; # editorWidget.background
-        popup = "#202122"; # quickInput.background
-        hover = "#313233"; # activityBar.activeBackground
+        input = vscode."editorWidget.background";
+        popup = vscode."quickInput.background";
+        hover = vscode."activityBar.activeBackground";
         border = colors.base02; # widget.border
         foreground = colors.base05; # editor.foreground
         foregroundMuted = colors.base04; # descriptionForeground

@@ -54,13 +54,12 @@ _: {
       colors = config.lib.stylix.colors.withHashtag;
       windowRadius = 18;
 
-      # VS Code Dark 2026 colors with no base16 slot.
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        background = "#202122"; # quickInput.background
-        placeholder = "#555555"; # input.placeholderForeground
-        selection = "#297aa0"; # quickInputList.focusBackground
-        selectionText = "#ffffff"; # quickInputList.focusForeground
-        match = "#48a0c7"; # list.highlightForeground
+        placeholder = vscode."input.placeholderForeground";
+        selection = vscode."quickInputList.focusBackground";
+        selectionText = vscode."quickInputList.focusForeground";
+        match = vscode."list.highlightForeground";
       };
 
       # macOS Spotlight layout: centered box, large search field with a
@@ -69,11 +68,7 @@ _: {
         "*" = {
           background-color = mkLiteral "transparent";
           text-color = mkLiteral colors.base05;
-          # Named colors read by the other .rasi files.
-          background = mkLiteral palette.background;
-          foreground = mkLiteral colors.base05;
           border-color = mkLiteral colors.base02;
-          separatorcolor = mkLiteral colors.base02;
         };
         window = {
           # Top edge just above center, so the field stays put while results

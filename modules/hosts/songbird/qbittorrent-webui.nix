@@ -23,12 +23,15 @@ let
     let
       www = "${qbittorrentPackage.src}/src/webui/www";
       scripts = ./qbittorrent-webui;
+      vscode = pkgs.lib.mapAttrs (_: pkgs.lib.removePrefix "#") (
+        import ../../stylix/_vscode-dark-2026.nix
+      );
       tones = {
         icon = colors.base04; # icon.foreground
         muted = colors.base03;
-        error = "f48771"; # errorForeground
+        error = vscode.errorForeground;
         warning = "cca700"; # notificationsWarningIcon.foreground
-        ok = "73c991"; # gitDecoration.addedResourceForeground
+        ok = vscode."gitDecoration.addedResourceForeground";
       };
       # An image a bump drops is skipped here and fails the check below.
       replaceImages = pkgs.lib.concatStrings (

@@ -392,11 +392,11 @@ in
         focusOrLaunch = lib.getExe (appRows.package "i3-focus-or-launch");
       };
 
-      # VS Code Dark 2026 colors with no base16 slot.
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        focusBorder = "#3994bc"; # focusBorder, tab.activeBorderTop
-        activeItem = "#313233"; # activityBar.activeBackground
-        prominentForeground = "#ffffff"; # statusBarItem.prominentForeground
+        inherit (vscode) focusBorder;
+        activeItem = vscode."activityBar.activeBackground";
+        prominentForeground = vscode."statusBarItem.prominentForeground";
       };
 
       stylixBarFonts = config.stylix.targets.i3.exportedBarConfig.fonts;

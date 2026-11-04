@@ -51,6 +51,7 @@ in
     let
       nixosEnabled = lib.attrByPath [ "programs" "kitty" "extended" "enable" ] false osConfig;
       colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       arabicRanges = lib.concatStringsSep "," [
         "U+0600-U+06FF"
         "U+0750-U+077F"
@@ -290,9 +291,9 @@ in
               foreground = colors.base05;
               cursor = colors.base05;
               cursor_text_color = colors.base00;
-              selection_background = "#245c73"; # editor.selectionBackground over editor.background
+              selection_background = vscode."editor.selectionBackground";
               selection_foreground = "none";
-              url_color = "#48a0c7"; # textLink.foreground
+              url_color = vscode."textLink.foreground";
               active_border_color = colors.base03;
               inactive_border_color = colors.base01;
               tab_bar_background = colors.base00;

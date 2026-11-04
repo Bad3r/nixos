@@ -28,13 +28,14 @@ let
       )
     );
   shimmer = c: over colors.base07 89 c;
+  vscode = import ../../stylix/_vscode-dark-2026.nix;
 
   editor = colors.base00; # editor.background
-  accent = "#3994bc"; # focusBorder
-  link = "#48a0c7"; # textLink.foreground
-  success = "#73c991"; # gitDecoration.addedResourceForeground
-  warning = "#e5ba7d"; # list.warningForeground
-  error = "#f48771"; # errorForeground
+  accent = vscode.focusBorder;
+  link = vscode."textLink.foreground";
+  success = vscode."gitDecoration.addedResourceForeground";
+  warning = vscode."list.warningForeground";
+  error = vscode.errorForeground;
   chart = {
     red = "#ef8773";
     orange = "#cd861a";
@@ -54,8 +55,8 @@ in
     inverseText = editor;
     inactive = colors.base04;
     inactiveShimmer = colors.base05;
-    subtle = "#555555"; # disabledForeground
-    promptBorder = "#333536"; # input.border
+    subtle = vscode.disabledForeground;
+    promptBorder = vscode."input.border";
     promptBorderShimmer = colors.base04;
     suggestion = link;
     remember = link;
@@ -95,10 +96,10 @@ in
     userMessageBackgroundHover = over "#ffffff" 34 editor; # chat.requestBubbleHoverBackground
     composerSidebarBackground = colors.base01; # sideBar.background
     selectionBg = over "#276782" 221 editor; # editor.selectionBackground
-    bashMessageBackgroundColor = "#242526"; # textCodeBlock.background
+    bashMessageBackgroundColor = vscode."textCodeBlock.background";
     memoryBackgroundColor = "#1e3a47"; # inputValidation.infoBackground
     rate_limit_fill = accent;
-    rate_limit_empty = "#333536"; # input.border
+    rate_limit_empty = vscode."input.border";
 
     red_FOR_SUBAGENTS_ONLY = chart.red;
     orange_FOR_SUBAGENTS_ONLY = chart.orange;

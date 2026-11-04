@@ -16,6 +16,7 @@
 _: {
   flake.homeManagerModules.apps.helix =
     {
+      config,
       osConfig,
       lib,
       pkgs,
@@ -23,6 +24,8 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "helix" "extended" "enable" ] false osConfig;
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       hostname = osConfig.networking.hostName;
 
       # Helix pipes the buffer over stdin and reads the result from stdout.
@@ -84,25 +87,25 @@ _: {
           themes.vscode_dark_2026 = {
             inherits = "github_dark";
             palette = {
-              "canvas.default" = "#121314";
-              "border.default" = "#2a2b2c";
+              "canvas.default" = colors.base00;
+              "border.default" = colors.base02;
             };
             "ui.text" = "#bfbfbf";
-            "ui.text.focus" = "#bbbebf";
-            "ui.text.inactive" = "#555555";
-            "ui.text.directory" = "#48a0c7";
-            "ui.background.separator" = "#2a2b2c";
+            "ui.text.focus" = colors.base05;
+            "ui.text.inactive" = vscode.disabledForeground;
+            "ui.text.directory" = vscode."textLink.foreground";
+            "ui.background.separator" = colors.base02;
             "ui.linenr" = "#858889";
-            "ui.linenr.selected" = "#bbbebf";
+            "ui.linenr.selected" = colors.base05;
             "ui.virtual" = "#3a3b3c";
             "ui.virtual.ruler".bg = "#242526";
             "ui.statusline" = {
-              fg = "#8c8c8c";
-              bg = "#191a1b";
+              fg = colors.base04;
+              bg = colors.base01;
             };
             "ui.statusline.active" = {
-              fg = "#bbbebf";
-              bg = "#191a1b";
+              fg = colors.base05;
+              bg = colors.base01;
             };
             "ui.statusline.normal" = {
               fg = "#ffffff";
@@ -110,31 +113,31 @@ _: {
             };
             "ui.statusline.insert" = {
               fg = "#ffffff";
-              bg = "#3994bc";
+              bg = vscode.focusBorder;
             };
             "ui.menu" = {
-              fg = "#bbbebf";
-              bg = "#202122";
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
             };
             "ui.menu.selected".bg = "#414243";
             "ui.menu.scroll" = {
-              fg = "#555555";
-              bg = "#202122";
+              fg = vscode.disabledForeground;
+              bg = vscode."editorWidget.background";
             };
-            "ui.popup".bg = "#202122";
+            "ui.popup".bg = vscode."editorWidget.background";
             "ui.popup.info" = {
-              fg = "#bbbebf";
-              bg = "#202122";
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
             };
             "ui.help" = {
-              fg = "#bbbebf";
-              bg = "#202122";
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
             };
             "ui.selection".bg = "#1d4a5c";
             "ui.selection.primary".bg = "#276782";
             "ui.cursorline.primary".bg = "#242526";
             "markup.link.text" = {
-              fg = "#48a0c7";
+              fg = vscode."textLink.foreground";
               modifiers = [ "underlined" ];
             };
           };

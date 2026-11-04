@@ -24,14 +24,14 @@ _: {
       nixosEnabled = lib.attrByPath [ "programs" "thunderbird" "extended" "enable" ] false osConfig;
       colors = config.lib.stylix.colors.withHashtag;
 
-      # VS Code Dark 2026 colors with no base16 slot.
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       palette = {
-        focusBorder = "#3994bc"; # focusBorder, tab.activeBorderTop
-        link = "#48a0c7"; # textLink.foreground
-        listSelection = "#297aa0"; # quickInputList.focusBackground
-        listSelectionText = "#ffffff"; # quickInputList.focusForeground
-        quickInput = "#202122"; # quickInput.background
-        activeItem = "#313233"; # activityBar.activeBackground
+        inherit (vscode) focusBorder;
+        link = vscode."textLink.foreground";
+        listSelection = vscode."quickInputList.focusBackground";
+        listSelectionText = vscode."quickInputList.focusForeground";
+        quickInput = vscode."quickInput.background";
+        activeItem = vscode."activityBar.activeBackground";
       };
 
       # Message list and reader on base00 like the editor; folder pane,

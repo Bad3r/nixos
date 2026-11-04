@@ -69,7 +69,7 @@ _: {
               copyPathAfterSave = true;
               savePath = mkScreenshotDir;
               savePathFixed = true;
-              uiColor = "#245c73"; # editor.selectionBackground over editor.background
+              uiColor = (import ../../stylix/_vscode-dark-2026.nix)."editor.selectionBackground";
               # Selected tool button.
               contrastUiColor = getColor "base01";
               useX11LegacyScreenshot = true;

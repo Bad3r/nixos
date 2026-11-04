@@ -110,8 +110,8 @@ in
         }:
         let
           graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
-          # VS Code Dark 2026 color with no base16 slot.
-          accent = "#3994bc"; # focusBorder
+          vscode = import ./_vscode-dark-2026.nix;
+          accent = vscode.focusBorder;
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
@@ -256,18 +256,13 @@ in
             g = config.lib.stylix.colors."${name}-rgb-g";
             b = config.lib.stylix.colors."${name}-rgb-b";
           };
-          # VS Code Dark 2026 quickInputList.focusBackground (#297aa0) and
-          # quickInputList.focusForeground, which have no base16 slot.
-          quickInputFocus = {
-            r = 41;
-            g = 122;
-            b = 160;
+          rgb = hex: {
+            r = lib.fromHexString (builtins.substring 1 2 hex);
+            g = lib.fromHexString (builtins.substring 3 2 hex);
+            b = lib.fromHexString (builtins.substring 5 2 hex);
           };
-          quickInputFocusText = {
-            r = 255;
-            g = 255;
-            b = 255;
-          };
+          quickInputFocus = rgb vscode."quickInputList.focusBackground";
+          quickInputFocusText = rgb vscode."quickInputList.focusForeground";
           # VS Code layering: page content on base00 like the editor; frame (which
           # Sidebery paints its background with), toolbar, sidebar, and menus on
           # base01 like the title bar and sidebar; base02 edges between them.
