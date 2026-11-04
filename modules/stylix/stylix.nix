@@ -477,6 +477,12 @@ in
                     @define-color accent_color ${accent};
                     @define-color accent_bg_color ${accent};
                   '';
+                  gtk4.extraCss = ''
+                    :root {
+                      --accent-bg-color: ${accent};
+                      --accent-color: ${accent};
+                    }
+                  '';
                 };
 
                 # Qt theming (Kvantum + qtct)
@@ -512,19 +518,6 @@ in
                 nushell.enable = nushellEnabled;
               };
             };
-
-            # GTK 4 accent; GTK 3 rejects custom properties.
-            xdg.configFile."gtk-4.0/gtk.css".source = lib.mkForce (
-              pkgs.concatText "gtk.css" [
-                config.xdg.configFile."gtk-3.0/gtk.css".source
-                (pkgs.writeText "gtk4-accent.css" ''
-                  :root {
-                    --accent-bg-color: ${accent};
-                    --accent-color: ${accent};
-                  }
-                '')
-              ]
-            );
 
             xdg.dataFile = lib.mkIf (iconTheme != null) themedIconOverrides;
 
