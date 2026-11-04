@@ -40,7 +40,8 @@
         trust_level = "trusted"
 */
 
-_: {
+{ inputs, ... }:
+{
   flake.homeManagerModules.apps.codex =
     {
       osConfig,
@@ -67,9 +68,18 @@ _: {
         sbx = if sbxEnabled then osConfig.programs.sbx.extended.finalPackage else null;
       };
 
+      codexNotify = import ./_notify.nix {
+        inherit pkgs;
+        icon = config.lib.stylix.colors {
+          template = builtins.readFile ../../stylix/icons/openai-blossom.svg.mustache;
+          extension = ".svg";
+        };
+      };
+
       codexSettings = import ./_settings.nix {
         inherit
           agents
+          codexNotify
           homeDir
           lib
           osConfig
@@ -230,6 +240,12 @@ _: {
 
           # Nix-managed execpolicy rules (read-only symlink to store)
           "codex/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
+
+          # Stylix palette as a syntax theme, from Stylix's bat template
+          "codex/themes/base16-stylix.tmTheme".source = config.lib.stylix.colors {
+            template = builtins.readFile "${inputs.stylix}/modules/bat/base16-stylix.tmTheme.mustache";
+            extension = ".tmTheme";
+          };
 
           # User-level Codex instructions under XDG config home
           "codex/AGENTS.md".text = codexInstructions;

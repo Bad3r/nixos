@@ -14,6 +14,7 @@
       githubUnsignedEmail = "github@unsigned.sh";
       githubUnsignedSigningKey = metaOwner.gitSigningPublicKey;
       gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
+      vscode = import ../stylix/_vscode-dark-2026.nix;
 
       # Home Manager defines git-maintenance@ only under both switches.
       maintenanceEnabled = config.programs.git.enable && config.programs.git.maintenance.enable;
@@ -111,7 +112,6 @@
               # Core settings
               core = {
                 # editor uses $EDITOR env var (set via default-apps.nix)
-                # pager is set by programs.delta when enabled
                 whitespace = "trailing-space,space-before-tab";
               };
 
@@ -225,14 +225,23 @@
           }
         ];
 
-        # Delta diff viewer (moved from programs.git.delta to programs.delta)
         delta = {
           enable = true;
+          # Sets core.pager and interactive.diffFilter.
+          enableGitIntegration = true;
           options = {
             navigate = true;
             light = false;
             side-by-side = false;
             line-numbers = true;
+            # PAGER is bat, which hides less from navigate.
+            pager = "less --RAW-CONTROL-CHARS --quit-if-one-screen";
+            # Stylix's bat theme.
+            syntax-theme = "base16-stylix";
+            minus-style = "syntax ${vscode."diffEditor.removedLineBackground"}";
+            minus-emph-style = "syntax ${vscode."diffEditor.removedTextBackground"}";
+            plus-style = "syntax ${vscode."diffEditor.insertedLineBackground"}";
+            plus-emph-style = "syntax ${vscode."diffEditor.insertedTextBackground"}";
           };
         };
       };

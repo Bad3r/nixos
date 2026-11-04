@@ -40,6 +40,7 @@ let
               font-awesome_6
               material-icons
               nerd-fonts.symbols-only
+              (octiconsFont pkgs)
             ]
             ++ lib.optional (privateFonts ? monolisa) privateFonts.monolisa;
 
@@ -78,6 +79,7 @@ let
       };
     };
   configFonts = config.flake.lib.fonts.packages;
+  octiconsFont = config.flake.lib.octicons.font;
 in
 {
   nixpkgs.allowedUnfreePackages = [

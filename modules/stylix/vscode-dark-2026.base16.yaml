@@ -1,0 +1,21 @@
+system: "base16"
+name: "VS Code Dark 2026"
+author: "Microsoft (VS Code theme-defaults 2026-dark.json)"
+variant: "dark"
+palette:
+  base00: "#121314" # editor.background
+  base01: "#191a1b" # sideBar.background
+  base02: "#2a2b2c" # widget.border
+  base03: "#616161" # textBlockQuote.border
+  base04: "#8c8c8c" # descriptionForeground
+  base05: "#bbbebf" # editor.foreground
+  base06: "#c9d1d9" # variable.other token
+  base07: "#f0f6fc" # carriage-return token
+  base08: "#ff7b72" # keyword token
+  base09: "#ffa657" # variable token
+  base0A: "#cd9731" # token.warn-token
+  base0B: "#7ee787" # entity.name.tag token
+  base0C: "#29b8db" # terminal.ansiBrightCyan default
+  base0D: "#79c0ff" # constant token
+  base0E: "#d2a8ff" # entity.name.function token
+  base0F: "#ffa198" # invalid token

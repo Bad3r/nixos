@@ -1,5 +1,9 @@
 # i3 window rules configuration
 # Defines workspace assignments and per-window commands
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -10,6 +14,7 @@
     }:
     let
       cfg = config.gui.i3;
+      workspaceName = octicons.nameOf;
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
         "claude-desktop"
@@ -39,8 +44,8 @@
       config.xsession.windowManager.i3.config = {
         # Workspace assignments by window class
         assigns = lib.mkOptionDefault {
-          "2" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
-          "3" = [ { class = "(?i)^thunar$"; } ];
+          "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
+          "number \"${workspaceName 3}\"" = [ { class = "(?i)^thunar$"; } ];
         };
 
         # Per-window commands (floating, resize, position, borders)

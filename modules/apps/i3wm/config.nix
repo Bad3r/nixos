@@ -1,6 +1,10 @@
 # i3 core configuration
 # Defines options, scripts, startup commands, colors, and bar settings
 # Window rules are in window-rules.nix
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -285,6 +289,16 @@
         '';
       };
 
+      # Menu row icons in the status text color, rendered from the Stylix palette.
+      renderIcon =
+        template:
+        config.lib.stylix.colors {
+          inherit template;
+          extension = ".svg";
+        };
+      rofiIcon = name: renderIcon (octicons.template name 24 "base04");
+      powerIcon = renderIcon (builtins.readFile ../../stylix/icons/power.svg.mustache);
+
       # Power profile switcher over power-profiles-daemon
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -296,34 +310,18 @@
         text = ''
           set -euo pipefail
 
-          # Get current profile
-          current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
+          # Highlight the active profile.
+          active=()
+          case "$(powerprofilesctl get 2>/dev/null || true)" in
+            power-saver) active=(-a 0 -selected-row 0) ;;
+            balanced) active=(-a 1 -selected-row 1) ;;
+            performance) active=(-a 2 -selected-row 2) ;;
+          esac
 
-          # Mark current profile
-          mark_current() {
-            local profile="$1"
-            local label="$2"
-            if [ "$current" = "$profile" ]; then
-              echo "$label ✓"
-            else
-              echo "$label"
-            fi
-          }
-
-          # Build menu
-          menu=$(printf "%s\n%s\n%s" \
-            "$(mark_current "power-saver" "  Power Saver")" \
-            "$(mark_current "balanced" "  Balanced")" \
-            "$(mark_current "performance" "  Performance")")
-
-          # Show rofi menu (Stylix-themed)
-          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
-            window { width: 320px; }
-            listview { lines: 3; }
-            element selected.normal { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base05}; }
-            element normal.active { text-color: ${stylixColors.base0B}; }
-            element selected.active { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base0B}; }
-          ' || true)
+          chosen=$(printf 'Power Saver\0icon\x1f%s\nBalanced\0icon\x1f%s\nPerformance\0icon\x1f%s\n' \
+            ${rofiIcon "moon"} ${rofiIcon "meter"} ${rofiIcon "zap"} |
+            rofi -dmenu -i "''${active[@]}" \
+              -config "$HOME/.config/rofi/power-profiles.rasi" || true)
 
           # Exit if nothing selected
           [ -z "$chosen" ] && exit 0
@@ -357,7 +355,14 @@
         text = ''
           set -euo pipefail
 
-          chosen=$(printf '%s\n' Lock Logout Suspend Hibernate Reboot Shutdown Cancel |
+          chosen=$(printf '%s\0icon\x1f%s\n' \
+            Lock ${rofiIcon "lock"} \
+            Logout ${rofiIcon "sign-out"} \
+            Suspend ${rofiIcon "moon"} \
+            Hibernate ${rofiIcon "archive"} \
+            Reboot ${rofiIcon "sync"} \
+            Shutdown ${powerIcon} \
+            Cancel ${rofiIcon "x-circle"} |
             rofi -dmenu -i -config "$HOME/.config/rofi/powermenu.rasi" || true)
 
           case "$chosen" in
@@ -389,53 +394,45 @@
         focusOrLaunch = lib.getExe (appRows.package "i3-focus-or-launch");
       };
 
-      # Use the already-defined stylixColors for consistency
-      stylixColorsStrictWithHash = stylixColors;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
+      palette = {
+        activeTab = vscode."tab.activeBorderTop";
+        prominentBackground = vscode."statusBarItem.prominentBackground";
+        activeItem = vscode."activityBar.activeBackground";
+        prominentForeground = vscode."statusBarItem.prominentForeground";
+      };
+
+      stylixBarFonts = config.stylix.targets.i3.exportedBarConfig.fonts;
+      workspaceColors = border: background: text: { inherit border background text; };
+      # Bar on the sidebar color like VS Code's status and activity bars.
+      barColors = {
+        background = stylixColors.base01;
+        statusline = stylixColors.base04;
+        separator = stylixColors.base02;
+        focusedWorkspace = workspaceColors palette.activeItem palette.activeItem stylixColors.base05;
+        activeWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base05;
+        inactiveWorkspace = workspaceColors stylixColors.base01 stylixColors.base01 stylixColors.base04;
+        urgentWorkspace = workspaceColors stylixColors.base08 stylixColors.base01 stylixColors.base05;
+        bindingMode =
+          workspaceColors palette.prominentBackground palette.prominentBackground
+            palette.prominentForeground;
+      };
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
-      workspaceOutputAssign = [
-        {
-          workspace = "1";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "2";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "3";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "4";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "5";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "6";
-          output = [ "HDMI-0" ];
-        }
-        {
-          workspace = "7";
-          output = [ "eDP-1-1" ];
-        }
-        {
-          workspace = "8";
-          output = [ "DP-1" ];
-        }
-        {
-          workspace = "9";
-          output = [ "DP-1" ];
-        }
-        {
-          workspace = "10";
-          output = [ "DP-1" ];
-        }
-      ];
+      workspaceOutput =
+        number:
+        if number <= 6 then
+          "HDMI-0"
+        else if number == 7 then
+          "eDP-1-1"
+        else
+          "DP-1";
+      # Full names, so i3 creates each workspace with its icon.
+      workspaceOutputAssign = map (ws: {
+        workspace = ws.name;
+        output = [ (workspaceOutput ws.number) ];
+      }) octicons.workspaces;
 
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
@@ -472,9 +469,9 @@
         };
 
         borderWidth = lib.mkOption {
-          description = "Window border width in pixels for positioning calculations.";
+          description = "Window border width in pixels, also used by positioning calculations.";
           type = lib.types.int;
-          default = 5;
+          default = 1;
           example = 3;
         };
 
@@ -579,7 +576,7 @@
 
               floating = {
                 modifier = "Mod1";
-                border = 5;
+                border = config.gui.i3.borderWidth;
                 titlebar = false;
               };
 
@@ -589,63 +586,79 @@
               };
 
               window = {
-                border = 5;
+                border = config.gui.i3.borderWidth;
                 hideEdgeBorders = "none";
                 titlebar = false;
               };
 
-              # Make split-direction hint use the same color as borders
-              # (indicator equals border per state). Keep scope minimal and
-              # avoid self-referencing config to prevent recursion.
+              # Accent frame on the focused window, base02 on the rest. Tab
+              # and stack titles as VS Code tabs: the active one on the
+              # editor color, the others on the sidebar color.
               colors = {
-                focused.indicator = lib.mkForce stylixColorsStrictWithHash.base0D;
-                urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
-
-                # Grouped per-state overrides to satisfy linters and avoid repetition
+                focused = {
+                  indicator = lib.mkForce palette.activeTab;
+                  border = lib.mkForce palette.activeTab;
+                  childBorder = lib.mkForce palette.activeTab;
+                };
+                urgent.indicator = lib.mkForce stylixColors.base08;
                 focusedInactive = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base00;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  indicator = lib.mkForce stylixColors.base02;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
                 unfocused = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  indicator = lib.mkForce stylixColors.base03;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
                 placeholder = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                  indicator = lib.mkForce stylixColors.base03;
+                  border = lib.mkForce stylixColors.base02;
+                  childBorder = lib.mkForce stylixColors.base02;
+                  background = lib.mkForce stylixColors.base01;
+                  text = lib.mkForce stylixColors.base04;
                 };
               };
 
               workspaceAutoBackAndForth = true;
               inherit workspaceOutputAssign;
 
+              # VS Code spacing-size40.
               gaps = {
-                inner = 0;
+                inner = 4;
                 outer = 0;
                 top = 0;
                 bottom = 0;
               };
 
               bars = [
-                (
-                  {
-                    mode = "dock";
-                    hiddenState = "hide";
-                    position = "top";
-                    trayOutput = "primary";
-                    workspaceButtons = true;
-                    workspaceNumbers = true;
-                    statusCommand =
-                      if config.programs.i3status-rust.enable then
-                        lib.getExe config.programs.i3status-rust.package
-                      else
-                        null;
-                  }
-                  // config.stylix.targets.i3.exportedBarConfig
-                )
+                {
+                  mode = "dock";
+                  hiddenState = "hide";
+                  position = "top";
+                  trayOutput = "primary";
+                  workspaceButtons = true;
+                  # Strip "N:" so buttons show only the icon.
+                  workspaceNumbers = false;
+                  statusCommand =
+                    if config.programs.i3status-rust.enable then
+                      lib.getExe config.programs.i3status-rust.package
+                    else
+                      null;
+                  fonts = stylixBarFonts // {
+                    names = stylixBarFonts.names ++ [ octicons.family ];
+                  };
+                  colors = barColors;
+                  # Square icon buttons with a small inset at the bar ends.
+                  extraConfig = ''
+                    workspace_min_width 32
+                    padding 0 4px
+                  '';
+                }
               ];
             };
 

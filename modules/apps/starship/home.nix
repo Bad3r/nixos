@@ -19,7 +19,11 @@
     * Custom format and styling
 */
 
-_: {
+{ config, ... }:
+let
+  icons = config.flake.lib.octicons.prompt;
+in
+{
   flake.homeManagerModules.apps.starship =
     {
       osConfig,
@@ -74,13 +78,13 @@ _: {
               fish_style_pwd_dir_length = 1;
               format = "[$path]($style)[$read_only]($read_only_style) ";
               style = "bold cyan";
-              read_only = " 󰌾";
+              read_only = " ${icons.read_only}";
               read_only_style = "red";
             };
 
             # Git branch
             git_branch = {
-              symbol = " ";
+              symbol = "${icons.git_branch} ";
               format = "[$symbol$branch(:$remote_branch)]($style) ";
               style = "bold purple";
             };
@@ -89,17 +93,17 @@ _: {
             git_status = {
               format = "([$all_status$ahead_behind]($style) )";
               style = "bold red";
-              conflicted = "󰞇\${count} ";
-              ahead = "↑\${count} ";
-              behind = "↓\${count} ";
-              diverged = "↑\${ahead_count} ↓\${behind_count} ";
-              up_to_date = "✓ ";
-              untracked = "?\${count} ";
-              stashed = "󰏗\${count} ";
-              modified = "!\${count} ";
-              staged = "+\${count} ";
-              renamed = "»\${count} ";
-              deleted = "✘\${count} ";
+              conflicted = "${icons.conflicted} \${count} ";
+              ahead = "${icons.ahead} \${count} ";
+              behind = "${icons.behind} \${count} ";
+              diverged = "${icons.ahead} \${ahead_count} ${icons.behind} \${behind_count} ";
+              up_to_date = "${icons.up_to_date} ";
+              untracked = "${icons.untracked} \${count} ";
+              stashed = "${icons.stashed} \${count} ";
+              modified = "${icons.modified} \${count} ";
+              staged = "${icons.staged} \${count} ";
+              renamed = "${icons.renamed} \${count} ";
+              deleted = "${icons.deleted} \${count} ";
             };
 
             # Nix shell indicator
@@ -109,14 +113,14 @@ _: {
               pure_msg = "[pure](bold green)";
               unknown_msg = "[unknown](bold yellow)";
               format = "via [$symbol$state( \\($name\\))]($style) ";
-              symbol = " ";
+              symbol = "${icons.nix_shell} ";
               style = "bold blue";
             };
 
             # Command duration (only show if > 2 seconds)
             cmd_duration = {
               min_time = 2000;
-              format = "took [$duration]($style) ";
+              format = "took [${icons.cmd_duration} $duration]($style) ";
               style = "bold yellow";
             };
 

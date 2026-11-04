@@ -17,6 +17,8 @@
   Notes:
     * Every host knows every other host's permanent password.
     * A GUI started from the user session is not confined to Mesh; only its settings keep it there.
+    * The GUI stays in dark mode, recolored from /etc/xdg/rustdesk/palette.json; its theme switch
+      reverts at the next service start.
 */
 { config, ... }:
 let
@@ -55,6 +57,10 @@ let
   managedLocalOptions = {
     "enable-check-update" = "N";
     "disable-discovery-panel" = "Y";
+    # palette.json recolors only the dark theme.
+    theme = "dark";
+    # i3 closes and resizes the windows.
+    "hide-window-buttons" = "Y";
   };
 
   # Loopback carries hbbs's self-test.
@@ -78,6 +84,21 @@ let
     }:
     let
       cfg = config.programs.rustdesk.extended;
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
+      # Keys of the package's flutter/lib/common/palette.dart, in VS Code Dark 2026 colors.
+      palette = {
+        accent = vscode."statusBarItem.prominentBackground";
+        background = colors.base00; # editor.background
+        dialog = colors.base01; # panel.background
+        surface = colors.base01; # sideBar.background
+        input = vscode."editorWidget.background";
+        popup = vscode."quickInput.background";
+        hover = vscode."activityBar.activeBackground";
+        border = colors.base02; # widget.border
+        foreground = colors.base05; # editor.foreground
+        foregroundMuted = colors.base04; # descriptionForeground
+      };
       hostFlags = hostsRegistry.${hostName} or { };
       secretFile = secretsRoot + "/rustdesk.yaml";
       secretExists = builtins.pathExists secretFile;
@@ -442,6 +463,7 @@ let
 
         (lib.mkIf clientActive {
           environment.systemPackages = [ cfg.package ];
+          environment.etc."xdg/rustdesk/palette.json".text = builtins.toJSON palette;
 
           sops = {
             secrets.${passwordSecret} = {

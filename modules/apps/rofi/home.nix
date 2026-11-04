@@ -8,30 +8,34 @@
   Summary:
     * Provides a customizable launcher supporting modes for running applications, switching windows, SSH, scripts, file browsers, and more.
     * Features themes, keybinding customization, history, and scriptable "modi" to extend functionality beyond launching apps.
-    * Theme colors automatically synced with Stylix configuration.
+    * Spotlight-style layout in VS Code Dark 2026 colors, from the Stylix palette.
 
   Features:
-    * Colors automatically managed by stylix.targets.rofi (base16 scheme)
+    * macOS Spotlight proportions: centered 680px box, large search field, roomy rows
     * Multiple specialized themes: dmenu (apps), powermenu, power-profiles, keyhint
     * Modes: window, drun, run, ssh, combi, filebrowser, calc
     * Calculator mode via rofi-calc plugin (uses libqalculate for natural language math)
     * Terminal integration for running console applications
 
   Config files installed:
-    * ~/.config/rofi/rofidmenu.rasi      - Apps menu layout (single column, 6 lines)
-    * ~/.config/rofi/powermenu.rasi      - Power menu layout (east sidebar, 7 lines)
-    * ~/.config/rofi/power-profiles.rasi - Power profile selector (east, 4 lines)
-    * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
+    * ~/.config/rofi/rofidmenu.rasi      - Apps menu (Spotlight layout, 9 lines)
+    * ~/.config/rofi/powermenu.rasi      - Power menu (Spotlight layout, 7 lines)
+    * ~/.config/rofi/power-profiles.rasi - Power profile selector (Spotlight layout, 3 lines)
+    * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (Spotlight layout, 10 lines)
 
   Example Usage:
-    * `rofi -show drun` -- Default app launcher with stylix colors.
-    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps in compact single-column list.
+    * `rofi -show drun` -- App launcher in the Spotlight layout.
+    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps menu with its own placeholder.
     * `rofi -show calc -modi calc -no-show-match -no-sort` -- Calculator with natural language.
     * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` -- Power menu.
     * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` -- Show keybindings.
 */
 
-_: {
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
+{
   flake.homeManagerModules.apps.rofi =
     {
       osConfig,
@@ -50,156 +54,187 @@ _: {
         in
         i3Commands.terminal or "${lib.getExe pkgs.kitty}";
 
-      # Layout-only styles (colors handled by stylix via programs.rofi.theme)
-      commonLayoutStyles = ''
-        element {
-            border:  0;
-            padding: 1px;
-        }
-        scrollbar {
-            width:        4px;
-            border:       0;
-            handle-width: 8px;
-            padding:      0;
-        }
-        mode-switcher {
-            border: 2px 0px 0px;
-        }
-        button {
-            spacing: 0;
-        }
-        inputbar {
-            spacing:  0;
-            padding:  1px;
-            children: [ prompt,textbox-prompt-colon,entry,case-indicator ];
-        }
-        case-indicator {
-            spacing: 0;
-        }
-        entry {
-            spacing: 0;
-        }
-        prompt {
-            spacing: 0;
-        }
-        textbox-prompt-colon {
-            expand: false;
-            str:    ":";
-            margin: 0px 0.3em 0em 0em;
-        }
-      '';
+      inherit (config.lib.formats.rasi) mkLiteral;
+      colors = config.lib.stylix.colors.withHashtag;
+      windowRadius = 18;
+
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
+      palette = {
+        placeholder = vscode."input.placeholderForeground";
+        selection = vscode."quickInputList.focusBackground";
+        selectionText = vscode."quickInputList.focusForeground";
+        match = vscode."list.highlightForeground";
+      };
+
+      # macOS Spotlight layout: centered box, large search field with a
+      # magnifier, hairline under the field, roomy rows with large icons.
+      launcherTheme = {
+        "*" = {
+          background-color = mkLiteral "transparent";
+          text-color = mkLiteral colors.base05;
+          border-color = mkLiteral colors.base02;
+        };
+        window = {
+          # Top edge just above center, so the field stays put while results
+          # grow downward and a full list sits centered.
+          location = mkLiteral "center";
+          anchor = mkLiteral "north";
+          y-offset = mkLiteral "-15%";
+          width = mkLiteral "680px";
+          # Frosted glass: the sidebar color at 75% over picom's backdrop blur.
+          background-color = mkLiteral "${colors.base01}bf";
+          border = mkLiteral "1px";
+          border-color = mkLiteral colors.base02;
+          border-radius = mkLiteral "${toString windowRadius}px";
+          padding = mkLiteral "10px";
+          transparency = "real";
+        };
+        # The separator and gap belong to the listview, which rofi collapses to
+        # zero height (margin and border included) when nothing matches.
+        mainbox = {
+          spacing = mkLiteral "0px";
+          children = map mkLiteral [
+            "inputbar"
+            "message"
+            "listview"
+          ];
+        };
+        inputbar = {
+          children = map mkLiteral [
+            "icon-search"
+            "entry"
+          ];
+          spacing = mkLiteral "10px";
+          padding = mkLiteral "6px 8px";
+        };
+        icon-search = {
+          expand = false;
+          filename = "${config.lib.stylix.colors {
+            template = octicons.template "search" 24 "base04";
+            extension = ".svg";
+          }}";
+          size = mkLiteral "22px";
+          vertical-align = mkLiteral "0.5";
+        };
+        entry = {
+          font = "${config.stylix.fonts.sansSerif.name} 16";
+          placeholder = "Search";
+          placeholder-color = mkLiteral palette.placeholder;
+          vertical-align = mkLiteral "0.5";
+          cursor = mkLiteral "text";
+        };
+        message = {
+          padding = mkLiteral "4px 6px";
+        };
+        textbox = {
+          text-color = mkLiteral colors.base04;
+        };
+        listview = {
+          lines = 9;
+          fixed-height = false;
+          dynamic = true;
+          scrollbar = false;
+          spacing = mkLiteral "0px";
+          margin = mkLiteral "6px 0px 0px";
+          border = mkLiteral "1px 0px 0px";
+          border-color = mkLiteral colors.base02;
+          padding = mkLiteral "8px 0px 0px";
+        };
+        element = {
+          padding = mkLiteral "6px 10px";
+          spacing = mkLiteral "10px";
+          border-radius = mkLiteral "8px";
+        };
+        "element normal.normal" = {
+          text-color = mkLiteral colors.base05;
+        };
+        "element alternate.normal" = {
+          text-color = mkLiteral colors.base05;
+        };
+        "element normal.active" = {
+          text-color = mkLiteral colors.base0D;
+        };
+        "element alternate.active" = {
+          text-color = mkLiteral colors.base0D;
+        };
+        "element normal.urgent" = {
+          text-color = mkLiteral colors.base08;
+        };
+        "element alternate.urgent" = {
+          text-color = mkLiteral colors.base08;
+        };
+        "element selected.normal" = {
+          background-color = mkLiteral palette.selection;
+          text-color = mkLiteral palette.selectionText;
+        };
+        "element selected.active" = {
+          background-color = mkLiteral palette.selection;
+          text-color = mkLiteral palette.selectionText;
+        };
+        "element selected.urgent" = {
+          background-color = mkLiteral colors.base08;
+          text-color = mkLiteral palette.selectionText;
+        };
+        element-icon = {
+          size = mkLiteral "24px";
+        };
+        element-text = {
+          text-color = mkLiteral "inherit";
+          highlight = mkLiteral "bold ${palette.match}";
+          vertical-align = mkLiteral "0.5";
+        };
+        "element-text selected" = {
+          highlight = mkLiteral "bold ${palette.selectionText}";
+        };
+      };
 
       # Apps menu config (rofidmenu.rasi)
-      # Imports main config.rasi for stylix colors, then overrides layout
       rofidmenuConfig = ''
-        /* Apps menu - compact single column, 6 lines */
+        /* Apps menu - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           5;
-            border-color:     @border-color;
-            padding:          5;
-            transparency:     "none";
+        entry {
+            placeholder: "Search applications";
         }
-        listview {
-            lines:        6;
-            fixed-height: 0;
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            spacing:      10px;
-            scrollbar:    true;
-            padding:      2px 0px 0px;
-        }
-        mainbox {
-            border:  0;
-            padding: 0;
-        }
-        message {
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            padding:      1px;
-        }
-        ${commonLayoutStyles}
       '';
 
-      # Power menu config (powermenu.rasi)
+      # Session power menu (powermenu.rasi)
       powermenuConfig = ''
-        /* Power menu - east sidebar, 7 lines, no inputbar */
+        /* Power menu - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          10;
-            transparency:     "real";
-            width:            120px;
-            location:         east;
+        entry {
+            placeholder: "Power";
         }
         listview {
-            lines:     7;
-            columns:   1;
-            scrollbar: false;
+            lines: 7;
         }
-        mainbox {
-            children: [listview];
-        }
-        ${commonLayoutStyles}
       '';
 
-      # Power profiles config (power-profiles.rasi)
+      # Power profile selector (power-profiles.rasi)
       powerProfilesConfig = ''
-        /* Power profile selector - east sidebar, 4 lines */
+        /* Power profile selector - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          10;
-            transparency:     "real";
-            width:            170px;
-            location:         east;
+        entry {
+            placeholder: "Power profile";
         }
         listview {
-            lines:   4;
-            columns: 1;
-        }
-        ${commonLayoutStyles}
-        textbox-prompt-colon {
-            str: "Set Power Profile:";
+            lines: 3;
         }
       '';
 
-      # Keyhint menu config (rofikeyhint.rasi)
+      # Keybinding hints (rofikeyhint.rasi)
       rofikeyhintConfig = ''
-        /* Keybinding hints - 1 column, 10 lines */
+        /* Keybinding hints - Spotlight layout */
         @import "config"
 
-        window {
-            background-color: @background;
-            border:           0;
-            padding:          30;
+        entry {
+            placeholder: "Search keybindings";
         }
         listview {
-            lines:        10;
-            columns:      1;
-            fixed-height: 0;
-            border:       8px 0px 0px;
-            border-color: @separatorcolor;
-            spacing:      8px;
-            scrollbar:    false;
-            padding:      2px 0px 0px;
+            lines: 10;
         }
-        mainbox {
-            border:  0;
-            padding: 0;
-        }
-        message {
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
-            padding:      1px;
-        }
-        ${commonLayoutStyles}
       '';
     in
     {
@@ -257,11 +292,16 @@ _: {
             filebrowser-sorting-method = "name";
           };
 
-          # Theme is set by stylix - it creates ~/.local/share/rofi/themes/custom.rasi
-          # with all the base16 color definitions
+          font = "${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.popups}";
+          theme = launcherTheme;
         };
 
-        # Install config files that import the main config (which has stylix theme)
+        stylix.targets.rofi.enable = false;
+
+        # picom blurs and rounds the window at the theme's radius.
+        services.picom.settings.corner-radius-rules = [ "${toString windowRadius}:class_g = 'Rofi'" ];
+
+        # Install config files that import the main config (which has the theme)
         xdg.configFile = {
           "rofi/rofidmenu.rasi".text = rofidmenuConfig;
           "rofi/powermenu.rasi".text = powermenuConfig;

@@ -27,6 +27,7 @@ _: {
 
   flake.homeManagerModules.apps.nixvim =
     {
+      config,
       inputs,
       lib,
       pkgs,
@@ -35,6 +36,8 @@ _: {
     }:
     let
       inherit (lib) mkDefault;
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       nvimEnabled = lib.attrByPath [ "programs" "neovim" "extended" "enable" ] false osConfig;
       nvimPkg = lib.attrByPath [
         "programs"
@@ -52,7 +55,7 @@ _: {
           {
             # Stylix's nixvim target is disabled at module level in
             # modules/stylix/stylix.nix (disabledModules), so we cannot set
-            # stylix.targets.nixvim.enable here. Theming uses navarasu/onedark.
+            # stylix.targets.nixvim.enable here. Theming uses projekt0n/github-nvim-theme.
             programs.nixvim = {
               enable = true;
               package = nvimPkg;
@@ -69,7 +72,47 @@ _: {
                 taplo
               ];
 
-              colorschemes.onedark.enable = true;
+              colorschemes.github-theme = {
+                enable = true;
+                # VS Code Dark 2026 greys over GitHub's dark syntax colors.
+                settings = {
+                  palettes.github_dark_default.border = {
+                    default = colors.base02;
+                    muted = colors.base02;
+                  };
+                  specs.github_dark_default = {
+                    bg0 = colors.base01;
+                    bg1 = colors.base00;
+                    bg2 = vscode."editorWidget.background";
+                    bg3 = vscode."editor.lineHighlightBackground";
+                    bg4 = vscode.disabledForeground;
+                    fg0 = vscode."editorLineNumber.foreground";
+                    fg1 = colors.base05;
+                    fg2 = colors.base04;
+                    fg3 = vscode."editorLineNumber.foreground";
+                    sel0 = vscode."editor.selectionBackground";
+                    sel1 = vscode."editorSuggestWidget.selectedBackground";
+                    sel2 = "#1a3540";
+                    syntax = {
+                      bracket = colors.base05;
+                      ident = colors.base06;
+                      param = colors.base06;
+                      variable = colors.base06;
+                    };
+                  };
+                  groups.github_dark_default = {
+                    Pmenu = {
+                      fg = "fg1";
+                      bg = vscode."editorWidget.background";
+                    };
+                    Underlined = {
+                      fg = vscode."textLink.foreground";
+                      style = "underline";
+                    };
+                  };
+                };
+              };
+              colorscheme = "github_dark_default";
 
               # Nixvim builds its own pkgs instance, so the system-level
               # allowUnfreePredicate doesn't apply. Forward it so unfree

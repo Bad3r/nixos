@@ -20,7 +20,7 @@
           notification = false;
         }
         {
-          command = "${lib.getExe' (appRows.package "hsetroot") "hsetroot"} -solid '${stylixColors.base00}'";
+          command = "${lib.getExe' (appRows.package "hsetroot") "hsetroot"} -solid '${stylixColors.base01}'";
           always = true;
           notification = false;
         }

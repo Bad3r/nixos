@@ -1,5 +1,9 @@
 # i3status-rust configuration
 # Configures the status bar with system metrics, media controls, and theming
+{ config, ... }:
+let
+  inherit (config.flake.lib) octicons;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -11,6 +15,7 @@
     }:
     let
       inherit (config.gui.i3) netInterface;
+      stylixColors = config.lib.stylix.colors.withHashtag;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
       netBlockBase = {
@@ -57,6 +62,8 @@
         {
           block = "temperature";
           interval = 10;
+          # Normal load stays plain.
+          idle = 75.0;
           info = 81.0;
           warning = 90.0;
           format = " $icon $max ";
@@ -126,13 +133,24 @@
           blocks = i3statusBlocks;
           settings = {
             icons = {
+              # Octicons over Font Awesome; headphones, microphones, and batteries stay Font Awesome.
               icons = "awesome6";
+              overrides = octicons.status;
             };
           }
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
             theme = {
               theme = "plain";
-              overrides = stylixThemeOverrides;
+              # VS Code status bar: dim text on base01, no dividers.
+              overrides = stylixThemeOverrides // {
+                separator = "";
+                idle_bg = stylixColors.base01;
+                idle_fg = stylixColors.base04;
+                good_bg = stylixColors.base01;
+                good_fg = stylixColors.base05;
+                separator_bg = stylixColors.base01;
+                separator_fg = stylixColors.base02;
+              };
             };
           };
         };

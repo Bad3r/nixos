@@ -145,11 +145,85 @@ let
       };
     };
 
-  # Seed Dark Reader's storage.js once per profile as a writable file. Home
-  # Manager's extensions.settings would force-rewrite it on every activation
-  # and discard the extension's runtime state, so the seed is skipped whenever a
-  # real storage.js already exists. `addon@darkreader.org` is the extension ID
-  # (the browser-extension-data directory name); see _gecko-extensions.nix.
+  # Applies the Stylix-owned Dark Reader colors to every existing storage.js
+  # under a profile root ($1), keeping colors the user changed. $2 holds each
+  # profile's last applied palette; a profile without one counts as already on
+  # the current palette. Gecko holds storage.js in memory and rewrites it
+  # whole, so profiles whose lock names a live PID are skipped; a stale lock
+  # names a dead one.
+  darkreaderPaletteRefresh = pkgs.writeShellApplication {
+    name = "darkreader-palette-refresh";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.diffutils
+      pkgs.jq
+    ];
+    text = ''
+      dr_palette=${geckoExtensions.darkreaderPalette}
+      for dr_file in "$1"/*/browser-extension-data/addon@darkreader.org/storage.js; do
+        if [ ! -f "$dr_file" ] || [ -L "$dr_file" ]; then
+          continue
+        fi
+        dr_dir="''${dr_file%/storage.js}"
+        profile="''${dr_dir%/browser-extension-data/*}"
+        dr_lock="$(readlink "$profile/lock" 2>/dev/null || true)"
+        if [ -n "$dr_lock" ] && kill -0 "''${dr_lock##*+}" 2>/dev/null; then
+          if [ -n "''${DARKREADER_REPORT_OPEN:-}" ]; then
+            echo "darkreader: ''${profile##*/} is open (pid ''${dr_lock##*+}); its colors refresh on the next launch" >&2
+          fi
+          continue
+        fi
+        dr_state="$2/''${profile##*/}.json"
+        dr_prev="$dr_palette"
+        if [ -e "$dr_state" ]; then
+          dr_prev="$dr_state"
+        fi
+        if ! dr_new="$(jq -c --slurpfile palette "$dr_palette" --slurpfile prev "$dr_prev" -f ${geckoExtensions.darkreaderPaletteFilter} "$dr_file")"; then
+          echo "darkreader: cannot apply palette colors to $dr_file (previous palette: $dr_prev); left unchanged" >&2
+          continue
+        fi
+        if [ -n "''${DARKREADER_DRY_RUN:-}" ]; then
+          if [ -n "$dr_new" ]; then
+            echo "darkreader: would refresh palette colors in $dr_file"
+          fi
+          continue
+        fi
+        if [ -n "$dr_new" ]; then
+          if ! dr_tmp="$(mktemp "$dr_dir/.storage.js.XXXXXX")"; then
+            echo "darkreader: no temp file in $dr_dir; palette colors left unchanged" >&2
+            continue
+          fi
+          if ! { printf '%s\n' "$dr_new" > "$dr_tmp" && chmod 644 "$dr_tmp" && mv "$dr_tmp" "$dr_file"; }; then
+            echo "darkreader: writing $dr_file failed; left unchanged" >&2
+            rm -f "$dr_tmp"
+            continue
+          fi
+        fi
+        if cmp -s "$dr_palette" "$dr_state"; then
+          continue
+        fi
+        if ! { mkdir -p "$2" && dr_tmp="$(mktemp "$2/.palette.json.XXXXXX")"; }; then
+          echo "darkreader: no temp file in $2; palette state for $dr_file not recorded" >&2
+          continue
+        fi
+        if ! { cp "$dr_palette" "$dr_tmp" && chmod 644 "$dr_tmp" && mv "$dr_tmp" "$dr_state"; }; then
+          echo "darkreader: writing $dr_state failed; palette state for $dr_file not recorded" >&2
+          rm -f "$dr_tmp"
+        fi
+      done
+    '';
+  };
+
+  # Per-browser directory of the palette last applied to each profile.
+  darkreaderStateDir =
+    profilesPath: "${config.xdg.stateHome}/darkreader-palette/${lib.removePrefix "." profilesPath}";
+
+  # Seed Dark Reader's storage.js once per profile as a writable file, and
+  # record the palette it carries. Home Manager's extensions.settings would
+  # force-rewrite it on every activation and discard the extension's runtime
+  # state, so an existing storage.js only gets its untouched Stylix-owned
+  # colors refreshed. `addon@darkreader.org` is the extension ID (the
+  # browser-extension-data directory name); see _gecko-extensions.nix.
   mkDarkreaderSeed =
     {
       profilesPath,
@@ -163,9 +237,25 @@ let
           $DRY_RUN_CMD rm -f "$dr_file"
           $DRY_RUN_CMD mkdir -p "$dr_dir"
           $DRY_RUN_CMD install -m644 ${geckoExtensions.darkreaderStorageSeed} "$dr_file"
+          $DRY_RUN_CMD install -D -m644 ${geckoExtensions.darkreaderPalette} "${darkreaderStateDir profilesPath}/${profileName}.json"
         fi
       '') profiles
+      + ''
+        DARKREADER_REPORT_OPEN=1 DARKREADER_DRY_RUN="''${DRY_RUN_CMD:-}" \
+          ${lib.getExe darkreaderPaletteRefresh} "${config.home.homeDirectory}/${profilesPath}" "${darkreaderStateDir profilesPath}"
+      ''
     );
+
+  # Refreshes Dark Reader's palette colors before each launch, so a profile
+  # that was open during activation picks them up on its next start.
+  withDarkreaderRefresh =
+    profilesPath: package:
+    package.overrideAttrs (old: {
+      makeWrapperArgs = old.makeWrapperArgs ++ [
+        "--run"
+        "${lib.getExe darkreaderPaletteRefresh} \"$HOME/${profilesPath}\" \"${darkreaderStateDir profilesPath}\" || true"
+      ];
+    });
 
   # Gecko cannot import the iGPU's tiled VA-API frames into the NVIDIA EGL
   # compositor, but its Vulkan decoder copies frames to linear buffers for a
@@ -212,9 +302,11 @@ in
   inherit
     mkProfile
     withIgpuVideoDecode
+    withDarkreaderRefresh
     igpuVulkanDecodeExecutables
     mkXdgProfileRoot
     mkDarkreaderSeed
+    darkreaderPaletteRefresh
     policies
     ;
   inherit (geckoShortcuts) mkCustomKeysFiles;

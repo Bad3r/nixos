@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0.5 -1 18 18" shape-rendering="crispEdges">
+  <!-- Claude Code's mascot as its welcome banner draws it (2.1.317 bundle),
+     ▐▛███▛█
+    ▝▜██████▀
+     ▝▝   ▝▝
+  in clawd_body rgb(215,119,87); each block cell is 2x2 subpixels, cells 1:2. -->
+  <g fill="#d77757">
+    <rect x="3" y="3" width="13" height="2"/>
+    <rect x="3" y="5" width="2" height="2"/>
+    <rect x="6" y="5" width="7" height="2"/>
+    <rect x="14" y="5" width="2" height="2"/>
+    <rect x="1" y="7" width="17" height="2"/>
+    <rect x="3" y="9" width="13" height="2"/>
+    <rect x="3" y="11" width="1" height="2"/>
+    <rect x="5" y="11" width="1" height="2"/>
+    <rect x="13" y="11" width="1" height="2"/>
+    <rect x="15" y="11" width="1" height="2"/>
+  </g>
+</svg>

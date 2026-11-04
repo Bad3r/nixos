@@ -1,0 +1,477 @@
+/* VS Code Dark 2026 (1.144 theme-defaults/themes/2026-dark.json) for the Web
+   UI, appended to the stock style.css. Lists sit on base00 like the editor;
+   menu bar, toolbar, filter column, panels, and status bar on base01 like the
+   title bar and side bar; menus and dialogs on the widget background. The
+   stock variables cover several roles at once, so each part is set by name
+   below, whatever the color scheme setting. Each rule leads with :root to
+   outrank the stock sheets the pages load after this one. */
+:root,
+:root.dark {
+    color-scheme: dark;
+    scrollbar-color: rgb(168 169 170 / 52%) transparent; /* scrollbarSlider.background */
+
+    --color-accent-blue: {{vscode-statusBarItem.prominentBackground}};
+    --color-text-blue: {{vscode-textLink.foreground}};
+    --color-text-orange: {{vscode-list.warningForeground}};
+    --color-text-red: {{vscode-errorForeground}};
+    --color-text-green: {{vscode-gitDecoration.addedResourceForeground}};
+    --color-text-white: {{vscode-list.activeSelectionForeground}};
+    --color-text-disabled: {{vscode-disabledForeground}};
+    --color-text-default: #{{base05-hex}};
+    --color-background-primary: #{{base00-hex}};
+    /* Only the progress bar fill keeps this. */
+    --color-background-blue: {{vscode-button.background}};
+    --color-background-popup: {{vscode-editorWidget.background}};
+    --color-background-default: #{{base01-hex}};
+    --color-background-hover: rgb(255 255 255 / 8%); /* list.hoverBackground */
+    --color-border-blue: {{vscode-menu.selectionBorder}};
+    --color-border-default: #{{base02-hex}};
+    /* Icons are drawn in icon.foreground; hover lifts them to foreground. */
+    --color-icon-hover: brightness(1.36);
+}
+
+:root #torrentTrackersTableDiv tr,
+:root.dark #torrentTrackersTableDiv tr {
+    --color-tracker-disabled: #{{base03-hex}};
+    --color-tracker-not-contacted: {{vscode-list.warningForeground}};
+    --color-tracker-working: {{vscode-gitDecoration.addedResourceForeground}};
+    --color-tracker-updating: {{vscode-textLink.foreground}};
+    --color-tracker-not-working: {{vscode-errorForeground}};
+}
+
+/* Dialogs: framed pages and in-page windows. The dialog sits on base01 like
+   a panel, and its lists, tables, and inputs one step up on the widget
+   background. */
+:root:not(:has(#desktop)),
+:root .mocha {
+    --color-background-primary: {{vscode-editorWidget.background}};
+    --color-background-popup: #{{base01-hex}}; /* panel.background */
+}
+
+:root:not(:has(#desktop)) :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"]), textarea, select, .vsb-main button, .select-watched-folder-editable),
+:root .mocha :is(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"]), textarea, select, .vsb-main button, .select-watched-folder-editable) {
+    background-color: {{vscode-editorWidget.background}};
+}
+
+:root:not(:has(#desktop)) .select-watched-folder-editable :is(input, select),
+:root .mocha .select-watched-folder-editable :is(input, select) {
+    background-color: transparent;
+}
+
+:root #rssButtonBar img,
+:root #startSearchButton img,
+:root #manageSearchPlugins img {
+    filter: none;
+}
+
+:root a {
+    color: var(--color-text-blue);
+}
+
+/* Menu bar and toolbar, like the title bar. */
+:root #desktopHeader,
+:root #desktopNavbar,
+:root #mochaToolbar {
+    background-color: #{{base01-hex}}; /* titleBar.activeBackground */
+}
+
+:root #desktopHeader {
+    border-bottom: 1px solid #{{base02-hex}}; /* titleBar.border */
+}
+
+:root #desktopNavbar > ul > li > a {
+    border-radius: 4px;
+}
+
+:root #desktopNavbar > ul > li > a:hover {
+    background-color: {{vscode-menubar.selectionBackground}};
+    color: #{{base05-hex}};
+}
+
+:root #mochaToolbar .mochaToolButton {
+    border-radius: 4px;
+}
+
+:root #mochaToolbar .mochaToolButton:hover {
+    background-color: rgb(255 255 255 / 8%); /* list.hoverBackground */
+}
+
+/* Menus: the menu bar's, the context menus, and the tag picker. */
+:root #desktopNavbar li ul,
+:root .contextMenu,
+:root .contextMenu li ul,
+:root .vsb-menu {
+    background-color: {{vscode-menu.background}};
+    border: 1px solid #{{base02-hex}}; /* menu.border */
+    border-radius: 6px;
+    box-shadow: rgb(0 0 0 / 36%) 0 0 8px 2px; /* widget.shadow */
+    padding: 4px;
+}
+
+:root .contextMenu .separator,
+:root #desktopNavbar li ul li.divider {
+    border-top-color: #{{base02-hex}}; /* menu.separatorBackground */
+}
+
+:root #desktopNavbar li ul li a:hover,
+:root #desktopNavbar li ul li div.anchor:hover,
+:root .contextMenu li a:hover,
+:root .vsb-menu li:hover {
+    background-color: rgb(57 148 188 / 15%); /* menu.selectionBackground */
+    border-radius: 4px;
+    color: #{{base05-hex}}; /* menu.selectionForeground */
+    outline: 1px solid {{vscode-menu.selectionBorder}};
+    outline-offset: -1px;
+}
+
+:root .contextMenu li a:hover img:not(.highlightedCategoryIcon),
+:root .contextMenu li a img.highlightedCategoryIcon {
+    background-color: transparent;
+    filter: var(--color-icon-hover);
+}
+
+/* Tabs: Transfers/Search/RSS, the properties panel, and Options, like panel
+   titles with the active one underlined. */
+:root .tab-menu li a {
+    background-color: transparent;
+    border-radius: 0;
+    color: #{{base04-hex}}; /* panelTitle.inactiveForeground */
+}
+
+:root .tab-menu li:hover a {
+    background-color: transparent;
+    color: #{{base05-hex}};
+}
+
+:root .tab-menu li.selected a {
+    background-color: transparent;
+    box-shadow: inset 0 -1px 0 {{vscode-panelTitle.activeBorder}};
+    color: #{{base05-hex}}; /* panelTitle.activeForeground */
+}
+
+/* Side bar: the filter column. */
+:root #filtersColumn,
+:root #filtersColumn .panel {
+    background-color: #{{base01-hex}}; /* sideBar.background */
+}
+
+:root #filtersColumn_handle,
+:root #propertiesPanel_header {
+    background-color: #{{base01-hex}}; /* panel.background */
+}
+
+:root ul.filterList span.link:hover {
+    background-color: rgb(255 255 255 / 8%); /* list.hoverBackground */
+    color: #{{base05-hex}};
+}
+
+:root .selectedFilter > span.link {
+    background-color: rgb(255 255 255 / 13%); /* list.activeSelectionBackground */
+    color: {{vscode-list.activeSelectionForeground}};
+}
+
+/* Lists. */
+:root .dynamicTableDiv table.dynamicTable thead th,
+:root .dynamicTableFixedHeaderDiv table th {
+    border-color: #{{base02-hex}};
+}
+
+:root .dynamicTableDiv table.dynamicTable tbody tr:hover,
+:root #torrentFilesTableDiv .dynamicTable tr.nonAlt:hover,
+:root #addTorrentFilesTableDiv .dynamicTable tr.nonAlt:hover {
+    background-color: rgb(255 255 255 / 8%); /* list.hoverBackground */
+    color: #{{base05-hex}};
+}
+
+:root .dynamicTableDiv table.dynamicTable tbody tr.selected {
+    background-color: rgb(255 255 255 / 13%); /* list.activeSelectionBackground */
+    color: {{vscode-list.activeSelectionForeground}};
+}
+
+:root .altRowColors tbody tr:nth-child(odd of :not(.invisible)) {
+    background-color: rgb(255 255 255 / 3%);
+}
+
+:root table,
+:root table th,
+:root table td {
+    border-color: #{{base02-hex}};
+}
+
+/* Status bar. */
+:root #desktopFooterWrapper,
+:root #desktopFooter {
+    background-color: #{{base01-hex}}; /* statusBar.background */
+    border-top: 1px solid #{{base02-hex}}; /* statusBar.border */
+    color: #{{base04-hex}}; /* statusBar.foreground */
+}
+
+/* Dialog frames. */
+:root .mocha {
+    background-color: #{{base01-hex}}; /* panel.background */
+    border: 1px solid #{{base02-hex}}; /* editorWidget.border */
+    border-radius: 6px;
+    box-shadow: rgb(0 0 0 / 36%) 0 0 8px 2px; /* widget.shadow */
+}
+
+:root .mochaOverlay,
+:root .mochaTitlebar,
+:root .mochaToolbarWrapper,
+:root .mochaContentWrapper,
+:root .mocha .cornerSE {
+    background-color: #{{base01-hex}}; /* panel.background */
+}
+
+:root .mochaTitlebar {
+    border-bottom: 1px solid #{{base02-hex}};
+    border-radius: 6px 6px 0 0;
+}
+
+:root .mochaTitlebar h3 {
+    color: #{{base05-hex}};
+}
+
+:root .mochaContentBorder,
+:root .mochaToolbar,
+:root div.mochaToolbarWrapper.bottom {
+    border-color: #{{base02-hex}};
+}
+
+:root .mochaCloseButton::before,
+:root .mochaCloseButton::after,
+:root .mochaMaximizeButton::before,
+:root .mochaMaximizeButton::after,
+:root .mochaMinimizeButton::before {
+    background-color: #{{base04-hex}}; /* icon.foreground */
+}
+
+:root #modalOverlay {
+    background: rgb(0 0 0 / 40%);
+}
+
+:root fieldset {
+    border: 1px solid #{{base02-hex}}; /* widget.border */
+    border-radius: 4px;
+}
+
+:root legend {
+    color: #{{base05-hex}};
+}
+
+:root hr {
+    background-color: #{{base02-hex}};
+}
+
+/* Inputs and dropdowns. */
+:root input[type="search"],
+:root input[type="text"],
+:root input[type="number"],
+:root input[type="password"],
+:root input[type="url"],
+:root input:not([type]),
+:root textarea,
+:root select,
+:root .vsb-main button {
+    background-color: #{{base01-hex}}; /* input.background, dropdown.background */
+    border: 1px solid {{vscode-input.border}};
+    border-radius: 4px;
+    color: #{{base05-hex}}; /* input.foreground */
+}
+
+:root #torrentsFilterInput {
+    background-color: #{{base01-hex}};
+}
+
+:root input::placeholder,
+:root textarea::placeholder {
+    color: {{vscode-input.placeholderForeground}};
+}
+
+:root input[type="number"] {
+    appearance: textfield;
+}
+
+:root input[type="number"]::-webkit-inner-spin-button,
+:root input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+}
+
+:root select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23{{base04-hex}}'%3E%3Cpath d='M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
+    background-position: right 4px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 24px;
+}
+
+:root select[multiple],
+:root select[size]:not([size="1"]) {
+    background-image: none;
+    padding-right: 4px;
+}
+
+:root option,
+:root optgroup {
+    background-color: #{{base01-hex}}; /* dropdown.listBackground */
+    color: #{{base05-hex}};
+}
+
+:root input:focus,
+:root textarea:focus,
+:root select:focus,
+:root .vsb-main button:focus {
+    border-color: {{vscode-menu.selectionBorder}};
+    outline: none;
+}
+
+:root input:disabled,
+:root textarea:disabled,
+:root select:disabled,
+:root button:disabled {
+    opacity: 0.5;
+}
+
+/* Check boxes and radio buttons. */
+:root input[type="checkbox"],
+:root input[type="radio"] {
+    appearance: none;
+    background-color: {{vscode-checkbox.background}};
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 11px;
+    border: 1px solid {{vscode-checkbox.border}};
+    border-radius: 3px;
+    flex: none;
+    /* The browser's own size, which the dialogs' heights assume. */
+    height: 13px;
+    vertical-align: middle;
+    width: 13px;
+}
+
+:root input[type="radio"] {
+    border-radius: 50%;
+}
+
+:root input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23{{base05-hex}}'%3E%3Cpath d='M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
+}
+
+:root input[type="checkbox"]:indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23{{base05-hex}}'%3E%3Crect x='4' y='7.25' width='8' height='1.5' rx='.75'/%3E%3C/svg%3E");
+}
+
+:root input[type="radio"]:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23{{base05-hex}}'%3E%3Ccircle cx='8' cy='8' r='3.5'/%3E%3C/svg%3E");
+}
+
+:root input[type="checkbox"]:focus-visible,
+:root input[type="radio"]:focus-visible {
+    outline: 1px solid {{vscode-menu.selectionBorder}};
+    outline-offset: 1px;
+}
+
+/* Buttons: confirming actions in the primary style, the rest secondary. */
+:root button,
+:root input[type="button"],
+:root input[type="submit"],
+:root input[type="reset"] {
+    background-color: transparent; /* button.secondaryBackground */
+    border: 1px solid {{vscode-button.secondaryBorder}};
+    border-radius: 4px;
+    color: #{{base05-hex}}; /* button.secondaryForeground */
+}
+
+:root button:hover:not(:disabled),
+:root input[type="button"]:hover:not(:disabled),
+:root input[type="reset"]:hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 6%); /* button.secondaryHoverBackground */
+}
+
+:root button[type="submit"],
+:root input[type="submit"],
+:root #submitButton,
+:root #confirmBtn,
+:root #renameButton,
+:root #saveButton,
+:root #applyButton,
+:root #save,
+:root #saveTorrent,
+:root #setLocationButton,
+:root #newPluginOk,
+:root #createTorrentButton,
+:root #categoryNameButton,
+:root #tagNameButton,
+:root #editTrackerButton,
+:root #editWebSeedButton,
+:root #cloneRssCloneRuleButton,
+:root #confirmDeletionButton,
+:root #confirmRecheckButton,
+:root #confirmAutoTmmButton,
+:root #confirmAPIKeyButton {
+    background-color: {{vscode-button.background}};
+    border-color: {{vscode-button.border}};
+    color: {{vscode-button.foreground}};
+}
+
+:root button[type="submit"]:hover:not(:disabled),
+:root input[type="submit"]:hover:not(:disabled),
+:root #submitButton:hover:not(:disabled),
+:root #confirmBtn:hover:not(:disabled),
+:root #renameButton:hover:not(:disabled),
+:root #saveButton:hover:not(:disabled),
+:root #applyButton:hover:not(:disabled),
+:root #save:hover:not(:disabled),
+:root #saveTorrent:hover:not(:disabled),
+:root #setLocationButton:hover:not(:disabled),
+:root #newPluginOk:hover:not(:disabled),
+:root #createTorrentButton:hover:not(:disabled),
+:root #categoryNameButton:hover:not(:disabled),
+:root #tagNameButton:hover:not(:disabled),
+:root #editTrackerButton:hover:not(:disabled),
+:root #editWebSeedButton:hover:not(:disabled),
+:root #cloneRssCloneRuleButton:hover:not(:disabled),
+:root #confirmDeletionButton:hover:not(:disabled),
+:root #confirmRecheckButton:hover:not(:disabled),
+:root #confirmAutoTmmButton:hover:not(:disabled),
+:root #confirmAPIKeyButton:hover:not(:disabled) {
+    background-color: {{vscode-button.hoverBackground}};
+}
+
+:root button:focus-visible,
+:root input[type="button"]:focus-visible,
+:root input[type="submit"]:focus-visible {
+    outline: 1px solid {{vscode-menu.selectionBorder}};
+    outline-offset: 2px;
+}
+
+:root #rememberBtn {
+    background: transparent;
+}
+
+/* Fixed colors the stock sheets set outside the palette. */
+:root .tree li a {
+    color: var(--color-text-default) !important;
+}
+
+:root .iconWrapper:hover {
+    border-color: #{{base02-hex}};
+}
+
+/* The add dialog's category field: a text box over a dropdown. */
+:root .select-watched-folder-editable {
+    background-color: #{{base01-hex}}; /* input.background */
+    border: 1px solid {{vscode-input.border}};
+    border-radius: 4px;
+}
+
+:root .select-watched-folder-editable select,
+:root .select-watched-folder-editable input {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+:root #contextCategoryList img.highlightedCategoryIcon {
+    background-color: rgb(255 255 255 / 13%); /* list.activeSelectionBackground */
+}

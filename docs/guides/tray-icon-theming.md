@@ -17,7 +17,10 @@ session sub-options.
 - `i3status-rust` only provides status blocks via `status_command`.
 - `snixembed` owns `org.kde.StatusNotifierWatcher` on the user bus and bridges
   StatusNotifierItem/AppIndicator tray icons into the XEmbed tray hosted by
-  `i3bar`.
+  `i3bar`, and draws their right-click menus with GTK 3.
+- GTK 3 reads `gtk.css` and `settings.ini` only at startup, so a switch that
+  changes either restarts `snixembed`, `nm-applet`, and `udiskie`;
+  restarting a bridged app alone leaves its menu on the old theme.
 
 Tray apps are launched as user services that depend on `tray.target`:
 
@@ -61,10 +64,10 @@ across all connected outputs is not supported in a reliable way.
 | App       | Current Protocol | Themeability Risk | Notes                                                                                                                |
 | --------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
 | nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed.                        |
-| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`); local Qogir-Dark override provides `drive-removable-media-usb-panel`. |
+| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`); local icon-theme override provides `drive-removable-media-usb-panel`. |
 | steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                               |
 | ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                               |
-| flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.                  |
+| flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`; local icon-theme override provides it, resolved by `snixembed`.        |
 | NormCap   | Qt tray          | Low-Medium        | Qt resource aliases `:tray` and `:tray_done` are embedded in `resources.py`; the local module regenerates them.      |
 | Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context).        |
 | ProtonVPN | SNI via bridge   | Low-Medium        | Local overlay rewrites tray states to the theme-provided `protonvpn-tray` icon name before `snixembed` proxies it.   |

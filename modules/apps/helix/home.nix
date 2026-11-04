@@ -16,6 +16,7 @@
 _: {
   flake.homeManagerModules.apps.helix =
     {
+      config,
       osConfig,
       lib,
       pkgs,
@@ -23,6 +24,8 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "helix" "extended" "enable" ] false osConfig;
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../../stylix/_vscode-dark-2026.nix;
       hostname = osConfig.networking.hostName;
 
       # Helix pipes the buffer over stdin and reads the result from stdout.
@@ -81,9 +84,67 @@ _: {
             stylua
           ];
 
+          themes.vscode_dark_2026 = {
+            inherits = "github_dark";
+            palette = {
+              "canvas.default" = colors.base00;
+              "border.default" = colors.base02;
+            };
+            "ui.text" = vscode.foreground;
+            "ui.text.focus" = colors.base05;
+            "ui.text.inactive" = vscode.disabledForeground;
+            "ui.text.directory" = vscode."textLink.foreground";
+            "ui.background.separator" = colors.base02;
+            "ui.linenr" = vscode."editorLineNumber.foreground";
+            "ui.linenr.selected" = colors.base05;
+            "ui.virtual" = "#3a3b3c";
+            "ui.virtual.ruler".bg = vscode."editor.lineHighlightBackground";
+            "ui.statusline" = {
+              fg = colors.base04;
+              bg = colors.base01;
+            };
+            "ui.statusline.active" = {
+              fg = colors.base05;
+              bg = colors.base01;
+            };
+            "ui.statusline.normal" = {
+              fg = vscode."statusBarItem.prominentForeground";
+              bg = vscode."editor.selectionBackground";
+            };
+            "ui.statusline.insert" = {
+              fg = vscode."statusBarItem.prominentForeground";
+              bg = vscode."statusBarItem.prominentBackground";
+            };
+            "ui.menu" = {
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
+            };
+            "ui.menu.selected".bg = vscode."editorSuggestWidget.selectedBackground";
+            "ui.menu.scroll" = {
+              fg = vscode.disabledForeground;
+              bg = vscode."editorWidget.background";
+            };
+            "ui.popup".bg = vscode."editorWidget.background";
+            "ui.popup.info" = {
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
+            };
+            "ui.help" = {
+              fg = colors.base05;
+              bg = vscode."editorWidget.background";
+            };
+            "ui.selection".bg = "#1d4a5c";
+            "ui.selection.primary".bg = vscode."editor.selectionBackground";
+            "ui.cursorline.primary".bg = vscode."editor.lineHighlightBackground";
+            "markup.link.text" = {
+              fg = vscode."textLink.foreground";
+              modifiers = [ "underlined" ];
+            };
+          };
+
           settings = {
-            # Built-in OneDark theme; with the Stylix helix target off, no generated `stylix` theme collides.
-            theme = "onedark";
+            # VS Code Dark 2026 look (GitHub Dark syntax, Dark 2026 UI greys).
+            theme = "vscode_dark_2026";
 
             editor = {
               line-number = "relative";

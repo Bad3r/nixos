@@ -8,7 +8,7 @@ let
   baseTheme = {
     enable = true;
     enableReleaseChecks = false;
-    base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
+    base16Scheme = lib.mkDefault ./vscode-dark-2026.base16.yaml;
     polarity = lib.mkDefault "dark";
   };
 
@@ -84,7 +84,7 @@ in
           # `config.lib.stylix.mkEnableTargetWith ...`. Evaluating
           # `home-manager.users.<u>.lib` therefore loops through itself.
           # Targets under modules/neovim/ (neovim, neovide, nixvim, nvf, vim) are
-          # all unused in this configuration (nixvim theming uses onedark.nvim),
+          # all unused in this configuration (nixvim theming uses github-nvim-theme),
           # so disabling the whole hm.nix target group is safe and breaks the
           # cycle without losing functionality.
           disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
@@ -110,6 +110,8 @@ in
         }:
         let
           graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
+          vscode = import ./_vscode-dark-2026.nix;
+          accent = vscode."statusBarItem.prominentBackground";
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
@@ -123,7 +125,9 @@ in
           ];
           # Sidebery maps only a few Firefox theme colors (none on its settings
           # page) and hardcodes the rest: status, badge, and named colors, and
-          # neutral white/black hover, selection, and scrollbar overlays.
+          # neutral white/black hover, selection, and scrollbar overlays. It sits
+          # on base01 like VS Code's sidebar, with VS Code's 8% hover and 13%
+          # selection overlays.
           sideberyUserContent = with config.lib.stylix.colors.withHashtag; ''
             @-moz-document regexp("moz-extension://[^/]+/(sidebar|sidebery|page\\.[a-z]+|popup\\.[a-z-]+)/[a-z-]+\\.html.*") {
             	#root {
@@ -135,24 +139,24 @@ in
             		--badge-fg: ${base00} !important;
             		--badge-urgent-bg: ${base08} !important;
             		--badge-urgent-fg: ${base00} !important;
-            		--frame-bg: ${base00} !important;
+            		--frame-bg: ${base01} !important;
             		--frame-fg: ${base05} !important;
-            		--frame-el-overlay-hover-bg: ${base01} !important;
-            		--frame-el-overlay-clicked-bg: ${base02} !important;
-            		--frame-el-overlay-selected-bg: ${base02} !important;
+            		--frame-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--frame-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--frame-el-overlay-selected-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--frame-scrollbar-color: ${base03} !important;
-            		--toolbar-bg: ${base00} !important;
+            		--toolbar-bg: ${base01} !important;
             		--toolbar-fg: ${base05} !important;
             		--toolbar-fg-active: ${base0D} !important;
-            		--toolbar-el-overlay-hover-bg: ${base01} !important;
-            		--toolbar-el-overlay-clicked-bg: ${base02} !important;
-            		--toolbar-el-overlay-active-bg: ${base02} !important;
-            		--toolbar-el-overlay-selected-bg: ${base02} !important;
+            		--toolbar-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--toolbar-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--toolbar-el-overlay-active-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
+            		--toolbar-el-overlay-selected-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--toolbar-scrollbar-color: ${base03} !important;
-            		--active-el-bg: ${base02} !important;
+            		--active-el-bg: color-mix(in srgb, ${base07} 13%, ${base01}) !important;
             		--active-el-fg: ${base05} !important;
-            		--active-el-overlay-hover-bg: ${base03} !important;
-            		--active-el-overlay-clicked-bg: ${base04} !important;
+            		--active-el-overlay-hover-bg: color-mix(in srgb, ${base07} 8%, transparent) !important;
+            		--active-el-overlay-clicked-bg: color-mix(in srgb, ${base07} 13%, transparent) !important;
             		--popup-bg: ${base01} !important;
             		--popup-fg: ${base05} !important;
             		--popup-scrollbar-color: ${base03} !important;
@@ -168,7 +172,7 @@ in
             	/* Bookmarks, history, and bottom-bar buttons share --frame-el-shadow;
             	   colorized tabs redeclare --tabs-activated-shadow on .Tab. */
             	.Tab {
-            		--frame-el-shadow: inset 0 0 0 1px ${base00} !important;
+            		--frame-el-shadow: inset 0 0 0 1px ${base01} !important;
             		--tabs-activated-shadow: inset 0 0 0 1px ${base03} !important;
             	}
 
@@ -241,10 +245,10 @@ in
           # with currentColor, which reads lighter than the field.
           urlbarUserChrome = with config.lib.stylix.colors.withHashtag; ''
             :root {
-            	--urlbar-box-background-color: ${base02} !important;
-            	--urlbar-box-background-color-focus: ${base02} !important;
-            	--urlbar-box-background-color-hover: ${base03} !important;
-            	--urlbar-box-background-color-active: ${base04} !important;
+            	--urlbar-box-background-color: ${base01} !important;
+            	--urlbar-box-background-color-focus: ${base01} !important;
+            	--urlbar-box-background-color-hover: ${base02} !important;
+            	--urlbar-box-background-color-active: ${base02} !important;
             }
           '';
           mkThemeColor = name: {
@@ -252,35 +256,57 @@ in
             g = config.lib.stylix.colors."${name}-rgb-g";
             b = config.lib.stylix.colors."${name}-rgb-b";
           };
-          # Base16 has no slot darker than base00; mix it 12% toward black.
-          urlbarFill = lib.mapAttrs (_: c: toString ((lib.toInt c * 88 + 50) / 100)) (mkThemeColor "base00");
+          rgb = hex: {
+            r = lib.fromHexString (builtins.substring 1 2 hex);
+            g = lib.fromHexString (builtins.substring 3 2 hex);
+            b = lib.fromHexString (builtins.substring 5 2 hex);
+          };
+          quickInputFocus = rgb vscode."quickInputList.focusBackground";
+          quickInputFocusText = rgb vscode."quickInputList.focusForeground";
+          # VS Code layering: page content on base00 like the editor; frame (which
+          # Sidebery paints its background with), toolbar, sidebar, and menus on
+          # base01 like the title bar and sidebar; base02 edges between them.
           geckoProfiles = lib.genAttrs geckoProfileNames (_: {
             extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors = {
-              # Sidebery paints its background with the theme's frame color, not its sidebar color.
-              frame = lib.mkForce (mkThemeColor "base00");
-              toolbar_field = lib.mkForce urlbarFill;
-              toolbar_field_focus = lib.mkForce urlbarFill;
-              toolbar_field_border = lib.mkForce (mkThemeColor "base00");
-              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base00");
+              toolbar = lib.mkForce (mkThemeColor "base01");
+              toolbar_bottom_separator = lib.mkForce (mkThemeColor "base02");
+              # The URL field sits inset on base00 like a VS Code input.
+              toolbar_field = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_focus = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_border = lib.mkForce (mkThemeColor "base02");
+              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base02");
+              sidebar = lib.mkForce (mkThemeColor "base01");
               # Nova outlines #sidebar-box in this color under a theme.
-              sidebar_border = lib.mkForce (mkThemeColor "base00");
+              sidebar_border = lib.mkForce (mkThemeColor "base02");
+              sidebar_highlight = lib.mkForce quickInputFocus;
+              sidebar_highlight_text = lib.mkForce quickInputFocusText;
+              popup = lib.mkForce (mkThemeColor "base01");
               # Sidebery outlines its menus and draws their separators in this color.
               popup_border = lib.mkForce (mkThemeColor "base02");
+              # Selected URL bar result.
+              popup_highlight = lib.mkForce quickInputFocus;
+              popup_highlight_text = lib.mkForce quickInputFocusText;
             };
             userChrome = lib.mkAfter urlbarUserChrome;
             userContent = lib.mkAfter sideberyUserContent;
           });
-          qogirDarkFixedIconSizes = {
-            "16/apps" = 16;
-            "22/apps" = 22;
-            "32/apps" = 32;
-            "48/apps" = 48;
-            "16@2x/apps" = 32;
-            "22@2x/apps" = 44;
-            "32@2x/apps" = 64;
-            "48@2x/apps" = 96;
+          themedIcon =
+            name:
+            config.lib.stylix.colors {
+              template = builtins.readFile ./icons/${name}.svg.mustache;
+              extension = ".svg";
+            };
+          iconTheme = config.gtk.iconTheme;
+          # Override directories; each must appear in the icon theme's index.theme.
+          appFixedIconSizes = {
+            "16/panel" = 16;
+            "22/panel" = 22;
+            "32/status" = 32;
+            "16@2x/panel" = 32;
+            "22@2x/panel" = 44;
+            "32@2x/status" = 64;
           };
-          qogirDarkPanelFixedIconSizes = {
+          statusFixedIconSizes = {
             "16/panel" = 16;
             "22/panel" = 22;
             "24/panel" = 24;
@@ -288,18 +314,18 @@ in
             "22@2x/panel" = 44;
             "24@2x/panel" = 48;
           };
-          qogirDarkScalableIconDirs = [
+          appScalableIconDirs = [
             "scalable/apps"
             "scalable@2x/apps"
           ];
-          qogirDarkPanelScalableIconDirs = [
-            "scalable/panel"
-            "scalable@2x/panel"
+          statusScalableIconDirs = [
+            "scalable/applets"
+            "scalable@2x/applets"
           ];
-          qogirDarkIconDefinitions = [
+          themedIconDefinitions = [
             {
               id = "onepassword";
-              source = ./icons/1password-outline.svg;
+              source = themedIcon "1password-outline";
               names = [
                 "1password"
                 "appimagekit-1password"
@@ -308,49 +334,64 @@ in
             }
             {
               id = "electron-mail";
-              source = ./icons/electron-mail-outline.svg;
+              source = themedIcon "electron-mail-outline";
               names = [ "electron-mail" ];
             }
             {
+              id = "flameshot-tray";
+              source = themedIcon "flameshot-tray";
+              names = [ "flameshot-tray" ];
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
+            }
+            {
               id = "protonvpn-tray";
-              source = ./icons/protonvpn-tray.svg;
+              source = themedIcon "protonvpn-tray";
               names = [ "protonvpn-tray" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
             {
               id = "remmina-tray";
-              source = ./icons/remmina-tray.svg;
+              source = themedIcon "remmina-tray";
               names = [ "org.remmina.Remmina-status" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
             {
               id = "teams-for-linux";
-              source = ./icons/teams-for-linux.svg;
+              source = themedIcon "teams-for-linux";
               names = [ "teams-for-linux" ];
             }
             {
               id = "udiskie-tray";
-              source = ./icons/udiskie-tray.svg;
+              source = themedIcon "udiskie-tray";
               names = [ "drive-removable-media-usb-panel" ];
-              fixedIconSizes = qogirDarkPanelFixedIconSizes;
-              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+              fixedIconSizes = statusFixedIconSizes;
+              scalableIconDirs = statusScalableIconDirs;
             }
           ];
-          qogirDarkIconSet =
+          themedIconSet =
             {
               id,
               source,
               names,
-              fixedIconSizes ? qogirDarkFixedIconSizes,
-              scalableIconDirs ? qogirDarkScalableIconDirs,
+              fixedIconSizes ? appFixedIconSizes,
+              scalableIconDirs ? appScalableIconDirs,
             }:
-            pkgs.runCommand "qogir-dark-${id}-icons"
+            pkgs.runCommand "${id}-themed-icons"
               {
                 nativeBuildInputs = [ pkgs.librsvg ];
+                themeIndex = "${iconTheme.package}/share/icons/${iconTheme.name}/index.theme";
               }
               ''
+                for iconDir in ${lib.escapeShellArgs (scalableIconDirs ++ builtins.attrNames fixedIconSizes)}; do
+                  grep -qxF "[$iconDir]" "$themeIndex" || {
+                    echo "${iconTheme.name} does not list $iconDir in $themeIndex" >&2
+                    exit 1
+                  }
+                done
+
                 renderIcon() {
                   local size="$1"
                   local input="$2"
@@ -383,43 +424,26 @@ in
                   )}
                 done
               '';
-          qogirDarkIconFiles =
+          themedIconFiles =
             {
-              id,
-              source,
               names,
-              fixedIconSizes ? qogirDarkFixedIconSizes,
-              scalableIconDirs ? qogirDarkScalableIconDirs,
-            }:
+              fixedIconSizes ? appFixedIconSizes,
+              scalableIconDirs ? appScalableIconDirs,
+              ...
+            }@definition:
             let
-              renderedIcons = qogirDarkIconSet {
-                inherit
-                  fixedIconSizes
-                  id
-                  names
-                  scalableIconDirs
-                  source
-                  ;
+              renderedIcons = themedIconSet definition;
+              mkFile = iconDir: file: {
+                name = "icons/${iconTheme.name}/${iconDir}/${file}";
+                value.source = "${renderedIcons}/${iconDir}/${file}";
               };
-              scalableFiles = lib.concatMap (
-                iconName:
-                map (iconDir: {
-                  name = "icons/Qogir-Dark/${iconDir}/${iconName}.svg";
-                  value.source = "${renderedIcons}/${iconDir}/${iconName}.svg";
-                }) scalableIconDirs
-              ) names;
-              fixedFiles = lib.concatMap (
-                iconName:
-                lib.mapAttrsToList (iconDir: _size: {
-                  name = "icons/Qogir-Dark/${iconDir}/${iconName}.png";
-                  value.source = "${renderedIcons}/${iconDir}/${iconName}.png";
-                }) fixedIconSizes
-              ) names;
             in
-            scalableFiles ++ fixedFiles;
-          qogirDarkThemedIconFiles = lib.listToAttrs (
-            lib.concatMap qogirDarkIconFiles qogirDarkIconDefinitions
-          );
+            lib.concatMap (
+              iconName:
+              map (iconDir: mkFile iconDir "${iconName}.svg") scalableIconDirs
+              ++ map (iconDir: mkFile iconDir "${iconName}.png") (builtins.attrNames fixedIconSizes)
+            ) names;
+          themedIconOverrides = lib.listToAttrs (lib.concatMap themedIconFiles themedIconDefinitions);
         in
         {
           config = lib.mkIf graphicalDesktop {
@@ -427,22 +451,49 @@ in
               # Opacity settings for GUI applications
               opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
 
+              # One pointer for X11, GTK, and Qt; unset, each toolkit fell back
+              # to a different theme.
+              cursor = {
+                package = pkgs.bibata-cursors;
+                name = "Bibata-Modern-Ice";
+                size = 24;
+              };
+
               # Icon theme configuration
               icons = {
                 enable = true;
-                package = pkgs.qogir-icon-theme;
-                dark = "Qogir-Dark";
-                light = "Qogir-Light";
+                package = pkgs.fluent-icon-theme.override { colorVariants = [ "grey" ]; };
+                dark = "Fluent-grey-dark";
+                light = "Fluent-grey-light";
               };
 
               # Application theming targets
               targets = {
                 # GTK theming (adw-gtk3 theme + CSS)
-                gtk.enable = true;
-                gtk.flatpakSupport.enable = true;
+                gtk = {
+                  enable = true;
+                  flatpakSupport.enable = true;
+                  extraCss = ''
+                    @define-color accent_color ${accent};
+                    @define-color accent_bg_color ${accent};
+                  '';
+                  gtk4.extraCss = ''
+                    :root {
+                      --accent-bg-color: ${accent};
+                      --accent-color: ${accent};
+                    }
+                  '';
+                };
 
                 # Qt theming (Kvantum + qtct)
-                qt.enable = true;
+                qt = {
+                  enable = true;
+                  # Accent for selection (base0E) and controls (base0D); a fresh
+                  # scheme, as overriding config.lib.stylix.colors keeps withHashtag.
+                  colors.override = (config.stylix.base16.mkSchemeAttrs config.stylix.base16Scheme).override (
+                    config.stylix.override // lib.genAttrs [ "base0D" "base0E" ] (_: lib.removePrefix "#" accent)
+                  );
+                };
 
                 # Firefox profile theming (only if enabled)
                 firefox = lib.mkIf firefoxEnabled {
@@ -468,12 +519,7 @@ in
               };
             };
 
-            # Keep Dunst icon size centralized with Stylix icon theme settings.
-            services.dunst.iconTheme.size = "32x32";
-
-            xdg.dataFile = lib.mkIf (
-              (config.gtk.iconTheme.name or null) == "Qogir-Dark"
-            ) qogirDarkThemedIconFiles;
+            xdg.dataFile = lib.mkIf (iconTheme != null) themedIconOverrides;
 
             programs = {
               firefox.profiles = lib.mkIf firefoxEnabled geckoProfiles;

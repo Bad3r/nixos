@@ -562,7 +562,7 @@ check_kernel_reboot_required() {
     notify-send \
       --urgency=normal \
       --app-name="NixOS Build" \
-      --icon="${HOME}/.local/share/icons/Ant-Dark/apps/scalable/system-reboot.svg" \
+      --icon=system-reboot \
       --category=system \
       "Reboot Required" \
       "The activated kernel differs from the booted kernel." 2>/dev/null || true

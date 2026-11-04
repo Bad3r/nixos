@@ -21,10 +21,10 @@
           stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
           toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
           lockPalette = lib.mapAttrs (_: toLockColor) {
-            background = stylixColors.base00;
+            background = stylixColors.base01;
             ring = stylixColors.base04;
             ringWrong = stylixColors.base08;
-            ringVerify = stylixColors.base0B;
+            ringVerify = (import ../../stylix/_vscode-dark-2026.nix)."statusBarItem.prominentBackground";
             line = stylixColors.base03;
             text = stylixColors.base05;
           };
@@ -52,6 +52,19 @@
             "--clock"
           ];
           lockCommand = lib.replaceStrings [ "%" ] [ "%%" ] (lib.escapeShellArgs lockArgs);
+          # restart GTK tray menus on theme change
+          gtkThemeTriggers = map (name: "${config.xdg.configFile.${name}.source}") (
+            builtins.filter (name: config.xdg.configFile ? ${name}) [
+              "gtk-3.0/gtk.css"
+              "gtk-3.0/settings.ini"
+            ]
+          );
+          gtkTrayServices = lib.genAttrs [ "network-manager-applet" "udiskie" ] (
+            name:
+            lib.mkIf config.services.${name}.enable {
+              Unit.X-Restart-Triggers = gtkThemeTriggers;
+            }
+          );
           screensaverSeconds = 60;
           screensaverScript = pkgs.writeShellApplication {
             name = "i3-idle-screensaver";
@@ -125,11 +138,34 @@
               package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault true;
+              # Shadow under rofi, dunst, and floating windows, not fullscreen ones.
+              shadow = true;
+              shadowOffsets = [
+                (-24)
+                (-16)
+              ];
+              shadowOpacity = 0.55;
+              shadowExclude = [
+                "class_g != 'Rofi' && class_g != 'Dunst' && !I3_FLOATING_WINDOW@"
+                "fullscreen"
+              ];
               # Composited windows never reach G-SYNC Compatible scanout.
               settings = {
                 unredir-if-possible = lib.mkDefault true;
                 # Unredirect toggles flash black on NVIDIA; brief fullscreen windows skip them.
                 unredir-if-possible-delay = lib.mkDefault 500;
+                # Frosted glass behind rofi, dunst, and kitty, which draw
+                # translucent surfaces.
+                blur = {
+                  method = "dual_kawase";
+                  strength = 4;
+                };
+                blur-background = true;
+                blur-background-exclude = [ "class_g != 'Rofi' && class_g != 'Dunst' && class_g != 'kitty'" ];
+                shadow-radius = 24;
+                # VS Code cornerRadius-large; picom never rounds fullscreen windows.
+                corner-radius = 8;
+                rounded-corners-exclude = [ "window_type = 'dock'" ];
               };
             };
             udiskie = {
@@ -166,6 +202,7 @@
                 PartOf = [ "tray.target" ];
                 After = [ "graphical-session-pre.target" ];
                 Before = [ "tray.target" ];
+                X-Restart-Triggers = gtkThemeTriggers;
               };
               Install.WantedBy = [ "tray.target" ];
               Service = {
@@ -256,7 +293,8 @@
                 Restart = "on-failure";
               };
             };
-          };
+          }
+          // gtkTrayServices;
         }
       );
     };

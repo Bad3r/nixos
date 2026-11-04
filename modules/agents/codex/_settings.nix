@@ -1,5 +1,6 @@
 {
   agents,
+  codexNotify,
   homeDir,
   lib,
   osConfig,
@@ -83,7 +84,7 @@ let
     show_raw_agent_reasoning = true;
 
     # Notifications
-    notify = [ "notify-send" ];
+    notify = [ (lib.getExe codexNotify) ];
 
     # Privacy/telemetry
     analytics = {
@@ -158,7 +159,7 @@ let
     # TUI settings
     tui = {
       notifications = true;
-      theme = "one-half-dark";
+      theme = "base16-stylix";
       vim_mode_default = true;
       status_line = [
         # Configure Status Line: Select which items to display in the status line.

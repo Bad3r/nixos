@@ -53,7 +53,11 @@ let
               # Upstream adds dmenu and i3status; dmenu has its own app row and the bar runs i3status-rust.
               extraPackages = [ ];
             };
-            displayManager.lightdm.enable = true;
+            displayManager.lightdm = {
+              enable = true;
+              # The desktop color, in place of the NixOS wallpaper.
+              background = config.lib.stylix.colors.withHashtag.base01;
+            };
           };
 
           displayManager.defaultSession = lib.mkDefault "none+i3";

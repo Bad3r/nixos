@@ -25,7 +25,7 @@
 #   5. The upstream Nix package builds against gtk3 + libdbusmenu
 #      without `wrapGAppsHook3` and without `librsvg` in scope, so
 #      `GDK_PIXBUF_MODULE_FILE` is unset at runtime and gdk-pixbuf
-#      lacks the SVG loader. Modern icon themes (Qogir, Adwaita,
+#      lacks the SVG loader. Modern icon themes (Fluent, Adwaita,
 #      Papirus, hicolor) ship status/panel icons exclusively as SVG;
 #      gdk-pixbuf cannot decode them and Gtk falls back to
 #      `image-missing`, which is the actual symptom seen on this

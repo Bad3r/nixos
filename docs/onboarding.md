@@ -73,7 +73,7 @@ The reading path runs from what the project is to how it ships, each step buildi
 12. Custom packages and overlays: `modules/hosts/common/custom-overlays-base.nix`, then `modules/apps/restringer/`, `packages/restringer/default.nix`, and its `hashes.json`.
     The per-package `update.py` pin updaters share the library in `scripts/updater/`.
 13. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
-14. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme comes from the `tinted-schemes` input.
+14. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme is VS Code Dark 2026 (`modules/stylix/vscode-dark-2026.base16.yaml`).
 15. Validation, tooling, and deployment: `modules/meta/devshell.nix`, `modules/apps/pentesting-devshell/package.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
     `modules/meta/hooks/apps-catalog-sync.nix` keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.
 

@@ -7,7 +7,8 @@
   stdenvNoCC,
   makeWrapper,
   undmg,
-  themedTrayIcon ? null,
+  themedIcon ? null,
+  themedTrayIcon ? themedIcon,
   # Strip the in-app logged-out indicator and the unread-mail counter
   # overlay so the themed tray glyph renders cleanly. The two upstream
   # behaviours print text and a coloured dot on top of the icon, which
@@ -54,11 +55,12 @@ let
 
   appimageContents = appimageTools.extract {
     inherit src pname version;
-    postExtract = lib.optionalString (themedTrayIcon != null) (
+    postExtract = lib.optionalString (themedIcon != null) (
       ''
         renderThemedIcon() {
-          local size="$1"
-          local output="$2"
+          local source="$1"
+          local size="$2"
+          local output="$3"
           local glyphSize="$((size * 11 / 16))"
           local offset="$(((size - glyphSize) / 2))"
 
@@ -70,13 +72,13 @@ let
             --left "$offset" \
             --top "$offset" \
             --keep-aspect-ratio \
-            ${themedTrayIcon} > "$output"
+            "$source" > "$output"
         }
 
         for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
           iconDir="$out/usr/share/icons/hicolor/''${size}x''${size}/apps"
           mkdir -p "$iconDir"
-          renderThemedIcon "$size" "$iconDir/${pname}.png"
+          renderThemedIcon ${themedIcon} "$size" "$iconDir/${pname}.png"
         done
 
         asarRoot="$(mktemp -d)"
@@ -92,10 +94,17 @@ let
             'if (false && unread > 0) {'
       ''
       + ''
-        renderThemedIcon 128 "$asarRoot/app/app/assets/icons/icon.png"
+        renderThemedIcon ${themedIcon} 128 "$asarRoot/app/app/assets/icons/icon.png"
         for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
-          renderThemedIcon "$size" "$asarRoot/app/app/assets/icons/png/''${size}x''${size}.png"
+          renderThemedIcon ${themedIcon} "$size" "$asarRoot/app/app/assets/icons/png/''${size}x''${size}.png"
         done
+
+        # The tray reads its own file instead of the window icon.
+        renderThemedIcon ${themedTrayIcon} 128 "$asarRoot/app/app/assets/icons/tray.png"
+        substituteInPlace "$asarRoot/app/app/electron-main/index.cjs" \
+          --replace-fail \
+            'trayIcon: icon,' \
+            'trayIcon: appRelativePath("./assets/icons/tray.png"),'
 
         ${asar}/bin/asar pack \
           --unpack-dir "{node_modules/sodium-native,node_modules/keytar}" \

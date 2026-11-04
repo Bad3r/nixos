@@ -46,17 +46,7 @@ let
 
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
-  stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
-  stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
-  colorWithHash = color: if builtins.substring 0 1 color == "#" then color else "#${color}";
-  getStylixColor =
-    name: fallback:
-    if lib.hasAttr name stylixColorsWithHash then
-      stylixColorsWithHash.${name}
-    else if lib.hasAttr name stylixColors then
-      colorWithHash stylixColors.${name}
-    else
-      fallback;
+  colors = config.lib.stylix.colors.withHashtag;
   ublockOriginUiTheme =
     if
       stylixEnabled
@@ -68,7 +58,7 @@ let
       stylixPolarity
     else
       "auto";
-  ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
+  ublockOriginAccentColor = colors.base0D;
 
   # Browser-side trust manifest for the managed 1Password extension. The
   # 1Password GUI module owns the /run/wrappers/bin target.
@@ -163,11 +153,10 @@ let
   };
   mkToolbarIcon =
     name:
-    pkgs.writeText "${name}-toolbar.svg" (
-      builtins.replaceStrings [ "#d3dae3" ] [ (getStylixColor "base05" "#d3dae3") ] (
-        builtins.readFile ../stylix/icons/${name}-outline.svg
-      )
-    );
+    config.lib.stylix.colors {
+      template = builtins.readFile ../stylix/icons/${name}-outline.svg.mustache;
+      extension = ".svg";
+    };
   userChrome =
     lib.concatStrings (
       lib.mapAttrsToList (extension: name: ''
@@ -217,25 +206,54 @@ let
 
   darkreaderBaseSettings = lib.importJSON ./_gecko-darkreader-settings.json;
   darkreaderStylixThemeColors = {
-    darkSchemeBackgroundColor = getStylixColor "base00" "#282c34";
-    darkSchemeTextColor = getStylixColor "base05" "#abb2bf";
-    lightSchemeBackgroundColor = getStylixColor "base06" "#b6bdca";
-    lightSchemeTextColor = getStylixColor "base00" "#282c34";
-    scrollbarColor = getStylixColor "base00" "#282c34";
-    selectionColor = getStylixColor "base0D" "#aca0f7";
+    darkSchemeBackgroundColor = colors.base00;
+    darkSchemeTextColor = colors.base05;
+    lightSchemeBackgroundColor = colors.base06;
+    lightSchemeTextColor = colors.base00;
+    scrollbarColor = colors.base00;
+    selectionColor = colors.base0D;
   };
-  withDarkreaderStylixColors = theme: theme // darkreaderStylixThemeColors;
-  # Stylix owns colors only for the dynamicTheme engine; cssFilter/svgFilter
-  # entries derive their output from the page, so the scheme colors are inert
-  # there and would just be dead keys in storage.
-  withStylixColorsIfDynamic =
-    theme: if (theme.engine or null) == "dynamicTheme" then withDarkreaderStylixColors theme else theme;
+  # Stylix owns colors only for the engines that paint with them; cssFilter and
+  # svgFilter entries derive their output from the page, so the scheme colors
+  # are inert there and would just be dead keys in storage.
+  darkreaderColorEngines = [
+    "dynamicTheme"
+    "staticTheme"
+  ];
+  withStylixColors =
+    theme:
+    if builtins.elem (theme.engine or null) darkreaderColorEngines then
+      theme // darkreaderStylixThemeColors
+    else
+      theme;
   darkreaderSettings = darkreaderBaseSettings // {
-    theme = withStylixColorsIfDynamic darkreaderBaseSettings.theme;
+    theme = withStylixColors darkreaderBaseSettings.theme;
     customThemes = builtins.map (
-      customTheme: customTheme // { theme = withStylixColorsIfDynamic customTheme.theme; }
+      customTheme: customTheme // { theme = withStylixColors customTheme.theme; }
     ) darkreaderBaseSettings.customThemes;
   };
+  # The palette as JSON; each refresh records it per profile so the next one
+  # can tell Stylix-set colors from user edits.
+  darkreaderPalette = pkgs.writeText "darkreader-palette.json" (
+    builtins.toJSON darkreaderStylixThemeColors
+  );
+  # The same rule as a jq filter over an existing storage.js, so a palette
+  # change reaches themes added at runtime. A color still equal to the previous
+  # palette ($prev) takes the new one ($palette); any other value is a user
+  # edit and stays. Prints nothing when storage.js needs no change.
+  darkreaderPaletteFilter = pkgs.writeText "darkreader-palette.jq" ''
+    def themed($old; $new):
+      if (.engine | IN(${lib.concatMapStringsSep ", " builtins.toJSON darkreaderColorEngines}))
+      then reduce ($new | keys_unsorted[]) as $key (.;
+        if has($key) and .[$key] != $old[$key] then . else .[$key] = $new[$key] end)
+      else . end;
+    $prev[0] as $old
+    | $palette[0] as $new
+    | . as $stored
+    | (if .theme then .theme |= themed($old; $new) else . end)
+    | (if .customThemes then .customThemes |= map(if .theme then .theme |= themed($old; $new) else . end) else . end)
+    | select(. != $stored)
+  '';
   # Seed payload for Dark Reader. Written once as a writable file by
   # mkDarkreaderSeed (_gecko-mk-profile.nix) instead of through
   # extensions.settings, which force-rewrites storage.js on every activation
@@ -350,7 +368,7 @@ in
   };
 
   inherit userChrome;
-  inherit darkreaderStorageSeed;
+  inherit darkreaderStorageSeed darkreaderPalette darkreaderPaletteFilter;
 
   extensionStorage = {
     # uBO
@@ -437,8 +455,9 @@ in
 
     # Dark Reader is intentionally absent here: extensions.settings force-writes
     # storage.js on every activation, discarding the user's runtime Dark Reader
-    # changes. It is seeded once as a writable file instead; see
-    # darkreaderStorageSeed above and mkDarkreaderSeed in _gecko-mk-profile.nix.
+    # changes. It is seeded as a writable file whose untouched palette colors
+    # activation refreshes instead; see darkreaderStorageSeed and
+    # darkreaderPaletteFilter above and mkDarkreaderSeed in _gecko-mk-profile.nix.
 
     # Tabliss is intentionally unmanaged: it is not in the extension policy set,
     # and the archived dotfiles export (tabliss/tabliss.json) is dropped rather
