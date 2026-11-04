@@ -4,32 +4,28 @@
   icon,
 }:
 let
+  # Thread-title requests from the TUI (codex-rs/tui/src/app/thread_title.rs).
+  titlePrefix = "Generate a concise, single-line task title";
   # Prints shell assignments for summary and body, or nothing to skip.
-  filter = pkgs.writeText "codex-notify.jq" ''
-    # The body takes markup; the summary is plain text.
-    def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
-    def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
-    def text: if type == "string" then . else "" end;
-
-    if type != "object" then error("payload is not an object")
-    elif .type == "agent-turn-complete" then
-      # Thread-title requests from the TUI (codex-rs/tui/src/app/thread_title.rs:277, 0.166.0).
-      if ((."input-messages"[0]? | text) | startswith("Generate a concise, single-line task title")) then empty
-      else
-        ((.cwd | text) | rtrimstr("/") | split("/") | last // "") as $dir
-        | ((."last-assistant-message" | text) | split("\n") | map(select(test("\\S"))) | .[:3] | join("\n") | clip(200)) as $msg
-        | {
-            summary: ("Codex" + (if $dir == "" then "" else " · " + $dir end)),
-            body: (if $msg == "" then "Turn complete" else $msg end)
-          }
+  filter = pkgs.writeText "codex-notify.jq" (
+    builtins.readFile ../_notify.jq
+    + ''
+      if type != "object" then error("payload is not an object")
+      elif .type == "agent-turn-complete" then
+        if ((."input-messages"[0]? | text) | startswith(${builtins.toJSON titlePrefix})) then empty
+        else
+          ((."last-assistant-message" | text) | excerpt) as $msg
+          | {summary: title("Codex"), body: (if $msg == "" then "Turn complete" else $msg end)}
+        end
+      else {summary: "Codex", body: ("Event: " + (.type | text | if . == "" then "unknown" else . end))}
       end
-    else {summary: "Codex", body: ("Event: " + (.type | text | if . == "" then "unknown" else . end))}
-    end
-    | @sh "summary=\(.summary) body=\(.body | esc)"
-  '';
+      | fields
+    ''
+  );
 in
 pkgs.writeShellApplication {
   name = "codex-notify";
+  passthru = { inherit filter titlePrefix; };
   runtimeInputs = [
     pkgs.jq
     pkgs.libnotify

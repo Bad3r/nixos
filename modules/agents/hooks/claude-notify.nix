@@ -9,24 +9,19 @@ _: {
       pkgs:
       let
         # Prints shell assignments for summary and body.
-        filter = pkgs.writeText "claude-notify.jq" ''
-          # The body takes markup; the summary is plain text.
-          def esc: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
-          def clip($n): if length > $n then .[:$n - 1] + "…" else . end;
-          def text: if type == "string" then . else "" end;
-
-          if type != "object" then error("payload is not an object") else . end
-          | ((.cwd | text) | rtrimstr("/") | split("/") | last // "") as $dir
-          | ([.message, .title, .notification_type] | map(text) | map(select(test("\\S"))) | first // "Notification") as $msg
-          | {
-              summary: ("Claude Code" + (if $dir == "" then "" else " · " + $dir end)),
-              body: ($msg | split("\n") | map(select(test("\\S"))) | .[:3] | join("\n") | clip(200))
-            }
-          | @sh "summary=\(.summary) body=\(.body | esc)"
-        '';
+        filter = pkgs.writeText "claude-notify.jq" (
+          builtins.readFile ../_notify.jq
+          + ''
+            if type != "object" then error("payload is not an object") else . end
+            | ([.message, .title, .notification_type] | map(text) | map(select(test("\\S"))) | first // "Notification") as $msg
+            | {summary: title("Claude Code"), body: ($msg | excerpt)}
+            | fields
+          ''
+        );
       in
       pkgs.writeShellApplication {
         name = "claude-notify";
+        passthru = { inherit filter; };
         runtimeInputs = [
           pkgs.jq
           pkgs.libnotify

@@ -18,6 +18,10 @@ in
         finalPackage = pkgs.emptyDirectory;
         limits.maxTtl = 1;
       };
+      codexNotify = import ./_notify.nix {
+        inherit pkgs;
+        icon = pkgs.emptyFile;
+      };
       mkSettings =
         telemetry:
         import ./_settings.nix {
@@ -29,10 +33,7 @@ in
             pkgs
             ;
           homeDir = "/home/codex-config-check";
-          codexNotify = import ./_notify.nix {
-            inherit pkgs;
-            icon = pkgs.emptyFile;
-          };
+          inherit codexNotify;
         };
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;
@@ -93,6 +94,44 @@ in
               STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
                 --config=${telemetry.collectorConfigFile}
               ${lib.getExe pkgs.python314} ${telemetryCheck}
+              touch "$out"
+            '';
+
+        "codex/notify" =
+          pkgs.runCommandLocal "codex-notify-check"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [ pkgs.jq ];
+            }
+            ''
+              expect() {
+                local got
+                got=$(jq -r -f ${codexNotify.filter} <<<"$1")
+                if [ "$got" != "$2" ]; then
+                  printf 'FAIL: %s\nexpected: %s\ngot: %s\n' "$1" "$2" "$got" >&2
+                  exit 1
+                fi
+              }
+              grep -qF ${lib.escapeShellArg codexNotify.titlePrefix} ${codexPkg.src}/codex-rs/tui/src/app/thread_title.rs || {
+                echo "FAIL: codex ${codexPkg.version} thread_title.rs lacks the notify filter's title prefix" >&2
+                exit 1
+              }
+              expect ${
+                lib.escapeShellArg (
+                  builtins.toJSON {
+                    type = "agent-turn-complete";
+                    input-messages = [ "${codexNotify.titlePrefix} for: fix it" ];
+                    last-assistant-message = "Fix CI";
+                  }
+                )
+              } ""
+              expect '{"type":"agent-turn-complete","last-assistant-message":"a < b & c","cwd":"/w/<x>&y/"}' \
+                "summary='Codex · <x>&y' body='a &lt; b &amp; c'"
+              expect '{"type":"agent-turn-complete","last-assistant-message":" \n","cwd":"/w/r"}' "summary='Codex · r' body='Turn complete'"
+              expect '{"type":"approval-requested","cwd":"/w/r"}' "summary='Codex' body='Event: approval-requested'"
+              long=$(printf '%0250d' 0 | tr 0 x)
+              clipped="''${long:0:199}…"
+              expect "{\"type\":\"agent-turn-complete\",\"last-assistant-message\":\"$long\"}" "summary='Codex' body='$clipped'"
               touch "$out"
             '';
 

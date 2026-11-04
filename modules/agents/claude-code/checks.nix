@@ -219,6 +219,25 @@
               echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
             '';
 
+        "claude-code/notify" =
+          let
+            inherit (config.flake.lib.agents._internal.hooks.raw.claude-notify.package pkgs) filter;
+          in
+          pkgs.runCommandLocal "claude-code-notify-check"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [ pkgs.jq ];
+            }
+            ''
+              got=$(jq -r -f ${filter} <<<'{"notification_type":"idle_prompt","cwd":"/w/r"}')
+              expected="summary='Claude Code · r' body='idle_prompt'"
+              if [ "$got" != "$expected" ]; then
+                printf 'FAIL: expected %s, got %s\n' "$expected" "$got" >&2
+                exit 1
+              fi
+              touch "$out"
+            '';
+
         # Runs the real claude-code-apply-config against a fake HOME. This opts
         # into .github/workflows/check.yml's "Run runtime check suites" step via
         # passthru.runtimeCheck; without it CI only forces the drvPath.
