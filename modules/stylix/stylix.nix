@@ -42,14 +42,134 @@ let
         terminal = 12;
       };
     };
+
+  vscode = import ./_vscode-dark-2026.nix;
+  accent = vscode."statusBarItem.prominentBackground";
+  gtkAccentCss = ''
+    @define-color accent_color ${accent};
+    @define-color accent_bg_color ${accent};
+  '';
+  stylixCursor = pkgs: {
+    package = pkgs.bibata-cursors;
+    name = "Bibata-Modern-Ice";
+    size = 24;
+  };
+  inherit (config.flake.lib) octicons;
+  stylixIcons = pkgs: {
+    package = pkgs.fluent-icon-theme.override { colorVariants = [ "grey" ]; };
+    dark = "Fluent-grey-dark";
+    light = "Fluent-grey-light";
+  };
 in
 {
   flake = {
     nixosModules = {
       base =
-        { pkgs, ... }:
+        { config, pkgs, ... }:
+        let
+          colors = config.lib.stylix.colors;
+          light = config.stylix.polarity == "light";
+          icons = stylixIcons pkgs;
+          iconName = if light then icons.light else icons.dark;
+
+          adwThemeName = if light then "adw-gtk3" else "adw-gtk3-dark";
+          greeterThemeName = "adw-gtk3-stylix";
+          greeterCss = colors {
+            template = builtins.readFile "${inputs.stylix}/modules/gtk/gtk.css.mustache";
+            extension = ".css";
+          };
+          greeterLayoutCss = pkgs.writeText "lightdm-greeter.css" (
+            gtkAccentCss + import ./_lightdm-greeter-css.nix
+          );
+          greeterTheme = pkgs.runCommandLocal "${greeterThemeName}-gtk-theme" { } ''
+            theme=$out/share/themes/${greeterThemeName}
+            mkdir -p $out/share/themes
+            cp -r ${pkgs.adw-gtk3}/share/themes/${adwThemeName} "$theme"
+            chmod -R u+w "$theme"
+            sed -i 's/^Name=.*/Name=${greeterThemeName}/' "$theme/index.theme"
+            for css in gtk.css gtk-dark.css; do
+              cat ${greeterCss} ${greeterLayoutCss} >>"$theme/gtk-3.0/$css"
+            done
+          '';
+
+          greeterIconName = "octicons-greeter";
+          # GTK recolors the symbolic icons to the text color.
+          greeterIcons =
+            lib.mapAttrs (_: octicon: octicons.template octicon 16 "base05") {
+              document-properties-symbolic = "device-desktop";
+              pan-down-symbolic = "chevron-down";
+              preferences-desktop-accessibility-symbolic = "accessibility";
+              system-shutdown-symbolic = "zap";
+              view-refresh-symbolic = "sync";
+            }
+            // {
+              greeter-login = octicons.template "arrow-right" 16 "base00";
+            };
+          greeterIconIndex = pkgs.writeText "index.theme" (
+            lib.generators.toINI { } {
+              "Icon Theme" = {
+                Name = greeterIconName;
+                Comment = "Primer Octicons for the LightDM greeter";
+                Inherits = "${iconName},hicolor";
+                Directories = "scalable";
+              };
+              scalable = {
+                Size = 16;
+                MinSize = 8;
+                MaxSize = 512;
+                Type = "Scalable";
+              };
+            }
+          );
+          greeterIconTheme = pkgs.runCommandLocal "${greeterIconName}-icon-theme" { } ''
+            dir=$out/share/icons/${greeterIconName}
+            mkdir -p $dir/scalable
+            install -m 444 ${greeterIconIndex} $dir/index.theme
+            ${lib.concatStrings (
+              lib.mapAttrsToList (name: template: ''
+                install -m 444 ${
+                  colors {
+                    inherit template;
+                    extension = ".svg";
+                  }
+                } $dir/scalable/${name}.svg
+              '') greeterIcons
+            )}
+          '';
+        in
         {
           imports = [ inputs.stylix.nixosModules.stylix ];
+
+          # The greeter runs as the lightdm user, outside Home Manager's GTK theming.
+          services.xserver.displayManager.lightdm.greeters.gtk = {
+            theme = {
+              name = greeterThemeName;
+              package = greeterTheme;
+            };
+            iconTheme = {
+              name = greeterIconName;
+              package = pkgs.symlinkJoin {
+                name = "${greeterIconName}-with-${iconName}";
+                paths = [
+                  greeterIconTheme
+                  icons.package
+                ];
+              };
+            };
+            cursorTheme = stylixCursor pkgs;
+            indicators = [
+              "~spacer"
+              "~session"
+              "~a11y"
+              "~power"
+              "~clock"
+            ];
+            extraConfig = ''
+              font-name = ${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.applications}
+              hide-user-image = true
+            '';
+          };
+
           stylix = baseTheme // {
             fonts = monoLisaFonts pkgs;
             homeManagerIntegration.autoImport = false;
@@ -110,8 +230,6 @@ in
         }:
         let
           graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
-          vscode = import ./_vscode-dark-2026.nix;
-          accent = vscode."statusBarItem.prominentBackground";
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
@@ -453,18 +571,11 @@ in
 
               # One pointer for X11, GTK, and Qt; unset, each toolkit fell back
               # to a different theme.
-              cursor = {
-                package = pkgs.bibata-cursors;
-                name = "Bibata-Modern-Ice";
-                size = 24;
-              };
+              cursor = stylixCursor pkgs;
 
               # Icon theme configuration
-              icons = {
+              icons = stylixIcons pkgs // {
                 enable = true;
-                package = pkgs.fluent-icon-theme.override { colorVariants = [ "grey" ]; };
-                dark = "Fluent-grey-dark";
-                light = "Fluent-grey-light";
               };
 
               # Application theming targets
@@ -473,10 +584,7 @@ in
                 gtk = {
                   enable = true;
                   flatpakSupport.enable = true;
-                  extraCss = ''
-                    @define-color accent_color ${accent};
-                    @define-color accent_bg_color ${accent};
-                  '';
+                  extraCss = gtkAccentCss;
                   gtk4.extraCss = ''
                     :root {
                       --accent-bg-color: ${accent};
