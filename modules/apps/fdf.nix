@@ -39,4 +39,26 @@ let
 in
 {
   flake.nixosModules.apps.fdf = FdfModule;
+
+  flake.homeManagerModules.apps.fdf =
+    { lib, osConfig, ... }:
+    let
+      cfg = lib.attrByPath [ "programs" "fdf" "extended" ] { enable = false; } osConfig;
+    in
+    {
+      # Alongside the zsh keybindings (1050), after the fzf and atuin integrations.
+      config = lib.mkIf cfg.enable {
+        programs.zsh.initContent = lib.mkOrder 1050 ''
+          # ^E runs fdf.
+          fdf-widget() {
+            zle -I
+            ${lib.getExe cfg.package} <"$TTY"
+            zle reset-prompt
+          }
+          zle -N fdf-widget
+          bindkey -M viins '^E' fdf-widget
+          bindkey -M vicmd '^E' fdf-widget
+        '';
+      };
+    };
 }
