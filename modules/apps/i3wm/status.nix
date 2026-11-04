@@ -18,11 +18,16 @@ in
       stylixColors = config.lib.stylix.colors.withHashtag;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
+      # En spaces between blocks, a thin space after each icon.
+      thin = builtins.fromJSON ''"\u2009"'';
+      en = builtins.fromJSON ''"\u2002"'';
+      pad = text: en + text + en;
+
       netBlockBase = {
         block = "net";
         interval = 2;
-        format = " $icon {$ssid $signal_strength|$device} {$ip|} ";
-        format_alt = " $icon $device ^icon_net_down $speed_down.eng(prefix:K)/s ^icon_net_up $speed_up.eng(prefix:K)/s ";
+        format = pad "$icon${thin}$device ^icon_net_down${thin}$speed_down.eng(prefix:K)/s ^icon_net_up${thin}$speed_up.eng(prefix:K)/s";
+        format_alt = pad "$icon${thin}{$ssid $signal_strength|$device} {$ip|}";
       };
 
       netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
@@ -32,6 +37,7 @@ in
         {
           block = "uptime";
           interval = 3600;
+          format = pad "$icon${thin}$uptime";
         }
         {
           block = "disk_space";
@@ -41,23 +47,33 @@ in
           interval = 20;
           warning = 15.0;
           alert = 10.0;
-          format = " $icon $available.eng(w:2) ";
-          format_alt = " $icon $used.eng(w:2) / $total.eng(w:2) ";
+          format = pad "$icon${thin}$available.eng(w:2)";
+          format_alt = pad "$icon${thin}$used.eng(w:2) / $total.eng(w:2)";
         }
         {
           block = "memory";
-          format = " $icon $mem_total_used_percents.eng(w:2) ";
-          format_alt = " $icon_swap $swap_used_percents.eng(w:2) ";
+          format = pad "$icon${thin}$mem_total_used_percents.eng(w:2)";
+          format_alt = pad "$icon_swap${thin}$swap_used_percents.eng(w:2)";
         }
         {
           block = "cpu";
           interval = 1;
-          format = " $icon $utilization ";
+          format = pad "$icon${thin}$utilization";
+        }
+        {
+          block = "nvidia_gpu";
+          interval = 2;
+          # Temperature states; plain until 75 °C.
+          idle = 75;
+          good = 80;
+          info = 85;
+          warning = 90;
+          format = pad "$icon${thin}$utilization.eng(w:2) $memory.eng(w:3,p:Gi)";
         }
         {
           block = "load";
           interval = 1;
-          format = " $icon $1m ";
+          format = pad "$icon${thin}$1m";
         }
         {
           block = "temperature";
@@ -66,14 +82,14 @@ in
           idle = 75.0;
           info = 81.0;
           warning = 90.0;
-          format = " $icon $max ";
-          format_alt = " $icon $min min, $average avg, $max max ";
+          format = pad "$icon${thin}$max";
+          format_alt = pad "$icon${thin}$min min, $average avg, $max max";
         }
         {
           block = "sound";
           driver = "pipewire";
-          format = " $icon {$volume|muted} ";
-          format_alt = " $icon $output_description.str(max_w:18) {$volume|muted} ";
+          format = pad "$icon${thin}{$volume|muted}";
+          format_alt = pad "$icon${thin}$output_description.str(max_w:18) {$volume|muted}";
           step_width = 2;
           max_vol = 100;
           headphones_indicator = true;
@@ -95,24 +111,32 @@ in
               name = "pipewire";
             }
           ];
+          format = lib.concatMapStrings (source: "{${pad "$icon_${source}"}|}") [
+            "audio"
+            "audio_sink"
+            "video"
+            "webcam"
+            "unknown"
+          ];
         }
         {
           block = "battery";
           interval = 30;
-          format = " $icon $percentage {$time_remaining.dur(hms:true, min_unit:m) |}";
-          full_format = " $icon $percentage ";
-          not_charging_format = " $icon $percentage ";
+          format = pad "$icon${thin}$percentage{ $time_remaining.dur(hms:true, min_unit:m)|}";
+          full_format = pad "$icon${thin}$percentage";
+          not_charging_format = pad "$icon${thin}$percentage";
           missing_format = "";
         }
         {
           block = "notify";
           driver = "dunst";
-          format = " $icon {$notification_count.eng(w:1)|} ";
+          format = pad "$icon{${thin}$notification_count.eng(w:1)|}";
         }
         {
           block = "time";
           interval = 60;
-          format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
+          # Time brighter than the date.
+          format = pad "$icon${thin}$timestamp.datetime(f:'%a %d/%m') <span color='${stylixColors.base05}'>$timestamp.datetime(f:'%R')</span>";
           click = [
             {
               button = "left";
@@ -137,6 +161,8 @@ in
               icons = "awesome6";
               overrides = octicons.status;
             };
+            # Icons at about base03 on idle blocks, still legible on warning colors.
+            icons_format = "<span fgalpha='63%'>{icon}</span>";
           }
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
             theme = {

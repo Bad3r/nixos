@@ -43,6 +43,7 @@ let
     memory_mem = "stack";
     memory_swap = "arrow-switch";
     cpu = "cpu";
+    gpu = "ai-model";
     cogs = "pulse";
     thermometer = "flame";
     volume = "unmute";
