@@ -168,6 +168,14 @@ in
         "ssh -o PermitLocalCommand=yes -o 'LocalCommand=touch /tmp/a' h true"
         "ssh -o 'ProxyCommand=sh -c \"nc %h %p 2>/tmp/err\"' h true"
         "ssh -oKnownHostsCommand='tee /tmp/kh' h true"
+        "ssh h -E /tmp/x.log true"
+        "ssh h -tE /tmp/x.log true"
+        "ssh h -o 'ProxyCommand=sh -c \"nc %h %p 2>/tmp/err\"' true"
+        "ssh -o ' ProxyCommand=touch /tmp/x' h true"
+        "ssh -o '\"ProxyCommand\"=touch /tmp/x' h true"
+        "ssh -o 'ControlPath = /tmp/c' h true"
+        "ssh -o 'ControlPath \"/tmp/c d\"' h true"
+        "ssh -o 'UserKnownHostsFile ~/.ssh/kh /tmp/kh' h true"
         "echo x > ${scratchDir}/a"
         ''echo x > "${scratchDir}"/a''
         "cmd 2>${scratchDir}/err"
@@ -311,6 +319,10 @@ in
         "ssh -o ControlPath=none -o UserKnownHostsFile=/dev/null h 'cp a /tmp/b'"
         "ssh -E \"$TMPDIR/ssh.log\" h 'cp a /tmp/b'"
         "ls /tmp && ssh h 'cd /tmp && make'"
+        "ssh h -t mkdir -p /tmp/work -E /tmp/x"
+        "ssh -- h -E /tmp/x.log"
+        "ssh h -- -E /tmp/x.log"
+        "ssh -o 'ControlPath = ~/.ssh/c-%C' h 'touch /tmp/a'"
       ];
     };
   };

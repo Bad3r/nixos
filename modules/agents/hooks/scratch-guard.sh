@@ -314,36 +314,74 @@ checkSbx() {
 checkSshOption() {
   local opt="$1" value="$2" key
   case "$opt" in
-  E | S) ;;
-  o)
-    key="${value%%[=[:space:]]*}"
-    case "${key,,}" in
-    controlpath | userknownhostsfile) ;;
-    proxycommand | localcommand | knownhostscommand) return 1 ;;
-    *) return 0 ;;
-    esac
-    value="${value#"$key"}"
-    value="${value#[=[:space:]]}"
-    value="${value%%[[:space:]]*}"
+  E | S)
+    checkSshPath "$value"
+    return 0
     ;;
+  o) ;;
   *) return 0 ;;
   esac
-  case "$value" in
+  # ssh_config form: optional quotes around the key, whitespace and at most
+  # one = between key and value, quoted values, several files per value.
+  trimSpace
+  if [ "${value:0:1}" = '"' ]; then
+    value="${value:1}"
+    key="${value%%\"*}"
+    value="${value#"$key"}"
+    value="${value#\"}"
+  else
+    key="${value%%[=[:space:]]*}"
+    value="${value#"$key"}"
+  fi
+  case "${key,,}" in
+  controlpath | userknownhostsfile) ;;
+  proxycommand | localcommand | knownhostscommand) return 1 ;;
+  *) return 0 ;;
+  esac
+  trimSpace
+  value="${value#=}"
+  trimSpace
+  while [ -n "$value" ]; do
+    if [ "${value:0:1}" = '"' ]; then
+      value="${value:1}"
+      key="${value%%\"*}"
+      value="${value#"$key"}"
+      value="${value#\"}"
+    else
+      key="${value%%[[:space:]]*}"
+      value="${value#"$key"}"
+    fi
+    checkSshPath "$key"
+    trimSpace
+  done
+}
+
+trimSpace() {
+  value="${value#"${value%%[![:space:]]*}"}"
+}
+
+checkSshPath() {
+  case "$1" in
   "" | none | /dev/null) ;;
-  *) checkHostPath "$value" create ;;
+  *) checkHostPath "$1" create ;;
   esac
 }
 
-# Everything after the destination runs on the remote host; fails on an
-# option letter ssh does not take, so the segment is checked whole.
+# ssh parses options on both sides of the destination, up to -- or the first
+# word after it; the rest runs on the remote host. Fails on an option letter
+# ssh does not take, so the segment is checked whole.
 checkSsh() {
-  local n word j c value
+  local n word j c value dest=0
   for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
     word="${words[n]}"
     case "$word" in
     --) return 0 ;;
     -?*) ;;
-    *) return 0 ;;
+    *)
+      [ "$dest" -eq 0 ] || return 0
+      dest=1
+      continue
+      ;;
     esac
     for ((j = 1; j < ${#word}; j++)); do
       c="${word:j:1}"
