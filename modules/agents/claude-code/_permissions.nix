@@ -96,7 +96,7 @@ let
   ];
 
   # Read(**)/Edit(**) cover the working tree. The parent-relative Read rules
-  # reach the repo-root and global CLAUDE.md from nested worktrees, which the
+  # reach the global CLAUDE.md from nested worktrees, which the
   # cwd-anchored Read(**) does not.
   fileWebAllow = [
     "Read(~/.claude/CLAUDE.md)"

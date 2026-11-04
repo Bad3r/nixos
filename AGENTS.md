@@ -31,11 +31,10 @@ never a goal: remove legacy support instead of carrying both paths.
   than installing it, and `host-<host>-apps-match-registry` fails when a row
   evaluates to anything else or another module installs the package of an app
   whose row is off.
-- Everything runs Lix from the nixpkgs pin (`modules/base/nix-package.nix`).
-  `flake.nix#nixConfig` carries only what Lix needs before the module graph
-  loads; `modules/base/nix-settings.nix` owns the rest, and cache topology sits
-  in `.github/actions/install-lix/substituters.conf` (read by
-  `modules/hosts/common/nix-substituters.nix`) and
+- Everything runs Lix from the nixpkgs pin. `flake.nix#nixConfig` carries only
+  what Lix needs before the module graph loads, `modules/base/nix-settings.nix`
+  owns the rest, and cache topology sits in
+  `.github/actions/install-lix/substituters.conf` and
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
 - The nixpkgs, home-manager, stylix, and llm-agents.nix inputs track Bad3r's
@@ -45,10 +44,8 @@ never a goal: remove legacy support instead of carrying both paths.
   update the lock.
 - Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to
   the module that installs them.
-- Local mirrors are listed in `modules/hosts/common/mirrors.nix` by GitHub
-  `owner/repo` shorthand (`tridactyl/tridactyl` lands at
-  `/data/git/tridactyl-tridactyl`); `docs/reference/local-mirrors.md` covers
-  adding one and links the sync and troubleshooting pages.
+- Local mirrors are listed in `modules/hosts/common/mirrors.nix`;
+  `docs/reference/local-mirrors.md` covers adding one.
 - Secrets use sops-nix: encrypt with `sops secrets/<name>.yaml`, declare under
   `sops.secrets."<namespace>/<name>"`, and consume the entry's `.path`.
 - Identifiers are lowercase and hyphenated.
@@ -76,9 +73,9 @@ never a goal: remove legacy support instead of carrying both paths.
   Hand-written Markdown follows `docs/technical-writing/style-guide.md`,
   enforced by the `docs-style` hook.
 - Remove a finished worktree with `scripts/git-worktree-remove-safe.sh <path>`,
-  because the `secrets/` submodule makes plain `git worktree remove` refuse;
-  `scripts/prune-stale-worktrees.sh` and a timer sweep the leftovers
-  (`docs/reference/worktree-prune.md`).
+  because the `secrets/` submodule makes plain `git worktree remove` refuse.
+- `docs/` and `scripts/` each carry their own `AGENTS.md`; read that file
+  before editing in either directory.
 
 ## Validation
 
