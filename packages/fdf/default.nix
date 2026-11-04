@@ -9,7 +9,7 @@
 }:
 
 writeShellApplication {
-  name = "rg-fzf";
+  name = "fdf";
 
   meta = {
     description = "Interactive ripgrep with fzf live search and preview";
@@ -23,7 +23,7 @@ writeShellApplication {
       - Respects .gitignore by default
 
       Usage:
-        rg-fzf [INITIAL_QUERY] [DIRECTORY]
+        fdf [INITIAL_QUERY] [DIRECTORY]
 
       Keybindings:
         Enter     - Open selected file in $EDITOR at line
@@ -32,7 +32,7 @@ writeShellApplication {
     '';
     license = lib.licenses.mit;
     platforms = lib.platforms.unix;
-    mainProgram = "rg-fzf";
+    mainProgram = "fdf";
   };
 
   runtimeInputs = [

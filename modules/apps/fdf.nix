@@ -1,5 +1,5 @@
 /*
-  Package: rg-fzf
+  Package: fdf
   Description: Interactive ripgrep with fzf live search and preview.
   Repository: https://github.com/Bad3r/nixos
 
@@ -11,7 +11,7 @@
 */
 _:
 let
-  RgFzfModule =
+  FdfModule =
     {
       config,
       lib,
@@ -19,17 +19,17 @@ let
       ...
     }:
     let
-      cfg = config.programs.rg-fzf.extended;
+      cfg = config.programs.fdf.extended;
     in
     {
-      options.programs.rg-fzf.extended = {
+      options.programs.fdf.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable rg-fzf.";
+          description = "Whether to enable fdf.";
         };
 
-        package = lib.mkPackageOption pkgs "rg-fzf" { };
+        package = lib.mkPackageOption pkgs "fdf" { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -38,5 +38,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.rg-fzf = RgFzfModule;
+  flake.nixosModules.apps.fdf = FdfModule;
 }

@@ -148,6 +148,7 @@ let
       exiftool.extended.enable = lib.mkOverride 1100 true;
       exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
+      fdf.extended.enable = lib.mkOverride 1100 true;
       feroxbuster.extended.enable = lib.mkOverride 1100 true;
       ffuf.extended.enable = lib.mkOverride 1100 true;
       file.extended.enable = lib.mkOverride 1100 true;
@@ -408,7 +409,6 @@ let
       restic.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       resvg.extended.enable = lib.mkOverride 1100 true;
-      rg-fzf.extended.enable = lib.mkOverride 1100 true;
       rip.extended.enable = lib.mkOverride 1100 true;
       ripgrep.extended.enable = lib.mkOverride 1100 true;
       rizin.extended.enable = lib.mkOverride 1100 false;
