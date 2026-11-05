@@ -61,6 +61,13 @@ Every listed argument must occur, and the executable name does not satisfy an ar
 Rules without `processArgs` run through native i3 configuration.
 Process rules run asynchronously in `i3-process-window-rules.service`, separately from native rules, so ordering does not synchronize the two groups.
 
+## Default file manager
+
+The file-manager workspace assignment follows `host.defaults.fileManager` from [default-apps.nix](../../modules/hosts/common/default-apps.nix).
+[mime.nix](../../modules/xdg/mime.nix) owns the file-manager metadata used for matching.
+File-manager windows advertising dialog, utility, popup, or toolbox types and roles use the generic floating rules.
+There is no manager-specific progress-title rule.
+
 ## RustDesk connection manager
 
 The incoming connection manager and main RustDesk window share their class, instance, and normal window type.

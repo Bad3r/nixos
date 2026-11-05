@@ -1,7 +1,7 @@
 # i3 workspace assignments and named per-window rules.
 { config, ... }:
 let
-  inherit (config.flake.lib) octicons;
+  inherit (config.flake.lib) octicons xdg;
 in
 {
   flake.homeManagerModules.apps.i3-config =
@@ -14,6 +14,9 @@ in
     let
       cfg = config.gui.i3;
       workspaceName = octicons.nameOf;
+      fileManagerName = osConfig.host.defaults.fileManager;
+      fileManager =
+        if fileManagerName == null then null else xdg.desktopFiles.fileManager.${fileManagerName};
       i3Enabled = lib.attrByPath [ "services" "xserver" "windowManager" "i3" "enable" ] false osConfig;
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
@@ -158,12 +161,6 @@ in
                 criteria.class = "(?i)^(?:qt5ct|pinentry)$";
                 command = "floating enable, focus";
               };
-              thunar-progress = {
-                criteria = {
-                  class = "(?i)^thunar$";
-                  title = "(?i)(?:copying|deleting|moving)";
-                };
-              };
               toolbox = {
                 order = 900;
                 criteria.window_role = "(?i)^toolbox$";
@@ -179,10 +176,16 @@ in
             };
 
         xsession.windowManager.i3.config = {
-          assigns = lib.mkOptionDefault {
-            "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
-            "number \"${workspaceName 3}\"" = [ { class = "(?i)^thunar$"; } ];
-          };
+          assigns = lib.mkOptionDefault (
+            {
+              "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
+            }
+            // lib.optionalAttrs (fileManager != null) {
+              "number \"${workspaceName 3}\"" = [
+                { class = "(?i)^${lib.escapeRegex fileManager.windowClass}$"; }
+              ];
+            }
+          );
           window.commands = [
             {
               criteria.urgent = "latest";

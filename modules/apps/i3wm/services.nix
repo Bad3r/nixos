@@ -1,5 +1,9 @@
 # i3 session services configuration
 # Defines systemd user services and Home Manager services for the i3 session
+{ config, ... }:
+let
+  inherit (config.flake.lib) xdg;
+in
 {
   flake.homeManagerModules.apps.i3-config =
     {
@@ -12,12 +16,14 @@
     let
       i3Enabled = config.xsession.windowManager.i3.enable;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
+      fileManagerName = osConfig.host.defaults.fileManager;
+      fileManager =
+        if fileManagerName == null then null else xdg.desktopFiles.fileManager.${fileManagerName};
     in
     {
       config = lib.mkIf i3Enabled (
         let
           kittyCommand = lib.getExe (appRows.package "kitty");
-          nemoCommand = lib.getExe' (appRows.package "nemo") "nemo";
           stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
           toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
           lockPalette = lib.mapAttrs (_: toLockColor) {
@@ -174,8 +180,10 @@
               tray = lib.mkDefault "always";
               settings = lib.mkDefault {
                 program_options = {
-                  file_manager = nemoCommand;
                   terminal = kittyCommand;
+                }
+                // lib.optionalAttrs (fileManager != null) {
+                  file_manager = lib.getExe (appRows.package fileManager.module);
                 };
               };
             };

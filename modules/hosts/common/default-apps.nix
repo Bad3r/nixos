@@ -39,6 +39,9 @@ let
   defaultAppCategories = lib.mapAttrs (
     name: meta: meta // { desktopFiles = desktopFiles.${name}; }
   ) categoryMeta;
+  defaultSelections = lib.mapAttrs (_: meta: meta.defaultValue or null) categoryMeta // {
+    fileManager = "nemo";
+  };
 
   body =
     {
@@ -154,7 +157,7 @@ let
       config = lib.mkMerge (
         [
           { assertions = lib.flatten (lib.mapAttrsToList mkCategoryAssertion defaultAppCategories); }
-          { host.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) defaultAppCategories; }
+          { host.defaults = lib.mapAttrs (_: value: lib.mkDefault value) defaultSelections; }
           { host.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) envOnlyMeta; }
         ]
         ++ lib.mapAttrsToList mkCategoryConfig defaultAppCategories
