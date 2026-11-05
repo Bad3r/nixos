@@ -279,6 +279,8 @@
   - Custom espanso matches, form, shell, and clipboard variables, and regex triggers.
 - [usage/espanso-configuration.md](usage/espanso-configuration.md)
   - App-specific espanso configs, X11 and Wayland support, and the package override.
+- [usage/i3-window-rules.md](usage/i3-window-rules.md)
+  - Identifying popup windows and managing named i3 floating rules with process filters.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 - [usage/podman-untrusted.md](usage/podman-untrusted.md)

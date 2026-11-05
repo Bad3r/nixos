@@ -1,5 +1,4 @@
-# i3 window rules configuration
-# Defines workspace assignments and per-window commands
+# i3 workspace assignments and named per-window rules.
 { config, ... }:
 let
   inherit (config.flake.lib) octicons;
@@ -15,12 +14,17 @@ in
     let
       cfg = config.gui.i3;
       workspaceName = octicons.nameOf;
+      i3Enabled = lib.attrByPath [ "services" "xserver" "windowManager" "i3" "enable" ] false osConfig;
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
         "claude-desktop"
         "extended"
         "enable"
       ] false osConfig;
+      rustdeskEnabled =
+        i3Enabled
+        && lib.attrByPath [ "programs" "rustdesk" "extended" "enable" ] false osConfig
+        && lib.attrByPath [ "systemd" "services" "rustdesk" "enable" ] false osConfig;
       # Quarter-screen geometry calculations (all derived from config options)
       # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
       # Height: screenHeight/2 - fontSize*2 - 1  (account for bar area)
@@ -31,110 +35,166 @@ in
       xPos = toString ((cfg.screenWidth / 2) + cfg.borderWidth);
       yPos = toString cfg.barHeight;
 
-      # Quarter-screen top-right corner with exact pixel positioning
       topRight = "resize set ${qWidth} px ${qHeight} px, move position ${xPos} px ${yPos} px";
-
       onePassword = "resize set 949 px 765 px, move position center";
-
-      # ProtonVPN window positioning (known size: 408x600)
       protonvpnX = toString (cfg.screenWidth - 408 - (cfg.borderWidth * 2) - 1);
+      nativeRules = lib.filterAttrs (
+        _: rule: rule.enable && rule.condition && rule.processArgs == [ ]
+      ) cfg.windowRules;
+      orderedRules = lib.sort (a: b: a.order < b.order) (lib.mapAttrsToList (_: rule: rule) nativeRules);
     in
     {
-
-      config.xsession.windowManager.i3.config = {
-        # Workspace assignments by window class
-        assigns = lib.mkOptionDefault {
-          "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
-          "number \"${workspaceName 3}\"" = [ { class = "(?i)^thunar$"; } ];
-        };
-
-        # Per-window commands (floating, resize, position, borders)
-        window.commands = [
-          # Window type rules
-          {
-            criteria.window_type = "dialog";
-            command = "floating enable, focus";
-          }
-          {
-            criteria.window_type = "utility";
-            command = "floating enable";
-          }
-          # Window role rules
-          {
-            criteria.window_role = "(?i)^pop-?up$";
-            command = "floating enable";
-          }
-          {
-            criteria.window_role = "(?i)^toolbox$";
-            command = "floating enable";
-          }
-          # Specific window rules
-          {
-            criteria.class = "(?i)^(?:qt5ct|pinentry)$";
-            command = "floating enable, focus";
-          }
-          {
-            criteria.class = "(?i)^bitwarden$";
-            command = "floating enable, ${topRight}";
-          }
-          {
-            # 1Password main window (WM_CLASS: "1password", "1Password")
-            criteria.class = "(?i)^1password$";
-            command = "floating enable, ${onePassword}";
-          }
-          {
-            # Bitwarden browser extension popup window
-            criteria = {
-              window_type = "dialog";
-              title = "(?i)Extension:.*Bitwarden";
+      options.gui.i3.windowRules = lib.mkOption {
+        default = { };
+        description = ''
+          Named i3 window rules, sorted by order, then name, after default styling.
+          Rules with processArgs are handled by the process-aware window-rule service.
+        '';
+        type = lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              enable = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = "Whether to apply this window rule.";
+              };
+              condition = lib.mkOption {
+                type = lib.types.bool;
+                default = true;
+                description = "Host prerequisites for applying this rule, independent of the enable preference.";
+              };
+              criteria = lib.mkOption {
+                type = lib.types.attrsOf (lib.types.either lib.types.str lib.types.bool);
+                description = "i3 criteria that must all match the window.";
+              };
+              command = lib.mkOption {
+                type = lib.types.str;
+                default = "floating enable";
+                description = "i3 command to run for matching windows.";
+              };
+              processArgs = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = "Exact arguments that must also occur in the window owner's command line.";
+              };
+              order = lib.mkOption {
+                type = lib.types.int;
+                default = 1000;
+                description = "Execution order within native or process rules; lower values run first.";
+              };
             };
-            command = topRight;
           }
-          {
-            # Pipewire Volume Control
-            criteria.class = "(?i)^pwvucontrol$";
-            command = "floating enable, ${topRight}";
-          }
-          {
-            # Browser DevTools
-            criteria.class = "(?i)^devtools$";
-            command = "floating enable, ${topRight}";
-          }
-          {
-            criteria.class = "(?i)^protonvpn-app$";
-            command = "floating enable, move position ${protonvpnX} px ${yPos} px";
-          }
-          # Float Thunar progress dialogs (title is substring match)
-          {
-            criteria = {
-              class = "(?i)^thunar$";
-              title = "(?i)(?:copying|deleting|moving)";
+        );
+      };
+
+      config = lib.mkIf i3Enabled {
+        gui.i3.windowRules =
+          lib.mapAttrs
+            (
+              _:
+              lib.mapAttrs (
+                key: value:
+                if key == "criteria" then
+                  lib.mapAttrs (_: lib.mkDefault) value
+                else if key == "condition" then
+                  value
+                else
+                  lib.mkDefault value
+              )
+            )
+            {
+              bitwarden = {
+                criteria.class = "(?i)^bitwarden$";
+                command = "floating enable, ${topRight}";
+              };
+              bitwarden-extension = {
+                criteria = {
+                  window_type = "dialog";
+                  title = "(?i)Extension:.*Bitwarden";
+                };
+                command = topRight;
+              };
+              calendar = {
+                # gsimplecal owns placement through mainwindow_position and mainwindow_yoffset.
+                criteria.class = "(?i)^gsimplecal$";
+                command = "floating enable, border none";
+              };
+              claude-desktop = {
+                enable = claudeDesktopEnabled;
+                criteria.class = "(?i)^com\\.anthropic\\.claude$";
+                command = "floating enable, border none, ${topRight}";
+              };
+              devtools = {
+                criteria.class = "(?i)^devtools$";
+                command = "floating enable, ${topRight}";
+              };
+              dialog = {
+                order = 900;
+                criteria.window_type = "dialog";
+                command = "floating enable, focus";
+              };
+              one-password = {
+                criteria.class = "(?i)^1password$";
+                command = "floating enable, ${onePassword}";
+              };
+              popup = {
+                order = 900;
+                criteria.window_role = "(?i)^pop-?up$";
+              };
+              protonvpn = {
+                criteria.class = "(?i)^protonvpn-app$";
+                command = "floating enable, move position ${protonvpnX} px ${yPos} px";
+              };
+              rustdesk-connection-manager = {
+                condition = rustdeskEnabled;
+                criteria = {
+                  class = "(?i)^rustdesk$";
+                  instance = "(?i)^rustdesk$";
+                };
+                # Titles overlap other RustDesk windows; only the incoming manager runs --cm.
+                processArgs = [ "--cm" ];
+              };
+              settings-dialog = {
+                criteria.class = "(?i)^(?:qt5ct|pinentry)$";
+                command = "floating enable, focus";
+              };
+              thunar-progress = {
+                criteria = {
+                  class = "(?i)^thunar$";
+                  title = "(?i)(?:copying|deleting|moving)";
+                };
+              };
+              toolbox = {
+                order = 900;
+                criteria.window_role = "(?i)^toolbox$";
+              };
+              utility = {
+                order = 900;
+                criteria.window_type = "utility";
+              };
+              volume-control = {
+                criteria.class = "(?i)^pwvucontrol$";
+                command = "floating enable, ${topRight}";
+              };
             };
-            command = "floating enable";
-          }
-          # Focus urgent windows
-          {
-            criteria.urgent = "latest";
-            command = "focus";
-          }
-          # Default styling for all windows
-          {
-            criteria.all = true;
-            command = ''border pixel ${toString cfg.borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
-          }
-          {
-            # Calendar popup: floating + borderless. Must sit after the
-            # catch-all so `border none` wins over its `border pixel`.
-            # Placement is handled by gsimplecal itself (mainwindow_position
-            # plus mainwindow_yoffset in config.nix), so no move here.
-            criteria.class = "(?i)^gsimplecal$";
-            command = "floating enable, border none";
-          }
-        ]
-        ++ lib.optional claudeDesktopEnabled {
-          # WM_CLASS follows package.json desktopName: "com.anthropic.Claude"
-          criteria.class = "(?i)^com\\.anthropic\\.claude$";
-          command = "floating enable, border none, ${topRight}";
+
+        xsession.windowManager.i3.config = {
+          assigns = lib.mkOptionDefault {
+            "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
+            "number \"${workspaceName 3}\"" = [ { class = "(?i)^thunar$"; } ];
+          };
+          window.commands = [
+            {
+              criteria.urgent = "latest";
+              command = "focus";
+            }
+            {
+              # Named rules follow so borderless exceptions override this default.
+              criteria.all = true;
+              command = ''border pixel ${toString cfg.borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
+            }
+          ]
+          ++ map (rule: { inherit (rule) criteria command; }) orderedRules;
         };
       };
     };
