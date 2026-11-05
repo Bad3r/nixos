@@ -23,6 +23,23 @@ let
   # break the check itself. Declaring all of them keeps the list a readable
   # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
+    i3-window-rules = {
+      dir = ../../tests/i3-window-rules;
+      subjects = [
+        {
+          src = ../../modules/apps/i3wm/_process-window-rules.py;
+          dest = "modules/apps/i3wm/_process-window-rules.py";
+        }
+      ];
+      extraInputs = pkgs: [
+        pkgs.i3
+        pkgs.xorg-server
+        (pkgs.python3.withPackages (ps: [
+          ps.i3ipc
+          ps.python-xlib
+        ]))
+      ];
+    };
     git-mirror-sync = {
       dir = ../../tests/git-mirror-sync;
       subjects = [ ];

@@ -5,6 +5,7 @@ User-facing documentation for specific modules and features.
 | Document                                      | Description                                            |
 | --------------------------------------------- | ------------------------------------------------------ |
 | [Espanso Usage](espanso-usage.md)             | Text expander triggers, customization, troubleshooting |
+| [i3 Window Rules](i3-window-rules.md)         | Identify popups and manage floating rules              |
 | [Pentesting Devshell](pentesting-devshell.md) | Security tools devshell usage and customization        |
 | [Untrusted Containers](podman-untrusted.md)   | gVisor containers with no network through Podman       |
 | [RustDesk](rustdesk.md)                       | Remote desktop between devices over Cloudflare Mesh    |

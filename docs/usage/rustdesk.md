@@ -44,6 +44,8 @@ Print a host's ID on that host:
 rustdesk --get-id
 ```
 
+[i3 floating window rules](i3-window-rules.md#rustdesk-connection-manager) covers the incoming connection popup.
+
 ## Connect
 
 Pick the host under Favorites, or type part of its name or ID in the ID field and take the suggestion.

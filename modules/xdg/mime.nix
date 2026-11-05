@@ -326,18 +326,22 @@ let
       dolphin = {
         desktop = "org.kde.dolphin.desktop";
         module = "dolphin";
+        windowClass = "dolphin";
       };
       nemo = {
         desktop = "nemo.desktop";
         module = "nemo";
+        windowClass = "Nemo";
       };
       nautilus = {
         desktop = "org.gnome.Nautilus.desktop";
         module = "nautilus";
+        windowClass = "org.gnome.Nautilus";
       };
       thunar = {
         desktop = "thunar.desktop";
         module = "thunar";
+        windowClass = "Thunar";
       };
     };
 

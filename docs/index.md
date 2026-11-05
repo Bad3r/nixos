@@ -205,7 +205,9 @@
 - [reference/github-labels.md](reference/github-labels.md)
   - GitHub label taxonomy, application rules, and label-family reference for issues and pull requests.
 - [reference/iphone.md](reference/iphone.md)
-  - iPhone pairing, AFC and PTP file transfer, encrypted backups, and USB tethering through the usbmuxd/libimobiledevice stack.
+  - iPhone pairing, encrypted backups, USB tethering, and connection troubleshooting.
+- [reference/iphone-file-transfer.md](reference/iphone-file-transfer.md)
+  - Default file-manager browsing, AFC and PTP copies, network transfers, and large-file chunking.
 - [reference/local-mirrors.md](reference/local-mirrors.md)
   - Local repository mirrors under `$LOCAL_MIRRORS`: where a spec lands, adding a mirror, and the provisioned mirror root.
 - [reference/local-mirrors-sync.md](reference/local-mirrors-sync.md)
@@ -279,6 +281,8 @@
   - Custom espanso matches, form, shell, and clipboard variables, and regex triggers.
 - [usage/espanso-configuration.md](usage/espanso-configuration.md)
   - App-specific espanso configs, X11 and Wayland support, and the package override.
+- [usage/i3-window-rules.md](usage/i3-window-rules.md)
+  - Identifying popup windows and managing named i3 floating rules with process filters.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 - [usage/podman-untrusted.md](usage/podman-untrusted.md)
