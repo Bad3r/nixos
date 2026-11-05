@@ -6,11 +6,12 @@
 # shell wrappers point $TMPDIR at $scratch/sessions/<root session id>; named
 # work lives in $scratch/<topic>/. Reads from /tmp stay allowed.
 #
-# Bash detection is a heuristic over the command text: it cannot see paths
-# built at runtime or written by interpreters, and a /tmp path inside a quoted
-# string or heredoc can trip it; the deny reason tells the agent how to retry.
-# Arguments that run elsewhere, an sbx guest command or an ssh remote command,
-# are skipped when the command splits cleanly.
+# Bash detection is a heuristic over the command text that errs toward allowing:
+# it cannot see paths built at runtime or written by interpreters, and a /tmp
+# path inside a quoted string can trip it; the deny reason tells the agent how
+# to retry. When the command splits cleanly, comments, here-document bodies,
+# and arguments that run elsewhere (an sbx guest command or an ssh remote
+# command) are skipped.
 
 input="$(cat)"
 tool="$(jq -r '.tool_name // ""' <<<"$input")"
@@ -241,17 +242,19 @@ splitWords() {
 }
 
 # splitWords keeps expansions literal, so a host path is resolved here the
-# way the shell would, and refused when it cannot be. The mode is checkPath's.
+# way the shell would, and skipped when it cannot be. The mode is checkPath's.
 # shellcheck disable=SC2016,SC2088
 checkHostPath() {
   local path="$1" mode="${2:-dest}"
   case "$path" in
   '$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
   '${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
+  '$HOME' | '$HOME/'*) path="$HOME${path#'$HOME'}" ;;
+  '${HOME}' | '${HOME}/'*) path="$HOME${path#'${HOME}'}" ;;
   '~' | '~/'*) path="$HOME${path#'~'}" ;;
   esac
   case "$path" in
-  *[\$\`*?[]*) deny "Cannot resolve the host path $1. Spell it out. $hint" ;;
+  *[\$\`*?[]*) return 0 ;;
   esac
   checkPath "$path" "$mode"
 }
@@ -493,9 +496,9 @@ readRedirect() {
   raw+="${s:start:i-start}"
 }
 
-# Copies each pending here-document body, from the index after the newline that
-# ends its command line through its delimiter line, into elided unsplit, so the
-# patterns below still see it; fails on a body its delimiter never closes.
+# Skips each pending here-document body, from the index after the newline that
+# ends its command line through its delimiter line; fails on a body its
+# delimiter never closes.
 readHeredocs() {
   local entry delim line
   for entry in "${heredocs[@]}"; do
@@ -504,7 +507,6 @@ readHeredocs() {
       [ "$i" -lt "${#s}" ] || return 1
       line="${s:i}"
       line="${line%%$'\n'*}"
-      elided+="${s:i:${#line}+1}"
       i=$((i + ${#line} + 1))
       if [ "${entry:0:1}" = - ]; then
         while [ "${line:0:1}" = $'\t' ]; do line="${line:1}"; done
@@ -518,10 +520,11 @@ readHeredocs() {
 # Checks each sbx or ssh command between unquoted shell operators and replaces
 # it with its wrappers, the bare command, and its redirections, so the patterns
 # below see host-side pipes and redirections but not arguments that run
-# elsewhere. Here-document bodies pass through unsplit. Fails on substitutions
-# and comments, which can hide operators from the split.
+# elsewhere. Drops comments and here-document bodies. Fails on substitutions,
+# which can hide operators from the split.
 elideRemote() {
-  local s="$1" c next quote="" i=0
+  # byte-indexed substrings
+  local LC_ALL=C s="$1" c next quote="" i=0 comment
   segment="" raw="" redirs="" elided="" heredocs=()
   while [ "$i" -lt "${#s}" ]; do
     c="${s:i:1}" next="${s:i+1:1}"
@@ -551,7 +554,14 @@ elideRemote() {
     if [ -z "$quote" ]; then
       case "$c" in
       "'") if [ "${segment: -1}" = '$' ]; then quote=ansi; else quote="'"; fi ;;
-      '#') [[ -n $segment && ${segment: -1} != [[:space:]] ]] || return 1 ;;
+      '#')
+        if [[ -z $segment || ${segment: -1} == [[:space:]] ]]; then
+          comment="${s:i}"
+          comment="${comment%%$'\n'*}"
+          i=$((i + ${#comment}))
+          continue
+        fi
+        ;;
       '<' | '>')
         [ "$next" != "(" ] || return 1
         readRedirect || return 1
@@ -579,7 +589,8 @@ elideRemote() {
   flushSegment
 }
 
-if [[ $command == *s[bs][xh]* ]] && elideRemote "$command"; then
+if [[ $command == *s[bs][xh]* || $command == *'<<'* || $command == *'#'* ]] &&
+  elideRemote "$command"; then
   command="$elided"
 fi
 
@@ -601,7 +612,7 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution or comment."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution."
   fi
 done
 
