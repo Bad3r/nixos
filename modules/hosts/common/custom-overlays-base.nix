@@ -1,11 +1,12 @@
-# Each app's packages/<name> joins pkgs while its row is on; a flake.customOverlays.<name> replaces it.
+# Each app's or browser's packages/<name> joins pkgs while its row is on; a flake.customOverlays.<name> replaces it.
 { config, lib, ... }:
 let
   packagesDir = ../../../packages;
 
   appPackageNames = lib.filter (
     name:
-    config.flake.lib.nixos.hasApp name && builtins.pathExists (packagesDir + "/${name}/default.nix")
+    (config.flake.lib.nixos.hasApp name || config.flake.lib.nixos.hasBrowser name)
+    && builtins.pathExists (packagesDir + "/${name}/default.nix")
   ) (lib.attrNames (builtins.readDir packagesDir));
 
   appPackageOverlay =

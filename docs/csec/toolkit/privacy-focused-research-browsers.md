@@ -4,11 +4,6 @@
 
 ## Privacy-Focused & Research Browsers
 
-- brave
-  - run..: `brave`
-  - Repo.: <https://github.com/brave/brave-browser>
-  - Docs.: <https://brave.com/help/>
-  - Desc.: Chromium-based browser with built-in privacy hardening.
 - brave-origin
   - run..: `brave-origin`
   - Repo.: <https://github.com/brave/brave-browser>

@@ -1,12 +1,9 @@
 /*
   Internal: shared managed-policy payloads for Chromium-family browsers
-  Description: Managed extensions apply to Google Chrome and ungoogled Chromium.
-  The default-search provider also applies to Brave, and DNS-over-HTTPS also
-  applies to Brave and Brave Origin, which share one policy directory: every
-  Brave channel compiles in /etc/brave/policies, so both modules write the
-  same dns-over-https.json through braveDnsOverHttpsEtc. Imported via a
-  relative path; the leading underscore keeps this file out of module
-  auto-discovery.
+  Description: Managed extensions and the default-search provider apply to
+  Google Chrome and ungoogled Chromium; DNS-over-HTTPS also applies to Brave
+  Origin. Imported via a relative path; the leading underscore keeps this file
+  out of module auto-discovery.
 
   `StandardManagementPolicyProvider::MustRemainInstalled` covers
   INSTALLATION_RECOMMENDED (`normal_installed`) as well as INSTALLATION_FORCED,
@@ -24,14 +21,6 @@ let
 in
 {
   inherit managedDnsOverHttps;
-
-  # Both Brave modules write this entry: .source merges equal store paths (Nix
-  # compares derivations by outPath) where .text would concatenate two bodies.
-  braveDnsOverHttpsEtc = pkgs: {
-    "brave/policies/managed/dns-over-https.json".source = pkgs.writeText "brave-dns-over-https.json" (
-      builtins.toJSON managedDnsOverHttps
-    );
-  };
 
   managedExtensionSettings = {
     # uBlock Origin Lite

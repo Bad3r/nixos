@@ -52,8 +52,12 @@ let
 
   availableApps = flattenApps config.flake.nixosModules.apps;
 
+  availableBrowsers = flattenApps config.flake.nixosModules.browsers;
+
   helpers = rec {
     hasApp = name: availableApps ? ${name};
+
+    hasBrowser = name: availableBrowsers ? ${name};
 
     getApp = name: availableApps.${name} or (throw "Unknown NixOS app '${name}'");
 

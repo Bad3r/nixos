@@ -244,9 +244,9 @@ let
   # Used by default-apps.nix for MIME configuration and ci.nix for validation
   desktopFiles = {
     browser = {
-      brave = {
-        desktop = "brave-browser.desktop";
-        module = "brave";
+      "brave-origin" = {
+        desktop = "brave-origin.desktop";
+        module = "brave-origin";
       };
       chrome = {
         desktop = "google-chrome.desktop";
