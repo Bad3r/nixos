@@ -176,6 +176,10 @@ in
         "ssh -o 'ControlPath = /tmp/c' h true"
         "ssh -o 'ControlPath \"/tmp/c d\"' h true"
         "ssh -o 'UserKnownHostsFile ~/.ssh/kh /tmp/kh' h true"
+        "cat > f <<'EOF'\n# x\nEOF\nssh h true > /tmp/x"
+        "cat <<'EOF' > /tmp/x\n# x\nEOF\nssh h true"
+        "cat > f <<EOF\n EOF\nssh h 'cd /tmp && make'"
+        "ssh h 'cd /tmp && make' <<'EOF'\nx"
         "echo x > ${scratchDir}/a"
         ''echo x > "${scratchDir}"/a''
         "cmd 2>${scratchDir}/err"
@@ -323,6 +327,10 @@ in
         "ssh -- h -E /tmp/x.log"
         "ssh h -- -E /tmp/x.log"
         "ssh -o 'ControlPath = ~/.ssh/c-%C' h 'touch /tmp/a'"
+        "cat > f <<'EOF'\n# it's \${x}\nEOF\nssh h 'cd /tmp && make'"
+        "cat <<A <<-\"B\" > f\na\nA\n\tb\n\tB\nssh h 'cd /tmp && make'"
+        "ssh h 'cd /tmp && make' <<'EOF'\n# x\nEOF"
+        "ssh h 'cd /tmp && make' <<< x"
       ];
     };
   };

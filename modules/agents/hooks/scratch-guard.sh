@@ -450,7 +450,14 @@ readRedirect() {
     op+="${s:i:1}"
     i=$((i + 1))
   done
-  [[ $op != *'<<'* ]] || return 1
+  if [[ $op == *'<<' && ${s:i:1} == - ]]; then
+    op+=-
+    i=$((i + 1))
+  fi
+  case "${op##*[0-9]}" in
+  '<<' | '<<-' | '<<<') ;;
+  *'<<'*) return 1 ;;
+  esac
   while [ "${s:i:1}" = " " ] || [ "${s:i:1}" = $'\t' ]; do i=$((i + 1)); done
   while [ "$i" -lt "${#s}" ]; do
     ch="${s:i:1}"
@@ -477,18 +484,45 @@ readRedirect() {
     i=$((i + 1))
   done
   [ -n "$target" ] && [ -z "$tq" ] || return 1
+  case "$op" in
+  *'<<<') ;;
+  *'<<') heredocs+=("<${target//[\'\"]/}") ;;
+  *'<<-') heredocs+=("-${target//[\'\"]/}") ;;
+  esac
   redirs+=" $op$target"
   raw+="${s:start:i-start}"
+}
+
+# Copies each pending here-document body, from the index after the newline that
+# ends its command line through its delimiter line, into elided unsplit, so the
+# patterns below still see it; fails on a body its delimiter never closes.
+readHeredocs() {
+  local entry delim line
+  for entry in "${heredocs[@]}"; do
+    delim="${entry:1}"
+    while :; do
+      [ "$i" -lt "${#s}" ] || return 1
+      line="${s:i}"
+      line="${line%%$'\n'*}"
+      elided+="${s:i:${#line}+1}"
+      i=$((i + ${#line} + 1))
+      if [ "${entry:0:1}" = - ]; then
+        while [ "${line:0:1}" = $'\t' ]; do line="${line:1}"; done
+      fi
+      [ "$line" != "$delim" ] || break
+    done
+  done
+  heredocs=()
 }
 
 # Checks each sbx or ssh command between unquoted shell operators and replaces
 # it with its wrappers, the bare command, and its redirections, so the patterns
 # below see host-side pipes and redirections but not arguments that run
-# elsewhere. Fails on substitutions, comments, and heredocs, which can hide
-# operators from the split.
+# elsewhere. Here-document bodies pass through unsplit. Fails on substitutions
+# and comments, which can hide operators from the split.
 elideRemote() {
   local s="$1" c next quote="" i=0
-  segment="" raw="" redirs="" elided=""
+  segment="" raw="" redirs="" elided="" heredocs=()
   while [ "$i" -lt "${#s}" ]; do
     c="${s:i:1}" next="${s:i+1:1}"
     i=$((i + 1))
@@ -532,13 +566,16 @@ elideRemote() {
       '|' | '&' | ';' | '(' | ')' | $'\n')
         flushSegment
         elided+="$c"
+        if [ "$c" = $'\n' ]; then
+          readHeredocs || return 1
+        fi
         continue
         ;;
       esac
     fi
     segment+="$c" raw+="$c"
   done
-  [ -z "$quote" ] || return 1
+  [ -z "$quote" ] && [ "${#heredocs[@]}" -eq 0 ] || return 1
   flushSegment
 }
 
@@ -564,7 +601,7 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution, comment, or heredoc."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution or comment."
   fi
 done
 
