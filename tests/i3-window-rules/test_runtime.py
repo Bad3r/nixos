@@ -247,6 +247,35 @@ class RuntimeRules(unittest.TestCase):
         proc.stdin.write(json.dumps("different") + "\n" + json.dumps("ready") + "\n")
         proc.stdin.flush()
         self.assert_tiled(window_id)
+        self.log.flush()
+        if "ERROR" in (self.root / "processes.log").read_text():
+            self.fail("A criteria mismatch was reported as an error")
+
+    def test_rejected_rule_reports_once_and_others_apply(self) -> None:
+        """A rule i3 rejects is settled after one error and leaves valid rules working."""
+        self.rules.insert(
+            0,
+            {
+                "name": "broken",
+                "criteria": 'no_such_criterion="x"',
+                "command": "floating enable",
+                "processArgs": ["--cm"],
+            },
+        )
+        self.start_rules()
+        window_id, proc = self.window(args=("--cm",))
+        self.wait_for(lambda: self.floating(window_id), "valid rule beside a rejected one")
+        for title in ("second", "third"):
+            proc.stdin.write(json.dumps(title) + "\n")
+            proc.stdin.flush()
+        self.wait_for(
+            lambda: self.ipc.get_tree().find_by_window(window_id).name == "third", "title updates"
+        )
+        time.sleep(0.25)
+        self.log.flush()
+        errors = (self.root / "processes.log").read_text().count("Rule broken has invalid criteria")
+        if errors != 1:
+            self.fail(f"Expected one rejection error, found {errors}")
 
     def test_closed_windows_do_not_stop_the_service(self) -> None:
         """Rapid closes leave the watcher able to process a subsequent client."""

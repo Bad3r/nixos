@@ -29,24 +29,32 @@ class WindowRules:
         self.marker = "__process_window_rule_" + uuid4().hex
 
     def execute(self, con: i3ipc.Con, rule: dict) -> bool:
-        """Probe native criteria because i3 reports success even for zero matches."""
+        """Probe native criteria because i3 reports success even for zero matches.
+
+        Return whether the rule is settled for this container: applied, or rejected
+        by i3 so that later events do not repeat the same error.
+        """
         selector = f'[con_id={con.id} con_mark="^{self.marker}$"]'
         try:
             replies = self.ipc.command(
                 f"[con_id={con.id} {rule['criteria']}] mark --add {self.marker}"
             )
-            if not all(reply.success for reply in replies):
-                for reply in replies:
-                    if not reply.success:
-                        LOG.error("Rule %s has invalid criteria: %s", rule["name"], reply.error)
-                return False
-            if self.marker not in self.ipc.get_marks():
+            rejected = [reply for reply in replies if reply.ipc_data.get("parse_error")]
+            for reply in rejected:
+                LOG.error("Rule %s has invalid criteria: %s", rule["name"], reply.error)
+            if rejected:
+                return True
+            # i3 refuses to mark when the criteria match no window.
+            if (
+                not all(reply.success for reply in replies)
+                or self.marker not in self.ipc.get_marks()
+            ):
                 return False
             replies = self.ipc.command(f"{selector} {rule['command']}")
             for reply in replies:
                 if not reply.success:
                     LOG.error("Rule %s failed: %s", rule["name"], reply.error)
-            return all(reply.success for reply in replies)
+            return True
         finally:
             self.ipc.command(f"{selector} unmark {self.marker}")
 

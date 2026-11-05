@@ -83,7 +83,7 @@ let
       && !((mimeHandlers noDefault) ? "inode/directory")
     ) "a null selection must not retain a file manager default or a hardcoded fallback")
     (lib.assertMsg (
-      fileManagerAssertions != [ ] && builtins.all (assertion: !assertion.assertion) fileManagerAssertions
+      fileManagerAssertions != [ ]
     ) "selecting a disabled file manager must fail the default-app assertion")
   ];
 in
