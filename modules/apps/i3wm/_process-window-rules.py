@@ -24,7 +24,8 @@ class WindowRules:
         self.rules = rules
         self.x11 = display.Display()
         self.pid_atom = self.x11.intern_atom("_NET_WM_PID")
-        self.applied: set[tuple[int, str]] = set()
+        # Rules whose process filter matched a container and have not applied yet.
+        self.pending: dict[int, list[dict]] = {}
         self.marker = "__process_window_rule_" + uuid4().hex
 
     def execute(self, con: i3ipc.Con, rule: dict) -> bool:
@@ -39,8 +40,7 @@ class WindowRules:
                     if not reply.success:
                         LOG.error("Rule %s has invalid criteria: %s", rule["name"], reply.error)
                 return False
-            current = self.ipc.get_tree().find_by_id(con.id)
-            if current is None or self.marker not in current.marks:
+            if self.marker not in self.ipc.get_marks():
                 return False
             replies = self.ipc.command(f"{selector} {rule['command']}")
             for reply in replies:
@@ -50,36 +50,43 @@ class WindowRules:
         finally:
             self.ipc.command(f"{selector} unmark {self.marker}")
 
-    def apply(self, con: i3ipc.Con) -> None:
-        """Apply each matching rule once while the container exists."""
-        if not con.window:
-            return
+    def candidates(self, con: i3ipc.Con) -> list[dict] | None:
+        """Read the owner's argv once per container and keep the rules it satisfies."""
         try:
             window = self.x11.create_resource_object("window", con.window)
             prop = window.get_full_property(self.pid_atom, Xatom.CARDINAL)
             if prop is None or len(prop.value) != 1:
-                return
+                return None
             argv = Path(f"/proc/{int(prop.value[0])}/cmdline").read_bytes().split(b"\0")
         except error.BadWindow, FileNotFoundError, ProcessLookupError:
             # A close can overtake a queued window event or the initial scan.
-            return
+            return None
         except PermissionError:
             LOG.warning("Cannot read process arguments for window %#x", con.window)
-            return
+            return None
+        return [
+            rule
+            for rule in self.rules
+            if all(arg.encode() in argv[1:] for arg in rule["processArgs"])
+        ]
 
-        for rule in self.rules:
-            key = (con.id, rule["name"])
-            if key in self.applied or not all(
-                arg.encode() in argv[1:] for arg in rule["processArgs"]
-            ):
-                continue
-            if self.execute(con, rule):
-                self.applied.add(key)
+    def apply(self, con: i3ipc.Con) -> None:
+        """Apply each matching rule once while the container exists."""
+        if not con.window:
+            return
+        if con.id not in self.pending:
+            rules = self.candidates(con)
+            if rules is None:
+                return
+            self.pending[con.id] = rules
+        self.pending[con.id] = [
+            rule for rule in self.pending[con.id] if not self.execute(con, rule)
+        ]
 
     def on_window(self, _ipc: i3ipc.Connection, event: i3ipc.WindowEvent) -> None:
         """Retry on title changes and forget closed containers."""
         if event.change == "close":
-            self.applied = {key for key in self.applied if key[0] != event.container.id}
+            self.pending.pop(event.container.id, None)
         else:
             self.apply(event.container)
 

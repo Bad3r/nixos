@@ -17,7 +17,6 @@ in
       fileManagerName = osConfig.host.defaults.fileManager;
       fileManager =
         if fileManagerName == null then null else xdg.desktopFiles.fileManager.${fileManagerName};
-      i3Enabled = lib.attrByPath [ "services" "xserver" "windowManager" "i3" "enable" ] false osConfig;
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
         "claude-desktop"
@@ -25,8 +24,7 @@ in
         "enable"
       ] false osConfig;
       rustdeskEnabled =
-        i3Enabled
-        && lib.attrByPath [ "programs" "rustdesk" "extended" "enable" ] false osConfig
+        lib.attrByPath [ "programs" "rustdesk" "extended" "enable" ] false osConfig
         && lib.attrByPath [ "systemd" "services" "rustdesk" "enable" ] false osConfig;
       # Quarter-screen geometry calculations (all derived from config options)
       # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
@@ -90,7 +88,7 @@ in
         );
       };
 
-      config = lib.mkIf i3Enabled {
+      config = lib.mkIf config.xsession.windowManager.i3.enable {
         gui.i3.windowRules =
           lib.mapAttrs
             (
@@ -123,7 +121,7 @@ in
                 command = "floating enable, border none";
               };
               claude-desktop = {
-                enable = claudeDesktopEnabled;
+                condition = claudeDesktopEnabled;
                 criteria.class = "(?i)^com\\.anthropic\\.claude$";
                 command = "floating enable, border none, ${topRight}";
               };
