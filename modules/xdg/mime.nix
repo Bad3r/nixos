@@ -504,6 +504,7 @@ let
 
     fileManager = {
       mkMimeDefaults = mime.mkFileManagerDefaults;
+      defaultValue = "nemo";
       example = "nemo";
       description = ''
         Default file manager for this host.

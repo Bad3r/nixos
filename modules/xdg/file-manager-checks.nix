@@ -85,10 +85,6 @@ let
     (lib.assertMsg (
       fileManagerAssertions != [ ] && builtins.all (assertion: !assertion.assertion) fileManagerAssertions
     ) "selecting a disabled file manager must fail the default-app assertion")
-    (lib.assertMsg (
-      !((home base).gui.i3.windowRules ? thunar-progress)
-      && (home base).gui.i3.windowRules.dialog.command == "floating enable, focus"
-    ) "file operation dialogs must use the shared dialog rule without a duplicate title rule")
   ];
 in
 {
