@@ -77,9 +77,16 @@
             secretsRoot = ./module-check-fixtures;
             serviceMode = "tunnelonly";
           };
+          # Also the routedRanges host, so the opt-in secret costs no extra
+          # nixosSystem evaluation.
           systemdActivation = mkNixos {
             secretsRoot = ./module-check-fixtures;
-            extraModules = [ { sops.useSystemdActivation = true; } ];
+            extraModules = [
+              {
+                sops.useSystemdActivation = true;
+                programs.cloudflare-warp.extended.routedRanges = true;
+              }
+            ];
           };
           unenrolled = mkNixos { secretsRoot = "${./module-check-fixtures}/missing"; };
           unregistered = mkNixos {
@@ -176,6 +183,12 @@
         );
         assert check "exclude list key is per host" (
           (secretOf "exclude").key == "${enrolled._module.specialArgs.hostName}/exclude"
+        );
+        assert check "routed ranges are read only when opted in" (
+          !(enrolled.config.sops.secrets ? "cloudflare-warp/routed")
+          &&
+            systemdActivation.config.sops.secrets."cloudflare-warp/routed".key
+            == "${systemdActivation._module.specialArgs.hostName}/routed"
         );
         # switch-to-configuration reruns an inactive oneshot through the active
         # target that wants it; RemainAfterExit would keep it active and skip

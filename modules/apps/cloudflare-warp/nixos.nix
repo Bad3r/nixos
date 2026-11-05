@@ -143,6 +143,11 @@ let
       reloadResolved = "${config.systemd.package}/bin/systemctl kill --kill-whom=all --signal=SIGHUP systemd-resolved.service";
       profileName = "nixos-${hostName}";
       secretPath = key: config.sops.secrets.${secretName key}.path;
+      routedPath =
+        if cfg.routedRanges then
+          secretPath "routed"
+        else
+          pkgs.writeText "cloudflare-warp-no-routed.json" "[]";
       syncExcludes = pkgs.writeShellApplication {
         name = "cloudflare-warp-excludes";
         runtimeInputs = [
@@ -150,6 +155,7 @@ let
           pkgs.coreutils
           pkgs.curl
           pkgs.jq
+          pkgs.python3
           config.systemd.package
         ];
         text = ''
@@ -187,8 +193,9 @@ let
             jq -c .result <<<"$response"
           }
 
-          want=$(jq -c --slurpfile base ${pkgs.writeText "cloudflare-warp-base-excludes.json" (builtins.toJSON baseExcludes)} \
-            '$base[0] + .' ${secretPath "exclude"})
+          want=$(python3 -I ${./exclude-list.py} \
+            ${pkgs.writeText "cloudflare-warp-base-excludes.json" (builtins.toJSON baseExcludes)} \
+            ${secretPath "exclude"} ${routedPath})
           id=$(cf GET /policies | jq -r --arg name '${profileName}' '.[] | select(.name == $name) | .policy_id')
           if [[ -z $id ]]; then
             echo "no device profile named ${profileName}" >&2
@@ -276,6 +283,22 @@ let
             set, since this option deliberately has no default.
           '';
         };
+
+        routedRanges = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Whether to read `<hostName>/routed` from
+            `secrets/cloudflare-warp.yaml`: a JSON array string of CIDRs that
+            Cloudflare Tunnel routes carry. The exclude sync cuts them out of
+            the base list, so they enter the tunnel while the rest of each
+            private range stays local. Without this, the base list's
+            `10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` keep every
+            private destination off the tunnel, and each switch reverts a
+            carve-out made in the dashboard. The ranges live in the secret
+            because they belong to a client network.
+          '';
+        };
       };
 
       config = lib.mkMerge [
@@ -335,6 +358,13 @@ let
               sopsFile = secretFile;
               format = "yaml";
               key = "${hostName}/exclude";
+            };
+          }
+          // lib.optionalAttrs cfg.routedRanges {
+            ${secretName "routed"} = {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "${hostName}/routed";
             };
           }
           // meshHostSecrets;
