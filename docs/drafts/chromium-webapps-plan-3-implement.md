@@ -20,50 +20,38 @@ ______________________________________________________________________
 
 Locked before writing this plan. Do not relitigate during execution.
 
-| Decision        | Choice                                           | Rationale                                                                                                                                                                                               |
-| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled per host.                                          |
-| Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                                                     |
-| Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`.                                |
-| Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                                                       |
-| Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                                                              |
-| PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                                                            |
-| Catalog         | Full M365 including Teams                        | Teams was excluded from #435 only because it rejects Gecko.                                                                                                                                             |
-| Policy scope    | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                                               |
-| Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser, and `brave` shares it with `brave-origin`. `webapps.json` therefore binds every Brave-family instance including the daily driver. Consequences below. |
-| Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.                                      |
-| Option shape    | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                                                         |
-| NixOS file name | `webapps/nixos.nix`, not `webapps/apps.nix`      | `modules/meta/hooks/apps-catalog-sync.nix` treats every `modules/browsers/*/apps.nix` as a catalog entry and demands a matching `<dir>.extended.enable` line.                                           |
-| PR structure    | Three PRs                                        | Salvage, remove, implement.                                                                                                                                                                             |
-| Tests           | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                                               |
+| Decision        | Choice                                           | Rationale                                                                                                                                                                |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled per host.           |
+| Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                      |
+| Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`. |
+| Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                        |
+| Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                               |
+| PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                             |
+| Catalog         | Full M365 including Teams                        | Teams was excluded from #435 only because it rejects Gecko.                                                                                                              |
+| Policy scope    | Full hardened set plus webapp entries            | Recovered from the `brave` module that `a12e5ddc` removed (`a12e5ddc^`).                                                                                                 |
+| Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser, so `webapps.json` binds every `brave-origin` instance, the daily driver included. Consequences below.                  |
+| Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.       |
+| Option shape    | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                          |
+| NixOS file name | `webapps/nixos.nix`, not `webapps/apps.nix`      | `modules/meta/hooks/apps-catalog-sync.nix` treats every `modules/browsers/*/apps.nix` as a catalog entry and demands a matching `<dir>.extended.enable` line.            |
+| PR structure    | Three PRs                                        | Salvage, remove, implement.                                                                                                                                              |
+| Tests           | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                |
 
 ### Consequences of a browser-wide policy
 
 `programs.webapps` writes `/etc/brave/policies/managed/webapps.json`. Chromium
 applies a managed directory per browser, not per profile or per
-`--user-data-dir`, and `brave` and `brave-origin` share that one directory,
-which is exactly what Task 8 Step 3's assertion exists to guard. So everything
-in that file binds `brave` as well as the `brave-origin` instance used for
-general browsing on each host that enables webapps, whichever of the two is the
-daily driver. `modules/browsers/webapps/enable.nix`, created in Task 12 Step 3,
-turns `programs.webapps.enable` on for every common host regardless of which
-Brave-family build that host installs.
+`--user-data-dir`, so everything in that file also binds the `brave-origin`
+instance used for general browsing on each host that enables webapps.
+`modules/browsers/webapps/enable.nix`, created in Task 12 Step 3, turns
+`programs.webapps.enable` on for every common host.
 
-Today `modules/hosts/common/apps-enable.nix` sets `brave.extended.enable` to
-`false`, so the `brave` half is latent. Flipping that one line ends the latency
-in every configuration that still evaluates: `brave` is installed under
-`programs.brave.extended.enable` alone, and neither module's
-`enableManagedPolicies` governs `webapps.json`, since those toggles decide only
-who writes `extended.json`. Task 8 Step 3's assertion narrows the space by
-exactly one shape, both browsers enabled with both `enableManagedPolicies` on,
-which is the pair that would write `extended.json` twice. It permits every other
-combination, and where `brave-origin.extended.enable` is false it is absent
-rather than satisfied: it lives inside `config = lib.mkIf cfg.enable` in
-`brave-origin/apps.nix`, so that module contributes no `assertions` definition
-at all and nothing refuses `brave` running alone. Every shape that evaluates
-takes the promptless capture denial in `brave` too. That is why Task 17 Step 8
-reads whichever Brave-family builds the host installs rather than `brave-origin`
-alone.
+`brave-origin` is the only Brave build this repo installs. nixpkgs dropped
+`brave` and `brave-origin` (NixOS/nixpkgs 73120ec5921e), `packages/brave-origin`
+carries Origin, and `a12e5ddc` removed the `brave` module. The same directory
+also holds `dns-over-https.json`, which `brave-origin/apps.nix` writes, and
+after Task 8 `extended.json`; `webapps.json` has to stay key-disjoint from both
+(Task 14).
 
 Accepted, with these effects stated rather than discovered later:
 
@@ -71,8 +59,7 @@ Accepted, with these effects stated rather than discovered later:
   hard denials with no prompt for all browsing. Only the origins listed in the
   matching `*AllowedUrls` policy, which today means `teams.cloud.microsoft`
   alone, can use mic, camera or screen share. A video call or screen share on
-  any other site fails silently in whichever Brave-family build the host
-  installs.
+  any other site fails silently in the daily-driver `brave-origin` too.
 - `ExtensionSettings."*" = blocked` blocks manual extension installs in the
   daily-driver profile, and force-installs `defaultExtensions` (1Password)
   there too.
@@ -81,20 +68,17 @@ Accepted, with these effects stated rather than discovered later:
   browsing. It is inert here and kept only so a future `URLBlocklist` does not
   lock the apps out.
 
-If the mic/camera denial becomes a problem for general browsing, moving the
-daily driver to `brave` does not escape it: `brave` reads the same
-`/etc/brave/policies/managed/` directory, which is the premise of this whole
-section, so `webapps.json` binds it too. The two fixes that work are to move the
-web apps onto a browser family with a different managed directory, setting
+If the mic/camera denial becomes a problem for general browsing, the two fixes
+that work are to move the web apps onto a browser family with a different managed directory, setting
 `programs.webapps.package`, `browserBinary` and `policyFile` together, or to drop
 the capture denies from `_policy.nix` and rely on per-site prompts. Both are
 follow-ups, not part of this plan.
 
 ### Verified facts this plan depends on
 
-- `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
+- `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `opt/brave.com/brave-origin/`, the stable channel `packages/brave-origin/default.nix` ships. nixpkgs no longer has `brave-origin`, so every probe builds it from a host's `pkgs`, where the `packages/brave-origin` overlay applies. Reproduce: `strings -a "$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin/brave" | rg '^/etc/brave'`. This fact and the next three were last confirmed against 1.98.63.
 
-- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 17 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
+- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 17 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
 
 - Policy names and types confirmed against the Chromium policy registry: `AudioCaptureAllowed` (bool), `VideoCaptureAllowed` (bool), `ScreenCaptureAllowed` (bool), `DefaultNotificationsSetting` (int), `DefaultClipboardSetting` (int), `DefaultSensorsSetting` (int), `DefaultWindowManagementSetting` (int), `DefaultLocalFontsSetting` (int), `ExtensionSettings` (dict), `BackgroundModeEnabled` (bool).
 
@@ -103,7 +87,7 @@ follow-ups, not part of this plan.
 - **Every policy name this plan writes is registered in the build the repo pins.** All twenty names, the ten and eight in the two bullets above plus `URLAllowlist` and `SafeBrowsingProtectionLevel`, appear as an exact standalone string in the `brave-origin` binary's string table. This is what rules out a removed or renamed key. It is a property of whatever version `packages/brave-origin/default.nix` currently pins, so re-run it after a bump rather than trusting this line:
 
   ```bash
-  bin="$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave"
+  bin="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin/brave"
   strings -a "$bin" > /tmp/brave-strings.txt
   for p in AudioCaptureAllowed VideoCaptureAllowed ScreenCaptureAllowed \
     DefaultNotificationsSetting DefaultClipboardSetting DefaultSensorsSetting \
@@ -152,8 +136,8 @@ that names it and record the outcome in the plan before continuing.
 
 This plan spans three sequential PRs, so file contents shift under it. Every
 `path:line` in this document is a hint, not an address. The one exception is the
-`sed -n '40,161p'` extraction in Task 7 Step 2, which is followed by an explicit
-boundary check. Everywhere else, re-locate the target before editing:
+`sed -n '52,173p'` extraction in Task 7 Step 2, which reads the fixed commit
+`a12e5ddc^` and is followed by an explicit boundary check. Everywhere else, re-locate the target before editing:
 
 ```bash
 rg -n '<the string the plan quotes>' <the file the plan names>
@@ -170,7 +154,7 @@ ______________________________________________________________________
 
 | File                                                  | Responsibility                                                                 |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `modules/browsers/_chromium-hardening.nix`            | The hardened policy set, shared by brave and brave-origin. Pure data.          |
+| `modules/browsers/_chromium-hardening.nix`            | The hardened policy set brave-origin applies. Pure data.                       |
 | `modules/browsers/webapps/_catalog.nix`               | Default app catalog. Pure data, no `lib`.                                      |
 | `modules/browsers/webapps/_keepalive-key.nix`         | Committed public key and derived extension ID for the keep-alive extension.    |
 | `modules/browsers/webapps/_policy.nix`                | Pure function: apps attrset to Chromium policy attrset.                        |
@@ -187,8 +171,7 @@ ______________________________________________________________________
 
 ### PR 3: implementation (files modified)
 
-- `modules/browsers/brave/apps.nix`: import the shared hardened set instead of defining it inline
-- `modules/browsers/brave-origin/apps.nix`: gain `enableManagedPolicies` / `managedPolicies`, write `/etc/brave/policies/managed/extended.json`
+- `modules/browsers/brave-origin/apps.nix`: gain `managedPolicies`, write `/etc/brave/policies/managed/extended.json` next to its `dns-over-https.json`
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
 - `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
 - `docs/architecture/04-home-manager.md`: add a sentence for the webapps pair spanning both scopes, after the
@@ -202,13 +185,17 @@ ______________________________________________________________________
 
 Do not start until the phase 2 PR (`docs/drafts/chromium-webapps-plan-2-remove-firefoxpwa.md`) has merged.
 
-### Task 7: Extract the shared Chromium hardening set
+### Task 7: Recover the Chromium hardening set
 
 **Files:**
 
 - Create: `modules/browsers/_chromium-hardening.nix`
 
-- Modify: `modules/browsers/brave/apps.nix:39-163`
+The hardened policy set lived inline in `modules/browsers/brave/apps.nix`, which
+`a12e5ddc` removed together with the `brave` module after nixpkgs dropped the
+browser. `brave-origin` reads the same `/etc/brave/policies` directory
+(confirmed in its binary's string table), so the set is recovered from
+`a12e5ddc^` for `brave-origin` to apply in Task 8.
 
 - [ ] **Step 1: Create the worktree**
 
@@ -223,9 +210,11 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
 that merge still carries `modules/browsers/firefoxpwa/`. Naming a remote-tracking start point also removes the case where the primary checkout is on
 some other branch entirely.
 
-- [ ] **Step 2: Create the shared hardening file**
+- [ ] **Step 2: Create the hardening file**
 
-The attrset to move is `modules/browsers/brave/apps.nix` lines 40-161: line 39 is `defaultManagedPolicies = {`, line 162 is the closing `}`, and line 163 is the `// managedDefaultSearchProvider;` merge that callers keep. Extract it mechanically so nothing is transcribed by hand:
+The attrset to recover is lines 52-173 of `a12e5ddc^:modules/browsers/brave/apps.nix`: line 51 is
+`defaultManagedPolicies = {`, line 174 is the closing `}`, and line 175 is the `// managedDefaultSearchProvider;` merge
+that Task 8 keeps in `brave-origin/apps.nix`. Extract it mechanically so nothing is transcribed by hand:
 
 ```bash
 cd "$HOME/trees/nixos/feat-chromium-webapps"
@@ -233,11 +222,12 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
 {
   cat <<'HEADER'
 /*
-  Internal: shared hardened managed-policy set for Brave-family browsers
-  Description: Privacy, telemetry, permission and Brave-feature policy applied
-  to every Brave build this repo installs. Written to /etc/brave/policies/managed
-  by modules/browsers/brave/apps.nix and modules/browsers/brave-origin/apps.nix.
-  The leading underscore keeps this file out of module auto-discovery.
+  Internal: hardened managed-policy set for Brave Origin
+  Description: Privacy, telemetry, permission and Brave-feature policy written
+  to /etc/brave/policies/managed/extended.json by
+  modules/browsers/brave-origin/apps.nix. Recovered from the brave module that
+  a12e5ddc removed. The leading underscore keeps this file out of module
+  auto-discovery.
 
   Notes:
     * Per-origin allowlists are NOT here. modules/browsers/webapps/_policy.nix owns
@@ -248,7 +238,7 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
 {
   policies = {
 HEADER
-  sed -n '40,161p' modules/browsers/brave/apps.nix
+  git show a12e5ddc^:modules/browsers/brave/apps.nix | sed -n '52,173p'
   printf '  };\n}\n'
 } > modules/browsers/_chromium-hardening.nix
 
@@ -258,9 +248,10 @@ nix run path:.#treefmt -- modules/browsers/_chromium-hardening.nix
 Confirm the boundaries were right before continuing:
 
 ```bash
-head -20 modules/browsers/_chromium-hardening.nix | tail -3
+rg -n -A1 '^  policies = \{' modules/browsers/_chromium-hardening.nix
+tail -4 modules/browsers/_chromium-hardening.nix
 
-src="$(sed -n '40,161p' modules/browsers/brave/apps.nix | grep -c '=')"
+src="$(git show a12e5ddc^:modules/browsers/brave/apps.nix | sed -n '52,173p' | grep -c '=')"
 out="$(rg -c '=' modules/browsers/_chromium-hardening.nix)"
 printf 'source assignments: %s\nextracted: %s (one more, the "policies = {" wrapper)\n' "$src" "$out"
 [ "$out" -eq "$((src + 1))" ] && echo COUNT-MATCHES || echo "STOP: the boundary is wrong"
@@ -268,90 +259,44 @@ printf 'source assignments: %s\nextracted: %s (one more, the "policies = {" wrap
 rg -n 'managedDefaultSearchProvider|defaultManagedPolicies' modules/browsers/_chromium-hardening.nix || echo "merge line correctly excluded"
 ```
 
-Expected: the first policy line is `BraveAIChatEnabled = false;`, then `COUNT-MATCHES` and
-`merge line correctly excluded`.
-
-The count is derived from the source range on both sides rather than compared against a figure written here. That
-figure was "roughly 80"; the range actually holds 99 assignments, so an operator taking it seriously would have
-stopped at a correct extraction. Every `=` in the range is a one-line assignment and no value contains a second `=`,
+Expected: the line after `policies = {` is `# Brave product features and promotions.`, the last policy line is
+`TranslateEnabled = false;`, then `COUNT-MATCHES` (99 source assignments, 100 extracted) and
+`merge line correctly excluded`. Every `=` in the range is a one-line assignment and no value contains a second `=`,
 so the count survives the formatter.
 
-- [ ] **Step 3: Point brave at the shared file**
+- [ ] **Step 3: Prove the recovered set matches the removed module**
 
-In `modules/browsers/brave/apps.nix`, replace the inline `defaultManagedPolicies = { ... };` with:
-
-```nix
-      defaultManagedPolicies = (import ../_chromium-hardening.nix).policies // managedDefaultSearchProvider;
-```
-
-Keep the `inherit (import ../_chromium-policies.nix) managedDefaultSearchProvider;` line above it unchanged.
-
-- [ ] **Step 4: Prove the move changed nothing**
-
-The pre-refactor value comes from `git show HEAD:` rather than from `git stash`.
-A plain `git stash` would work here only because `_chromium-hardening.nix` is
-still untracked at this point, it would leave a stash entry behind, and dropping
-that entry is a forbidden operation under the repo's safety rules. Swapping the
-file content in place has none of those properties.
-
-Between the swap and the restore the only copy of the refactor is
-`/tmp/brave-apps-refactored.nix`, and the gap spans a full host evaluation. The
-restore therefore runs from a `trap` rather than from the next line: a Ctrl-C or
-a crashed `nix eval` in that window would otherwise leave the working tree
-holding the `HEAD` version with the refactor stranded in `/tmp`, which is
-exactly the failure `git stash` could not produce. The `git diff --stat` below
-only catches that if the operator reaches it.
+The reference value is what `a12e5ddc^` evaluated for `programs.brave.extended.managedPolicies`, which is the set
+plus `managedDefaultSearchProvider`. `git+file://` with `rev=` evaluates that commit as committed, independent of this
+worktree. The recovered side needs `--impure`, because pure evaluation refuses a path inside `--expr`.
 
 ```bash
-nix run path:.#treefmt -- .
-nix eval --json "path:.#nixosConfigurations.songbird.config.programs.brave.extended.managedPolicies" \
-  --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
-
-repo="$PWD"
-cp "$repo/modules/browsers/brave/apps.nix" /tmp/brave-apps-refactored.nix
-trap 'cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"' EXIT INT TERM
-git show HEAD:modules/browsers/brave/apps.nix > "$repo/modules/browsers/brave/apps.nix"
-nix eval --json "path:.#nixosConfigurations.songbird.config.programs.brave.extended.managedPolicies" \
-  --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-before.json
-cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"
-trap - EXIT INT TERM
-
-diff /tmp/brave-policies-before.json /tmp/brave-policies-after.json
-git diff --stat modules/browsers/brave/apps.nix
+tmp="$(mktemp -d)"
+nix eval --json --accept-flake-config \
+  "git+file:///home/vx/nixos?rev=$(git rev-parse a12e5ddc^)#nixosConfigurations.songbird.config.programs.brave.extended.managedPolicies" \
+  | jq -S . > "$tmp/before.json"
+nix eval --impure --json --expr \
+  "(import $PWD/modules/browsers/_chromium-hardening.nix).policies // (import $PWD/modules/browsers/_chromium-policies.nix).managedDefaultSearchProvider" \
+  | jq -S . > "$tmp/after.json"
+diff "$tmp/before.json" "$tmp/after.json" && jq 'keys | length' "$tmp/after.json"
 ```
 
-Expected: `diff` produces no output, and `git diff --stat` still shows the
-refactor, confirming the restore landed. `path:.` copies untracked files, so the
-unused `_chromium-hardening.nix` sitting in the tree during the `before` eval is
-harmless: the leading underscore keeps it out of module auto-discovery and the
-`HEAD` version of `brave/apps.nix` does not import it.
+Expected: `diff` produces no output and the key count is `106`. If either JSON file is empty, an eval failed rather
+than produced a different value; read its error before continuing. Dry-run against `a12e5ddc^` before this revision
+of the plan: identical, 106 keys.
 
-If `/tmp/brave-policies-before.json` is empty or malformed, the eval failed
-rather than produced a different value. Re-run it without `2>/dev/null` and read
-the error before continuing.
-
-`repo="$PWD"` rather than the repo-relative paths this block used, because the
-trap is armed in the operator's interactive shell and this block is pasted, not
-sourced. On the success path `trap - EXIT INT TERM` disarms it. On the path the
-trap exists for it does not: after Ctrl-C the INT trap restores correctly, and
-the EXIT trap stays armed in the login shell and fires whenever that shell
-finally exits, from whatever directory it has then. This phase moves between
-`/home/vx/nixos` and the worktree, so a relative path would write
-`/tmp/brave-apps-refactored.nix` over a different checkout's
-`modules/browsers/brave/apps.nix`, or fail with no one watching. Binding `$PWD`
-once makes the trap resolve the same path wherever it fires.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add modules/browsers/_chromium-hardening.nix modules/browsers/brave/apps.nix
-git commit -m "refactor(browsers): share the Brave hardening policy set
+git add modules/browsers/_chromium-hardening.nix
+git commit -m "refactor(browsers): recover the Brave hardening policy set
 
-brave-origin needs the same hardened policy set and reads the same /etc/brave/policies directory (confirmed in the binary's
-own string table), so the set moves out of brave/apps.nix into _chromium-hardening.nix rather than being duplicated.
-Byte-identical output proven by diffing the evaluated managedPolicies before and after.
+a12e5ddc removed the brave module, which held the hardened policy set inline. brave-origin reads the same
+/etc/brave/policies directory (confirmed in the binary's own string table), so the set comes back as
+_chromium-hardening.nix for brave-origin to apply.
 
-Validation: nix eval of programs.brave.extended.managedPolicies, diffed against the pre-refactor value"
+Validation: the recovered set merged with managedDefaultSearchProvider diffed against a12e5ddc^'s evaluated
+programs.brave.extended.managedPolicies (identical, 106 keys)"
 ```
 
 ### Task 8: Give brave-origin a managed policy surface
@@ -360,11 +305,21 @@ Validation: nix eval of programs.brave.extended.managedPolicies, diffed against 
 
 - Modify: `modules/browsers/brave-origin/apps.nix`
 
-- [ ] **Step 1: Add the policy options and the etc entry**
+- [ ] **Step 1: Add the policy option and the etc entry**
 
-Replace the option block and `config` in `modules/browsers/brave-origin/apps.nix` with:
+Replace the `let` bindings, the option block and `config` in `modules/browsers/brave-origin/apps.nix` with:
 
 ```nix
+    let
+      cfg = config.programs."brave-origin".extended;
+
+      inherit (import ../_chromium-policies.nix) managedDefaultSearchProvider managedDnsOverHttps;
+
+      restatedDnsOverHttpsKeys = lib.filter (key: cfg.managedPolicies ? ${key}) (
+        lib.attrNames managedDnsOverHttps
+      );
+    in
+    {
       options.programs."brave-origin".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -377,7 +332,7 @@ Replace the option block and `config` in `modules/browsers/brave-origin/apps.nix
         enableManagedPolicies = lib.mkOption {
           type = lib.types.bool;
           default = true;
-          description = "Whether to install the shared Brave managed policies for brave-origin.";
+          description = "Whether to install the managed policy files: managedPolicies and the DNS-over-HTTPS resolver.";
         };
 
         managedPolicies = lib.mkOption {
@@ -386,8 +341,9 @@ Replace the option block and `config` in `modules/browsers/brave-origin/apps.nix
           defaultText = lib.literalExpression "(import ../_chromium-hardening.nix).policies // managedDefaultSearchProvider";
           description = ''
             Brave enterprise policies written to /etc/brave/policies/managed/extended.json.
-            Per-origin allowlists are not written here; modules/browsers/webapps owns
-            those in a separate file with a disjoint key set.
+            DnsOverHttpsMode and DnsOverHttpsTemplates are rejected here: they live in
+            dns-over-https.json. Per-origin allowlists are not written here either;
+            modules/browsers/webapps owns those in a separate file with a disjoint key set.
           '';
         };
       };
@@ -398,78 +354,49 @@ Replace the option block and `config` in `modules/browsers/brave-origin/apps.nix
 
           etc = lib.mkIf cfg.enableManagedPolicies {
             "brave/policies/managed/extended.json".text = builtins.toJSON cfg.managedPolicies;
+            "brave/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
           };
         };
       };
-```
-
-Add above the option block, inside the existing `let`:
-
-```nix
-      inherit (import ../_chromium-policies.nix) managedDefaultSearchProvider;
+    };
 ```
 
 - [ ] **Step 2: Update the module header**
 
-In the header comment, change the Summary bullet `* Exposes the upstream binary as \`brave-origin\` without managed enterprise policies.\` to:
+In the header comment, change the Summary bullet `* Writes the DNS-over-HTTPS managed policy file.` to:
 
 ```
-    * Exposes the upstream binary as `brave-origin` with the shared Brave managed policy set.
+    * Writes the hardened managed policy set (extended.json) and the DNS-over-HTTPS policy (dns-over-https.json).
 ```
 
-The `brave://policy` line in Options is falsified by this task and has to change with it. It reads
-`Inspect the active policy set after rebuild (empty by default).`, and after Step 1 the default `managedPolicies` is
-`(import ../_chromium-hardening.nix).policies // managedDefaultSearchProvider`, written to
-`/etc/brave/policies/managed/extended.json` whenever `enableManagedPolicies` is on, which is its default. Otherwise
-the header ships saying the set is empty two lines above a new line saying this module generates it, in the file a
-reader checks first:
-
-```
-    brave://policy: Inspect the active policy set after rebuild.
-```
-
-and add to Options:
+and add to Options, after the `brave://policy` line:
 
 ```
     /etc/brave/policies/managed/extended.json: Managed policy file generated by this module.
 ```
 
-- [ ] **Step 3: Guard against brave and brave-origin fighting over one file**
+- [ ] **Step 3: Keep the resolver keys in one file**
 
-Both modules can write `/etc/brave/policies/managed/extended.json`. `brave` writes it under
-`programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`
-(`modules/browsers/brave/apps.nix`, where `etc` sits inside `lib.mkIf cfg.enableManagedPolicies`), so the guard has to
-name brave's own toggle too. Asserting on `enable` alone rejects `brave` enabled with its managed policies off, which
-writes nothing and leaves no shared file to fight over.
-
-Nothing else catches the collision: `environment.etc.<name>.text` is `nullOr lines`, and `lines` merges by
-concatenation rather than conflicting, so two owners produce one file holding two JSON documents back to back. That
-parses as nothing and the browser applies no policy at all, with no eval error. Add to
-`modules/browsers/brave-origin/apps.nix`, inside `config`:
+`extended.json` and `dns-over-https.json` sit in one managed directory, and Chromium resolves a key set in two files
+of one directory by file order, not by which option set it. A `managedPolicies` override that restated
+`DnsOverHttpsMode` or `DnsOverHttpsTemplates` would make the resolver depend on file names. The removed `brave` module
+refused that with an assertion (`a12e5ddc^:modules/browsers/brave/apps.nix`, `restatedDnsOverHttpsKeys`), and
+`brave-origin` now writes both files, so it carries the guard. Add inside `config`, above `environment`:
 
 ```nix
         assertions = [
           {
-            assertion =
-              !(
-                config.programs.brave.extended.enable
-                && config.programs.brave.extended.enableManagedPolicies
-                && cfg.enableManagedPolicies
-              );
+            assertion = restatedDnsOverHttpsKeys == [ ];
             message = ''
-              programs.brave.extended and programs.brave-origin.extended would both write
-              /etc/brave/policies/managed/extended.json. Brave and Brave Origin share one policy directory
-              (verified in the brave-origin binary's string table), and environment.etc text definitions
-              concatenate instead of conflicting, so two writers leave one unparsable file and no policy at
-              all. Both modules default to the same _chromium-hardening.nix set, so whichever one owns the file
-              still covers both browsers. Disable programs.brave.extended.enableManagedPolicies, or disable
-              programs.brave-origin.extended.enableManagedPolicies, or disable programs.brave.extended.enable.
+              programs.brave-origin.extended.managedPolicies restates ${lib.concatStringsSep ", " restatedDnsOverHttpsKeys}:
+              /etc/brave/policies/managed/dns-over-https.json owns the resolver policy, and Chromium resolves a key
+              set in two files of one directory by file order, not by this option.
             '';
           }
         ];
 ```
 
-- [ ] **Step 4: Verify the policy file lands**
+- [ ] **Step 4: Verify the policy files land**
 
 ```bash
 nix run path:.#treefmt -- .
@@ -479,24 +406,26 @@ nix eval --raw "path:.#nixosConfigurations.songbird.config.environment.etc.\"bra
 # The same number, derived from the two sources the value is built from.
 echo $(( $(rg -c '=' modules/browsers/_chromium-hardening.nix) - 1 \
        + $(rg -c '^    DefaultSearchProvider' modules/browsers/_chromium-policies.nix) ))
+
+nix eval --raw "path:.#nixosConfigurations.songbird.config.environment.etc.\"brave/policies/managed/dns-over-https.json\".text" \
+  --accept-flake-config | jq -r 'keys[]'
 ```
 
-Expected: the two numbers agree. They are the hardened set plus the `managedDefaultSearchProvider` keys the merge line
-adds. If the first command errors with a missing attribute, `brave-origin.extended.enable` is false on that host;
-check `modules/hosts/common/apps-enable.nix:63`.
+Expected: the first two numbers agree (106), and the last command prints `DnsOverHttpsMode` and
+`DnsOverHttpsTemplates`. If the first command errors with a missing attribute, `brave-origin.extended.enable` is
+false on that host; check `rg -n 'brave-origin' modules/hosts/common/apps-enable.nix`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add modules/browsers/brave-origin/apps.nix
-git commit -m "feat(brave-origin): apply the shared Brave managed policy set
+git commit -m "feat(brave-origin): apply the hardened Brave managed policy set
 
-brave-origin shipped unpoliced while it is the enabled Brave on every host that turns it on, so general browsing ran without
-HttpsOnlyMode, BlockThirdPartyCookies, WebRtcIPHandling or any of the Default*Setting permission blocks. It reads
-/etc/brave/policies, the same directory as brave, so an assertion refuses the configuration when both modules would
-write extended.json.
+brave-origin is the only Brave build on the hosts and ran with the DNS-over-HTTPS policy alone, so general browsing
+had no HttpsOnlyMode, BlockThirdPartyCookies, WebRtcIPHandling or Default*Setting permission blocks. The assertion
+the removed brave module carried keeps the resolver keys out of extended.json.
 
-Validation: nix eval of environment.etc.\"brave/policies/managed/extended.json\""
+Validation: nix eval of environment.etc.\"brave/policies/managed/extended.json\" and dns-over-https.json"
 ```
 
 ### Task 9: Define the app catalog and the option surface
@@ -609,9 +538,8 @@ Create `modules/browsers/webapps/nixos.nix`:
       installed into every profile and only interaction is scoped, through
       runtime_blocked_hosts.
     * Permissions are denied browser-wide and granted per origin. Chromium reads
-      one managed directory per browser and brave shares brave-origin's, so this
-      file also binds general browsing in either Brave-family build, not just
-      the web apps. See "Consequences of a browser-wide policy" in the plan.
+      one managed directory per browser, so this file also binds general
+      browsing in brave-origin, not just the web apps. See "Consequences of a browser-wide policy" in the plan.
     * The file is written whole, never split. Chromium's config-dir loader lets
       one file win a repeated key outright instead of merging, so splitting this
       across several files would silently drop entries.
@@ -812,9 +740,9 @@ Create `modules/browsers/webapps/nixos.nix`:
           description = ''
             Path under /etc for the generated web app policy. Must sit in the same
             managed directory the browser reads. An assertion refuses the
-            extended.json name any Brave-family module writes, because two text
-            owners of one environment.etc entry concatenate into an unparsable
-            file instead of conflicting.
+            extended.json and dns-over-https.json names brave-origin writes,
+            because two text owners of one environment.etc entry concatenate
+            into an unparsable file instead of conflicting.
           '';
         };
 
@@ -911,22 +839,18 @@ Create `modules/browsers/webapps/nixos.nix`:
             ++ [
               {
                 assertion =
-                  cfg.policyFile != "brave/policies/managed/extended.json"
-                  || !(
-                    (
-                      config.programs."brave-origin".extended.enable
-                      && config.programs."brave-origin".extended.enableManagedPolicies
-                    )
-                    || (
-                      config.programs.brave.extended.enable
-                      && config.programs.brave.extended.enableManagedPolicies
-                    )
+                  !(
+                    lib.elem cfg.policyFile [
+                      "brave/policies/managed/extended.json"
+                      "brave/policies/managed/dns-over-https.json"
+                    ]
+                    && config.programs."brave-origin".extended.enable
+                    && config.programs."brave-origin".extended.enableManagedPolicies
                   );
                 message = ''
-                  programs.webapps.policyFile names the /etc entry a Brave-family module writes.
-                  programs.brave.extended and programs.brave-origin.extended each write
-                  /etc/brave/policies/managed/extended.json under their own enable plus
-                  enableManagedPolicies, so either one alone is a second owner.
+                  programs.webapps.policyFile names an /etc entry programs.brave-origin.extended
+                  writes: extended.json and dns-over-https.json, under enable plus
+                  enableManagedPolicies.
                   environment.etc.<name>.text is nullOr lines and merges by concatenation, so two text
                   owners leave one file holding two JSON documents and no policy at all, with no
                   evaluation error. Use a different file name in the same managed directory.
@@ -942,7 +866,7 @@ Create `modules/browsers/webapps/nixos.nix`:
             # _chromium-hardening.nix, which carries only Default*Setting = 2
             # for the non-capture permissions. Writing the file for an empty
             # app set therefore denies mic, camera and screen share with no
-            # prompt across every Brave-family profile, the daily driver
+            # prompt across every brave-origin profile, the daily driver
             # included, with no app benefiting and no launcher installed.
             environment.etc.${cfg.policyFile}.text = builtins.toJSON policy;
           })
@@ -1043,8 +967,9 @@ EOF
 #
 #   * `zz-` sorts last, so the probe wins the ExtensionSettings key under the
 #     config-dir loader's pick-one-file semantics. Nothing contests it today:
-#     extended.json is _chromium-hardening.nix's policies plus
-#     managedDefaultSearchProvider and carries no ExtensionSettings key, and
+#     extended.json (_chromium-hardening.nix's policies plus
+#     managedDefaultSearchProvider) and dns-over-https.json carry no
+#     ExtensionSettings key, and
 #     webapps.json does not reach the host until the post-merge switch. The
 #     prefix is insurance against a file added later, not a dependency, so a
 #     probe that fails to block is not a merge conflict. `mktemp` gives each
@@ -1074,8 +999,8 @@ printf 'Probe policy: %s\n' "$probe_policy"
 ls /etc/brave/policies/managed/
 ```
 
-Expected: `extended.json` only, or nothing at all if Task 8 has not switched
-yet. If the exact path printed as `$probe_policy` is still listed after an
+Expected: `dns-over-https.json` and `extended.json`, or `dns-over-https.json`
+alone if Task 8 has not switched yet. If the exact path printed as `$probe_policy` is still listed after an
 abnormal stop, inspect it before removing it. Do not use a wildcard or guessed
 path, because an operator-managed policy must never be deleted by cleanup.
 
@@ -1114,9 +1039,8 @@ Create `modules/browsers/webapps/_policy.nix`:
   deny-by-default sits next to the allowlist that opens it.
 
   Everything written here is browser-wide. Chromium applies a managed directory
-  per browser, not per profile or per --user-data-dir, and brave reads the same
-  directory as brave-origin, so these keys also bind general browsing in either
-  Brave-family build. That is the accepted tradeoff; see "Consequences of a
+  per browser, not per profile or per --user-data-dir, so these keys also bind
+  general browsing in brave-origin. That is the accepted tradeoff; see "Consequences of a
   browser-wide policy" in the plan.
 */
 {
@@ -2119,9 +2043,10 @@ Create `modules/browsers/webapps/policy-check.nix`:
   - The generated policy against a committed fixture, so a permission silently
     appearing or disappearing from an app is a diff rather than a surprise at
     the next switch.
-  - Disjointness against everything brave-origin/apps.nix writes, which is
-    _chromium-hardening.nix's policies merged with managedDefaultSearchProvider,
-    not the hardening half alone. Both files land in
+  - Disjointness against everything brave-origin/apps.nix writes:
+    _chromium-hardening.nix's policies merged with managedDefaultSearchProvider
+    in extended.json, plus managedDnsOverHttps in dns-over-https.json. All
+    three files land in
     /etc/brave/policies/managed, and Chromium's config-dir loader lets one file
     win a repeated key outright rather than merging it, so a key named in both
     silently loses one file's value.
@@ -2146,16 +2071,20 @@ Create `modules/browsers/webapps/policy-check.nix`:
           inherit (checkApps) policy;
           withDefaults = checkApps.apps;
 
-          # The merged set, not just the hardening half. What lands next to
-          # webapps.json is policies // managedDefaultSearchProvider (Task 8
-          # Step 1), so comparing against policies alone leaves the seven
-          # DefaultSearchProvider* keys outside the eval-time invariant, and
+          # Everything brave-origin/apps.nix writes next to webapps.json:
+          # policies // managedDefaultSearchProvider in extended.json (Task 8
+          # Step 1) and managedDnsOverHttps in dns-over-https.json. Comparing
+          # against policies alone leaves the seven DefaultSearchProvider* keys
+          # and the two DnsOverHttps* keys outside the eval-time invariant, and
           # only Task 17 Step 1's post-switch comm would catch a collision
-          # there. Both sources are pure imports, so closing it costs one
-          # expression.
+          # there. All three sources are pure imports.
           hardening =
+            let
+              shared = import ../_chromium-policies.nix;
+            in
             (import ../_chromium-hardening.nix).policies
-            // (import ../_chromium-policies.nix).managedDefaultSearchProvider;
+            // shared.managedDefaultSearchProvider
+            // shared.managedDnsOverHttps;
           overlap = lib.intersectLists (lib.attrNames policy) (lib.attrNames hardening);
 
           # Every allowlist, paired with the permission that fills it.
@@ -2500,18 +2429,16 @@ force-installed set; what is scoped per app is interaction, through
 ## Scope: the policy is browser-wide
 
 Chromium applies a managed policy directory per browser, not per profile and not
-per `--user-data-dir`, and `brave` and `brave-origin` share that directory.
-Everything `programs.webapps` writes to
+per `--user-data-dir`. Everything `programs.webapps` writes to
 `/etc/brave/policies/managed/webapps.json` therefore also binds general
-browsing, in whichever of the two this host installs.
+browsing in `brave-origin`.
 
 What that means in practice:
 
 - **Mic, camera and screen share are denied everywhere by default, with no
   prompt.** Only origins listed in the matching `*AllowedUrls` policy can use
   them, and today that is `teams.cloud.microsoft` alone. A video call or a
-  screen share on any other site fails in whichever Brave-family build the host
-  installs. Granting one means adding that origin to an app entry in
+  screen share on any other site fails in the daily driver too. Granting one means adding that origin to an app entry in
   `_catalog.nix`.
 - **Extension installs are blocked in the daily-driver profile too**, and
   `defaultExtensions` (1Password) is force-installed there.
@@ -2520,9 +2447,7 @@ What that means in practice:
   browsing.
 
 This is deliberate hardening, not an oversight. If the capture denial gets in
-the way, moving general browsing to `brave` does not escape it: `brave` reads
-the same `/etc/brave/policies/managed/` directory, so `webapps.json` binds it
-too. The two real ways out are to move the web apps onto a browser family with a
+the way, the two real ways out are to move the web apps onto a browser family with a
 different managed directory, setting `programs.webapps.package`, `browserBinary`
 and `policyFile` together, or to drop the capture denies from
 `modules/browsers/webapps/_policy.nix` and go back to per-site prompts.
@@ -2739,12 +2664,11 @@ Adds the Microsoft 365 suite including Teams, which the firefoxpwa catalog exclu
 ## Scope of the policy
 
 Read this before switching. The permission policy is **browser-wide, not app-scoped**. Chromium applies a managed
-directory per browser and `brave` shares `brave-origin`'s, so `/etc/brave/policies/managed/webapps.json` binds every
-Brave-family instance on the host, whichever of the two is the daily driver:
+directory per browser, so `/etc/brave/policies/managed/webapps.json` binds every `brave-origin` instance on the host,
+the daily driver included:
 
 - Mic, camera and screen capture become hard denials with no prompt for all browsing. The only exception is
-  `teams.cloud.microsoft`. Video calls and screen shares on any other site fail in whichever Brave-family build the
-  host installs.
+  `teams.cloud.microsoft`. Video calls and screen shares on any other site fail in the daily driver too.
 - Extension installs are blocked in the daily-driver profile, and 1Password is force-installed there.
 - Extensions are not isolated per app either: `extensions.enable` installs everywhere and scopes only interaction,
   through `runtime_blocked_hosts` / `runtime_allowed_hosts`.
@@ -2785,19 +2709,20 @@ Not part of the PR. Run after `feat/chromium-webapps` merges and the host switch
 ls -la /etc/brave/policies/managed/
 
 comm -12 \
-  <(jq -r 'keys[]' /etc/brave/policies/managed/extended.json | sort) \
+  <(jq -r 'keys[]' /etc/brave/policies/managed/{dns-over-https,extended}.json | sort) \
   <(jq -r 'keys[]' /etc/brave/policies/managed/webapps.json | sort)
 ```
 
-Expected: two files listed, and `comm` produces no output.
+Expected: three files listed (`dns-over-https.json`, `extended.json`, `webapps.json`), and `comm` produces no output.
 
 `comm`, not two `jq -S 'keys'` listings compared by eye. `extended.json` carries 106 keys, so a `head -20` showed
 under a fifth of the set it asked the operator to compare, against a second list they also had to scan. Disjointness
 is the invariant this plan calls the most important one, and this is its only runtime check.
 
 This confirms on a real host what `policy-check.nix` asserts at eval time. That check compares `_policy.nix` against
-`policies // managedDefaultSearchProvider`, the same merge `brave-origin/apps.nix` writes, so the seven
-`DefaultSearchProvider*` keys are inside the invariant rather than only covered here after the switch.
+`policies // managedDefaultSearchProvider // managedDnsOverHttps`, everything `brave-origin/apps.nix` writes, so the
+seven `DefaultSearchProvider*` keys and the two `DnsOverHttps*` keys are inside the invariant rather than only covered
+here after the switch.
 
 - [ ] **Step 2: Confirm the policy actually applied**
 
@@ -2922,14 +2847,8 @@ exists to tell them apart. If `jq` errors, read the raw `dunstctl history`.
 - [ ] **Step 8: Confirm what the browser-wide policy cost**
 
 The denials in `webapps.json` apply to general browsing, so check the daily
-driver rather than assuming. In a plain window of whichever Brave-family build
-this host enables (no `--user-data-dir`), open any site that asks for the camera
-or the microphone. Check both if both are installed: they read the same managed
-directory, so `webapps.json` binds `brave` too.
-
-```bash
-rg -n 'brave.*extended.enable' modules/hosts/common/apps-enable.nix
-```
+driver rather than assuming. In a plain `brave-origin` window (no
+`--user-data-dir`), open any site that asks for the camera or the microphone.
 
 Expected: denied with no prompt. That is the documented behavior, not a bug. If
 it is not acceptable in practice, the follow-up is one of the two options in
@@ -2963,7 +2882,7 @@ ______________________________________________________________________
 
 **Known gaps, stated rather than hidden.**
 
-- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 17 Step 8. A `brave` / `brave-origin` split is not an escape, since both read the same managed directory; the ways out are retargeting the web apps onto a browser family with a different managed directory (`package`, `browserBinary` and `policyFile` together) or dropping the capture denies, both follow-ups.
+- **The permission policy is browser-wide, not app-scoped.** Chromium applies a managed directory per browser, so `webapps.json` binds the daily-driver `brave-origin`: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 17 Step 8. The ways out are retargeting the web apps onto a browser family with a different managed directory (`package`, `browserBinary` and `policyFile` together) or dropping the capture denies, both follow-ups.
 - **Extensions are not isolated per app.** `--user-data-dir` separates cookies and storage; `ExtensionSettings` is managed policy and therefore browser-wide. `extensions.enable` installs an extension everywhere and scopes only interaction. The phrase "no two apps share cookies, storage or extensions" was wrong and is corrected everywhere it appeared.
 - Geolocation cannot be granted per app. Chromium has no allowlist counterpart to `GeolocationBlockedForUrls`. Documented in `docs/reference/webapps.md` and omitted from the submodule rather than silently accepted and ignored.
 - kdocker is X11 only. This matches the current i3 and lightdm setup (`modules/apps/i3wm/nixos.nix:75`) but would need replacing under Wayland.
@@ -2980,6 +2899,6 @@ ______________________________________________________________________
 - `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 16 with `webapps` reported missing from `apps-enable.nix`, which Task 12 Step 3 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 16.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created one step earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 17 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds. Exclusions are only half of it, and in the compgen case they were the wrong half: the first fix excluded `modules/meta/build-time-shell.nix` by path and still printed hits from a pre-existing `modules/apps/rclone/proton-drive.nix` comment, so Phase 1 Task 1 Step 4 now runs the detector's own command-position predicate instead of a bare string search. A predicate copied from the check it verifies cannot drift from it, which no list of path exclusions can promise. Phase 2's sweeps also stated which files would still match, and `modules/apps/rclone/proton-drive-check.nix` matched from a header comment that no task's **Files:** block listed, so Task 4 Step 7 named two survivors where three existed and Task 5's "no output" was unreachable for a reason no exclusion addresses. A sweep that predicts its own residue has to have that prediction derived from the task list, not written alongside it.
 - Task 16 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
-- Task 9's `policyFile` collision assertion named one writer of a shared file when two exist, and the same narrowing had already been made once in this series for the same reason. `modules/browsers/brave/apps.nix` writes `/etc/brave/policies/managed/extended.json` under `programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`, which is exactly the conjunction Task 8 Step 3's assertion was widened to; Task 9's assertion still read `brave-origin` alone. `brave` enabled with `brave-origin` disabled, plus `policyFile` set to the `extended.json` name, put two owners on one entry with the assertion silent, while the option description claimed the name was refused. Task 8's assertion does not cover the gap either: it sits inside `config = lib.mkIf cfg.enable` in `brave-origin/apps.nix`, so with `brave-origin.extended.enable = false` that module contributes no `assertions` definition at all. The predicate now disjoins both Brave-family writers.
+- Task 9's `policyFile` collision assertion refused `extended.json` alone, while `brave-origin/apps.nix` also writes `dns-over-https.json` as text since `a12e5ddc`. `policyFile` set to that name would have put two owners on one entry with the assertion silent and the option description claiming the name was refused. The predicate now lists every file `brave-origin/apps.nix` writes, and `policy-check.nix` takes `managedDnsOverHttps` into its disjointness set for the same reason. An earlier revision guarded a second Brave writer, the `brave` module; `a12e5ddc` removed it, and Tasks 7 and 8 now recover its hardened set from `a12e5ddc^` instead of sharing it.
 
 **Type consistency.** `key`, `name`, `url`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
