@@ -73,6 +73,7 @@ toolbar#nav-bar::after {
 	);
 	--uc-menu-dimmed: var(--button-background-color-hover, SelectedItem);
 	--uc-menu-disabled: GrayText;
+	--uc-menu-border: var(--uc-menu-disabled);
 }
 panel richlistbox,
 panel tree,
@@ -109,7 +110,7 @@ menupopup:not(#BMB_bookmarksPopup),
 	color: var(--uc-menu-color) !important;
 	padding: 2px;
 	background-color: var(--uc-menu-bkgnd) !important;
-	border: 1px solid var(--uc-menu-disabled) !important;
+	border: 1px solid var(--uc-menu-border) !important;
 }
 
 panel textbox input {

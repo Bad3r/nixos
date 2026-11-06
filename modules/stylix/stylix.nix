@@ -360,13 +360,26 @@ in
             }
           '';
           # Nova tints URL bar boxes (identity label, page and extension actions)
-          # with currentColor, which reads lighter than the field.
-          urlbarUserChrome = with config.lib.stylix.colors.withHashtag; ''
+          # with currentColor, which reads lighter than the field. Menus follow
+          # VS Code's menu colors, as the qBittorrent Web UI theme does.
+          geckoUserChrome = with config.lib.stylix.colors.withHashtag; ''
             :root {
             	--urlbar-box-background-color: ${base01} !important;
             	--urlbar-box-background-color-focus: ${base01} !important;
             	--urlbar-box-background-color-hover: ${base02} !important;
             	--urlbar-box-background-color-active: ${base02} !important;
+            	--uc-menu-bkgnd: ${vscode."menu.background"} !important;
+            	--uc-menu-color: ${base05} !important;
+            	--uc-menu-dimmed: color-mix(in srgb, ${vscode."menu.selectionBorder"} 15%, transparent) !important;
+            	--uc-menu-disabled: ${vscode."disabledForeground"} !important;
+            	--uc-menu-border: ${base02} !important;
+            	--panel-separator-color: ${base02} !important;
+            }
+
+            menu[_moz-menuactive],
+            menuitem[_moz-menuactive] {
+            	outline: 1px solid ${vscode."menu.selectionBorder"} !important;
+            	outline-offset: -1px !important;
             }
           '';
           mkThemeColor = name: {
@@ -405,7 +418,7 @@ in
               popup_highlight = lib.mkForce quickInputFocus;
               popup_highlight_text = lib.mkForce quickInputFocusText;
             };
-            userChrome = lib.mkAfter urlbarUserChrome;
+            userChrome = lib.mkAfter geckoUserChrome;
             userContent = lib.mkAfter sideberyUserContent;
           });
           themedIcon =
