@@ -63,8 +63,7 @@ Process rules run asynchronously in `i3-process-window-rules.service`, separatel
 
 ## Default file manager
 
-The file-manager workspace assignment follows `host.defaults.fileManager` from [default-apps.nix](../../modules/hosts/common/default-apps.nix).
-[mime.nix](../../modules/xdg/mime.nix) owns the file-manager metadata used for matching.
+File-manager windows open on the current workspace; no assignment follows `host.defaults.fileManager`.
 File-manager windows advertising dialog, utility, popup, or toolbox types and roles use the generic floating rules.
 
 ## RustDesk connection manager

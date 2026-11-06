@@ -1,7 +1,7 @@
 # i3 workspace assignments and named per-window rules.
 { config, ... }:
 let
-  inherit (config.flake.lib) octicons xdg;
+  inherit (config.flake.lib) octicons;
 in
 {
   flake.homeManagerModules.apps.i3-config =
@@ -14,9 +14,6 @@ in
     let
       cfg = config.gui.i3;
       workspaceName = octicons.nameOf;
-      fileManagerName = osConfig.host.defaults.fileManager;
-      fileManager =
-        if fileManagerName == null then null else xdg.desktopFiles.fileManager.${fileManagerName};
       claudeDesktopEnabled = lib.attrByPath [
         "programs"
         "claude-desktop"
@@ -174,16 +171,9 @@ in
             };
 
         xsession.windowManager.i3.config = {
-          assigns = lib.mkOptionDefault (
-            {
-              "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
-            }
-            // lib.optionalAttrs (fileManager != null) {
-              "number \"${workspaceName 3}\"" = [
-                { class = "(?i)^${lib.escapeRegex fileManager.windowClass}$"; }
-              ];
-            }
-          );
+          assigns = lib.mkOptionDefault {
+            "number \"${workspaceName 2}\"" = [ { class = "(?i)^${cfg.browserClass}$"; } ];
+          };
           window.commands = [
             {
               criteria.urgent = "latest";

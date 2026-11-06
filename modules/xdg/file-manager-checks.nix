@@ -18,9 +18,7 @@ let
       }
     ];
   };
-  workspace = ''number "${config.flake.lib.octicons.nameOf 3}"'';
   home = system: system.config.home-manager.users.${metaOwner.username};
-  selected = (home base).xsession.windowManager.i3.config.assigns.${workspace};
   dolphin = host.extendModules {
     modules = [
       {
@@ -52,9 +50,6 @@ let
   ) disabled.config.assertions;
   checks = [
     (lib.assertMsg (
-      selected == [ { class = "(?i)^Nemo$"; } ]
-    ) "file manager workspace must match the selected manager")
-    (lib.assertMsg (
       (mimeHandlers base)."inode/directory" == "nemo.desktop"
     ) "directory MIME handler must follow the selection")
     (lib.assertMsg (
@@ -68,17 +63,14 @@ let
       base.config.programs.nemo.extended.finalPackage != base.config.programs.nemo.extended.package
     ) "file manager package fixture must exercise the extension wrapper")
     (lib.assertMsg (
-      (home dolphin).xsession.windowManager.i3.config.assigns.${workspace}
-      == [ { class = "(?i)^dolphin$"; } ]
-      && (mimeHandlers dolphin)."inode/directory" == "org.kde.dolphin.desktop"
+      (mimeHandlers dolphin)."inode/directory" == "org.kde.dolphin.desktop"
       && dolphin.config.environment.sessionVariables.FILE_MANAGER == "dolphin"
       &&
         (home dolphin).services.udiskie.settings.program_options.file_manager
         == "${dolphin.config.programs.dolphin.extended.package}/bin/dolphin"
-    ) "switching the default must update workspace, MIME, environment, and udiskie together")
+    ) "switching the default must update MIME, environment, and udiskie together")
     (lib.assertMsg (
-      !((home noDefault).xsession.windowManager.i3.config.assigns ? ${workspace})
-      && !((home noDefault).services.udiskie.settings.program_options ? file_manager)
+      !((home noDefault).services.udiskie.settings.program_options ? file_manager)
       && !(noDefault.config.environment.sessionVariables ? FILE_MANAGER)
       && !((mimeHandlers noDefault) ? "inode/directory")
     ) "a null selection must not retain a file manager default or a hardcoded fallback")
