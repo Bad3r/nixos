@@ -495,6 +495,11 @@
 - [apps/mpv/6-troubleshooting.md](apps/mpv/6-troubleshooting.md)
   - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
+### OpenShell
+
+- [apps/openshell/README.md](apps/openshell/README.md)
+  - Registering the gateway, connecting from Mesh peers and workload VMs over mTLS, and reissuing the client bundle.
+
 ### PDF Tooling
 
 - [apps/pdf/toolkit.md](apps/pdf/toolkit.md)
