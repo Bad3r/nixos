@@ -50,7 +50,7 @@
 - M.2_3 and M.2_4 stay empty; populating either drops the GPU slot from x16 to x8.
 - Disk A sits under the motherboard's M.2_1 heatsink; without it, sustained writes throttle.
 - `/dev/nvmeN` indices reshuffle across boots. Address a drive by PCI address or serial, never by index.
-- The DIMMs run at 7400 MT/s because their DDR5-8400 XMP profile is unstable on this host. The fallback ladder runs down to the CPU's native DDR5-6400; four DIMMs forfeit 8400.
+- The DIMMs run at 8000 MT/s because their DDR5-8400 XMP profile, and 8200, are unstable on this host. The fallback ladder runs down to the CPU's native DDR5-6400; four DIMMs forfeit 8400.
 - Case fans and the AIO pump follow BIOS Q-Fan curves, and the RTX 5080's fans follow the card's own curve.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
@@ -65,7 +65,7 @@
 | Intel PTT                        | On                           | BitLocker                  |
 | Above 4G Decoding, Resizable BAR | On                           | GPU requires it            |
 | VT-x, VT-d                       | On                           | KVM                        |
-| DRAM frequency                   | DDR5-7400                    | XMP 8400 is unstable       |
+| DRAM frequency                   | DDR5-8000                    | XMP 8400 is unstable       |
 | Fast Boot                        | Off                          | USB and initrd reliability |
 | Boot order                       | systemd-boot on disk A first | default OS                 |
 
