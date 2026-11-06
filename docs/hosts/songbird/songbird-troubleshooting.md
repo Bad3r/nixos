@@ -3,6 +3,19 @@
 - [songbird-troubleshooting-windows.md](songbird-troubleshooting-windows.md)
 - [songbird-troubleshooting-file-sharing.md](songbird-troubleshooting-file-sharing.md)
 - [songbird-troubleshooting-local-ai.md](songbird-troubleshooting-local-ai.md)
+- [songbird-troubleshooting-storage.md](songbird-troubleshooting-storage.md)
+
+## songbird reboots without a clean shutdown
+
+An oops or a soft lockup panics the kernel, and the `panic` and `softlockup_panic` parameters in `modules/hosts/common/boot.nix` turn the panic into a reboot.
+The kernel saves its last log to EFI pstore, and systemd copies it under `/var/lib/systemd/pstore` at the next boot.
+
+```sh
+sudo grep -E 'Oops|BUG|RIP:|Kernel panic|Hardware Error' /var/lib/systemd/pstore/*/*/dmesg.txt
+```
+
+A general protection fault on a non-canonical address, list corruption, or a machine check points to memory.
+Drop the DRAM speed one step per [songbird-hardware.md](songbird-hardware.md), then run memtest86+ from the boot menu.
 
 ## /data is empty after boot
 

@@ -326,6 +326,8 @@
   - Samba media share and qBittorrent failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-local-ai.md](hosts/songbird/songbird-troubleshooting-local-ai.md)
   - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [hosts/songbird/songbird-troubleshooting-storage.md](hosts/songbird/songbird-troubleshooting-storage.md)
+  - `/data` XFS corruption, repair, and unmount failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
