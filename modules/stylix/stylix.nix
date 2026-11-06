@@ -360,8 +360,9 @@ in
             }
           '';
           # Nova tints URL bar boxes (identity label, page and extension actions)
-          # with currentColor, which reads lighter than the field. Menus follow
-          # VS Code's menu colors, as the qBittorrent Web UI theme does.
+          # with currentColor, which reads lighter than the field. Menus and
+          # dialogs follow VS Code, as the qBittorrent Web UI theme does; dialogs
+          # carry no Firefox Color theme, so they fall back to Nova's tokens.
           geckoUserChrome = with config.lib.stylix.colors.withHashtag; ''
             :root {
             	--urlbar-box-background-color: ${base01} !important;
@@ -374,6 +375,23 @@ in
             	--uc-menu-disabled: ${vscode."disabledForeground"} !important;
             	--uc-menu-border: ${base02} !important;
             	--panel-separator-color: ${base02} !important;
+            	--background-color-box: ${base01} !important;
+            	--text-color: ${base05} !important;
+            	--text-color-deemphasized: ${base04} !important;
+            	--color-accent-primary: ${vscode."button.background"} !important;
+            	--color-accent-primary-hover: ${vscode."button.hoverBackground"} !important;
+            	--color-accent-primary-active: ${vscode."button.hoverBackground"} !important;
+            	--focus-outline-color: ${vscode."menu.selectionBorder"} !important;
+            	--button-text-color: ${base05} !important;
+            	--button-text-color-primary: ${vscode."button.foreground"} !important;
+            	--button-border-color: ${vscode."button.secondaryBorder"} !important;
+            	--button-background-color-hover: rgb(255 255 255 / 6%) !important;
+            	--button-background-color-active: rgb(255 255 255 / 10%) !important;
+            }
+
+            :root[subdialog] {
+            	background-color: ${base01} !important;
+            	color: ${base05} !important;
             }
 
             menu[_moz-menuactive],
