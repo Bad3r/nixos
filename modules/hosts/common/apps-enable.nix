@@ -489,7 +489,7 @@ let
       tweakcc.extended.enable = lib.mkOverride 1100 true;
       "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;
-      "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
+      "ungoogled-chromium".extended.enable = lib.mkOverride 1100 false;
       unrar.extended.enable = lib.mkOverride 1100 false;
       unzip.extended.enable = lib.mkOverride 1100 true;
       upscayl.extended.enable = lib.mkOverride 1100 true;
