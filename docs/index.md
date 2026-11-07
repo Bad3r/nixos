@@ -377,6 +377,9 @@
 
 ## Apps
 
+- [apps/herdr/README.md](apps/herdr/README.md)
+  - Herdr configuration ownership and privacy boundaries.
+
 ### Cloudflare
 
 - [apps/cloudflare/README.md](apps/cloudflare/README.md)
