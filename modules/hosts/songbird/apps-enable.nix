@@ -40,6 +40,7 @@ let
     # (qbittorrent-webui.nix) enables the Web UI handler together with the
     # service.
     qbittorrent = false;
+    herdr = true;
     hopper = true;
     iaito = true;
     ilspycmd = true;
