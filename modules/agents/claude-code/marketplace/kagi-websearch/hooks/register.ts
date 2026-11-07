@@ -48,6 +48,18 @@ function searchResults(query: string, hits: Hit[]): string {
 	return `${ASK}${query}\n\n<search_results>\n${listed}\n</search_results>`;
 }
 
+// What Claude Code 2.1.319 records when Anthropic's search reports an error (`Li()`).
+function searchError(query: string, started: number) {
+	return {
+		result: {
+			query,
+			results: ["Web search error: unavailable"],
+			durationSeconds: (Date.now() - started) / 1000,
+			searchCount: 1,
+		},
+	};
+}
+
 export const register: Register = (on, options) => {
 	const command =
 		typeof options.searchCommand === "string" ? options.searchCommand : "";
@@ -57,9 +69,10 @@ export const register: Register = (on, options) => {
 			: 10;
 
 	on("tool.call", { tool: "WebSearch" }, async ($, e) => {
+		const started = Date.now();
 		const fail = (reason: string) => {
 			$.ui.status(`Kagi search failed: ${reason.slice(0, 60)}`);
-			return { deny: `kagi-websearch: ${reason}` };
+			return searchError(e.query, started);
 		};
 		if (!command) return fail("the searchCommand option is not set");
 		const argv = [command, "--json", "--limit", String(maxResults)];
@@ -67,7 +80,6 @@ export const register: Register = (on, options) => {
 		for (const domain of e.blocked_domains ?? []) argv.push("--block", domain);
 		argv.push("--", e.query);
 
-		const started = Date.now();
 		const ran = await $.process
 			.run(argv, { timeoutMs: 60_000 })
 			.catch((error: Error) => error);
@@ -115,7 +127,5 @@ export const register: Register = (on, options) => {
 				searchCount: 1,
 			},
 		};
-	}).catch(() => ({
-		deny: "kagi-websearch: the Kagi search hook failed; run claude --debug for the cause.",
-	}));
+	}).catch((_, e) => searchError(e.query, Date.now()));
 };

@@ -10,6 +10,12 @@ const HITS = [
 	},
 	{ title: "NixOS", url: "https://nixos.org/", snippet: "" },
 ];
+const SEARCH_ERROR = {
+	query: "x",
+	results: ["Web search error: unavailable"],
+	durationSeconds: expect.any(Number),
+	searchCount: 1,
+};
 const LINKS = HITS.map(({ title, url }) => ({ title, url }));
 const USAGE = {
 	input_tokens: 1,
@@ -172,7 +178,7 @@ test(
 );
 
 test(
-	"a failure is refused with kagi-search's reason",
+	"a failure is the built-in search error, with no backend detail",
 	OPTIONS,
 	async ($, on) => {
 		engine(on, {
@@ -185,24 +191,30 @@ test(
 			query: "x",
 			mode: "standard",
 		});
-		expect(answer.deny).toBe(
-			"kagi-websearch: Kagi rejected LibreWolf's session (signed out or expired); sign in to kagi.com in LibreWolf again",
-		);
+		expect(answer.deny).toBeUndefined();
+		expect(answer.result).toEqual(SEARCH_ERROR);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
 	},
 );
 
-test("output that is not JSON hits is refused", OPTIONS, async ($, on) => {
-	engine(on, { exitCode: 0, stdout: "1. Flakes\nhttps://wiki.nixos.org/\n" });
-	const answer = await $.tool.call({
-		tool: "WebSearch",
-		query: "x",
-		mode: "standard",
-	});
-	expect(answer.deny).toBe(`kagi-websearch: ${COMMAND} printed no JSON hits`);
-});
+test(
+	"output that is not JSON hits is the built-in search error",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, { exitCode: 0, stdout: "1. Flakes\nhttps://wiki.nixos.org/\n" });
+		const answer = await $.tool.call({
+			tool: "WebSearch",
+			query: "x",
+			mode: "standard",
+		});
+		expect(answer.deny).toBeUndefined();
+		expect(answer.result).toEqual(SEARCH_ERROR);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
+	},
+);
 
 test(
-	"an unset searchCommand is refused without running anything",
+	"an unset searchCommand is the built-in search error without running anything",
 	{ options: { searchCommand: "" } },
 	async ($, on) => {
 		const seen = engine(on, { exitCode: 0 });
@@ -211,9 +223,9 @@ test(
 			query: "x",
 			mode: "standard",
 		});
-		expect(answer.deny).toBe(
-			"kagi-websearch: the searchCommand option is not set",
-		);
+		expect(answer.deny).toBeUndefined();
+		expect(answer.result).toEqual(SEARCH_ERROR);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
 		expect(seen.argvs).toEqual([]);
 	},
 );
