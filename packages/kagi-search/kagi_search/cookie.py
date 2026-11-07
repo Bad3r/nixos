@@ -77,9 +77,15 @@ def _snapshot(db: Path, into: Path) -> Path:
         before = (_state(db), _state(wal))
         copy_wal = copy.with_name(f"{copy.name}-wal")
         copy_wal.unlink(missing_ok=True)
-        if before[1] is not None:
-            shutil.copyfile(wal, copy_wal)
-        shutil.copyfile(db, copy)
+        try:
+            if before[1] is not None:
+                shutil.copyfile(wal, copy_wal)
+            shutil.copyfile(db, copy)
+        except FileNotFoundError:
+            if not db.exists():
+                msg = f"no readable LibreWolf cookie database at {db}"
+                raise SessionError(msg) from None
+            continue
         if (_state(db), _state(wal)) == before:
             return copy
         time.sleep(RETRY_STEP_SECONDS * (attempt + 1))

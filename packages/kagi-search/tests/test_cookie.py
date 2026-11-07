@@ -121,6 +121,39 @@ class SessionTest(unittest.TestCase):
             self.assertEqual(cookie.read_session(self.profile), "token")
         self.assertEqual(len(calls), 2)
 
+    def test_a_wal_removed_during_the_copy_is_retried(self) -> None:
+        """A WAL that LibreWolf removes after it was seen restarts the snapshot."""
+        self.connection.execute("pragma journal_mode = wal")
+        self.connection.execute("pragma wal_autocheckpoint = 0")
+        add_cookie(self.connection, "in-wal")
+        real_copy = shutil.copyfile
+        calls: list[str] = []
+
+        def checkpoint_then_copy(source: Path, target: Path) -> Path:
+            calls.append(Path(source).name)
+            if len(calls) == 1:
+                self.connection.execute("pragma wal_checkpoint(truncate)")
+                self.connection.execute("pragma journal_mode = delete")
+            return real_copy(source, target)
+
+        with unittest.mock.patch.object(cookie.shutil, "copyfile", checkpoint_then_copy):
+            self.assertEqual(cookie.read_session(self.profile), "in-wal")
+        self.assertEqual(calls, ["cookies.sqlite-wal", "cookies.sqlite"])
+
+    def test_a_database_removed_during_the_copy_is_no_database(self) -> None:
+        """A database removed mid-copy reports a missing database, not a retry loop."""
+        add_cookie(self.connection, "token")
+
+        def remove_then_copy(source: Path, _target: Path) -> Path:
+            self.db.unlink()
+            raise FileNotFoundError(source)
+
+        with (
+            unittest.mock.patch.object(cookie.shutil, "copyfile", remove_then_copy),
+            self.assertRaisesRegex(cookie.SessionError, "no readable LibreWolf cookie database"),
+        ):
+            cookie.read_session(self.profile)
+
     def test_no_session_says_to_sign_in(self) -> None:
         """No cookie tells the user to sign in."""
         with self.assertRaisesRegex(cookie.SessionError, "sign in to kagi.com in LibreWolf"):

@@ -100,12 +100,15 @@ _: {
         (
           plugins
           // {
-            extraKnownMarketplaces = plugins.extraKnownMarketplaces // {
-              nixos-local.source = {
-                source = "directory";
-                path = "${localMarketplace}";
+            # Registered only with the kagi-websearch plugin.
+            extraKnownMarketplaces =
+              plugins.extraKnownMarketplaces
+              // lib.optionalAttrs (plugins.enabledPlugins."kagi-websearch@nixos-local" or false) {
+                nixos-local.source = {
+                  source = "directory";
+                  path = "${localMarketplace}";
+                };
               };
-            };
           }
         )
         (import ./_permissions.nix {
