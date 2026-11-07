@@ -226,6 +226,12 @@ in
               programs.${programName}.extended.enable = lib.mkOverride 1050 true;
             }
           ) lspPluginProgramMap
+          ++ [
+            # kagi-websearch runs the kagi-search command line.
+            (lib.mkIf (enabledPlugins."kagi-websearch@nixos-local" or false) {
+              programs.kagi-search.extended.enable = lib.mkOverride 1050 true;
+            })
+          ]
         )
       );
     };

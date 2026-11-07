@@ -1,0 +1,19 @@
+{
+	"name": "kagi-websearch",
+	"version": "0.3.0",
+	"description": "Routes the WebSearch tool to Kagi through the kagi-search command line.",
+	"userConfig": {
+		"searchCommand": {
+			"type": "string",
+			"title": "kagi-search command",
+			"description": "The kagi-search executable; it prints JSON hits with --json and exits non-zero with the reason on stderr.",
+			"default": ""
+		},
+		"maxResults": {
+			"type": "number",
+			"title": "Results per search",
+			"description": "How many Kagi results each search returns, after domain filtering. Kagi's first page holds about 25 to 35.",
+			"default": 10
+		}
+	}
+}

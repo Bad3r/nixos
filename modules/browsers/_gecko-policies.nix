@@ -48,7 +48,11 @@ in
       BaselineExceptions = true;
       ConvenienceExceptions = false;
     };
-    Cookies.Allow = [ "https://github.com" ];
+    # Kept through the shutdown wipe.
+    Cookies.Allow = [
+      "https://github.com"
+      "https://kagi.com"
+    ];
 
     # Fallback = false turns an SNI reset into a total DNS outage; see
     # _mullvad-doh-url.nix for why the URL itself cannot revert to the

@@ -24,6 +24,9 @@
       `claude plugin marketplace add anthropics/claude-plugins-official`).
       `builtin` needs no registration; entries naming an unregistered
       marketplace are silently ignored.
+    * marketplace/ is the nixos-local marketplace, registered from the store
+      (_marketplace.nix). Its kagi-websearch plugin answers WebSearch with the
+      kagi-search app (modules/apps/kagi-search.nix).
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
@@ -86,9 +89,25 @@ _: {
         ) "claude-code: ${lib.concatStringsSep ", " duplicates} declared by more than one settings part";
         lib.foldl' (acc: part: acc // part) { } parts;
 
+      plugins = import ./_plugins.nix;
+      localMarketplace = import ./_marketplace.nix {
+        inherit lib pkgs;
+        kagiSearch = osConfig.programs.kagi-search.extended.package;
+      };
+
       settingsJson = mergeParts [
         (import ./_settings.nix)
-        (import ./_plugins.nix)
+        (
+          plugins
+          // {
+            extraKnownMarketplaces = plugins.extraKnownMarketplaces // {
+              nixos-local.source = {
+                source = "directory";
+                path = "${localMarketplace}";
+              };
+            };
+          }
+        )
         (import ./_permissions.nix {
           inherit (agents) scratchDir;
           sbx = sbxEnabled;

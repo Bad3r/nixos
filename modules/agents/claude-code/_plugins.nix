@@ -31,6 +31,8 @@
     "cloudflare@cloudflare" = false;
     "code-review@claude-plugins-official" = true;
     "frontend-design@claude-plugins-official" = false;
+    # Routes WebSearch to Kagi with LibreWolf's session (marketplace/kagi-websearch).
+    "kagi-websearch@nixos-local" = true;
     "pr-review-toolkit@claude-plugins-official" = true;
     "superpowers@claude-plugins-official" = false;
     "telemetry@builtin" = false;
@@ -56,7 +58,8 @@
   # Registers the marketplaces enabledPlugins keys name, at
   # startup. claude-plugins-official is added out of band via `claude plugin
   # marketplace add anthropics/claude-plugins-official`; builtin needs no
-  # registration.
+  # registration. home.nix adds nixos-local, this repository's marketplace/
+  # folder, since its path is a store path.
   extraKnownMarketplaces."chrome-devtools-plugins".source = {
     source = "git";
     # Sparse: a full clone pulls a large submodule.

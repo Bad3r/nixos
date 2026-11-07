@@ -1,0 +1,15 @@
+{
+	"$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+	"name": "nixos-local",
+	"description": "Claude Code plugins kept in this NixOS configuration",
+	"owner": {
+		"name": "Bad3r"
+	},
+	"plugins": [
+		{
+			"name": "kagi-websearch",
+			"description": "Routes the WebSearch tool to Kagi through the LibreWolf session.",
+			"source": "./kagi-websearch"
+		}
+	]
+}
