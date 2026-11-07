@@ -70,6 +70,7 @@ export const register: Register = (on, options) => {
 
 	on("tool.call", { tool: "WebSearch" }, async ($, e) => {
 		const started = Date.now();
+		// The model gets the built-in tool's own error record.
 		const fail = (reason: string) => {
 			$.ui.status(`Kagi search failed: ${reason.slice(0, 60)}`);
 			return searchError(e.query, started);
