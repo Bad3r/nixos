@@ -67,10 +67,6 @@ never a goal: remove legacy support instead of carrying both paths.
   that writes `flake.lock` (use `nix flake update --flake "path:$PWD"`). A
   dirty tree hides the problem, because Lix then copies the tree instead of
   fetching it.
-- `path:.` copies the working tree unfiltered: an untracked module evaluates
-  locally but not in CI, and a decrypted secret would land in the store.
-  `build.sh` and `scripts/cache-coverage.sh` run the shared secrets guard
-  first; keep decrypted secrets out of the worktree.
 - Hooks run through
   `nix develop path:. -c pre-commit run --all-files --hook-stage manual`.
   Hand-written Markdown follows `docs/technical-writing/style-guide.md`,
