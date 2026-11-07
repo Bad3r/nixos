@@ -241,10 +241,8 @@
           # Nix-managed execpolicy rules (read-only symlink to store)
           "codex/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
 
-          # Stylix palette as a syntax theme, from Stylix's bat template
-          "codex/themes/base16-stylix.tmTheme".source = config.lib.stylix.colors {
-            template = builtins.readFile "${inputs.stylix}/modules/bat/base16-stylix.tmTheme.mustache";
-            extension = ".tmTheme";
+          "codex/themes/base16-stylix.tmTheme".source = import ./_theme.nix {
+            inherit config inputs pkgs;
           };
 
           # User-level Codex instructions under XDG config home

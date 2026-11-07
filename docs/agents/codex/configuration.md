@@ -18,6 +18,13 @@ Uncomment an optional setting and supply its value to configure it.
 Site policy overrides catalog values.
 Keep credentials in runtime secrets or Codex's login store because Nix configuration becomes readable in the store.
 
+## Terminal appearance
+
+`tui.theme` selects syntax highlighting and semantic UI colors through a renderer patch in the pinned `llm-agents` package.
+The [theme producer](../../../modules/agents/codex/_theme.nix) combines Stylix syntax colors with VS Code Dark 2026 surfaces, selections, status colors, and diff backgrounds.
+Change the palette sources, rebuild, and restart Codex to apply theme changes.
+Themes without semantic UI scopes retain the packaged defaults.
+
 ## Desktop application
 
 The [ChatGPT app module](../../../modules/apps/chatgpt.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
