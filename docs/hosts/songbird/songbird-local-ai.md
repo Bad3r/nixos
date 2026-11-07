@@ -77,7 +77,12 @@ Each role names a section of the models preset in [services.nix](../../../module
 - `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
 - `ornith-1.5-9b` is the light vision, coding, and agent model; MTP drafting decodes it at 130 tokens per second on short prompts.
   It ignores a required tool choice in 5 of 10 requests, so paperless avoids it.
-  A vendored chat template renders the system messages its GGUF template drops after the first two.
+- `ornith-1.5-35b-a3b` keeps the experts of its first 30 of 40 layers in pinned RAM and leaves 2.8 GB of VRAM free.
+  On build 12187 it decodes 55 tokens per second and prefills 1,250 per second at a 15k-token prompt.
+  The pinned experts hold 20 GB of RAM that builds cannot reclaim until the model unloads.
+  Memory-mapped experts give that RAM back under pressure but prefill at 530 per second.
+  At 26 layers in RAM, the vision projector runs out of VRAM.
+- Both Ornith presets use a vendored chat template that renders the system messages their GGUF template drops after the first two.
 - `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
   It passed the client checks only through a proxy that folds them into the first.
 - `lfm3-1.7b` is the small text-only helper for tool calls, JSON extraction, and summaries, passing 51 of 60 helper checks on build 11942.
@@ -101,7 +106,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 - One engine owns the RTX 5080 at a time: language, image, and speech generation models share the same 16 GB, and a second engine evicts or starves the first.
 - Models whose 4-bit file exceeds about 40 GB, such as GLM-5.3, Kimi K3, and Qwen3.5 122B-A10B, fit in neither VRAM nor the RAM the desktop leaves free.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
-- Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
+- Model files take up to 30 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
 - `ornith-1.5-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.
 
 ## Sources

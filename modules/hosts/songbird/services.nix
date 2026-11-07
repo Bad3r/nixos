@@ -56,6 +56,12 @@ in
       llamaVision = llamaCommon // {
         mmproj-auto = true;
       };
+      ornith = llamaVision // {
+        ctx-size = 131072;
+        # The family's GGUF template silently drops system messages after the first two; this copy renders them in place.
+        chat-template-file = "${./ornith-1.5-chat-template.jinja}";
+        spec-type = "draft-mtp";
+      };
       # llama-server models preset: one section per model, named as clients request it.
       # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
@@ -74,12 +80,15 @@ in
           spec-type = "draft-mtp";
           load-on-startup = true;
         };
-        "ornith-1.5-9b" = llamaVision // {
+        "ornith-1.5-9b" = ornith // {
           hf-repo = "ornith-ai/Ornith-1.5-9B-GGUF:Q8_0";
-          ctx-size = 131072;
-          # The GGUF's template silently drops system messages after the first two; this copy renders them in place.
-          chat-template-file = "${./ornith-1.5-9b-chat-template.jinja}";
-          spec-type = "draft-mtp";
+        };
+        # The only preset that offloads: n-cpu-moe keeps the expert weights of its first layers in RAM.
+        "ornith-1.5-35b-a3b" = ornith // {
+          hf-repo = "ornith-ai/Ornith-1.5-35B-A3B-GGUF:Q6_K";
+          n-cpu-moe = 30;
+          # Pinned instead of memory-mapped experts: 2.4 times the prefill, at 20 GB of RAM that builds cannot reclaim.
+          load-mode = "none";
         };
         "lfm2.5-24b-a2b" = llamaCommon // {
           hf-repo = "unsloth/LFM2.5-24B-A2B-GGUF:UD-Q3_K_XL";
