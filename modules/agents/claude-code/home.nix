@@ -24,10 +24,13 @@
       `claude plugin marketplace add anthropics/claude-plugins-official`).
       `builtin` needs no registration; entries naming an unregistered
       marketplace are silently ignored.
-    * marketplace/ is the nixos-local marketplace, registered from the store.
-      Its kagi-websearch plugin answers WebSearch with the kagi-search app
-      (modules/apps/kagi-search.nix) through the current system profile, so a
-      rebuilt kagi-search never leaves it on a collected store path.
+    * marketplace/ is the nixos-local marketplace, registered from the store
+      (_marketplace.nix). Its kagi-websearch plugin answers WebSearch with the
+      kagi-search app (modules/apps/kagi-search.nix), and its browser-webfetch
+      plugin answers WebFetch with the browser-fetch app
+      (modules/apps/browser-fetch.nix), each through the current system
+      profile, so a rebuilt app never leaves its plugin on a collected store
+      path.
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
@@ -91,14 +94,26 @@ _: {
         lib.foldl' (acc: part: acc // part) { } parts;
 
       plugins = import ./_plugins.nix;
+      localPluginKeys = lib.filter (lib.hasSuffix "@nixos-local") (lib.attrNames plugins.enabledPlugins);
       kagiWebsearch = plugins.enabledPlugins."kagi-websearch@nixos-local" or false;
-      localMarketplace = builtins.path {
-        path = ./marketplace;
-        name = "claude-code-nixos-local-marketplace";
+      # A nixos-local plugin's app joins pkgs only while the plugin is enabled.
+      localApp =
+        plugin: app:
+        if plugins.enabledPlugins."${plugin}@nixos-local" or false then
+          osConfig.programs.${app}.extended.package
+        else
+          null;
+      localMarketplace = import ./_marketplace.nix {
+        inherit lib pkgs;
+        kagiSearch = localApp "kagi-websearch" "kagi-search";
+        browserFetch = localApp "browser-webfetch" "browser-fetch";
       };
       websearchCheck = import ./_websearch-check.nix {
         inherit lib pkgs;
-        plugin = "${localMarketplace}/kagi-websearch";
+        plugin = builtins.path {
+          path = ./marketplace/kagi-websearch;
+          name = "claude-code-kagi-websearch";
+        };
       };
 
       settingsJson = mergeParts [
@@ -106,10 +121,10 @@ _: {
         (
           plugins
           // {
-            # Registered only with the kagi-websearch plugin.
+            # Registered while any of its plugins is enabled.
             extraKnownMarketplaces =
               plugins.extraKnownMarketplaces
-              // lib.optionalAttrs kagiWebsearch {
+              // lib.optionalAttrs (lib.any (key: plugins.enabledPlugins.${key}) localPluginKeys) {
                 nixos-local.source = {
                   source = "directory";
                   path = "${localMarketplace}";

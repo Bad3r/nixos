@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Example Domain</title>
+	</head>
+	<body>
+		<p>
+			This domain is for use in documentation examples without needing
+			permission. This is not a service; avoid relying on it for testing and
+			monitoring purposes.
+		</p>
+		<script src="/s.js"></script>
+	</body>
+</html>

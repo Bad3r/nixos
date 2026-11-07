@@ -380,6 +380,11 @@
 - [apps/herdr/README.md](apps/herdr/README.md)
   - Herdr configuration ownership and privacy boundaries.
 
+### browser-fetch
+
+- [apps/browser-fetch/README.md](apps/browser-fetch/README.md)
+  - Fetching pages with curl-impersonate and LibreWolf's cookies, the Camoufox fallback and its state, and the Claude Code WebFetch plugin.
+
 ### Cloudflare
 
 - [apps/cloudflare/README.md](apps/cloudflare/README.md)

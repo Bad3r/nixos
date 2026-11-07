@@ -22,6 +22,8 @@
   # false keeps a plugin installed but disabled. The marketplace after `@` must
   # be registered: extraKnownMarketplaces below, or out of band.
   enabledPlugins = {
+    # Routes WebFetch to curl-impersonate and Camoufox (marketplace/browser-webfetch).
+    "browser-webfetch@nixos-local" = true;
     "cc-plugin-you-should-know@builtin" = true;
     # The shared MCP registry supplies DevTools with enforced privacy flags.
     "chrome-devtools-mcp@chrome-devtools-plugins" = false;

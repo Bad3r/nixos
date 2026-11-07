@@ -1,0 +1,511 @@
+# Copyright (c) 2026 Bad3r
+"""Camoufox headed on a private Xvfb display, run as init of browser.py's namespace.
+
+argv: the request file browser.py wrote. The result goes to result.json in the
+work directory, the page to page.html or page.body beside it.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import ctypes
+import http.server
+import json
+import os
+import secrets
+import select
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast, override
+
+from browser_fetch import challenge, tools, urls
+
+if TYPE_CHECKING:
+    from playwright.sync_api import BrowserContext, Page, Response
+
+# The identity drawn once per browser release, by Camoufox's own launcher.
+# Linux is the host's OS: on Xvfb's software rendering Camoufox then needs no
+# canvas noise and reads as stock Firefox (README, "Canvas").
+FINGERPRINT_OPTIONS: dict[str, Any] = {"os": "linux", "locale": "en-US", "humanize": True}
+START_SECONDS = 60
+LOAD_SECONDS = 60
+SETTLE_SECONDS = 30
+CLOSE_SECONDS = 10
+POLL_SECONDS = 0.5
+STABLE_POLLS = 2
+STABLE_POLLS_SPARSE = 6
+XVFB_SECONDS = 30
+# Camoufox's virtual display (virtdisplay.py): a 1x1 root window, which no
+# page can observe, and software GL.
+XVFB_ARGS = (
+    "-screen", "0", "1x1x24", "-ac", "-nolisten", "tcp",
+    "-extension", "RENDER", "+extension", "GLX", "-extension", "COMPOSITE",
+    "-extension", "XVideo", "-extension", "XVideo-MotionCompensation",
+    "-extension", "XINERAMA", "-fp", "built-ins", "-nocursor", "-br",
+)  # fmt: skip
+MESA_EGL = "/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json"
+_MS_NOSUID = 2
+_MS_NODEV = 4
+_MS_BIND = 4096
+_MS_REC = 16384
+_PR_CAP_AMBIENT = 47
+_PR_CAP_AMBIENT_CLEAR_ALL = 4
+_STATE = """
+(markers) => {
+  const html = document.documentElement ? document.documentElement.outerHTML : "";
+  const nav = performance.getEntriesByType("navigation")[0];
+  return {
+    ready: document.readyState,
+    size: html.length,
+    text: document.body ? document.body.innerText.trim().length : 0,
+    challenge: markers.some((m) => html.includes(m)) || document.title === "Just a moment...",
+    status: nav && nav.responseStatus ? nav.responseStatus : 0,
+    type: document.contentType || "",
+  };
+}
+"""
+_SOURCE = """
+() => {
+  const d = document.doctype;
+  const doctype = d ? "<!DOCTYPE " + d.name + ">" : "";
+  return doctype + document.documentElement.outerHTML;
+}
+"""
+
+
+class SessionError(Exception):
+    """The session could not finish."""
+
+
+@dataclass
+class Policy:
+    """WebFetch's redirect policy for top-level documents, answered for the guard addon."""
+
+    target: str
+    token: str
+    approved: set[str] = field(default_factory=set[str])
+    blocked: dict[str, Any] | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def check(self, kind: str, origin: str, to: str, status: int) -> bool:
+        """Whether the document request may go out; the first refusal is kept."""
+        with self.lock:
+            if self.blocked is not None:
+                return False
+            if kind == "redirect":
+                allow = urls.redirect_allowed(origin, to)
+            else:
+                allow = (
+                    to in self.approved
+                    or to == self.target
+                    or (bool(origin) and urls.redirect_allowed(origin, to))
+                )
+            if allow:
+                self.approved.add(to)
+            else:
+                self.blocked = {"origin": origin or self.target, "target": to, "status": status}
+            return allow
+
+
+def policy_server(policy: Policy) -> http.server.ThreadingHTTPServer:
+    """Serve the policy on a loopback port, to callers holding its token."""
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(min(length, 1 << 16))
+            allow = False
+            if secrets.compare_digest(self.headers.get("X-Token", ""), policy.token):
+                with contextlib.suppress(ValueError, KeyError, TypeError):
+                    ask = cast("dict[str, Any]", json.loads(body))
+                    allow = policy.check(
+                        str(ask["kind"]), str(ask["from"]), str(ask["to"]), int(ask["status"])
+                    )
+            reply = json.dumps({"allow": allow}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(reply)))
+            self.end_headers()
+            self.wfile.write(reply)
+
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def _headers_server() -> tuple[http.server.HTTPServer, dict[str, str]]:
+    """A loopback page that records the request headers the browser sends."""
+    seen: dict[str, str] = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            seen.update({k.lower(): v for k, v in self.headers.items()})
+            reply = b"<!DOCTYPE html><title>ok</title>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(reply)))
+            self.end_headers()
+            self.wfile.write(reply)
+
+        @override
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, seen
+
+
+def private_tmp(keep: list[Path]) -> None:
+    """Give the namespace its own /tmp, so Xvfb's socket and lock die with it.
+
+    Paths under the old /tmp that the session needs are bound back in. Then
+    the ambient capabilities unshare --keep-caps granted are dropped, so
+    nothing the session starts holds them.
+    """
+    libc = ctypes.CDLL(None, use_errno=True)
+    old = os.open("/tmp", os.O_PATH | os.O_DIRECTORY)  # noqa: S108 - the mount point
+    if libc.mount(b"tmpfs", b"/tmp", b"tmpfs", _MS_NOSUID | _MS_NODEV, b"mode=1777") != 0:
+        raise OSError(ctypes.get_errno(), "mounting a private /tmp failed")
+    for path in keep:
+        if path.parts[:2] != ("/", "tmp"):
+            continue
+        relative = Path(*path.parts[2:])
+        path.mkdir(parents=True, exist_ok=True)
+        source = f"/proc/self/fd/{old}/{relative}".encode()
+        if libc.mount(source, str(path).encode(), None, _MS_BIND | _MS_REC, None) != 0:
+            raise OSError(ctypes.get_errno(), f"binding {path} into the private /tmp failed")
+    os.close(old)
+    if libc.prctl(_PR_CAP_AMBIENT, _PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), "dropping the ambient capabilities failed")
+
+
+def start_xvfb(until: float) -> tuple[subprocess.Popen[bytes], str]:
+    """Start Xvfb and return it with the display it chose, one no other server holds."""
+    read_end, write_end = os.pipe()
+    process = subprocess.Popen(
+        [tools.XVFB, "-displayfd", str(write_end), *XVFB_ARGS],
+        pass_fds=(write_end,),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={
+            "PATH": "/var/empty",
+            "__GLX_VENDOR_LIBRARY_NAME": "mesa",
+            "LIBGL_ALWAYS_SOFTWARE": "1",
+        },
+    )
+    os.close(write_end)
+    reported = b""
+    try:
+        while b"\n" not in reported:
+            left = min(until, time.monotonic() + XVFB_SECONDS) - time.monotonic()
+            if left <= 0 or not select.select([read_end], [], [], left)[0]:
+                msg = "Xvfb did not report a display"
+                raise SessionError(msg)
+            chunk = os.read(read_end, 64)
+            if not chunk:
+                msg = f"Xvfb exited {process.poll()} before reporting a display"
+                raise SessionError(msg)
+            reported += chunk
+    finally:
+        os.close(read_end)
+    return process, f":{int(reported.strip())}"
+
+
+def browser_env(home: Path, display: str) -> dict[str, str]:
+    """The browser's environment: the private display, and nothing of the user's session."""
+    env = {
+        "HOME": str(home),
+        "XDG_CACHE_HOME": str(home / ".cache"),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        "XDG_DATA_HOME": str(home / ".local/share"),
+        "TMPDIR": "/tmp",  # noqa: S108 - the namespace's own
+        "PATH": "/var/empty",
+        "DISPLAY": display,
+        "GDK_BACKEND": "x11",
+        "MOZ_ENABLE_WAYLAND": "0",
+        "MOZ_CRASHREPORTER_DISABLE": "1",
+        # Software GL, as on Camoufox's Xvfb; the host GPU stays out of it.
+        "__EGL_VENDOR_LIBRARY_FILENAMES": MESA_EGL,
+        "__GLX_VENDOR_LIBRARY_NAME": "mesa",
+        "LIBGL_ALWAYS_SOFTWARE": "1",
+    }
+    for key in ("LANG", "LC_ALL", "TZ"):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    return env
+
+
+def _proxy() -> dict[str, str] | None:
+    """The https_proxy convention curl follows, for Playwright."""
+    server = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+    if not server:
+        return None
+    proxy = {"server": server if "://" in server else f"http://{server}"}
+    bypass = os.environ.get("no_proxy") or os.environ.get("NO_PROXY")
+    if bypass:
+        proxy["bypass"] = bypass
+    return proxy
+
+
+def _generate(state: Path, env: dict[str, str], until: float) -> None:
+    """Draw the identity with Camoufox's launcher and record the headers it sends."""
+    from camoufox.utils import launch_options  # noqa: PLC0415 - after HOME is set
+    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+
+    options = launch_options(
+        **FINGERPRINT_OPTIONS,
+        executable_path=tools.CAMOUFOX,
+        headless=False,
+        virtual_display=env["DISPLAY"],
+        env=dict(env),
+    )
+    blob = "".join(
+        cast("str", options["env"][key])
+        for key in sorted(
+            (k for k in options["env"] if k.startswith("CAMOU_CONFIG_")),
+            key=lambda k: int(k.rsplit("_", 1)[1]),
+        )
+    )
+    config = cast("dict[str, Any]", json.loads(blob))
+    prefs = cast("dict[str, Any]", options["firefox_user_prefs"])
+    server, seen = _headers_server()
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.firefox.launch(
+                executable_path=tools.CAMOUFOX,
+                headless=False,
+                env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
+                firefox_user_prefs=prefs,
+                timeout=_ms(until, START_SECONDS),
+            )
+            try:
+                page = browser.new_page(no_viewport=True)
+                page.goto(f"http://127.0.0.1:{server.server_port}/", timeout=_ms(until, 30))
+            finally:
+                browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+    if not seen.get("user-agent") or not seen.get("accept-language"):
+        msg = "the browser sent no User-Agent or Accept-Language"
+        raise SessionError(msg)
+    fingerprint = {
+        "browser": tools.CAMOUFOX_VERSION,
+        "options": FINGERPRINT_OPTIONS,
+        "os": "lin",
+        "config": config,
+        "prefs": prefs,
+        "headers": {
+            "user-agent": seen["user-agent"],
+            "accept-language": seen["accept-language"],
+        },
+    }
+    _write_json(state / "fingerprint.json", fingerprint)
+
+
+def _launch_env(
+    env: dict[str, str], config: dict[str, Any], prefs: dict[str, Any]
+) -> dict[str, str]:
+    """The browser's environment: the identity as CAMOU_CONFIG, prefs as CAMOU_PREFS."""
+    from camoufox.utils import get_env_vars, get_pref_env_vars  # noqa: PLC0415
+
+    camou = get_env_vars(config, "lin", path=Path(tools.CAMOUFOX))
+    return {**env, **{k: str(v) for k, v in camou.items()}, **get_pref_env_vars(prefs)}
+
+
+def _ms(until: float, cap: float) -> float:
+    return max(1.0, min(cap, until - time.monotonic())) * 1000
+
+
+def _write_json(path: Path, data: object) -> None:
+    partial = path.with_name(f".{path.name}.partial")
+    fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        json.dump(data, handle)
+        handle.flush()
+        os.fsync(handle.fileno())
+    partial.replace(path)
+
+
+def _guard(policy: Policy, port: int) -> Path:
+    """The guard addon, copied into the private /tmp with its port and token."""
+    addon = Path("/tmp/browser-fetch-guard")  # noqa: S108 - the namespace's own
+    shutil.copytree(Path(__file__).parent / "guard", addon)
+    (addon / "config.js").write_text(
+        "globalThis.BROWSER_FETCH = " + json.dumps({"port": port, "token": policy.token}) + ";\n"
+    )
+    return addon
+
+
+def _settle(page: Page, policy: Policy, until: float) -> dict[str, Any]:
+    """Wait for the load, a challenge to clear and the DOM to hold still, within until."""
+    previous_size = -1
+    stable = 0
+    state: dict[str, Any] = {}
+    while policy.blocked is None:
+        try:
+            state = cast("dict[str, Any]", page.evaluate(_STATE, list(challenge.BODY_MARKERS)))
+        except Exception:  # noqa: BLE001 - a navigation replaced the document mid-poll
+            state, previous_size, stable = {}, -1, 0
+        else:
+            stable = stable + 1 if state["size"] == previous_size else 0
+            previous_size = state["size"]
+            quiet = state["ready"] == "complete" and not state["challenge"]
+            needed = STABLE_POLLS if state["text"] >= challenge.SHELL_TEXT else STABLE_POLLS_SPARSE
+            if quiet and stable >= needed:
+                break
+        if time.monotonic() >= until:
+            break
+        time.sleep(POLL_SECONDS)
+    return state
+
+
+def _render(
+    request: dict[str, Any], state: Path, env: dict[str, str], until: float
+) -> dict[str, Any]:
+    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+
+    fingerprint = cast("dict[str, Any]", json.loads((state / "fingerprint.json").read_text()))
+    url = str(request["url"])
+    policy = Policy(target=url, token=secrets.token_urlsafe(24))
+    server = policy_server(policy)
+    config = dict(cast("dict[str, Any]", fingerprint["config"]))
+    # The addons the build bundles, from this build: a store path may move.
+    bundled = Path(tools.CAMOUFOX).parent / "addons"
+    addons = [str(bundled / Path(a).name) for a in config.get("addons", [])]
+    config["addons"] = [*addons, str(_guard(policy, server.server_port))]
+    # Neither is visible to a page. The JSON viewer off leaves the JSON as the
+    # document; no disk cache keeps a page fetched with LibreWolf's cookies.
+    prefs = {
+        **cast("dict[str, Any]", fingerprint["prefs"]),
+        "devtools.jsonview.enabled": False,
+        "browser.cache.disk.enable": False,
+    }
+    document: list[Response] = []
+    try:
+        with sync_playwright() as playwright:
+            context: BrowserContext = playwright.firefox.launch_persistent_context(
+                user_data_dir=str(state / "profile"),
+                executable_path=tools.CAMOUFOX,
+                headless=False,
+                env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
+                firefox_user_prefs=prefs,
+                no_viewport=True,
+                color_scheme="null",
+                reduced_motion="null",
+                forced_colors="null",
+                contrast="null",
+                proxy=_proxy(),  # type: ignore[arg-type]
+                timeout=_ms(until, START_SECONDS),
+            )
+            try:
+                return _drive(context, request, policy, document, until)
+            finally:
+                with contextlib.suppress(Exception):
+                    context.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _drive(
+    context: BrowserContext,
+    request: dict[str, Any],
+    policy: Policy,
+    document: list[Response],
+    until: float,
+) -> dict[str, Any]:
+    cookies = cast("list[dict[str, Any]]", request.get("cookies", []))
+    added = 0
+    for cookie in cookies:
+        try:
+            context.add_cookies([cookie])  # type: ignore[list-item]
+            added += 1
+        except Exception:  # noqa: BLE001, S112 - Gecko refuses some cookies; the rest still go
+            continue
+    page = context.pages[0] if context.pages else context.new_page()
+
+    def keep(response: Response) -> None:
+        if response.request.is_navigation_request() and response.frame == page.main_frame:
+            document.append(response)
+
+    page.on("response", keep)
+    with contextlib.suppress(Exception):
+        page.goto(policy.target, wait_until="commit", timeout=_ms(until, LOAD_SECONDS))
+    if policy.blocked is not None:
+        return {"blocked": policy.blocked, "cookies": added}
+    state = _settle(page, policy, min(until, time.monotonic() + SETTLE_SECONDS))
+    if policy.blocked is not None:
+        blocked: dict[str, Any] = dict(policy.blocked)
+        blocked["status"] = blocked["status"] or int(state.get("status") or 200)
+        return {"blocked": blocked, "cookies": added}
+    final = page.url
+    if final.startswith(("about:neterror", "about:certerror")):
+        query = final.split("?", 1)[-1]
+        reason = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+        msg = f"the browser could not load the page ({reason.get('e', 'network error')})"
+        raise SessionError(msg)
+    response = document[-1] if document else None
+    header = response.headers.get("content-type", "") if response is not None else ""
+    content_type = header or str(state.get("type") or "")
+    status = int(state.get("status") or 0) or (response.status if response is not None else 200)
+    result: dict[str, Any] = {"url": final, "status": status, "contentType": content_type}
+    workdir = Path(str(request["workdir"]))
+    if response is None or "html" in content_type.lower():
+        (workdir / "page.html").write_text(
+            str(page.evaluate(_SOURCE)), encoding="utf-8", errors="surrogatepass"
+        )
+        result["html"] = True
+    else:
+        (workdir / "page.body").write_bytes(response.body())
+    result["cookies"] = added
+    return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run one session; the exit status is 0 once result.json is written."""
+    args = sys.argv[1:] if argv is None else argv
+    request_path = Path(args[0])
+    request = cast("dict[str, Any]", json.loads(request_path.read_text()))
+    workdir = Path(str(request["workdir"]))
+    state = Path(str(request["state"]))
+    until = time.monotonic() + float(request["seconds"])
+    server: subprocess.Popen[bytes] | None = None
+    try:
+        private_tmp([workdir, state])
+        server, display = start_xvfb(until)
+        home = state / "home"
+        home.mkdir(mode=0o700, exist_ok=True)
+        env = browser_env(home, display)
+        # Camoufox's launcher writes its fontconfig under its cache directory.
+        os.environ.update(HOME=env["HOME"], XDG_CACHE_HOME=env["XDG_CACHE_HOME"], TMPDIR="/tmp")  # noqa: S108
+        if request["mode"] == "generate":
+            _generate(state, env, until)
+            result: dict[str, Any] = {"generated": True}
+        else:
+            result = _render(request, state, env, until)
+    except Exception as error:  # noqa: BLE001 - reported to browser.py in one line
+        first = str(error).splitlines()[0][:200] if str(error) else ""
+        result = {"error": f"{type(error).__name__}: {first}"}
+    finally:
+        if server is not None:
+            server.terminate()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                server.wait(timeout=5)
+    _write_json(workdir / "result.json", result)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

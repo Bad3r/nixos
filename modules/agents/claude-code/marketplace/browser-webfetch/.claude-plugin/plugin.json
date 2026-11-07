@@ -1,0 +1,13 @@
+{
+	"name": "browser-webfetch",
+	"version": "0.1.0",
+	"description": "Answers the WebFetch tool through the browser-fetch command line: curl-impersonate with LibreWolf's cookies, Camoufox when a page needs a browser.",
+	"userConfig": {
+		"fetchCommand": {
+			"type": "string",
+			"title": "browser-fetch command",
+			"description": "The browser-fetch executable; it prints the page record as JSON with --json and exits non-zero with the reason on stderr.",
+			"default": ""
+		}
+	}
+}

@@ -21,11 +21,13 @@
 */
 { inputs, ... }:
 let
-  # Program each plugin runs: a language server, or kagi-search for
-  # kagi-websearch. An enabledPlugins entry set to true in
-  # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
-  # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
+  # Program each plugin runs: a language server, kagi-search for
+  # kagi-websearch, or browser-fetch for browser-webfetch. An enabledPlugins
+  # entry set to true in modules/agents/claude-code/_plugins.nix enables its
+  # program at priority 1050, above the apps-enable.nix baseline (1100); false
+  # leaves the baseline alone.
   pluginProgramMap = {
+    "browser-webfetch@nixos-local" = "browser-fetch";
     "clangd-lsp@claude-plugins-official" = "clangd";
     "csharp-lsp@claude-plugins-official" = "csharp-ls";
     "gopls-lsp@claude-plugins-official" = "gopls";

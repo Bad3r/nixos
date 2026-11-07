@@ -7,7 +7,7 @@
 			"type": "string",
 			"title": "kagi-search command",
 			"description": "The kagi-search executable; it prints JSON hits with --json and exits non-zero with the reason on stderr.",
-			"default": "/run/current-system/sw/bin/kagi-search"
+			"default": ""
 		},
 		"maxResults": {
 			"type": "number",
