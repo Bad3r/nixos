@@ -107,6 +107,8 @@ let
     # Feature flags
     features = (import ./_features.nix) // {
       runtime_metrics = telemetry.enabled;
+      # web.run, answered locally by kagi-search-webrun (home.nix).
+      standalone_web_search = true;
     };
 
     memories = {

@@ -30,6 +30,15 @@ A failed search answers with the built-in tool's own error record (`Web search e
 Each Home Manager activation checks that the installed Claude Code still carries the strings the plugin copies from the built-in search and passes the plugin's tests ([check](../../../modules/agents/claude-code/_websearch-check.nix)).
 A mismatch prints a warning, writes `~/.local/state/kagi-search/claude-code-check.txt`, and keeps a notice in the status line until a later activation passes.
 
+## Codex search
+
+Codex runs its own `web.run` tool with the `standalone_web_search` feature, and `kagi-search-webrun` answers it in place of OpenAI's search service ([settings](../../../modules/agents/codex/_settings.nix)).
+The llm-agents Codex package carries the patch that sends each call to the program named by `CODEX_WEB_RUN_COMMAND`.
+Search uses Kagi; `open`, `click`, and `find` fetch pages locally and refuse loopback and private addresses.
+Codex sees only the service's own wording, failures included; the real reasons go to `~/.local/state/kagi-search/web-run.log`.
+Reference ids such as `turn0search0` persist per Codex session under `~/.local/state/kagi-search/web-run/`.
+The `codex/web-run-contract` flake check fails a Codex update that drops the patch, renames the feature, or changes the tool's description or search schema ([checks](../../../modules/agents/codex/checks.nix)).
+
 ## Kagi rejected LibreWolf's session
 
 The session expired or LibreWolf signed out.

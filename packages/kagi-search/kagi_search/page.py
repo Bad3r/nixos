@@ -205,16 +205,18 @@ def is_plain_url(url: str) -> bool:
     return host_of(url) is not None
 
 
-def _domain(value: str) -> str:
+def normalize_domain(value: str) -> str:
+    """Return a domain filter entry as a bare lowercase host name."""
     value = re.sub(r"^[a-z][a-z0-9+.-]*://", "", value.strip().lower())
     return re.sub(r"[/?#:].*$", "", value).lstrip("*.").rstrip(".")
 
 
 def _domains(values: list[str] | None) -> list[str]:
-    return [d for d in map(_domain, values or []) if d]
+    return [d for d in map(normalize_domain, values or []) if d]
 
 
-def _matches(host: str, domain: str) -> bool:
+def matches_domain(host: str, domain: str) -> bool:
+    """Tell whether the host is the domain or one of its subdomains."""
     return host == domain or host.endswith(f".{domain}")
 
 
@@ -227,9 +229,9 @@ def filter_hits(
     kept: list[Hit] = []
     for hit in hits:
         host = host_of(hit.url)
-        if host is None or any(_matches(host, d) for d in block):
+        if host is None or any(matches_domain(host, d) for d in block):
             continue
-        if allow and not any(_matches(host, d) for d in allow):
+        if allow and not any(matches_domain(host, d) for d in allow):
             continue
         kept.append(hit)
     return kept

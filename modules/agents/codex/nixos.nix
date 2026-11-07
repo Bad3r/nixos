@@ -54,6 +54,8 @@ in
         environment.etc."codex/hooks.json".text = builtins.toJSON {
           hooks = agents.hooks.clients.codex pkgs;
         };
+        # web.run is answered by kagi-search-webrun.
+        programs.kagi-search.extended.enable = lib.mkOverride 1050 true;
       };
     };
 }
