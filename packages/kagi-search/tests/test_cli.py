@@ -4,8 +4,11 @@
 import contextlib
 import io
 import json
+import os
+import tempfile
 import unittest
 import unittest.mock
+from pathlib import Path
 
 from kagi_search import cli, client, cookie
 from kagi_search.page import Hit, UnrecognizedPageError
@@ -31,7 +34,16 @@ def call(argv: list[str], outcome: list[Hit] | Exception) -> tuple[int, str, str
 
 
 class CliTest(unittest.TestCase):
-    """Output formats, argument handling, and exit codes."""
+    """Output formats, argument handling, exit codes, and the failure log."""
+
+    def setUp(self) -> None:
+        """Keep the failure log in a throwaway state directory."""
+        state = tempfile.TemporaryDirectory()
+        self.addCleanup(state.cleanup)
+        env = unittest.mock.patch.dict(os.environ, {"XDG_STATE_HOME": state.name})
+        env.start()
+        self.addCleanup(env.stop)
+        self.log = Path(state.name) / "kagi-search" / "kagi-search.log"
 
     def test_json(self) -> None:
         """--json prints the query and every hit's fields."""
@@ -81,3 +93,31 @@ class CliTest(unittest.TestCase):
                 self.assertEqual(code, expected)
                 self.assertEqual(out, "")
                 self.assertEqual(err, f"kagi-search: {error}\n")
+
+    def test_failures_are_logged_with_their_reason(self) -> None:
+        """Every failure appends the query and reason to a private log."""
+        call(["nix", "flakes"], client.SignedOutError())
+        call(["x"], client.SearchError("Kagi answered HTTP 503"))
+        lines = self.log.read_text().splitlines()
+        self.assertIn("search 'nix flakes' failed: SignedOutError", lines[0])
+        self.assertTrue(any("Kagi answered HTTP 503" in line for line in lines))
+        self.assertEqual(self.log.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.log.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_an_unexpected_error_exits_with_the_failure_code(self) -> None:
+        """A bug prints one line and exits 6; its traceback goes only to the log."""
+        code, out, err = call(["x"], KeyError("hits"))
+        self.assertEqual((code, out, err), (cli.FAILURE_EXIT, "", "kagi-search: 'hits'\n"))
+        self.assertIn("Traceback (most recent call last)", self.log.read_text())
+
+    def test_a_search_with_hits_logs_nothing(self) -> None:
+        """Successful searches leave no log behind."""
+        call(["x"], HITS)
+        self.assertFalse(self.log.exists())
+
+    def test_an_unwritable_log_keeps_the_exit_code(self) -> None:
+        """A log that cannot be written does not change the outcome."""
+        self.log.parent.write_text("not a directory")
+        code, _, err = call(["x"], client.ChallengeError())
+        self.assertEqual(code, cli.CHALLENGE_EXIT)
+        self.assertTrue(err.startswith("kagi-search: "))

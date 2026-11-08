@@ -26,6 +26,7 @@ It runs `/run/current-system/sw/bin/kagi-search`, so each switch moves it to the
 Allowed domains narrow the Kagi query to `site:` (an `OR` group for several) and blocked ones add `-site:`; the hits are filtered by domain again afterwards.
 The `mode` argument has no Kagi counterpart and changes nothing.
 A failed search answers with the built-in tool's own error record (`Web search error: unavailable`) and shows the reason in the status line; it never falls back to the built-in search.
+`kagi-search` appends the reason behind every failed search, with a traceback for unexpected errors, to `~/.local/state/kagi-search/kagi-search.log`.
 
 ## Kagi rejected LibreWolf's session
 

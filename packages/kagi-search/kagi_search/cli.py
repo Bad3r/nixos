@@ -6,10 +6,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 from kagi_search import client, cookie
+from kagi_search.log import FileLog, state_root
 from kagi_search.page import Hit, UnrecognizedPageError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SESSION_EXIT = 3
 SIGNED_OUT_EXIT = 4
@@ -57,24 +63,32 @@ def render(hits: list[Hit]) -> str:
     return "\n\n".join(blocks)
 
 
+EXIT_CODES: tuple[tuple[type[Exception], int], ...] = (
+    (cookie.SessionError, SESSION_EXIT),
+    (client.SignedOutError, SIGNED_OUT_EXIT),
+    (client.ChallengeError, CHALLENGE_EXIT),
+    (client.SearchError, FAILURE_EXIT),
+    (UnrecognizedPageError, FAILURE_EXIT),
+)
+
+
+def log_path() -> Path:
+    """Return the log file that holds the reasons behind failed searches."""
+    return state_root() / "kagi-search.log"
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Run the command line and return its exit status."""
+    """Run the command line and return its exit status; failures are also logged."""
     args = _parser().parse_args(argv)
     query = " ".join(args.query)
     try:
         hits = run(query, allowed=args.allow, blocked=args.block, limit=max(args.limit, 1))
-    except cookie.SessionError as error:
+    except Exception as error:  # noqa: BLE001 - every failure is reported and logged
+        code = next((c for kind, c in EXIT_CODES if isinstance(error, kind)), FAILURE_EXIT)
+        detail = "" if code != FAILURE_EXIT else "\n" + "".join(traceback.format_exception(error))
+        FileLog(log_path())(f"search {query!r} failed: {type(error).__name__}: {error}{detail}")
         print(f"kagi-search: {error}", file=sys.stderr)
-        return SESSION_EXIT
-    except client.SignedOutError as error:
-        print(f"kagi-search: {error}", file=sys.stderr)
-        return SIGNED_OUT_EXIT
-    except client.ChallengeError as error:
-        print(f"kagi-search: {error}", file=sys.stderr)
-        return CHALLENGE_EXIT
-    except (client.SearchError, UnrecognizedPageError) as error:
-        print(f"kagi-search: {error}", file=sys.stderr)
-        return FAILURE_EXIT
+        return code
     if args.json:
         print(json.dumps({"query": query, "hits": [asdict(hit) for hit in hits]}))
     else:
