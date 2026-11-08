@@ -12,7 +12,9 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-from kagi_search import cli, client, cookie
+import browser_fetch
+from browser_fetch import cookies as jar
+from kagi_search import cli, client
 from kagi_search.page import Hit, UnrecognizedPageError
 
 HITS = [
@@ -83,7 +85,8 @@ class CliTest(unittest.TestCase):
     def test_exit_codes_carry_the_reason(self) -> None:
         """Each failure prints its message and exits with its own code."""
         cases: list[tuple[Exception, int]] = [
-            (cookie.SessionError("no kagi_session cookie"), cli.SESSION_EXIT),
+            (client.SessionError(), cli.SESSION_EXIT),
+            (jar.CookieError("schema version 18"), cli.SESSION_EXIT),
             (client.SignedOutError(), cli.SIGNED_OUT_EXIT),
             (client.ChallengeError(), cli.CHALLENGE_EXIT),
             (client.SearchError("Kagi answered HTTP 503"), cli.FAILURE_EXIT),
@@ -126,8 +129,8 @@ class CliTest(unittest.TestCase):
 
     def test_a_multiline_reason_prints_one_line(self) -> None:
         """A reason spanning lines reaches stderr as one line."""
-        _, _, err = call(["x"], cookie.SessionError("profiles.ini:\n\tbad line"))
-        self.assertEqual(err, "kagi-search: profiles.ini: bad line\n")
+        _, _, err = call(["x"], client.SearchError("first:\n\tsecond"))
+        self.assertEqual(err, "kagi-search: first: second\n")
 
     def test_an_output_failure_is_reported_and_logged(self) -> None:
         """A failure while printing the hits exits 6 and is logged."""
@@ -161,11 +164,12 @@ class CliTest(unittest.TestCase):
         read, write = os.pipe()
         os.close(read)
         root = Path(__file__).resolve().parent.parent
+        fetch_root = Path(browser_fetch.__file__).resolve().parent.parent
         done = subprocess.run(
             [sys.executable, "-c", script],
             stdout=write,
             stderr=subprocess.PIPE,
-            env={**os.environ, "PYTHONPATH": str(root)},
+            env={**os.environ, "PYTHONPATH": f"{root}:{fetch_root}"},
             check=False,
         )
         os.close(write)

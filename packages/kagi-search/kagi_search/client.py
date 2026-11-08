@@ -1,43 +1,54 @@
 # Copyright (c) 2026 Bad3r
-"""Kagi's results page fetched with a session cookie."""
+"""Kagi's results page, requested through browser-fetch with the jar's Kagi session."""
 
 from __future__ import annotations
 
-import http.client
-import urllib.error
-import urllib.parse
-import urllib.request
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
+from urllib.parse import urlencode
+
+from browser_fetch import curl, fetch, urls
 
 from kagi_search.page import Hit, filter_hits, kagi_query, parse_page
 
 if TYPE_CHECKING:
     import datetime as dt
-    from email.message import Message
-    from typing import IO
-    from urllib.request import Request
+    from collections.abc import Sequence
 
 SEARCH_URL = "https://kagi.com/html/search"
+SESSION_COOKIE = "kagi_session"
+SIGN_IN = "run `browser-fetch login https://kagi.com` and sign in"
+# The User-Agent kagi_search.fetch opens pages with; Kagi's search sends the fingerprint's.
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
     "(KHTML, like Gecko) Version/27.2 Safari/605.1.15"
 )
-TIMEOUT = 20
-REDIRECTS = range(300, 400)
+# Within the plugin's 60 s timeout for the whole command.
+DEADLINE_SECONDS = 45
+_REDIRECTS = range(300, 400)
+_OK = 200
 
 
 class SearchError(Exception):
     """The search did not produce a results page."""
 
 
+class SessionError(Exception):
+    """browser-fetch's cookie jar holds no Kagi session."""
+
+    def __init__(self, warnings: Sequence[str] = ()) -> None:
+        """Tell the user to sign in, after anything that kept the jar from being read."""
+        why = f" ({'; '.join(warnings)})" if warnings else ""
+        super().__init__(f"no Kagi session in browser-fetch's profile{why}; {SIGN_IN}")
+
+
 class SignedOutError(SearchError):
     """Kagi sent the request to its sign-in page."""
 
     def __init__(self) -> None:
-        """Tell the user to sign in to Kagi in LibreWolf again."""
+        """Tell the user to sign in to Kagi again."""
         super().__init__(
-            "Kagi rejected LibreWolf's session (signed out or expired); "
-            "sign in to kagi.com in LibreWolf again"
+            f"Kagi rejected the session in browser-fetch's profile (signed out or expired); "
+            f"{SIGN_IN}"
         )
 
 
@@ -49,78 +60,44 @@ class ChallengeError(SearchError):
         super().__init__("Kagi answered with a bot challenge instead of results")
 
 
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Refuse every redirect."""
+def fetch_page(query: str, client: fetch.Client, *, since: dt.date | None = None) -> str:
+    """Return the HTML of Kagi's results page for the query, from since onward if given.
 
-    @override
-    def redirect_request(
-        self,
-        req: Request,
-        fp: IO[bytes],
-        code: int,
-        msg: str,
-        headers: Message,
-        newurl: str,
-    ) -> None:
-        """Return no request, so urllib raises the redirect as an HTTPError."""
-
-
-def opener() -> urllib.request.OpenerDirector:
-    """Return a urllib opener that never follows a redirect."""
-    return urllib.request.build_opener(NoRedirect)
-
-
-def fetch_page(
-    query: str,
-    cookie: str,
-    director: urllib.request.OpenerDirector,
-    *,
-    since: dt.date | None = None,
-) -> str:
-    """Return the HTML of Kagi's results page for the query, from since onward if given."""
+    Nothing is sent without a Kagi session in the jar. The request never
+    follows a redirect: one to the sign-in page or the challenge is the
+    answer.
+    """
     params = {"q": query} | ({"from_date": since.isoformat()} if since else {})
-    request = urllib.request.Request(  # noqa: S310 - SEARCH_URL is https
-        f"{SEARCH_URL}?{urllib.parse.urlencode(params)}",
-        headers={
-            "Cookie": f"kagi_session={cookie}",
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html",
-        },
-    )
+    url = f"{SEARCH_URL}?{urlencode(params)}"
+    if not any(cookie.name == SESSION_COOKIE for cookie in client.cookies(url)):
+        raise SessionError(client.warnings)
     try:
-        with director.open(request, timeout=TIMEOUT) as response:
-            body: bytes = response.read()
-    except urllib.error.HTTPError as error:
-        error.close()
-        if error.code in REDIRECTS:
-            location = error.headers.get("Location", "")
-            if "signin" in location or "login" in location:
-                raise SignedOutError from None
-            if "turnstile" in location:
-                raise ChallengeError from None
-            msg = f"Kagi redirected to {location or 'an unnamed location'}"
-            raise SearchError(msg) from None
-        msg = f"Kagi answered HTTP {error.code}"
-        raise SearchError(msg) from None
-    except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
-        reason = error.reason if isinstance(error, urllib.error.URLError) else error
-        msg = f"request to Kagi failed: {reason}"
-        raise SearchError(msg) from None
-    return body.decode("utf-8", errors="replace")
+        reply = client.get(url)
+    except (curl.TransportError, urls.AddressError, fetch.FetchError) as error:
+        raise SearchError(str(error)) from None
+    if reply.status in _REDIRECTS:
+        location = reply.header("location") or ""
+        if "signin" in location or "login" in location:
+            raise SignedOutError
+        if "turnstile" in location:
+            raise ChallengeError
+        msg = f"Kagi redirected to {location or 'an unnamed location'}"
+        raise SearchError(msg)
+    if reply.status != _OK:
+        msg = f"Kagi answered HTTP {reply.status}"
+        raise SearchError(msg)
+    return reply.body.decode("utf-8", errors="replace")
 
 
 def search(  # noqa: PLR0913 - keyword-only options of the public entry point
     query: str,
-    cookie: str,
+    client: fetch.Client,
     *,
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
     limit: int | None = 10,
     since: dt.date | None = None,
-    director: urllib.request.OpenerDirector | None = None,
 ) -> list[Hit]:
     """Return at most limit hits (every hit without one), filtered by domain."""
-    page = fetch_page(
-        kagi_query(query, allowed, blocked), cookie, director or opener(), since=since
-    )
+    page = fetch_page(kagi_query(query, allowed, blocked), client, since=since)
     return filter_hits(parse_page(page), allowed, blocked)[:limit]

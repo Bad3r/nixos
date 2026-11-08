@@ -107,6 +107,12 @@ root = "scripts"
 pythonVersion = "3.12"
 extraPaths = ["scripts"]
 
+# kagi-search imports browser-fetch's modules, as its package does.
+[[tool.pyright.executionEnvironments]]
+root = "packages/kagi-search"
+pythonVersion = "3.14"
+extraPaths = ["scripts", "packages/browser-fetch"]
+
 [[tool.pyright.executionEnvironments]]
 root = "."
 pythonVersion = "3.14"

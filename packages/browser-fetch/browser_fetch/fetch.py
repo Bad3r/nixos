@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import http
 import os
 import secrets
@@ -231,6 +232,56 @@ class _Fetch:
         )
         self.warnings.extend(rendered.warnings)
         return rendered
+
+
+@dataclass(frozen=True)
+class Reply:
+    """One response as curl received it, body included."""
+
+    status: int
+    headers: dict[str, list[str]]
+    body: bytes
+
+    def header(self, name: str) -> str | None:
+        """Return the last value of a header, or None."""
+        values = self.headers.get(name.lower())
+        return values[-1] if values else None
+
+
+class Client:
+    """Single requests as a fetch makes them, for another tool on browser-fetch's jar.
+
+    Each request goes through curl-impersonate with the fingerprint's
+    headers, after its host is checked as a fetch's is, and carries the
+    jar's cookies for its URL; what each response sets is written back to
+    the jar as it arrives. No redirect is followed and the browser never
+    runs, so no fingerprint is drawn.
+    """
+
+    def __init__(self, settings: Settings) -> None:
+        """Read the fingerprint's headers and the jar; a jar that cannot be read raises."""
+        self._run = _Fetch(dataclasses.replace(settings, browser_mode="never"))
+        self._run.load_identity()
+        self._run.load_cookies()
+
+    @property
+    def warnings(self) -> list[str]:
+        """What the requests could not do so far, such as read the jar."""
+        return self._run.warnings
+
+    def cookies(self, url: str) -> list[jar.Cookie]:
+        """The cookies a request for url would carry."""
+        return jar.for_request(self._run.cookies.cookies(), url, jar.now_us() // 1000)
+
+    def get(self, url: str) -> Reply:
+        """GET the https URL once; refused hosts raise urls.AddressError, as in a fetch."""
+        response = self._run.get(url)
+        return Reply(response.status, response.headers, response.body.read_bytes())
+
+    def close(self) -> list[str]:
+        """Report the cookie changes no write took, and return every warning."""
+        self._run.report_unsaved()
+        return self._run.warnings
 
 
 def _save_binary(body: bytes, content_type: str, save_dir: Path) -> Path:
