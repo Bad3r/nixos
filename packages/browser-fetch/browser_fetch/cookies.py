@@ -642,12 +642,15 @@ class Jar:
     """One fetch's view of the jar: the rows read from it, and what the fetch's responses did.
 
     changed holds the latest cookie of each key a response set, an expired
-    one for a deletion; unsaved holds the keys not yet written back.
+    one for a deletion. unsaved holds, per key, the writes the database has
+    yet to take, in arrival order: a deletion, a cookie, or a deletion and
+    the cookie set after it, which must not keep the deleted row's creation
+    time.
     """
 
     stored: dict[Key, Cookie] = field(default_factory=dict[Key, Cookie])
     changed: dict[Key, Cookie] = field(default_factory=dict[Key, Cookie])
-    unsaved: set[Key] = field(default_factory=set[Key])
+    unsaved: dict[Key, list[Cookie]] = field(default_factory=dict[Key, list[Cookie]])
 
     @classmethod
     def of(cls, cookies: Iterable[Cookie]) -> Jar:
@@ -664,18 +667,22 @@ class Jar:
 
     def receive(self, url: str, set_cookies: Iterable[str], now: int, date: str | None) -> None:
         """Apply a response's Set-Cookie values for url, in order, as Gecko's AddCookie does."""
+        now_ms = now // 1000
         for line in set_cookies:
             cookie = parse_set_cookie(line, url, now, date)
             if cookie is None:
                 continue
             result = _added(self.get(cookie.key), cookie, now)
-            if result is not None:
-                self.changed[cookie.key] = result
-                self.unsaved.add(cookie.key)
+            if result is None:
+                continue
+            self.changed[cookie.key] = result
+            earlier = self.unsaved.get(cookie.key, [])
+            deleted = [c for c in earlier[:1] if c.expired(now_ms)]
+            self.unsaved[cookie.key] = [result] if result.expired(now_ms) else [*deleted, result]
 
     def pending(self) -> list[Cookie]:
-        """The changes not yet written to the database."""
-        return [self.changed[key] for key in self.unsaved]
+        """The writes not yet in the database, each key's in arrival order."""
+        return [cookie for writes in self.unsaved.values() for cookie in writes]
 
     def received(self, now: int) -> list[Cookie]:
         """The live cookies the fetch's responses set, now in milliseconds."""

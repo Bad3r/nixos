@@ -213,7 +213,7 @@ class CamoufoxTest(unittest.TestCase):
                 }
             ],
         )
-        self.assertEqual(cookies.unsaved, set())
+        self.assertEqual(cookies.unsaved, {})
 
     def test_a_busy_profile_writes_nothing(self) -> None:
         """A render that cannot take the lock leaves the changes unsaved for the fetch to report."""

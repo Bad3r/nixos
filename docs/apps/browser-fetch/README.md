@@ -27,7 +27,7 @@ Each fetch reads the jar under the profile lock, and each request carries what F
 That is the unpartitioned jar plus the CHIPS cookies partitioned to the page's own site, with expired rows counting for nothing.
 A cookie the site set on an earlier hop of the same fetch wins over the jar's.
 
-Every `Set-Cookie` curl receives, deletions and expiries included, is written to the jar before the fetch returns or fails.
+Every `Set-Cookie` curl receives, deletions and expiries included, is written to the jar as its response arrives, so the writes of overlapping fetches follow arrival order.
 Parsing, validation and the rows follow the cookie code of the Firefox release Camoufox is built on, so Camoufox loads curl's cookies as its own.
 Rows go in only while no browser runs, under the profile lock, and every connection is closed before Camoufox starts.
 A database at another schema version than Firefox's 17 is never touched, since Firefox drops a table it cannot read.
@@ -86,7 +86,8 @@ Until one exists, or when it cannot be drawn, curl sends its Firefox profile's o
 One render at a time uses the profile; another waits a bounded time, then fails.
 The render closes the browser before its deadline, which writes the cookies Firefox holds in memory to the jar for the next fetch.
 A jar read or write waits only `JAR_LOCK_SECONDS` of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) for another fetch's render.
-Past that the fetch goes on without the jar, and says so: each warning is a `browser-fetch: warning:` line on stderr and an entry of the record's `warnings`.
+Past that the fetch goes on without the jar; a write that missed is tried again with the next response and by a render, and what none took is reported.
+Each warning is a `browser-fetch: warning:` line on stderr and an entry of the record's `warnings`.
 The profile keeps no disk cache.
 
 Start over with a new fingerprint and an empty profile:

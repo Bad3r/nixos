@@ -518,6 +518,28 @@ class DatabaseTest(FreshClock):
         self.assertEqual(self.store(*cookies.pending(), now=NOW_US + 1000), 0)
         self.assertEqual(rows(self.database), before)
 
+    def test_recreation_after_a_deletion_is_a_new_cookie(self) -> None:
+        """A cookie deleted and set again before the write gets a fresh creation time.
+
+        AddCookie removes the old cookie before the new one comes, so the new
+        one is created now, whether both came in one response or the write
+        waited for a later one.
+        """
+        old = replace(parsed("sid=old; Max-Age=600; Path=/"), created=5)
+        deletion, again = "sid=; Max-Age=0; Path=/", "sid=new; Max-Age=600; Path=/"
+        for responses in ([[deletion, again]], [[deletion], [again]]):
+            with self.subTest(responses=responses):
+                self.database.unlink(missing_ok=True)
+                self.store(old)
+                cookies = jar.Jar.of(jar.read(self.database))
+                for at, lines in enumerate(responses, 1):
+                    cookies.receive(URL, lines, NOW_US + at * 1000, None)
+                created = cookies.changed[old.key].created
+                self.store(*cookies.pending(), now=NOW_US + 5000)
+                (row,) = rows(self.database)
+                self.assertEqual((row["value"], row["creationTime"]), ("new", created))
+                self.assertGreater(created, old.created)
+
     def test_replacement_on_the_unique_key(self) -> None:
         """One row per name, host, path and originAttributes: a new value replaces the row.
 

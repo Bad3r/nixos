@@ -131,6 +131,8 @@ class _Fetch:
         # Why the browser's identity was left out; printed only for debugging.
         self.notes: list[str] = []
         self.warnings: list[str] = []
+        # Why the last write of the jar failed.
+        self.unsaved_reason: str | None = None
 
     def left(self) -> float:
         remaining = self.until - self.settings.clock()
@@ -168,18 +170,30 @@ class _Fetch:
             self.warnings.append(f"no cookies were read: {error}")
 
     def save(self) -> None:
-        """Write what the responses did to the jar, unless cookies are off.
+        """Write what the responses did so far to the jar, unless cookies are off.
 
-        A profile another fetch's browser holds past the short lock wait
-        loses the changes, with a warning that counts them.
+        It runs as each response arrives, so the writes of overlapping
+        fetches land in arrival order, as Gecko applies them. A profile
+        another fetch's browser holds past the short lock wait keeps the
+        changes pending for the next write; a database that cannot be
+        written is an error.
         """
         if not self.settings.use_cookies or not self.cookies.unsaved:
             return
-        count = len(self.cookies.unsaved)
         try:
             self.settings.browser.store(self.cookies, self.until)
         except browser.BrowserError as error:
-            self.warnings.append(f"{count} cookie changes were not saved: {error}")
+            self.unsaved_reason = str(error)
+        except jar.CookieError as error:
+            self.unsaved_reason = str(error)
+            raise
+
+    def report_unsaved(self) -> None:
+        """Warn of the changes no write took, with their count."""
+        if not self.settings.use_cookies or not self.cookies.unsaved:
+            return
+        reason = self.unsaved_reason or "the fetch ended before they were written"
+        self.warnings.append(f"{len(self.cookies.unsaved)} cookie changes were not saved: {reason}")
 
     def get(self, url: str) -> curl.Response:
         self.hops += 1
@@ -196,6 +210,7 @@ class _Fetch:
         self.cookies.receive(
             url, response.headers.get("set-cookie", []), jar.now_us(), response.header("date")
         )
+        self.save()
         return response
 
     def render(self, url: str) -> browser.Rendered:
@@ -280,9 +295,9 @@ def fetch(url: str, settings: Settings) -> Page:
     """Fetch url as WebFetch would, with curl-impersonate and Camoufox's cookie jar.
 
     Every hop's host is resolved and checked before anything is sent: one on
-    this machine or a private network is refused. What the responses did to
-    the jar is written back before this returns or raises, and a failure
-    carries the warnings as its notes.
+    this machine or a private network is refused. What each response did to
+    the jar is written back as it arrives, and a failure carries the
+    warnings as its notes.
     """
     target = urls.check_url(url)
     urls.pin(target, settings.resolve)
@@ -292,19 +307,11 @@ def fetch(url: str, settings: Settings) -> Page:
     try:
         page = _follow(run, url, target)
     except BaseException as error:
-        try:
-            run.save()
-        except jar.CookieError as failure:
-            run.warnings.append(f"no cookie changes were saved: {failure}")
+        run.report_unsaved()
         for warning in run.warnings:
             error.add_note(warning)
         raise
-    try:
-        run.save()
-    except jar.CookieError as error:
-        for warning in run.warnings:
-            error.add_note(warning)
-        raise
+    run.report_unsaved()
     page.notes = run.notes
     page.warnings = run.warnings
     return page

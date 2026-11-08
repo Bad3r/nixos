@@ -11,7 +11,7 @@ import unittest.mock
 from pathlib import Path
 from typing import Any
 
-from browser_fetch import browser, challenge, curl, fetch, urls
+from browser_fetch import browser, challenge, convert, curl, fetch, urls
 from browser_fetch import cookies as jar
 
 from tests.fakes import PUBLIC_ADDRESS, FakeBrowser, fake_curl, public
@@ -204,7 +204,8 @@ class FetchTest(unittest.TestCase):
     def test_challenge_goes_to_the_browser_with_all_cookies_seen(self) -> None:
         """A challenge is rendered on the profile, given the cookies its response set.
 
-        They are written by the render, before the browser starts, and not again after it.
+        They are written as the response arrives, before the browser starts;
+        one the profile was too busy to take then is the render's to write.
         """
         challenge_page = (FIXTURES / "cloudflare-indeed.txt").read_text()
         self.fake.serve(
@@ -224,12 +225,17 @@ class FetchTest(unittest.TestCase):
         page = fetch.fetch("https://a.example/", self.settings)
         (call,) = self.browser.calls or []
         self.assertEqual(call["url"], "https://a.example/")
-        self.assertEqual(([c.name for c in call["pending"]], call["keep"]), (["__cf_bm"], True))
-        self.assertEqual(self.browser.stored, [])
+        self.assertEqual((call["pending"], call["keep"]), ([], True))
+        self.assertEqual([[c.name for c in batch] for batch in self.browser.stored], [["__cf_bm"]])
         self.assertEqual(
             (page.via, page.status, page.reason), ("browser", 200, "a Cloudflare challenge")
         )
         self.assertIn("# Hello", page.text)
+        self.browser.store_error = browser.BrowserError(BUSY)
+        page = fetch.fetch("https://a.example/", self.settings)
+        call = (self.browser.calls or [])[-1]
+        self.assertEqual([c.name for c in call["pending"]], ["__cf_bm"])
+        self.assertEqual(page.warnings, [])
 
     def test_browser_error_status_is_an_http_error(self) -> None:
         """A document the browser ends on outside 2xx is an HTTP error, as from curl.
@@ -466,6 +472,46 @@ class FetchTest(unittest.TestCase):
         with self.assertRaises(curl.TransportError):
             fetch.fetch("https://a.example/", self.settings)
         self.assertEqual([[c.name for c in batch] for batch in self.browser.stored], [["sid"]])
+
+    def test_overlapping_fetches_write_in_arrival_order(self) -> None:
+        """A response's cookies land as it arrives, so a later deletion by another fetch stands.
+
+        Fetch A receives sid=rotated and converts its page; meanwhile fetch B
+        receives the deletion of sid. Gecko applies them in that order,
+        which leaves no sid (Codex's lost update had A write it back last).
+        """
+        state = self.tmp / "state"
+        camoufox = self.camoufox(state)
+        settings = dataclasses.replace(self.settings, browser=camoufox, browser_mode="never")
+        self.fake.serve(
+            {
+                "https://a.example/login": {
+                    "status": 200,
+                    "headers": {**HTML, "Set-Cookie": "sid=rotated; Max-Age=600; Secure; Path=/"},
+                    "body": PAGE,
+                },
+                "https://a.example/logout": {
+                    "status": 200,
+                    "headers": {**HTML, "Set-Cookie": "sid=; Max-Age=0; Secure; Path=/"},
+                    "body": PAGE,
+                },
+            }
+        )
+        convert_page = convert.html_to_markdown
+        started: list[str] = []
+
+        def converting(html: str, seconds: float) -> str:
+            if not started:
+                started.append("logout")
+                fetch.fetch("https://a.example/logout", settings)
+            return convert_page(html, seconds)
+
+        with (
+            unittest.mock.patch.object(camoufox, "identity", return_value=None),
+            unittest.mock.patch.object(convert, "html_to_markdown", side_effect=converting),
+        ):
+            fetch.fetch("https://a.example/login", settings)
+        self.assertEqual(jar.read(state / browser.PROFILE / jar.DB_NAME), [])
 
     def test_unsaved_cookies_are_reported(self) -> None:
         """A profile still busy at the write leaves a warning on the page, or on the failure."""
