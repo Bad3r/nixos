@@ -23,7 +23,7 @@ Verify that the output lists numbered hits with URLs.
 The `kagi-websearch` plugin of the `nixos-local` marketplace answers every `WebSearch` call with `kagi-search` ([plugin](../../../modules/agents/claude-code/marketplace/kagi-websearch/hooks/register.ts)).
 Its record matches the built-in tool's: one link list of titles and URLs, then a summary the session's model writes from the hits.
 The `mode` argument has no Kagi counterpart and changes nothing.
-A failed search refuses the call with the reason; it never falls back to the built-in search.
+A failed search answers with the built-in tool's own error record (`Web search error: unavailable`) and shows the reason in the status line; it never falls back to the built-in search.
 
 ## Kagi rejected LibreWolf's session
 
