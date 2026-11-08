@@ -21,20 +21,22 @@
 */
 { inputs, ... }:
 let
-  # Language server behind each LSP plugin. An enabledPlugins entry set to true in
+  # Program each plugin runs: a language server, or kagi-search for
+  # kagi-websearch. An enabledPlugins entry set to true in
   # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
   # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
-  lspPluginProgramMap = {
-    "clangd-lsp" = "clangd";
-    "csharp-lsp" = "csharp-ls";
-    "gopls-lsp" = "gopls";
-    "jdtls-lsp" = "jdt-language-server";
-    "lua-lsp" = "lua-language-server";
-    "php-lsp" = "intelephense";
-    "pyright-lsp" = "pyright";
-    "rust-analyzer-lsp" = "rust-analyzer";
-    "swift-lsp" = "sourcekit-lsp";
-    "typescript-lsp" = "typescript-language-server";
+  pluginProgramMap = {
+    "clangd-lsp@claude-plugins-official" = "clangd";
+    "csharp-lsp@claude-plugins-official" = "csharp-ls";
+    "gopls-lsp@claude-plugins-official" = "gopls";
+    "jdtls-lsp@claude-plugins-official" = "jdt-language-server";
+    "kagi-websearch@nixos-local" = "kagi-search";
+    "lua-lsp@claude-plugins-official" = "lua-language-server";
+    "php-lsp@claude-plugins-official" = "intelephense";
+    "pyright-lsp@claude-plugins-official" = "pyright";
+    "rust-analyzer-lsp@claude-plugins-official" = "rust-analyzer";
+    "swift-lsp@claude-plugins-official" = "sourcekit-lsp";
+    "typescript-lsp@claude-plugins-official" = "typescript-language-server";
   };
 
   inherit (import ./_plugins.nix) enabledPlugins;
@@ -222,16 +224,10 @@ in
           ]
           ++ lib.mapAttrsToList (
             pluginKey: programName:
-            lib.mkIf (enabledPlugins."${pluginKey}@claude-plugins-official" or false) {
+            lib.mkIf (enabledPlugins.${pluginKey} or false) {
               programs.${programName}.extended.enable = lib.mkOverride 1050 true;
             }
-          ) lspPluginProgramMap
-          ++ [
-            # kagi-websearch runs the kagi-search command line.
-            (lib.mkIf (enabledPlugins."kagi-websearch@nixos-local" or false) {
-              programs.kagi-search.extended.enable = lib.mkOverride 1050 true;
-            })
-          ]
+          ) pluginProgramMap
         )
       );
     };
