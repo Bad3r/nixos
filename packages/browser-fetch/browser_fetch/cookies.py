@@ -272,6 +272,13 @@ def domain_match(request_host: str, cookie_host: str) -> bool:
     )
 
 
+def _domain_covers(cookie: Cookie, host: str) -> bool:
+    """CookieCommons::DomainMatches: host, dotted or not, is the cookie's or under its domain."""
+    return cookie.host.removeprefix(".") == host or (
+        cookie.host.startswith(".") and host.endswith(cookie.host)
+    )
+
+
 def path_match(request_path: str, cookie_path: str) -> bool:
     """RFC 6265 section 5.1.4, as CookieCommons::PathMatches."""
     if not cookie_path:
@@ -692,7 +699,7 @@ class Jar:
         now_ms = now // 1000
         for line in set_cookies:
             cookie = parse_set_cookie(line, url, now, date)
-            if cookie is None:
+            if cookie is None or self._overlays_secure(cookie, url, now_ms):
                 continue
             result = _added(self.get(cookie.key), cookie, now)
             if result is None:
@@ -701,6 +708,27 @@ class Jar:
             earlier = self.unsaved.get(cookie.key, [])
             deleted = [c for c in earlier[:1] if c.expired(now_ms)]
             self.unsaved[cookie.key] = [result] if result.expired(now_ms) else [*deleted, result]
+
+    def _overlays_secure(self, cookie: Cookie, url: str, now: int) -> bool:
+        """Whether a non-Secure cookie from an untrustworthy origin would overlay a Secure one.
+
+        CookieStorage::AddCookie with FindSecureCookie: a live Secure cookie
+        of the same name and jar, the hosts domain-matching either way, and
+        its path covering the new cookie's. An expired one counts as evicted,
+        as RFC 6265bis has it; Gecko keeps it only until a purge. now is in
+        milliseconds.
+        """
+        if cookie.secure or trustworthy(url):
+            return False
+        return any(
+            old.secure
+            and old.name == cookie.name
+            and old.partition == cookie.partition
+            and not old.expired(now)
+            and (_domain_covers(old, cookie.host) or _domain_covers(cookie, old.host))
+            and path_match(cookie.path, old.path)
+            for old in self.cookies()
+        )
 
     def pending(self) -> list[Cookie]:
         """The writes not yet in the database, each key's in arrival order."""

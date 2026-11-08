@@ -437,6 +437,61 @@ class JarTest(FreshClock):
         cookies.receive(URL, ["sid=new; Path=/"], NOW_US + 1000, None)
         self.assertEqual(jar.header(jar.for_request(cookies.cookies(), URL, NOW + 2)), "sid=new")
 
+    def test_http_leaves_a_secure_cookie_alone(self) -> None:
+        """Over http, no non-Secure cookie replaces or deletes a Secure one (FindSecureCookie).
+
+        Same name, hosts domain-matching either way, and the Secure cookie's
+        path covering the new one's; https and loopback origins may.
+        """
+        secure = cookie("sid", "www.example.org", path="/a/", secure=True)
+        blocked = {
+            "replace": ("http://www.example.org/", "sid=x; Path=/a/"),
+            "delete": ("http://www.example.org/", "sid=; Path=/a/; Max-Age=0"),
+            "below its path": ("http://www.example.org/", "sid=x; Path=/a/b"),
+            "domain over its host": (
+                "http://www.example.org/",
+                "sid=x; Path=/a/; Domain=example.org",
+            ),
+        }
+        for case, (url, line) in blocked.items():
+            with self.subTest(case=case):
+                cookies = self.stored(secure)
+                cookies.receive(url, [line], NOW_US + 1000, None)
+                self.assertEqual(cookies.pending(), [])
+                self.assertEqual(cookies.get(secure.key), secure)
+        allowed = {
+            "https": ("https://www.example.org/", "sid=x; Path=/a/"),
+            "other name": ("http://www.example.org/", "other=x; Path=/a/"),
+            "outside its path": ("http://www.example.org/", "sid=x; Path=/"),
+            "other host": ("http://example.org/", "sid=x; Path=/a/"),
+        }
+        for case, (url, line) in allowed.items():
+            with self.subTest(case=case):
+                cookies = self.stored(secure)
+                cookies.receive(url, [line], NOW_US + 1000, None)
+                self.assertEqual(len(cookies.pending()), 1)
+
+    def test_secure_domain_cookie_covers_its_subdomains(self) -> None:
+        """A Secure domain cookie blocks an http host cookie of a subdomain."""
+        cookies = self.stored(cookie("sid", ".example.org", secure=True))
+        cookies.receive("http://a.example.org/", ["sid=x; Path=/"], NOW_US + 1000, None)
+        self.assertEqual(cookies.pending(), [])
+
+    def test_loopback_over_http_may_replace_a_secure_cookie(self) -> None:
+        """Loopback is potentially trustworthy, so AddCookie lets it overlay a Secure cookie."""
+        cookies = self.stored(cookie("sid", "localhost", secure=True))
+        cookies.receive("http://localhost:8080/", ["sid=x; Path=/"], NOW_US + 1000, None)
+        self.assertEqual([c.value for c in cookies.pending()], ["x"])
+
+    def test_expired_secure_cookie_blocks_nothing(self) -> None:
+        """A Secure cookie past its expiry guards nothing: RFC 6265bis section 5.7 evicts it.
+
+        Gecko blocks on one only until a purge drops it, which depends on timing.
+        """
+        cookies = self.stored(cookie("sid", "www.example.org", secure=True, expiry=NOW - 1))
+        cookies.receive("http://www.example.org/", ["sid=x; Path=/"], NOW_US + 1000, None)
+        self.assertEqual([c.value for c in cookies.pending()], ["x"])
+
 
 class DatabaseTest(FreshClock):
     """cookies.sqlite at schema 17, written and read as Gecko does."""
