@@ -75,8 +75,8 @@
   # Use the current working directory for turn diff display paths.
   # cwd_relative_turn_diffs = false; # UnderDevelopment; upstream: false
 
-  # Automatically start the shared local daemon for eligible interactive launches.
-  # daemon_auto_start = true; # Stable; upstream: true
+  # Keep launches on the selected package and its current environment.
+  daemon_auto_start = false; # Stable; upstream: true
 
   # Allow request_user_input in Default collaboration mode.
   default_mode_request_user_input = true; # UnderDevelopment; upstream: false

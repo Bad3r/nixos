@@ -256,7 +256,7 @@ let
     fi
 
     prepareBashShellOverride
-    exec ${lib.getExe codexPkg} "$@"
+    exec ${lib.getExe codexPkg} --no-daemon "$@"
   '';
 in
 {

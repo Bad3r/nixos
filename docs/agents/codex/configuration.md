@@ -57,8 +57,7 @@ Login-session environment changes also require a new login.
 Commit attribution policy belongs in agent instructions.
 
 The launcher executes the pinned Codex package directly so daemon startup and code mode use its package manifest and bundled helpers.
-Eligible interactive launches use the shared local background server by default.
-Use `codex --no-daemon` to run a session without it.
+The launcher passes `--no-daemon` so each terminal session uses the selected package and its launch environment.
 
 ## Approval defaults and runtime overrides
 
