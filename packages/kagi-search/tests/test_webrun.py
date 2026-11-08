@@ -10,6 +10,7 @@ import os
 import stat
 import tempfile
 import threading
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
@@ -139,8 +140,9 @@ class FakeSearch:
         self.hits = hits
         self.calls: list[tuple[str, list[str] | None, list[str] | None, int]] = []
         self.since: list[dt.date | None] = []
+        self.until: list[float] = []
 
-    def __call__(
+    def __call__(  # noqa: PLR0913 - the Searcher's options
         self,
         query: str,
         *,
@@ -148,10 +150,12 @@ class FakeSearch:
         blocked: list[str] | None,
         limit: int,
         since: dt.date | None,
+        until: float,
     ) -> list[Hit]:
         """Record the call and answer it."""
         self.calls.append((query, allowed, blocked, limit))
         self.since.append(since)
+        self.until.append(until)
         if isinstance(self.hits, Exception):
             raise self.hits
         return self.hits
@@ -361,6 +365,15 @@ class SearchTest(WebRunTestCase):
         emulator = self.emulator(GUIX_HITS)
         emulator.call({"search_query": [{"q": "a", "recency": 7}, {"q": "b"}]})
         self.assertEqual(emulator.search.since, [dt.date(2026, 11, 1), None])
+
+    def test_a_search_ends_by_the_calls_deadline(self) -> None:
+        """Each search is handed the call's deadline, so one started late cannot outlast it."""
+        emulator = self.emulator(GUIX_HITS)
+        started = time.monotonic()
+        emulator.call({"search_query": [{"q": "a"}]})
+        (until,) = emulator.search.until
+        self.assertGreaterEqual(until, started + webrun.CALL_DEADLINE_SECONDS)
+        self.assertLessEqual(until, time.monotonic() + webrun.CALL_DEADLINE_SECONDS)
 
     def test_empty_and_fruitless_queries(self) -> None:
         """An empty query skips Kagi; queries without hits give the service's empty answer."""

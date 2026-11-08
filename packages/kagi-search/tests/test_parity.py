@@ -209,15 +209,16 @@ class CaptureTest(ParityTestCase):
         replay = Replay(self.directory, 0, {})
         hits = [Hit("Example Domains", "https://www.iana.org/help/example-domains", "s")]
 
-        def search(
+        def search(  # noqa: PLR0913 - the Searcher's options
             query: str,
             *,
             allowed: list[str] | None,
             blocked: list[str] | None,
             limit: int,
             since: dt.date | None,
+            until: float,
         ) -> list[Hit]:
-            del allowed, blocked, limit, since
+            del allowed, blocked, limit, since, until
             return hits if query == "iana" else []
 
         response = webrun.handle(

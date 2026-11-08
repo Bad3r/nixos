@@ -103,7 +103,7 @@ class StateError(Exception):
 class Searcher(Protocol):
     """Kagi search as cli.run offers it."""
 
-    def __call__(
+    def __call__(  # noqa: PLR0913 - keyword-only options of the search
         self,
         query: str,
         *,
@@ -111,8 +111,12 @@ class Searcher(Protocol):
         blocked: list[str] | None,
         limit: int,
         since: dt.date | None,
+        until: float,
     ) -> list[Hit]:
-        """Return the hits for the query, from pages Kagi dates since that day if given."""
+        """Return the hits for the query, from pages Kagi dates since that day if given.
+
+        The search ends by until, a monotonic time.
+        """
         ...
 
 
@@ -776,6 +780,7 @@ def _query(call: _Call, request: Request, search: Searcher, query: Query) -> lis
         blocked=request.blocked,
         limit=HITS_PER_LENGTH[request.length],
         since=since,
+        until=call.deadline,
     )
     return filter_hits(hits, allowed, request.blocked)
 

@@ -196,6 +196,16 @@ class SearchTest(unittest.TestCase):
         query = parse_qs(urlsplit(argv[-1]).query)
         self.assertEqual(query, {"q": ["nix"], "from_date": ["2026-11-01"]})
 
+    def test_until_shortens_the_search(self) -> None:
+        """A caller's monotonic until caps the request's time below the search's own deadline."""
+        self.jar_rows(self.session())
+        cli.run("nix", until=time.monotonic() + 5)
+        argv: list[str] = self.calls()[0]["argv"]
+        self.assertEqual(argv[argv.index("--max-time") + 1], "5")
+        cli.run("nix")
+        argv = self.calls()[1]["argv"]
+        self.assertEqual(argv[argv.index("--max-time") + 1], str(client.DEADLINE_SECONDS))
+
     def test_limit(self) -> None:
         """At most limit hits come back, and every hit without one."""
         self.jar_rows(self.session())

@@ -8,6 +8,7 @@ import contextlib
 import json
 import os
 import sys
+import time
 import traceback
 from dataclasses import asdict
 from typing import TYPE_CHECKING
@@ -61,19 +62,23 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run(
+def run(  # noqa: PLR0913 - keyword-only options of the search
     query: str,
     *,
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
     limit: int | None = 10,
     since: dt.date | None = None,
+    until: float | None = None,
 ) -> list[Hit]:
-    """Search with the Kagi session in browser-fetch's jar.
+    """Search with the Kagi session in browser-fetch's jar, ending by the monotonic until if given.
 
     Raises SessionError, CookieError, SearchError or UnrecognizedPageError;
     what browser-fetch could not do, such as save a cookie, is logged.
     """
+    seconds = client.DEADLINE_SECONDS
+    if until is not None:
+        seconds = min(seconds, until - time.monotonic())
     with fetch_cli.workspace() as workdir:
         settings = fetch.Settings(
             curl=tools.CURL,
@@ -81,7 +86,7 @@ def run(
             workdir=workdir,
             save_dir=fetch_cli.save_dir(),
             browser_mode="never",
-            deadline=client.DEADLINE_SECONDS,
+            deadline=seconds,
         )
         requests = fetch.Client(settings)
         try:
