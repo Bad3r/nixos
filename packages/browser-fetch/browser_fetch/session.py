@@ -93,9 +93,18 @@ _STATE = """
     challenge: markers.some((m) => html.includes(m)) || document.title === "Just a moment...",
     status: nav && nav.responseStatus ? nav.responseStatus : 0,
     type: document.contentType || "",
+    uri: document.documentURI,
   };
 }
 """
+# Firefox's own error pages. The page keeps the URL it failed to load, and
+# the document, which never completes its load, is the error page.
+_ERROR_PAGES = ("about:neterror", "about:certerror")
+# The error pages Firefox puts up for a 4xx or a 5xx document with an empty
+# body (nsDocumentOpenInfo, browser.http.blank_page_with_error_response.enabled
+# off): the response came, with nothing to show.
+_EMPTY_ERROR_RESPONSES = frozenset({"httpErrorPage", "serverError"})
+_HTTP_ERROR = 400
 _SOURCE = """
 () => {
   const d = document.doctype;
@@ -504,6 +513,8 @@ def _settle(page: Page, policy: Policy, until: float) -> dict[str, Any]:
         else:
             stable = stable + 1 if state["size"] == previous_size else 0
             previous_size = state["size"]
+            if str(state.get("uri") or "").startswith(_ERROR_PAGES):
+                break
             quiet = state["ready"] == "complete" and not state["challenge"]
             needed = STABLE_POLLS if state["text"] >= challenge.SHELL_TEXT else STABLE_POLLS_SPARSE
             if quiet and stable >= needed:
@@ -633,12 +644,23 @@ def _document(
     document: list[Response],
     failure: str | None,
 ) -> dict[str, Any]:
-    """Write the document the page ended on, or fail when it has none."""
+    """Write the document the page ended on, or fail when it has none.
+
+    An error page in place of an empty 4xx or 5xx document stands for that
+    response, with its status and no body; any other error page is a failure.
+    """
     final = page.url
-    if final.startswith(("about:neterror", "about:certerror")):
-        query = final.split("?", 1)[-1]
-        reason = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
-        msg = f"the browser could not load the page ({reason.get('e', 'network error')})"
+    shown = _shown(page, state)
+    error_page = next((uri for uri in (shown, final) if uri.startswith(_ERROR_PAGES)), None)
+    if error_page is not None:
+        query = error_page.split("?", 1)[-1]
+        code = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("e", "")
+        sent = document[-1] if document else None
+        if code in _EMPTY_ERROR_RESPONSES and sent is not None and sent.status >= _HTTP_ERROR:
+            (workdir / "page.body").write_bytes(b"")
+            content_type = sent.headers.get("content-type", "")
+            return {"url": final, "status": sent.status, "contentType": content_type}
+        msg = f"the browser could not load the page ({code or 'network error'})"
         raise SessionError(msg)
     if not document and final in {"", "about:blank"}:
         msg = f"the browser loaded no document ({failure or 'no navigation committed'})"
@@ -656,6 +678,16 @@ def _document(
     else:
         (workdir / "page.body").write_bytes(response.body())
     return result
+
+
+def _shown(page: Page, state: dict[str, Any]) -> str:
+    """The URI of the document the page shows, which an error page does not share with page.url."""
+    if state.get("uri"):
+        return str(state["uri"])
+    try:
+        return str(page.evaluate("() => document.documentURI"))
+    except Exception:  # noqa: BLE001 - no document to ask; page.url stands
+        return ""
 
 
 def _verify(page: Page, policy: Policy, document: list[Response]) -> None:

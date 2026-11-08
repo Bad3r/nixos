@@ -173,6 +173,10 @@ class FakePage:
         self.status = status
         self.poll = poll
         self.url = "about:blank"
+        # What the document reports: its readyState, and its documentURI when
+        # Firefox shows an error page in its place.
+        self.ready = "complete"
+        self.shown: str | None = None
         self.main_frame = MAIN
         self.calls: list[str] = []
         self.listener: Any = None
@@ -198,12 +202,13 @@ class FakePage:
         if "outerHTML" in script and "ready" not in script:
             return "<html><body><p>page</p></body></html>"
         state = {
-            "ready": "complete",
+            "ready": self.ready,
             "size": 10,
             "text": 500,
             "challenge": False,
             "status": self.status,
             "type": "text/html",
+            "uri": self.shown or self.url,
         }
         if self.poll is not None:
             self.poll()
@@ -342,6 +347,42 @@ class DriveTest(unittest.TestCase):
         page = FakePage([], error=TimeoutError("Timeout 60000ms exceeded."))
         with self.assertRaisesRegex(session.SessionError, "no document.*Timeout 60000ms"):
             self.drive(page)
+        self.assertFalse((self.work / "page.html").exists())
+
+    def error_page(self, code: str, status: int) -> FakePage:
+        """A target answered with status, shown as Firefox's error page code."""
+        self.policy.ready.set()
+        page = FakePage([FakeRequest(TARGET, status=status)])
+        page.ready = "interactive"
+        page.shown = f"about:neterror?e={code}&u=https%3A//a.example/start&c=UTF-8"
+        return page
+
+    def test_an_empty_error_response_returns_at_once_with_its_status(self) -> None:
+        """An empty 4xx or 5xx document shows httpErrorPage or serverError: that response, now.
+
+        nsDocumentOpenInfo swaps an empty error response for the error page
+        while browser.http.blank_page_with_error_response.enabled is off, as
+        on desktop; the response is still the page's, with no body.
+        """
+        for code, status in (("httpErrorPage", 404), ("serverError", 503)):
+            with self.subTest(code=code):
+                started = time.monotonic()
+                result = self.drive(self.error_page(code, status))
+                self.assertLess(time.monotonic() - started, 1)
+                self.assertEqual((result["url"], result["status"]), (TARGET, status))
+                self.assertNotIn("html", result)
+                self.assertEqual((self.work / "page.body").read_bytes(), b"")
+
+    def test_an_error_page_without_a_response_fails_at_once(self) -> None:
+        """A proxy that refuses the browser shows proxyConnectFailure: a failure, not a 200 page."""
+        self.policy.ready.set()
+        page = FakePage([])
+        page.url, page.ready = TARGET, "interactive"
+        page.shown = "about:neterror?e=proxyConnectFailure&u=https%3A//a.example/start"
+        started = time.monotonic()
+        with self.assertRaisesRegex(session.SessionError, r"could not load.*proxyConnectFailure"):
+            self.drive(page)
+        self.assertLess(time.monotonic() - started, 1)
         self.assertFalse((self.work / "page.html").exists())
 
 
