@@ -5,12 +5,9 @@ from __future__ import annotations
 
 import ctypes
 import fcntl
-import hashlib
 import json
 import os
-import shutil
 import signal
-import sqlite3
 import subprocess
 import time
 from dataclasses import dataclass
@@ -20,27 +17,22 @@ from browser_fetch import cookies as jar
 from browser_fetch import curl
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
 # Bounds of one fallback: waiting for another fetch's browser, then the
 # session's own start, load and challenge wait, which session.py splits.
 LOCK_SECONDS = 90
-# A jar read waits this long for a session holding the profile, then goes
-# on without the jar: it never stalls a fetch behind another one's render.
+# A jar read or write waits this long for a session holding the profile,
+# then goes on without it: it never stalls a fetch behind another one's render.
 JAR_LOCK_SECONDS = 2
 GENERATE_SECONDS = 90
 FINGERPRINT = "fingerprint.json"
-JOURNAL = "injected.json"
 LOCK = "camoufox.lock"
 PROFILE = "profile"
 HOME = "home"
 _PR_SET_PDEATHSIG = 1
 _POLL_SECONDS = 0.1
-# Gecko refuses a cookie that outlives network.cookie.maxageCap (400 days,
-# CookieValidation.cpp) when added directly; Set-Cookie clamps it instead.
-MAXAGE_CAP_SECONDS = 34_560_000
-_CAP_MARGIN_SECONDS = 3600
 _ENV_KEEP = ("LANG", "LC_ALL", "TZ", *curl.PROXY_VARIABLES, *curl.NO_PROXY_VARIABLES)
 # The session's handshake files in the work directory (session.py).
 NETNS_READY = "netns.ready"
@@ -94,6 +86,8 @@ class Rendered:
     html: str | None = None
     body: bytes = b""
     blocked: Blocked | None = None
+    # What the session could not do that the fetch should report.
+    warnings: tuple[str, ...] = ()
 
 
 def die_with_parent() -> None:
@@ -113,112 +107,26 @@ def write_private(path: Path, data: bytes) -> None:
     partial.replace(path)
 
 
-def digest(value: str) -> str:
-    """The sha256 the journal keeps of a value, never the value."""
-    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()
+def playwright_cookie(cookie: jar.Cookie) -> dict[str, Any]:
+    """A cookie for Playwright's add_cookies, as a session cookie in Gecko's host form.
 
-
-def playwright_cookie(cookie: jar.Cookie, now: float | None = None) -> dict[str, Any]:
-    """The cookie as Playwright's add_cookies takes it; Gecko's host form is kept.
-
-    The expiry is clamped to Gecko's cap, as a Set-Cookie would have been.
+    Juggler stores SameSite=None as unset, which acts as None while
+    network.cookie.sameSite.laxByDefault is off; neither is passed.
     """
-    cap = (time.time() if now is None else now) + MAXAGE_CAP_SECONDS - _CAP_MARGIN_SECONDS
-    if cookie.same_site == jar.SAME_SITE_STRICT:
-        same_site = "Strict"
-    elif cookie.same_site == jar.SAME_SITE_LAX or not cookie.secure:
-        # Gecko refuses SameSite=None without Secure; unset acts as None otherwise.
-        same_site = "Lax"
-    else:
-        same_site = "None"
-    return {
+    added: dict[str, Any] = {
         "name": cookie.name,
         "value": cookie.value,
         "domain": cookie.host,
         "path": cookie.path,
-        "expires": -1 if cookie.session else min(cookie.expiry_ms / 1000, cap),
+        "expires": -1,
         "httpOnly": cookie.http_only,
         "secure": cookie.secure,
-        "sameSite": same_site,
     }
-
-
-def injection(
-    own: Iterable[jar.Cookie],
-    librewolf: Iterable[jar.Cookie],
-    received: Iterable[jar.Cookie],
-    url: str,
-    now: int,
-) -> list[jar.Cookie]:
-    """The cookies a fallback adds to the browser's jar for url's host.
-
-    The site's responses during this fetch come first; a LibreWolf cookie
-    goes in only where the browser holds no live cookie of that name, host
-    and path, so a cookie the browser earned wins. A cookie the site deleted
-    during the fetch keeps LibreWolf's copy out too. Partitioned cookies stay
-    out: Playwright adds to the unpartitioned jar only.
-    """
-    held = {cookie.key for cookie in jar.live(own, now)}
-    fresh = list(received)
-    taken = {cookie.key for cookie in fresh}
-    chosen = fresh + [c for c in librewolf if c.key not in held and c.key not in taken]
-    return [c for c in jar.for_host(chosen, url, now) if not c.partition]
-
-
-def forget(database: Path, deleted: Iterable[jar.Cookie]) -> int:
-    """Delete the browser's own unpartitioned cookies the site deleted during this fetch.
-
-    The browser would have applied the same Set-Cookie had it made the request.
-    """
-    keys = [(c.name, c.host, c.path) for c in deleted if not c.partition]
-    if not keys or not database.exists():
-        return 0
-    connection = sqlite3.connect(database, timeout=10)
-    try:
-        removed = 0
-        for name, host, path in keys:
-            removed += connection.execute(
-                "delete from moz_cookies where coalesce(name, '') = ? and host = ? and path = ?"
-                " and originAttributes = ''",
-                (name, host, path),
-            ).rowcount
-        connection.commit()
-    except sqlite3.Error as error:
-        msg = f"the browser's deleted cookies could not be removed: {error}"
-        raise BrowserError(msg) from None
-    finally:
-        connection.close()
-    return removed
-
-
-def purge(database: Path, journal: list[dict[str, str]]) -> int:
-    """Delete each journaled cookie whose value is still the one injected.
-
-    A cookie the site set anew during the session has another value and
-    stays; so does every cookie the browser had of its own.
-    """
-    if not journal or not database.exists():
-        return 0
-    connection = sqlite3.connect(database, timeout=10)
-    removed = 0
-    try:
-        for entry in journal:
-            rows: list[tuple[int, str]] = connection.execute(
-                "select id, coalesce(value, '') from moz_cookies"
-                " where coalesce(name, '') = ? and host = ? and path = ?"
-                " and originAttributes = ''",
-                (entry["name"], entry["host"], entry["path"]),
-            ).fetchall()
-            doomed = [(rowid,) for rowid, value in rows if digest(value) == entry["digest"]]
-            connection.executemany("delete from moz_cookies where id = ?", doomed)
-            removed += len(doomed)
-        connection.commit()
-    except sqlite3.Error as error:
-        msg = f"the browser's injected cookies could not be removed: {error}"
-        raise BrowserError(msg) from None
-    finally:
-        connection.close()
-    return removed
+    if cookie.same_site == jar.SAME_SITE_STRICT:
+        added["sameSite"] = "Strict"
+    elif cookie.same_site == jar.SAME_SITE_LAX:
+        added["sameSite"] = "Lax"
+    return added
 
 
 class Camoufox:
@@ -320,74 +228,71 @@ class Camoufox:
         return curl.Identity(headers["user-agent"], headers["accept-language"])
 
     def jar(self, until: float) -> list[jar.Cookie]:
-        """The cookies of the browser's own profile, under the profile lock.
+        """The cookies of the browser's profile, read under the profile lock.
 
-        A killed session's injected cookies are purged first, and no other
-        fetch's session runs meanwhile, so only the browser's own are read.
+        The lock waits only JAR_LOCK_SECONDS: a busy profile is the caller's
+        to report, never a reason to wait out another fetch's render.
         """
-        if not (self.profile / jar.DB_NAME).exists():
+        database = self.profile / jar.DB_NAME
+        if not database.exists():
             return []
         lock = self._lock(until, JAR_LOCK_SECONDS)
         try:
-            self._recover()
-            return self._own_jar()
+            return jar.read(database)
         finally:
             os.close(lock)
 
-    def _own_jar(self) -> list[jar.Cookie]:
-        """The profile's cookies from a consistent copy; the caller holds the lock."""
-        if not (self.profile / jar.DB_NAME).exists():
-            return []
-        into = self.workdir / "camoufox-jar"
-        into.mkdir(mode=0o700, exist_ok=True)
-        return jar.read(jar.snapshot(self.profile, into))
-
-    def _recover(self) -> None:
-        """Purge what a session killed before its own purge injected, and any disk cache."""
-        shutil.rmtree(self.profile / "cache2", ignore_errors=True)
-        journal_path = self.state / JOURNAL
-        try:
-            journal = json.loads(journal_path.read_text())
-        except FileNotFoundError:
+    def store(self, cookies: jar.Jar, until: float) -> None:
+        """Write the fetch's unsaved cookie changes into the profile, under the profile lock."""
+        if not cookies.unsaved:
             return
-        except OSError, ValueError:
-            journal = []
-        purge(self.profile / jar.DB_NAME, cast("list[dict[str, str]]", journal))
-        journal_path.unlink(missing_ok=True)
+        lock = self._lock(until, JAR_LOCK_SECONDS)
+        try:
+            self._store(cookies)
+        finally:
+            os.close(lock)
 
-    def render(
-        self,
-        url: str,
-        librewolf: list[jar.Cookie],
-        received: list[jar.Cookie],
-        until: float,
-    ) -> Rendered:
-        """Load url in the browser with the cookies merged in, then take them out again."""
+    def _store(self, cookies: jar.Jar) -> None:
+        """Write the unsaved changes; the caller holds the lock, so no browser runs."""
+        jar.store(self.profile / jar.DB_NAME, cookies.pending(), jar.now_us())
+        cookies.unsaved.clear()
+
+    def render(self, url: str, cookies: jar.Jar, until: float, *, keep: bool = True) -> Rendered:
+        """Load url in the browser, which starts from curl's cookies.
+
+        With keep, the browser runs on its persistent profile under the
+        profile lock: the fetch's changes are written into it first, and the
+        session cookies, which Gecko never stores, are added through
+        Playwright. Without keep, a profile in the work directory, discarded
+        with it, gets every live cookie the fetch received as a session
+        cookie. Playwright adds to the unpartitioned jar only, so a
+        partitioned cookie is not added.
+        """
+        now = jar.now_us() // 1000
+        if not keep:
+            handed = [c for c in cookies.received(now) if not c.partition]
+            return self._rendered(self._session_for(url, self.workdir / PROFILE, handed, until))
         lock = self._lock(until)
         try:
-            self._recover()
-            now = jar.now_ms()
-            deleted = [c for c in received if c.expiry_ms <= now]
-            forget(self.profile / jar.DB_NAME, deleted)
-            cookies = injection(self._own_jar(), librewolf, received, url, now)
-            journal = [
-                {"name": c.name, "host": c.host, "path": c.path, "digest": digest(c.value)}
-                for c in cookies
-            ]
-            journal_path = self.state / JOURNAL
-            write_private(journal_path, json.dumps(journal).encode())
-            try:
-                result = self._session(
-                    "render",
-                    {"url": url, "cookies": [playwright_cookie(c) for c in cookies]},
-                    until,
-                )
-            finally:
-                purge(self.profile / jar.DB_NAME, journal)
-                journal_path.unlink(missing_ok=True)
+            self._store(cookies)
+            handed = [c for c in cookies.received(now) if c.session and not c.partition]
+            result = self._session_for(url, self.profile, handed, until)
         finally:
             os.close(lock)
         return self._rendered(result)
+
+    def _session_for(
+        self, url: str, profile: Path, handed: list[jar.Cookie], until: float
+    ) -> dict[str, Any]:
+        return self._session(
+            "render",
+            {
+                "url": url,
+                "profile": str(profile),
+                "cookies": [playwright_cookie(c) for c in handed],
+            },
+            until,
+        )
 
     def _rendered(self, result: dict[str, Any]) -> Rendered:
         blocked = result.get("blocked")
@@ -411,6 +316,7 @@ class Camoufox:
             content_type=str(result.get("contentType") or "text/html"),
             html=html,
             body=body,
+            warnings=tuple(str(w) for w in cast("list[Any]", result.get("warnings") or [])),
         )
 
     def _environment(self) -> dict[str, str]:

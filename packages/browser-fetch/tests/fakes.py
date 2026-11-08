@@ -33,7 +33,8 @@ if route.get("exit"):
     sys.exit(route["exit"])
 with open(output, "wb") as body:
     body.write(route.get("body", "").encode())
-headers = {k.lower(): [v] for k, v in route.get("headers", {}).items()}
+given = route.get("headers", {})
+headers = {k.lower(): v if isinstance(v, list) else [v] for k, v in given.items()}
 pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
 remote = route.get("remote_ip", pinned)
 sys.stdout.write(f"{route['status']}\\n{remote}\\n{json.dumps(headers)}")
@@ -85,7 +86,11 @@ def fake_curl() -> tuple[FakeCurl, tempfile.TemporaryDirectory[str]]:
 
 @dataclass
 class FakeBrowser:
-    """A stand-in for the Camoufox fallback: an identity, a jar and canned renders."""
+    """A stand-in for the Camoufox fallback: an identity, a jar and canned renders.
+
+    store and render keep what they were given and mark it saved, as the
+    real ones do once the profile holds it.
+    """
 
     identity_value: Any = None
     own: list[Any] | None = None
@@ -93,7 +98,11 @@ class FakeBrowser:
     error: Exception | None = None
     calls: list[dict[str, Any]] | None = None
     identity_error: Exception | None = None
+    jar_error: Exception | None = None
+    store_error: Exception | None = None
     generated: list[bool] = field(default_factory=list[bool])
+    reads: int = 0
+    stored: list[list[Any]] = field(default_factory=list[list[Any]])
 
     def identity(self, until: float, *, generate: bool = True) -> Any:  # noqa: ANN401, ARG002
         """The canned identity, or the canned identity error; each call's generate is kept."""
@@ -103,14 +112,26 @@ class FakeBrowser:
         return self.identity_value
 
     def jar(self, until: float) -> list[Any]:  # noqa: ARG002
-        """The canned own cookies."""
+        """The canned profile cookies, or the canned read error."""
+        self.reads += 1
+        if self.jar_error is not None:
+            raise self.jar_error
         return list(self.own or [])
 
-    def render(self, url: str, librewolf: list[Any], received: list[Any], until: float) -> Any:  # noqa: ANN401, ARG002
+    def store(self, cookies: Any, until: float) -> None:  # noqa: ANN401, ARG002
+        """Keep the unsaved changes, or raise the canned write error."""
+        if self.store_error is not None:
+            raise self.store_error
+        self.stored.append(cookies.pending())
+        cookies.unsaved.clear()
+
+    def render(self, url: str, cookies: Any, until: float, *, keep: bool) -> Any:  # noqa: ANN401, ARG002
         """Record the call and return the canned result or raise the canned error."""
         if self.calls is None:
             self.calls = []
-        self.calls.append({"url": url, "librewolf": librewolf, "received": received})
+        self.calls.append({"url": url, "pending": cookies.pending(), "keep": keep})
+        if keep:
+            cookies.unsaved.clear()
         if self.error is not None:
             raise self.error
         return self.rendered

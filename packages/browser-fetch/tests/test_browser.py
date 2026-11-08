@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Bad3r
-"""The Camoufox fallback outside the browser: identity, lock, cookie handoff and purge, cleanup."""
+"""The Camoufox fallback: identity, lock, the cookie jar around a render, cleanup, real runs."""
 
 import fcntl
 import json
@@ -15,33 +15,22 @@ import unittest
 import unittest.mock
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from browser_fetch import browser, curl, tools
+from browser_fetch import browser, curl, fetch, tools
 from browser_fetch import cookies as jar
 
+from tests.fakes import fake_curl, public
 from tests.namespaces import ROOT, require_namespaces, tools_with, write_fake_pasta
-from tests.test_cookies import LATER, SCHEMA
 
 VERSION = "158.0.1-beta.41"
 URL = "https://a.example/"
 
 
-def gecko_jar(path: Path, rows: list[tuple[str, str, str]]) -> None:
-    """Write a Gecko cookies.sqlite holding (name, value, host) rows."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path)
-    db.execute(SCHEMA)
-    db.executemany(
-        "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-        " creationTime, isSecure) values ('', ?, ?, ?, '/', ?, 1, 1)",
-        [(n, v, h, LATER) for n, v, h in rows],
-    )
-    db.commit()
-    db.close()
-
-
 def values(path: Path) -> dict[str, str]:
-    """The jar's cookies by name."""
+    """The jar's cookies by name; none without a database."""
+    if not path.exists():
+        return {}
     db = sqlite3.connect(path)
     try:
         return dict(db.execute("select name, value from moz_cookies").fetchall())
@@ -49,9 +38,11 @@ def values(path: Path) -> dict[str, str]:
         db.close()
 
 
-def lw(name: str, value: str) -> jar.Cookie:
-    """A LibreWolf cookie of the test host."""
-    return jar.Cookie(name, value, ".a.example", "/", LATER, secure=True, created=1)
+def received(*lines: str, url: str = URL, stored: list[jar.Cookie] | None = None) -> jar.Jar:
+    """A fetch's jar after a response for url set the given cookies."""
+    cookies = jar.Jar.of(stored or [])
+    cookies.receive(url, lines, jar.now_us(), None)
+    return cookies
 
 
 class CamoufoxTest(unittest.TestCase):
@@ -141,7 +132,7 @@ class CamoufoxTest(unittest.TestCase):
                 unittest.mock.patch.object(browser.Camoufox, "_session") as session,
                 self.assertRaisesRegex(browser.BrowserError, "busy"),
             ):
-                self.camoufox().render(URL, [], [], time.monotonic() + 0.5)
+                self.camoufox().render(URL, jar.Jar(), time.monotonic() + 0.5)
             session.assert_not_called()
             self.assertLess(time.monotonic() - started, 5)
         finally:
@@ -149,7 +140,8 @@ class CamoufoxTest(unittest.TestCase):
 
     def test_jar_read_waits_only_briefly_for_a_busy_profile(self) -> None:
         """A jar read gives up after JAR_LOCK_SECONDS, not the render's LOCK_SECONDS."""
-        gecko_jar(self.state / browser.PROFILE / jar.DB_NAME, [("own", "x", ".a.example")])
+        self.database().parent.mkdir(parents=True)
+        self.database().touch()
         holder = os.open(self.state / browser.LOCK, os.O_RDWR | os.O_CREAT, 0o600)
         fcntl.flock(holder, fcntl.LOCK_EX)
         self.addCleanup(os.close, holder)
@@ -160,117 +152,112 @@ class CamoufoxTest(unittest.TestCase):
         self.assertGreaterEqual(elapsed, browser.JAR_LOCK_SECONDS)
         self.assertLess(elapsed, browser.JAR_LOCK_SECONDS + 3)
 
-    def run_render(self, librewolf: list[jar.Cookie], received: list[jar.Cookie]) -> dict[str, Any]:
-        """Render with a session that acts as the browser would on the profile's jar.
+    def database(self) -> Path:
+        """The profile's cookie database."""
+        return self.state / browser.PROFILE / jar.DB_NAME
 
-        It stores what it was handed, then the site rotates one cookie and sets a new one.
-        """
-        database = self.state / browser.PROFILE / jar.DB_NAME
+    def render_seeing(self, cookies: jar.Jar, *, keep: bool = True) -> dict[str, Any]:
+        """Render with a session that records the profile and the cookies it was handed."""
         seen: dict[str, Any] = {}
 
         def session(
             _self: browser.Camoufox, _mode: str, request: dict[str, Any], _until: float
         ) -> dict[str, Any]:
-            seen["before"] = values(database)
-            seen["handed"] = {c["name"]: c["value"] for c in request["cookies"]}
-            db = sqlite3.connect(database)
-            db.executemany(
-                "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-                " creationTime, isSecure) values ('', ?, ?, ?, ?, ?, 1, 1)",
-                [
-                    (c["name"], c["value"], c["domain"], c["path"], LATER)
-                    for c in request["cookies"]
-                ],
-            )
-            db.execute("update moz_cookies set value = 'site-rotated' where name = 'rotated'")
-            db.execute(
-                "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-                " creationTime, isSecure)"
-                " values ('', 'new', 'site-set', '.a.example', '/', ?, 1, 1)",
-                (LATER,),
-            )
-            db.commit()
-            db.close()
+            seen["profile"] = request["profile"]
+            seen["jar"] = values(Path(request["profile"]) / jar.DB_NAME)
+            seen["handed"] = request["cookies"]
             (self.work / "page.html").write_text("<p>ok</p>")
             return {"url": URL, "status": 200, "contentType": "text/html", "html": True}
 
         with unittest.mock.patch.object(browser.Camoufox, "_session", autospec=True) as patched:
             patched.side_effect = session
-            self.camoufox().render(URL, librewolf, received, time.monotonic() + 30)
-        seen["after"] = values(database)
+            self.camoufox().render(URL, cookies, time.monotonic() + 30, keep=keep)
         return seen
 
-    def test_handoff_precedence_and_purge(self) -> None:
-        """The browser's own cookie wins; injected values leave after the session, site-set stay."""
-        gecko_jar(
-            self.state / browser.PROFILE / jar.DB_NAME, [("cf_clearance", "earned", ".a.example")]
+    def test_curls_cookies_are_in_the_profile_when_the_browser_starts(self) -> None:
+        """The fetch's changes reach the database first; its session cookies are handed over.
+
+        A deletion removes the stored row, and a partitioned session cookie
+        stays out, since Playwright adds to the unpartitioned jar only.
+        """
+        jar.store(
+            self.database(),
+            [
+                jar.parse_set_cookie(c, URL, jar.now_us())
+                for c in ("gone=1; Max-Age=600", "kept=1; Max-Age=600")
+            ],  # type: ignore[misc]
+            jar.now_us(),
         )
-        seen = self.run_render(
-            [lw("cf_clearance", "librewolf"), lw("sid", "secret"), lw("rotated", "old")],
-            [jar.Cookie("__cf_bm", "bm", ".a.example", "/", LATER, secure=True, created=2)],
+        cookies = received(
+            "persisted=curl; Max-Age=600; Secure",
+            "sess=curl; Secure; HttpOnly; SameSite=Lax",
+            "chips=curl; Secure; Partitioned",
+            "gone=; Max-Age=0",
+            stored=jar.read(self.database()),
         )
-        self.assertEqual(seen["handed"], {"sid": "secret", "rotated": "old", "__cf_bm": "bm"})
+        seen = self.render_seeing(cookies)
+        self.assertEqual(seen["profile"], str(self.state / browser.PROFILE))
+        self.assertEqual(seen["jar"], {"kept": "1", "persisted": "curl"})
         self.assertEqual(
-            seen["after"],
-            {"cf_clearance": "earned", "rotated": "site-rotated", "new": "site-set"},
+            seen["handed"],
+            [
+                {
+                    "name": "sess",
+                    "value": "curl",
+                    "domain": "a.example",
+                    "path": "/",
+                    "expires": -1,
+                    "httpOnly": True,
+                    "secure": True,
+                    "sameSite": "Lax",
+                }
+            ],
         )
-        self.assertFalse((self.state / browser.JOURNAL).exists())
+        self.assertEqual(cookies.unsaved, set())
 
-    def test_expired_own_cookie_does_not_keep_librewolfs_out(self) -> None:
-        """An expired row in the browser's jar holds no key against LibreWolf's live cookie."""
-        expired = jar.Cookie("sid", "old", ".a.example", "/", 1, secure=True, created=1)
-        handed = browser.injection([expired], [lw("sid", "fresh")], [], URL, jar.now_ms())
-        self.assertEqual([(c.name, c.value) for c in handed], [("sid", "fresh")])
-
-    def test_site_deletion_reaches_the_browsers_own_jar(self) -> None:
-        """A cookie the site deleted on curl's hop leaves the profile and is not lent back."""
-        gecko_jar(
-            self.state / browser.PROFILE / jar.DB_NAME,
-            [("sid", "earned", ".a.example"), ("keep", "k", ".a.example")],
-        )
-        tombstone = jar.Cookie("sid", "", ".a.example", "/", 0, secure=True, created=3)
-        seen = self.run_render([lw("sid", "librewolf")], [tombstone])
-        self.assertEqual(seen["before"], {"keep": "k"})
-        self.assertNotIn("sid", seen["handed"])
-
-    def test_purge_runs_when_the_session_fails(self) -> None:
-        """A failed session still takes the injected values out."""
-        database = self.state / browser.PROFILE / jar.DB_NAME
-        gecko_jar(database, [])
-
-        def session(
-            _self: browser.Camoufox, _mode: str, _request: dict[str, Any], _until: float
-        ) -> dict[str, Any]:
-            db = sqlite3.connect(database)
-            db.execute(
-                "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-                " creationTime, isSecure) values ('', 'sid', 'secret', '.a.example', '/', ?, 1, 1)",
-                (LATER,),
-            )
-            db.commit()
-            db.close()
-            msg = "killed"
-            raise browser.BrowserError(msg)
-
+    def test_a_busy_profile_writes_nothing(self) -> None:
+        """A render that cannot take the lock leaves the changes unsaved for the fetch to report."""
+        self.state.mkdir(mode=0o700)
+        holder = os.open(self.state / browser.LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        self.addCleanup(os.close, holder)
+        cookies = received("persisted=curl; Max-Age=600")
+        with self.assertRaisesRegex(browser.BrowserError, "busy"):
+            self.camoufox().render(URL, cookies, time.monotonic() + 0.5)
         with (
-            unittest.mock.patch.object(
-                browser.Camoufox, "_session", autospec=True, side_effect=session
-            ),
-            self.assertRaises(browser.BrowserError),
+            unittest.mock.patch.object(browser, "JAR_LOCK_SECONDS", 0.3),
+            self.assertRaisesRegex(browser.BrowserError, "busy"),
         ):
-            self.camoufox().render(URL, [lw("sid", "secret")], [], time.monotonic() + 30)
-        self.assertEqual(values(database), {})
+            self.camoufox().store(cookies, time.monotonic() + 30)
+        self.assertEqual(len(cookies.unsaved), 1)
+        self.assertFalse(self.database().exists())
 
-    def test_journal_of_a_killed_run_is_purged_first(self) -> None:
-        """Values a SIGKILLed run injected are gone before the next session starts."""
-        database = self.state / browser.PROFILE / jar.DB_NAME
-        gecko_jar(database, [("sid", "secret", ".a.example"), ("own", "mine", ".a.example")])
-        journal = [
-            {"name": "sid", "host": ".a.example", "path": "/", "digest": browser.digest("secret")}
-        ]
-        (self.state / browser.JOURNAL).write_text(json.dumps(journal))
-        seen = self.run_render([], [])
-        self.assertEqual(seen["before"], {"own": "mine"})
+    def test_without_cookies_the_profile_is_thrown_away(self) -> None:
+        """--no-cookies renders in the work directory, unlocked, handed every live cookie."""
+        self.state.mkdir(mode=0o700)
+        holder = os.open(self.state / browser.LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        self.addCleanup(os.close, holder)
+        cookies = received("persisted=curl; Max-Age=600", "sess=curl")
+        (self.work / browser.PROFILE).mkdir()
+        seen = self.render_seeing(cookies, keep=False)
+        self.assertEqual(seen["profile"], str(self.work / browser.PROFILE))
+        self.assertEqual(sorted(c["name"] for c in seen["handed"]), ["persisted", "sess"])
+        self.assertTrue(all(c["expires"] == -1 for c in seen["handed"]))
+        self.assertFalse(self.database().exists())
+
+    def test_schema_mismatch_starts_no_browser(self) -> None:
+        """A database at another version is refused before the browser starts."""
+        self.database().parent.mkdir(parents=True)
+        db = sqlite3.connect(self.database())
+        db.execute("pragma user_version = 18")
+        db.close()
+        with (
+            unittest.mock.patch.object(browser.Camoufox, "_session") as session,
+            self.assertRaisesRegex(jar.CookieError, "schema version 18"),
+        ):
+            self.camoufox().render(URL, received("a=1; Max-Age=60"), time.monotonic() + 30)
+        session.assert_not_called()
 
     def script(self, name: str, body: str) -> str:
         """An executable stand-in in the test directory."""
@@ -293,7 +280,7 @@ class CamoufoxTest(unittest.TestCase):
         self.state.mkdir(mode=0o700)
         started = time.monotonic()
         with self.assertRaisesRegex(browser.BrowserError, "Operation not permitted"):
-            camoufox.render(URL, [], [], time.monotonic() + 60)
+            camoufox.render(URL, jar.Jar(), time.monotonic() + 60)
         self.assertLess(time.monotonic() - started, 5)
 
     def test_pasta_failure_fails_the_session(self) -> None:
@@ -314,7 +301,7 @@ class CamoufoxTest(unittest.TestCase):
         self.state.mkdir(mode=0o700)
         started = time.monotonic()
         with self.assertRaisesRegex(browser.BrowserError, "network could not be set up.*tun"):
-            camoufox.render(URL, [], [], time.monotonic() + 60)
+            camoufox.render(URL, jar.Jar(), time.monotonic() + 60)
         self.assertLess(time.monotonic() - started, 10)
         self.assertFalse((self.work / browser.NETWORK_READY).exists())
 
@@ -348,45 +335,38 @@ class CamoufoxTest(unittest.TestCase):
             unittest.mock.patch.object(browser.subprocess, "Popen", side_effect=popen),
             self.assertRaises(StartedError),
         ):
-            camoufox.render(URL, [], [], time.monotonic() + 30)
+            camoufox.render(URL, jar.Jar(), time.monotonic() + 30)
         del environ["HOME"], environ["DISPLAY"]
         self.assertEqual(kept, {**environ, "PATH": "/var/empty"})
 
-    def test_expiry_is_clamped_to_geckos_cap(self) -> None:
-        """A cookie Gecko would refuse as too long-lived is handed over at the cap."""
-        far = jar.Cookie("a", "1", "a.example", "/", 4_000_000_000_000, secure=True, created=1)
-        now = 1_800_000_000
-        expires = browser.playwright_cookie(far, now=now)["expires"]
-        self.assertLessEqual(expires, now + browser.MAXAGE_CAP_SECONDS)
-        self.assertGreater(expires, now + browser.MAXAGE_CAP_SECONDS - 86_400)
-
     def test_playwright_cookie(self) -> None:
-        """Gecko's host form, seconds, -1 for a session, and SameSite Gecko accepts."""
-        host_only = jar.Cookie(
-            "a", "1", "a.example", "/p", 1_710_000_000_000, secure=False, created=1
-        )
-        session = jar.Cookie(
-            "b", "2", ".a.example", "/", jar.SESSION_EXPIRY_MS, secure=True, created=1, session=True
+        """A session cookie in Gecko's host form; None and unset go without SameSite.
+
+        Juggler's setCookies stores SameSite None and an absent one alike as
+        unset (TargetRegistry.js), so only Lax and Strict are passed.
+        """
+        host_only = jar.Cookie("a", "1", "a.example", "/p", 1, secure=False, created=1)
+        domain = jar.Cookie(
+            "b", "2", ".a.example", "/", 1, secure=True, created=1, same_site=jar.SAME_SITE_STRICT
         )
         self.assertEqual(
-            browser.playwright_cookie(host_only, now=1_700_000_000),
+            browser.playwright_cookie(host_only),
             {
                 "name": "a",
                 "value": "1",
                 "domain": "a.example",
                 "path": "/p",
-                "expires": 1_710_000_000,
+                "expires": -1,
                 "httpOnly": False,
                 "secure": False,
-                "sameSite": "Lax",
             },
         )
         self.assertEqual(
             (
-                browser.playwright_cookie(session)["expires"],
-                browser.playwright_cookie(session)["sameSite"],
+                browser.playwright_cookie(domain)["domain"],
+                browser.playwright_cookie(domain)["sameSite"],
             ),
-            (-1, "None"),
+            (".a.example", "Strict"),
         )
 
 
@@ -640,7 +620,7 @@ class GuardTest(unittest.TestCase):
         for launch in ("new profile", "existing profile"):
             with self.subTest(launch=launch):
                 rendered = self.camoufox.render(
-                    f"http://a.test:{GUARD_PORT}/redirect", [], [], time.monotonic() + 120
+                    f"http://a.test:{GUARD_PORT}/redirect", jar.Jar(), time.monotonic() + 120
                 )
                 hits = json.loads((self.work / "hits.json").read_text())
                 self.assertEqual(hits, [f"a.test:{GUARD_PORT}/redirect"])
@@ -652,3 +632,215 @@ class GuardTest(unittest.TestCase):
                         302,
                     ),
                 )
+
+
+# A session whose a.test serves the pages of CookieRoundTripTest on the
+# namespace's loopback, recording the Cookie header of each request to
+# hits.json and setting each page's cookies.
+COOKIE_SESSION = """\
+import http.server, json, sys, threading
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from browser_fetch import session
+PORT = {port}
+SETS = {sets!r}
+FILLER = "<p>" + "Plain readable paragraph text for the settle check. " * 8 + "</p>"
+hits = []
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        hits.append({{"path": self.path, "cookie": self.headers.get("Cookie", "")}})
+        body = f"<!DOCTYPE html><title>{{self.path}}</title>{{FILLER}}".encode()
+        self.send_response(200)
+        for line in SETS.get(self.path, []):
+            self.send_header("Set-Cookie", line)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        return
+
+start_xvfb = session.start_xvfb
+
+def serve_then_start_xvfb(until):
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return start_xvfb(until)
+
+session.start_xvfb = serve_then_start_xvfb
+request = json.loads(Path(sys.argv[1]).read_text())
+status = session.main(sys.argv[1:])
+Path(request["workdir"], "hits.json").write_text(json.dumps(hits))
+sys.exit(status)
+"""
+COOKIE_PORT = 8766
+FIRST = f"http://a.test:{COOKIE_PORT}/first"
+SECOND = f"http://a.test:{COOKIE_PORT}/second"
+# What the browser's responses set: one cookie of each kind a row records.
+BROWSER_SETS = {
+    "/first": [
+        "earned=browser; Max-Age=3600; Path=/",
+        "fleeting=1; Path=/",
+        "dom=1; Domain=a.test; Path=/; Max-Age=3600",
+        "lax=1; SameSite=Lax; HttpOnly; Max-Age=3600; Path=/p",
+        "strict=1; SameSite=Strict; Max-Age=3600; Path=/",
+        "flag; Max-Age=3600; Path=/",
+    ],
+    "/second": ["late=browser; Max-Age=3600; Path=/"],
+}
+# The row columns that do not depend on when the cookie was set.
+TIMELESS = (
+    "originAttributes",
+    "name",
+    "value",
+    "host",
+    "path",
+    "isSecure",
+    "isHttpOnly",
+    "inBrowserElement",
+    "sameSite",
+    "schemeMap",
+    "isPartitionedAttributeSet",
+)
+
+
+class CookieRoundTripTest(unittest.TestCase):
+    """Real Camoufox and the jar: Gecko's own rows, curl's writes in the browser, and back.
+
+    network.cookie.db.flushIntervalMs is an hour, so a cookie the browser
+    sets reaches the database only when the browser closes.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Skip, saying why, where the host cannot make the session's namespace."""
+        require_namespaces()
+
+    def setUp(self) -> None:
+        """A state and work directory, the stand-in pasta and the cookie-serving session."""
+        self.tmp = Path(tempfile.mkdtemp(prefix="browser-fetch-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.state = self.tmp / "state"
+        self.work = self.tmp / "work"
+        self.work.mkdir()
+        session = self.tmp / "session"
+        session.write_text(
+            f"#!{sys.executable} -I\n"
+            + COOKIE_SESSION.format(root=ROOT, port=COOKIE_PORT, sets=BROWSER_SETS)
+        )
+        session.chmod(0o700)
+        self.camoufox = browser.Camoufox(
+            tools_with(write_fake_pasta(self.tmp), str(session)),
+            self.state,
+            self.work,
+            environ={},
+        )
+        self.database = self.state / browser.PROFILE / jar.DB_NAME
+
+    def render(self, url: str, cookies: jar.Jar) -> str:
+        """Render url and return the Cookie header its page request carried."""
+        self.camoufox.render(url, cookies, time.monotonic() + 120)
+        hits = json.loads((self.work / "hits.json").read_text())
+        (sent,) = [hit["cookie"] for hit in hits if hit["path"] == urlsplit(url).path]
+        return sent
+
+    def rows(self) -> dict[str, dict[str, Any]]:
+        """The database's rows by name."""
+        db = sqlite3.connect(self.database)
+        db.row_factory = sqlite3.Row
+        try:
+            return {row["name"]: dict(row) for row in db.execute("select * from moz_cookies")}
+        finally:
+            db.close()
+
+    def test_one_jar_for_curl_and_the_browser(self) -> None:
+        """Gecko's rows match the jar's, curl's cookies reach the page, the page's reach curl."""
+        if self.camoufox.identity(time.monotonic() + 120) is None:
+            self.fail("no fingerprint was drawn")
+        fingerprint_path = self.state / browser.FINGERPRINT
+        fingerprint = json.loads(fingerprint_path.read_text())
+        fingerprint["prefs"]["network.dns.localDomains"] = "a.test"
+        fingerprint["prefs"]["network.cookie.db.flushIntervalMs"] = 3_600_000
+        fingerprint_path.write_text(json.dumps(fingerprint))
+
+        # The browser creates the database and stores what /first set.
+        self.assertEqual(self.render(FIRST, jar.Jar()), "")
+        db = sqlite3.connect(self.database)
+        try:
+            version, page_size, sql = (
+                db.execute("pragma user_version").fetchone()[0],
+                db.execute("pragma page_size").fetchone()[0],
+                db.execute("select sql from sqlite_master where name = 'moz_cookies'").fetchone()[
+                    0
+                ],
+            )
+        finally:
+            db.close()
+        self.assertEqual((version, page_size, sql), (17, jar.PAGE_SIZE, jar.CREATE_TABLE))
+        gecko = self.rows()
+        now = jar.now_us()
+        ours = [jar.parse_set_cookie(line, FIRST, now) for line in BROWSER_SETS["/first"]]
+        persistent = {c.name: c for c in ours if c is not None and not c.session}
+        self.assertEqual(sorted(gecko), sorted(persistent))
+        for name, cookie in persistent.items():
+            with self.subTest(name=name):
+                row = gecko[name]
+                mine = {
+                    "originAttributes": cookie.origin_attributes,
+                    "name": cookie.name,
+                    "value": cookie.value,
+                    "host": cookie.host,
+                    "path": cookie.path,
+                    "isSecure": int(cookie.secure),
+                    "isHttpOnly": int(cookie.http_only),
+                    "inBrowserElement": 0,
+                    "sameSite": cookie.same_site,
+                    "schemeMap": cookie.scheme_map,
+                    "isPartitionedAttributeSet": int(bool(cookie.partition)),
+                }
+                self.assertEqual({k: row[k] for k in TIMELESS}, mine)
+                self.assertEqual(row["expiry"] - row["creationTime"] // 1000, 3_600_000)
+                self.assertEqual(row["updateTime"], row["creationTime"])
+                self.assertLessEqual(row["lastAccessed"], row["creationTime"])
+
+        # curl replaces one, deletes one, adds one of each lifetime; the page sees exactly that.
+        cookies = jar.Jar.of(jar.read(self.database))
+        cookies.receive(
+            SECOND,
+            [
+                "earned=curl; Max-Age=3600; Path=/",
+                "dom=; Domain=a.test; Path=/; Max-Age=0",
+                "persisted=curl; Max-Age=3600; Path=/",
+                "sess=curl; Path=/",
+            ],
+            jar.now_us(),
+            None,
+        )
+        sent = self.render(SECOND, cookies)
+        self.assertEqual(
+            sorted(sent.split("; ")),
+            ["earned=curl", "flag=", "persisted=curl", "sess=curl", "strict=1"],
+        )
+        self.assertEqual(self.rows()["earned"]["creationTime"], gecko["earned"]["creationTime"])
+
+        # The next curl fetch sends what the browser set at the end of its render.
+        fake, holder = fake_curl()
+        self.addCleanup(holder.cleanup)
+        fake.serve({"https://a.test/": {"status": 200, "headers": {"Content-Type": "text/plain"}}})
+        settings = fetch.Settings(
+            curl=fake.path,
+            browser=self.camoufox,
+            workdir=self.work,
+            save_dir=self.tmp / "saved",
+            browser_mode="never",
+            resolve=public,
+        )
+        fetch.fetch("https://a.test/", settings)
+        config = fake.calls()[0]["config"]
+        line = next(x for x in config.splitlines() if "Cookie: " in x)
+        self.assertEqual(
+            sorted(line.split("Cookie: ", 1)[1].rstrip('"').split("; ")),
+            ["earned=curl", "flag=", "late=browser", "persisted=curl", "strict=1"],
+        )

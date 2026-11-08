@@ -98,8 +98,8 @@ def _header_lines(identity: Identity | None, cookie_header: str) -> str:
             f"Accept-Language: {identity.accept_language}",
         ]
     if cookie_header:
-        # A header line, not curl's cookie option: that reads a value with no
-        # "=" as a file name, while Firefox sends a nameless cookie bare.
+        # A header line, not curl's cookie option, which reads a value with
+        # no "=" as a file name.
         headers.append(f"Cookie: {cookie_header}")
     return "".join(f"header = {_quote(line)}\n" for line in headers if not {"\r", "\n"} & set(line))
 

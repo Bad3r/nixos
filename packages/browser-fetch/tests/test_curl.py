@@ -84,12 +84,17 @@ class RequestTest(unittest.TestCase):
         self.run_request(cookies=[], identity=None)
         self.assertEqual(self.fake.calls()[0]["config"], "")
 
-    def test_nameless_cookie_is_sent_bare(self) -> None:
-        """A nameless cookie goes out as its value in the Cookie header, never as a file name."""
+    def test_valueless_cookie_goes_in_the_header(self) -> None:
+        """A cookie with no value goes out as "name=" in the Cookie header, not curl's option.
+
+        Gecko stores a Set-Cookie token without "=" as the name
+        (network.cookie.valueless_cookie) and ComposeCookieString writes
+        name "=" value.
+        """
         self.fake.serve({"https://example.org/": {"status": 200}})
-        bare = jar.Cookie("", "token123", "example.org", "/", 1, secure=True, created=1)
-        self.run_request(cookies=[bare], identity=None)
-        self.assertIn('header = "Cookie: token123"', self.fake.calls()[0]["config"])
+        flag = jar.Cookie("token123", "", "example.org", "/", 1, secure=True, created=1)
+        self.run_request(cookies=[flag], identity=None)
+        self.assertIn('header = "Cookie: token123="', self.fake.calls()[0]["config"])
         self.assertNotIn("cookie =", self.fake.calls()[0]["config"])
 
     def test_impersonation_and_limits(self) -> None:

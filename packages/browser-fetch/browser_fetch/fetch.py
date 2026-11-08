@@ -59,17 +59,15 @@ class Renderer(Protocol):
         ...
 
     def jar(self, until: float) -> list[jar.Cookie]:
-        """The cookies the browser holds of its own, none it was lent."""
+        """The cookies of the browser's profile."""
         ...
 
-    def render(
-        self,
-        url: str,
-        librewolf: list[jar.Cookie],
-        received: list[jar.Cookie],
-        until: float,
-    ) -> browser.Rendered:
-        """Load url with the cookies merged in and return what the page became."""
+    def store(self, cookies: jar.Jar, until: float) -> None:
+        """Write the fetch's unsaved cookie changes into the browser's profile."""
+        ...
+
+    def render(self, url: str, cookies: jar.Jar, until: float, *, keep: bool) -> browser.Rendered:
+        """Load url starting from the fetch's cookies and return what the page became."""
         ...
 
 
@@ -94,6 +92,8 @@ class Page:
     converted: bool = False
     # What the fetch did without, for BROWSER_FETCH_DEBUG.
     notes: list[str] = field(default_factory=list[str])
+    # Cookies that were not read or saved, always reported.
+    warnings: list[str] = field(default_factory=list[str])
 
     @property
     def status_text(self) -> str:
@@ -112,6 +112,7 @@ class Settings:
     browser: Renderer
     workdir: Path
     save_dir: Path
+    # Whether the profile's cookie jar is read and written at all.
     use_cookies: bool = True
     browser_mode: BrowserMode = "auto"
     deadline: float = 240.0
@@ -124,13 +125,12 @@ class _Fetch:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.until = settings.clock() + settings.deadline
-        self.librewolf: list[jar.Cookie] = []
-        self.camoufox: list[jar.Cookie] = []
-        self.received: list[jar.Cookie] = []
+        self.cookies = jar.Jar()
         self.identity: curl.Identity | None = None
         self.hops = 0
-        # Why the browser's state was left out; printed only for debugging.
+        # Why the browser's identity was left out; printed only for debugging.
         self.notes: list[str] = []
+        self.warnings: list[str] = []
 
     def left(self) -> float:
         remaining = self.until - self.settings.clock()
@@ -155,25 +155,35 @@ class _Fetch:
             self.notes.append("curl sends its profile's own headers: no fingerprint was drawn yet")
 
     def load_cookies(self) -> None:
-        """Read the browser's own jar, and LibreWolf's unless cookies are off.
+        """Read the profile's jar, unless cookies are off.
 
-        The browser's jar is optional: when its state cannot be read the
-        fetch goes on without it.
+        A profile another fetch's browser holds past the short lock wait is
+        left out with a warning; a database that cannot be read is an error.
         """
-        try:
-            self.camoufox = self.settings.browser.jar(self.until)
-        except (browser.BrowserError, jar.CookieError, OSError) as error:
-            self.notes.append(f"the browser's own cookies were left out: {error}")
         if not self.settings.use_cookies:
             return
-        profile = jar.default_profile(jar.librewolf_root())
-        self.librewolf = jar.read(jar.snapshot(profile, self.settings.workdir))
+        try:
+            self.cookies = jar.Jar.of(self.settings.browser.jar(self.until))
+        except browser.BrowserError as error:
+            self.warnings.append(f"no cookies were read: {error}")
+
+    def save(self) -> None:
+        """Write what the responses did to the jar, unless cookies are off.
+
+        A profile another fetch's browser holds past the short lock wait
+        loses the changes, with a warning that counts them.
+        """
+        if not self.settings.use_cookies or not self.cookies.unsaved:
+            return
+        count = len(self.cookies.unsaved)
+        try:
+            self.settings.browser.store(self.cookies, self.until)
+        except browser.BrowserError as error:
+            self.warnings.append(f"{count} cookie changes were not saved: {error}")
 
     def get(self, url: str) -> curl.Response:
         self.hops += 1
-        now = jar.now_ms()
-        stored = jar.merge(jar.live(self.camoufox, now), jar.live(self.librewolf, now))
-        sent = jar.for_request(jar.merge(self.received, stored), url, now)
+        sent = jar.for_request(self.cookies.cookies(), url, jar.now_us() // 1000)
         response = curl.request(
             urls.pin(url, self.settings.resolve),
             cookies=sent,
@@ -183,12 +193,18 @@ class _Fetch:
             curl=self.settings.curl,
             timeout=min(CURL_SECONDS, self.left()),
         )
-        self.received = jar.apply(self.received, url, response.headers.get("set-cookie", []), now)
+        self.cookies.receive(
+            url, response.headers.get("set-cookie", []), jar.now_us(), response.header("date")
+        )
         return response
 
     def render(self, url: str) -> browser.Rendered:
         self.left()
-        return self.settings.browser.render(url, self.librewolf, self.received, self.until)
+        rendered = self.settings.browser.render(
+            url, self.cookies, self.until, keep=self.settings.use_cookies
+        )
+        self.warnings.extend(rendered.warnings)
+        return rendered
 
 
 def _save_binary(body: bytes, content_type: str, save_dir: Path) -> Path:
@@ -261,18 +277,36 @@ def _retry_after(response: curl.Response) -> str | None:
 
 
 def fetch(url: str, settings: Settings) -> Page:
-    """Fetch url as WebFetch would, with curl-impersonate and the browsers' cookies.
+    """Fetch url as WebFetch would, with curl-impersonate and Camoufox's cookie jar.
 
     Every hop's host is resolved and checked before anything is sent: one on
-    this machine or a private network is refused.
+    this machine or a private network is refused. What the responses did to
+    the jar is written back before this returns or raises, and a failure
+    carries the warnings as its notes.
     """
     target = urls.check_url(url)
     urls.pin(target, settings.resolve)
     run = _Fetch(settings)
     run.load_identity()
     run.load_cookies()
-    page = _follow(run, url, target)
+    try:
+        page = _follow(run, url, target)
+    except BaseException as error:
+        try:
+            run.save()
+        except jar.CookieError as failure:
+            run.warnings.append(f"no cookie changes were saved: {failure}")
+        for warning in run.warnings:
+            error.add_note(warning)
+        raise
+    try:
+        run.save()
+    except jar.CookieError as error:
+        for warning in run.warnings:
+            error.add_note(warning)
+        raise
     page.notes = run.notes
+    page.warnings = run.warnings
     return page
 
 

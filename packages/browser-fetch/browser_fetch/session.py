@@ -43,6 +43,8 @@ FINGERPRINT_OPTIONS: dict[str, Any] = {"os": "linux", "locale": "en-US", "humani
 START_SECONDS = 60
 LOAD_SECONDS = 60
 SETTLE_SECONDS = 30
+# Kept back from the session's deadline for closing the browser, which
+# flushes the cookies it set to the profile (CookiePersistentStorage::Close).
 CLOSE_SECONDS = 10
 # How long Camoufox may take to install the guard addon after launch.
 GUARD_SECONDS = 30
@@ -527,7 +529,7 @@ def _render(
     addons = [str(bundled / Path(a).name) for a in config.get("addons", [])]
     config["addons"] = [*addons, str(_guard(policy, server.server_port))]
     # Neither is visible to a page. The JSON viewer off leaves the JSON as the
-    # document; no disk cache keeps a page fetched with LibreWolf's cookies.
+    # document; no disk cache keeps a page fetched with the profile's cookies.
     prefs = {
         **cast("dict[str, Any]", fingerprint["prefs"]),
         "devtools.jsonview.enabled": False,
@@ -537,7 +539,7 @@ def _render(
     try:
         with sync_playwright() as playwright:
             context: BrowserContext = playwright.firefox.launch_persistent_context(
-                user_data_dir=str(state / "profile"),
+                user_data_dir=str(request["profile"]),
                 executable_path=tools.CAMOUFOX,
                 headless=False,
                 env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
@@ -551,10 +553,19 @@ def _render(
                 timeout=_ms(until, START_SECONDS),
             )
             try:
-                return drive(context, request, policy, document, until)
-            finally:
+                result = drive(context, request, policy, document, until - CLOSE_SECONDS)
+            except BaseException:
                 with contextlib.suppress(Exception):
                     context.close()
+                raise
+            try:
+                context.close()
+            except Exception as error:  # noqa: BLE001 - the page is still the result
+                first = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
+                result["warnings"] = [
+                    f"the browser did not close cleanly, so cookies it set may be lost: {first}"
+                ]
+            return result
     finally:
         server.shutdown()
         server.server_close()
@@ -573,13 +584,9 @@ def drive(
         msg = "the browser's request guard did not start"
         raise SessionError(msg)
     cookies = cast("list[dict[str, Any]]", request.get("cookies", []))
-    added = 0
-    for cookie in cookies:
-        try:
-            context.add_cookies([cookie])  # type: ignore[list-item]
-            added += 1
-        except Exception:  # noqa: BLE001, S112 - Gecko refuses some cookies; the rest still go
-            continue
+    if cookies:
+        context.add_cookies(cookies)  # type: ignore[arg-type]
+    added = len(cookies)
     page = context.pages[0] if context.pages else context.new_page()
 
     def keep(response: Response) -> None:

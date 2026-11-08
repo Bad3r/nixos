@@ -40,12 +40,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="browser-fetch",
         description=(
-            "Fetch a web page with curl-impersonate and LibreWolf's cookies, falling back "
+            "Fetch a web page with curl-impersonate and Camoufox's cookie jar, falling back "
             "to Camoufox on a private display for challenges and script-built pages."
         ),
         epilog=(
-            f"Exit status: {USAGE_EXIT} invalid URL, {COOKIE_EXIT} LibreWolf's cookies "
-            f"unreadable, {FETCH_EXIT} fetch failed, {BROWSER_EXIT} browser failed, "
+            f"Exit status: {USAGE_EXIT} invalid URL, {COOKIE_EXIT} Camoufox's cookie database "
+            f"unusable, {FETCH_EXIT} fetch failed, {BROWSER_EXIT} browser failed, "
             f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error. A host "
             "that resolves to this machine or a private network is refused with "
             f"{FETCH_EXIT}."
@@ -65,7 +65,11 @@ def _parser() -> argparse.ArgumentParser:
         default="auto",
         help="when to render in Camoufox",
     )
-    parser.add_argument("--no-cookies", action="store_true", help="send no LibreWolf cookies")
+    parser.add_argument(
+        "--no-cookies",
+        action="store_true",
+        help="neither read nor write Camoufox's cookie jar; the browser gets a throwaway profile",
+    )
     parser.add_argument(
         "--deadline", type=float, default=240.0, help="seconds the whole fetch may take"
     )
@@ -164,6 +168,8 @@ def record(page: fetch.Page, offset: int, max_chars: int | None) -> dict[str, An
         "text": convert.utf16_slice(page.text, offset, stop),
         "via": page.via,
     }
+    if page.warnings:
+        out["warnings"] = page.warnings
     optional = {
         "reason": page.reason,
         "redirectFrom": page.redirect_from,
@@ -184,7 +190,14 @@ def _render_text(page: fetch.Page) -> str:
     return page.text
 
 
-def _fail(message: str, code: int) -> int:
+def _warn(warnings: list[str]) -> None:
+    for warning in warnings:
+        print(f"browser-fetch: warning: {warning}", file=sys.stderr)
+
+
+def _fail(message: str, code: int, error: BaseException | None = None) -> int:
+    """Print the error's warnings, then its message on the last line."""
+    _warn(list(getattr(error, "__notes__", [])))
     print(f"browser-fetch: {message}", file=sys.stderr)
     return code
 
@@ -193,7 +206,7 @@ def _unexpected(error: BaseException) -> int:
     """One line for the plugin; the stack, without messages, only on request."""
     if os.environ.get("BROWSER_FETCH_DEBUG"):
         print("".join(traceback.format_tb(error.__traceback__)), file=sys.stderr)
-    return _fail(f"unexpected {type(error).__name__}", INTERNAL_EXIT)
+    return _fail(f"unexpected {type(error).__name__}", INTERNAL_EXIT, error)
 
 
 def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per failure class
@@ -219,17 +232,21 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
         )
         page = fetch.fetch(args.url, settings)
     except urls.UrlError as error:
-        return _fail(str(error), USAGE_EXIT)
+        return _fail(str(error), USAGE_EXIT, error)
     except jar.CookieError as error:
-        return _fail(str(error), COOKIE_EXIT)
+        return _fail(str(error), COOKIE_EXIT, error)
     except (fetch.FetchError, curl.TransportError, urls.AddressError) as error:
-        return _fail(str(error), FETCH_EXIT)
+        return _fail(str(error), FETCH_EXIT, error)
     except browser.BrowserError as error:
-        return _fail(str(error), BROWSER_EXIT)
+        return _fail(str(error), BROWSER_EXIT, error)
     except convert.ConversionError as error:
-        return _fail(str(error), CONVERT_EXIT)
+        return _fail(str(error), CONVERT_EXIT, error)
     except Exception as error:  # noqa: BLE001 - anything else is one line, not a traceback
         return _unexpected(error)
+    except SystemExit as error:
+        # A signal: the exit status says so, and the warnings still go out.
+        _warn(list(getattr(error, "__notes__", [])))
+        raise
     finally:
         with contextlib.suppress(FileNotFoundError):
             shutil.rmtree(workdir)
@@ -239,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
 
 
 def _print(page: fetch.Page, args: argparse.Namespace) -> None:
+    _warn(page.warnings)
     if os.environ.get("BROWSER_FETCH_DEBUG"):
         for note in page.notes:
             print(f"browser-fetch: note: {note}", file=sys.stderr)

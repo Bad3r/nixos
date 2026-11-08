@@ -17,6 +17,8 @@ let
       ps.idna
       ps.markitdown
       ps.playwright
+      # The Public Suffix List, as Gecko's cookie code reads it.
+      ps.publicsuffixlist
       camoufox.python
     ]
     # Document converters only; no audio, YouTube, Outlook or Azure extras.
@@ -83,7 +85,7 @@ stdenvNoCC.mkDerivation {
   passthru = { inherit camoufox python; };
 
   meta = {
-    description = "Fetch a web page with a browser's TLS fingerprint and LibreWolf's cookies, or in Camoufox";
+    description = "Fetch a web page with a browser's TLS fingerprint and Camoufox's cookie jar, or in Camoufox";
     homepage = "https://github.com/Bad3r/nixos";
     license = lib.licenses.agpl3Only;
     mainProgram = "browser-fetch";

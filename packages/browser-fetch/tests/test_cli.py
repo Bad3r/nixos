@@ -65,20 +65,15 @@ class MainTest(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         curl_patch = unittest.mock.patch.object(cli.tools, "CURL", self.fake.path)
-        browser_patch = unittest.mock.patch.object(cli, "camoufox", return_value=FakeBrowser())
         lookup_patch = unittest.mock.patch.object(cli.urls, "lookup", side_effect=public)
-        for patch in (curl_patch, browser_patch, lookup_patch):
+        for patch in (curl_patch, lookup_patch):
             patch.start()
             self.addCleanup(patch.stop)
         cookie = jar.Cookie("session", SECRET, "example.org", "/", 2**62, secure=True, created=1)
-        for name, value in (
-            ("default_profile", self.runtime),
-            ("snapshot", self.runtime / "snapshot"),
-            ("read", [cookie]),
-        ):
-            patch = unittest.mock.patch.object(jar, name, return_value=value)
-            patch.start()
-            self.addCleanup(patch.stop)
+        self.browser = FakeBrowser(own=[cookie])
+        browser_patch = unittest.mock.patch.object(cli, "camoufox", return_value=self.browser)
+        browser_patch.start()
+        self.addCleanup(browser_patch.stop)
 
     def tearDown(self) -> None:
         """Remove the fakes."""
@@ -170,6 +165,62 @@ class MainTest(unittest.TestCase):
             status, out, err = self.run_main("https://example.org/")
         self.assertEqual((status, out), (cli.INTERNAL_EXIT, ""))
         self.assertEqual(err, "browser-fetch: unexpected RuntimeError\n")
+
+    def test_cookie_warnings_are_in_the_record_and_on_stderr(self) -> None:
+        """Cookies a busy profile kept out are reported, and the page still comes back."""
+        self.browser.store_error = cli.browser.BrowserError("busy")
+        self.fake.serve(
+            {
+                "https://example.org/": {
+                    "status": 200,
+                    "headers": {"Content-Type": "text/plain", "Set-Cookie": "a=1; Max-Age=60"},
+                    "body": "hi",
+                }
+            }
+        )
+        status, out, err = self.run_main("--json", "https://example.org/")
+        warning = "1 cookie changes were not saved: busy"
+        self.assertEqual((status, json.loads(out)["warnings"]), (0, [warning]))
+        self.assertEqual(err, f"browser-fetch: warning: {warning}\n")
+
+    def test_warnings_come_before_the_error(self) -> None:
+        """A failed fetch's warnings are printed first, so the last line is the error."""
+        self.browser.store_error = cli.browser.BrowserError("busy")
+        self.fake.serve(
+            {
+                "https://example.org/": {
+                    "status": 302,
+                    "headers": {"Location": "/next", "Set-Cookie": "a=1; Max-Age=60"},
+                }
+            }
+        )
+        status, _, err = self.run_main("https://example.org/")
+        lines = err.splitlines()
+        self.assertEqual(status, cli.FETCH_EXIT)
+        self.assertEqual(lines[0], "browser-fetch: warning: 1 cookie changes were not saved: busy")
+        self.assertTrue(lines[-1].startswith("browser-fetch: request to https://example.org/next"))
+
+    def test_unusable_jar_exits_3(self) -> None:
+        """A cookie database that cannot be used safely exits 3 with the reason."""
+        self.browser.jar_error = jar.CookieError("schema version 18")
+        status, out, err = self.run_main("https://example.org/")
+        self.assertEqual(
+            (status, out, err), (cli.COOKIE_EXIT, "", "browser-fetch: schema version 18\n")
+        )
+
+    def test_no_cookies_reads_and_writes_nothing(self) -> None:
+        """--no-cookies leaves the jar alone, both ways."""
+        self.fake.serve(
+            {
+                "https://example.org/": {
+                    "status": 200,
+                    "headers": {"Content-Type": "text/plain", "Set-Cookie": "a=1; Max-Age=60"},
+                }
+            }
+        )
+        status, _, _ = self.run_main("--no-cookies", "https://example.org/")
+        self.assertEqual((status, self.browser.reads, self.browser.stored), (0, 0, []))
+        self.assertNotIn("Cookie:", self.fake.calls()[0]["config"])
 
 
 class SweepTest(unittest.TestCase):

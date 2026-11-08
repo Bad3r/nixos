@@ -1,29 +1,26 @@
 # Copyright (c) 2026 Bad3r
-"""Cookie matching per RFC 6265, the snapshot, and the browser's jar."""
+"""Camoufox's cookie jar against Gecko's rules (netwerk/cookie/, Firefox 158.0.1).
 
-import shutil
+Each expected value cites the Gecko code or the RFC it comes from.
+"""
+
 import sqlite3
 import tempfile
 import unittest
-import unittest.mock
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from browser_fetch import cookies as jar
 
 NOW = 1_800_000_000_000
 LATER = NOW + 86_400_000
-# The columns of LibreWolf 159's moz_cookies (schema version 17).
-SCHEMA = """
-create table moz_cookies (
-  id integer primary key, originAttributes text not null default '', name text,
-  value text, host text, path text, expiry integer, lastAccessed integer,
-  creationTime integer, isSecure integer, isHttpOnly integer,
-  inBrowserElement integer default 0, sameSite integer default 0,
-  schemeMap integer default 0, isPartitionedAttributeSet integer default 0,
-  updateTime integer,
-  constraint moz_uniqueid unique (name, host, path, originAttributes)
-)
-"""
+# A response time, in microseconds.
+NOW_US = NOW * 1000
+URL = "https://www.example.org/a/b"
+HOUR_MS = 3_600_000
+# CreateTableWorker in CookiePersistentStorage.cpp, the table of schema 17.
+SCHEMA = jar.CREATE_TABLE
 
 
 def cookie(  # noqa: PLR0913 - one field per cookie attribute under test
@@ -44,8 +41,45 @@ def names(cookies: list[jar.Cookie]) -> list[str]:
     return [c.name for c in cookies]
 
 
+def parsed(line: str, url: str = URL, now: int = NOW_US, date: str | None = None) -> jar.Cookie:
+    """Parse a Set-Cookie value that Gecko accepts."""
+    result = jar.parse_set_cookie(line, url, now, date)
+    if result is None:
+        msg = f"Gecko accepts {line!r}"
+        raise AssertionError(msg)
+    return result
+
+
+class FreshClock(unittest.TestCase):
+    """Each test starts the unique creation clock afresh, as at browser start."""
+
+    def setUp(self) -> None:
+        """Reset the clock that keeps creation times unique, before and after the test."""
+        jar.CREATION.last = 0
+        self.addCleanup(setattr, jar.CREATION, "last", 0)
+
+
+def rows(database: Path) -> list[dict[str, Any]]:
+    """Every row of moz_cookies, every column by name."""
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        return [dict(row) for row in connection.execute("SELECT * FROM moz_cookies ORDER BY id")]
+    finally:
+        connection.close()
+
+
+def pragma(database: Path, name: str) -> object:
+    """One PRAGMA's value."""
+    connection = sqlite3.connect(database)
+    try:
+        return connection.execute(f"PRAGMA {name}").fetchone()[0]
+    finally:
+        connection.close()
+
+
 class MatchTest(unittest.TestCase):
-    """Which cookies a request carries."""
+    """Which cookies a request carries (RFC 6265 section 5.4, CookieService::GetCookiesForURI)."""
 
     def test_host_only_and_domain(self) -> None:
         """Host-only cookies stay on their host; domain cookies reach subdomains."""
@@ -93,7 +127,7 @@ class MatchTest(unittest.TestCase):
         )
 
     def test_expiry(self) -> None:
-        """An expired cookie, in LibreWolf's milliseconds, is not sent."""
+        """A cookie whose expiry, in milliseconds, is not after now is not sent (IsExpired)."""
         cookies = [
             cookie("old", "example.org", expiry=NOW - 1),
             cookie("now", "example.org", expiry=NOW),
@@ -101,7 +135,7 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(jar.for_request(cookies, "https://example.org/", NOW), [])
 
     def test_order(self) -> None:
-        """Longer paths come first, then earlier creation."""
+        """Longer paths come first, then earlier creation (CompareCookiesForSending)."""
         cookies = [
             cookie("late", "example.org", created=3),
             cookie("deep", "example.org", path="/a/b", created=9),
@@ -111,9 +145,10 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(names(sent), ["deep", "early", "late"])
         self.assertEqual(jar.header(sent), "deep=v-deep; early=v-early; late=v-late")
 
-    def test_nameless_cookie(self) -> None:
-        """A cookie without a name is sent as its value alone."""
-        self.assertEqual(jar.header([cookie("", "example.org")]), "v-")
+    def test_valueless_cookie(self) -> None:
+        """A named cookie with no value is sent as "name=" (ComposeCookieString)."""
+        flag = jar.Cookie("flag", "", "example.org", "/", LATER, secure=False, created=1)
+        self.assertEqual(jar.header([flag]), "flag=")
 
     def test_idn_hosts_match_their_a_labels(self) -> None:
         """Gecko stores an IDN host as A-labels, which the checked URL carries too."""
@@ -123,245 +158,461 @@ class MatchTest(unittest.TestCase):
         url = urls.check_url("https://bücher.example/")
         self.assertEqual(names(jar.for_request(cookies, url, NOW)), ["idn"])
 
-    def test_for_host_ignores_path_and_scheme(self) -> None:
-        """The browser's jar holds the host's cookies of every path."""
-        cookies = [
-            cookie("docs", "example.org", path="/docs", secure=True),
-            cookie("other", "other.org"),
-            cookie("old", "example.org", expiry=NOW),
-        ]
-        self.assertEqual(names(jar.for_host(cookies, "https://example.org/", NOW)), ["docs"])
+    def test_partitioned_cookie_goes_to_its_own_site_only(self) -> None:
+        """A CHIPS cookie goes with a top-level request whose site is its partition's.
 
-
-class DatabaseTest(unittest.TestCase):
-    """Reading a Gecko cookie database."""
-
-    def setUp(self) -> None:
-        """Create a profile whose database holds every kind of cookie row."""
-        self.tmp = Path(tempfile.mkdtemp(prefix="browser-fetch-test-"))
-        self.profile = self.tmp / "profile"
-        self.profile.mkdir()
-        db = sqlite3.connect(self.profile / jar.DB_NAME)
-        db.execute(SCHEMA)
-        db.execute("pragma user_version = 17")
-        rows = [
-            ("", "plain", "1", "example.org", 0),
-            ("", "chipsdefault", "2", "example.org", 1),
-            ("^partitionKey=%28https%2Cexample.org%29", "chipsown", "3", "example.org", 1),
-            ("^partitionKey=%28https%2Cexample.org%29", "unflagged", "4", "example.org", 0),
-            ("^partitionKey=%28https%2Cother.org%29", "foreign", "5", "example.org", 1),
-            ("^userContextId=1", "container", "6", "example.org", 0),
-            ("^firstPartyDomain=example.org", "fpi", "7", "example.org", 0),
-            ("^privateBrowsingId=1", "private", "8", "example.org", 0),
-            (
-                "^partitionKey=%28https%2Cexample.org%29&userContextId=1",
-                "both",
-                "9",
-                "example.org",
-                1,
-            ),
-            ("", "bad", "a;b", "example.org", 0),
-            ("", "crlf", "a\r\nX: y", "example.org", 0),
-        ]
-        db.executemany(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " lastAccessed, creationTime, isSecure, isHttpOnly, isPartitionedAttributeSet)"
-            " values (?, ?, ?, ?, '/', ?, 1, 1, 1, 0, ?)",
-            [(o, n, v, h, LATER, p) for o, n, v, h, p in rows],
-        )
-        db.commit()
-        db.close()
-
-    def tearDown(self) -> None:
-        """Remove the profile."""
-        shutil.rmtree(self.tmp)
-
-    def test_jars_firefox_sends(self) -> None:
-        """The unpartitioned jar, flag or not, and CHIPS cookies of the site's own partition.
-
-        Gecko's CookieService asks both jars on a top-level request and takes
-        only Partitioned cookies from the partition; containers, first-party
-        isolation and private browsing are other jars.
+        The site is the scheme and registrable domain, with no port
+        (MakeTopLevelInfo), so a subdomain and another port are the same site.
         """
-        into = self.tmp / "work"
-        into.mkdir()
-        cookies = jar.read(jar.snapshot(self.profile, into))
-        sent = names(jar.for_request(cookies, "https://example.org/", NOW))
-        self.assertEqual(sorted(sent), ["chipsdefault", "chipsown", "plain"])
-        self.assertEqual(
-            sorted(names(jar.for_request(cookies, "https://www.example.org/", NOW))), []
+        chips = replace(
+            cookie("chips", ".example.org", secure=True), partition="(https,example.org)"
         )
-
-    def test_partition_is_the_top_level_site(self) -> None:
-        """A partition matches its site and the site's subdomains, on its scheme and port."""
-        self.assertTrue(jar.partition_matches("(https,example.org)", "https://a.example.org/"))
-        self.assertFalse(jar.partition_matches("(https,example.org)", "https://other.org/"))
-        self.assertFalse(jar.partition_matches("(https,example.org)", "http://example.org/"))
-        self.assertFalse(jar.partition_matches("(https,example.org)", "https://example.org:8443/"))
-        self.assertTrue(
-            jar.partition_matches("(https,example.org,8443)", "https://example.org:8443/")
-        )
-
-    def test_snapshot_takes_the_wal(self) -> None:
-        """Rows still in the WAL reach the snapshot."""
-        db = sqlite3.connect(self.profile / jar.DB_NAME)
-        db.execute("pragma journal_mode = wal")
-        db.execute("pragma wal_autocheckpoint = 0")
-        db.execute(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " creationTime, isSecure) values ('', 'walrow', 'w', 'example.org', '/', ?, 2, 0)",
-            (LATER,),
-        )
-        db.commit()
-        self.assertTrue((self.profile / f"{jar.DB_NAME}-wal").stat().st_size > 0)
-        into = self.tmp / "work"
-        into.mkdir()
-        copy = jar.snapshot(self.profile, into)
-        db.close()
-        self.assertIn("walrow", names(jar.read(copy)))
-
-    def test_a_wal_removed_during_the_copy_is_retried(self) -> None:
-        """A WAL that LibreWolf removes after it was seen restarts the snapshot."""
-        db = sqlite3.connect(self.profile / jar.DB_NAME)
-        db.execute("pragma journal_mode = wal")
-        db.execute("pragma wal_autocheckpoint = 0")
-        db.execute(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " creationTime, isSecure) values ('', 'walrow', 'w', 'example.org', '/', ?, 2, 0)",
-            (LATER,),
-        )
-        db.commit()
-        real_copy = shutil.copyfile
-        calls: list[str] = []
-
-        def checkpoint_then_copy(source: Path, target: Path) -> Path:
-            calls.append(Path(source).name)
-            if len(calls) == 1:
-                db.execute("pragma wal_checkpoint(truncate)")
-                db.execute("pragma journal_mode = delete")
-            return real_copy(source, target)
-
-        into = self.tmp / "work"
-        into.mkdir()
-        try:
-            with unittest.mock.patch.object(jar.shutil, "copyfile", checkpoint_then_copy):
-                copy = jar.snapshot(self.profile, into)
-        finally:
-            db.close()
-        self.assertEqual(calls, [f"{jar.DB_NAME}-wal", jar.DB_NAME])
-        self.assertIn("walrow", names(jar.read(copy)))
-
-    def test_a_database_removed_during_the_copy_is_no_database(self) -> None:
-        """A database removed mid-copy reports a missing database, not a retry loop."""
-        db = self.profile / jar.DB_NAME
-
-        def remove_then_copy(source: Path, _target: Path) -> Path:
-            db.unlink()
-            raise FileNotFoundError(source)
-
-        with (
-            unittest.mock.patch.object(jar.shutil, "copyfile", remove_then_copy),
-            self.assertRaisesRegex(jar.CookieError, "no readable cookie database"),
+        for url, sent in (
+            ("https://example.org/", True),
+            ("https://www.example.org:8443/", True),
+            ("https://other.org/", False),
+            ("http://example.org/", False),
         ):
-            jar.snapshot(self.profile, self.tmp)
-
-    def test_missing_database(self) -> None:
-        """A profile without a cookie database is an error."""
-        with self.assertRaisesRegex(jar.CookieError, "no readable"):
-            jar.snapshot(self.tmp, self.tmp)
+            with self.subTest(url=url):
+                self.assertEqual(bool(jar.for_request([chips], url, NOW)), sent)
 
 
-URL = "https://www.example.org/a/b"
+class SiteTest(unittest.TestCase):
+    """The site a partition key names (OriginAttributes::SetPartitionKey)."""
+
+    def test_partition_key(self) -> None:
+        """The registrable domain by the Public Suffix List, else the host itself."""
+        for url, key in (
+            ("https://a.b.example.co.uk/x", "(https,example.co.uk)"),
+            ("https://example.org:8443/", "(https,example.org)"),
+            ("https://user.github.io/", "(https,user.github.io)"),
+            ("https://github.io/", "(https,github.io)"),
+            ("https://93.184.215.14/", "(https,93.184.215.14)"),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(jar.partition_key(url), key)
+
+    def test_origin_attributes(self) -> None:
+        """CreateSuffix: ":" becomes "+", then URLParams percent-encodes the value.
+
+        The first form is a row LibreWolf 159 wrote; the second shows the
+        sanitized colon of an IPv6 site.
+        """
+        self.assertEqual(
+            jar.origin_attributes("(https,example.org)"),
+            "^partitionKey=%28https%2Cexample.org%29",
+        )
+        self.assertEqual(
+            jar.origin_attributes("(https,[2001:db8::1])"),
+            "^partitionKey=%28https%2C%5B2001%2Bdb8%2B%2B1%5D%29",
+        )
+        self.assertEqual(jar.origin_attributes(""), "")
 
 
-class SetCookieTest(unittest.TestCase):
-    """Response cookies, per RFC 6265 section 5.2, for the rest of one fetch."""
+class SetCookieTest(FreshClock):
+    """Set-Cookie values of a top-level response, as CookieParser and CookieValidation take them."""
 
     def test_host_only_and_default_path(self) -> None:
-        """Without attributes a cookie is host-only, at the request's directory."""
-        parsed = jar.parse_set_cookie("a=1", URL, NOW)
-        if parsed is None:
-            self.fail("the cookie was ignored")
+        """Without attributes a cookie is host-only, at the request's directory, and session."""
+        result = parsed("a=1")
         self.assertEqual(
-            (parsed.host, parsed.path, parsed.session), ("www.example.org", "/a", True)
+            (result.host, result.path, result.session, result.expiry_ms),
+            ("www.example.org", "/a", True, jar.SESSION_EXPIRY_MS),
         )
 
     def test_domain_attribute(self) -> None:
-        """A Domain the host lies in makes a domain cookie; another domain is ignored."""
-        parsed = jar.parse_set_cookie("a=1; Domain=.Example.org; Path=/", URL, NOW)
-        if parsed is None:
-            self.fail("the cookie was ignored")
-        self.assertEqual((parsed.host, parsed.path), (".example.org", "/"))
-        self.assertIsNone(jar.parse_set_cookie("a=1; Domain=other.org", URL, NOW))
+        """A Domain the host lies in makes a domain cookie, written with a leading dot.
 
-    def test_nameless(self) -> None:
-        """A pair without "=" is a nameless cookie, sent as its value alone."""
-        parsed = jar.parse_set_cookie("token123; Path=/", URL, NOW)
-        if parsed is None:
-            self.fail("the cookie was ignored")
-        self.assertEqual(jar.header([parsed]), "token123")
+        FixDomain lowercases it and drops one leading dot; CheckDomain wants
+        it under the base domain and over the host.
+        """
+        self.assertEqual(parsed("a=1; Domain=.Example.org").host, ".example.org")
+        self.assertEqual(parsed("a=1; Domain=www.example.org").host, ".www.example.org")
+        for domain in ("other.org", "org", "a.www.example.org"):
+            with self.subTest(domain=domain):
+                self.assertIsNone(jar.parse_set_cookie(f"a=1; Domain={domain}", URL, NOW_US))
+
+    def test_public_suffix_domain(self) -> None:
+        """Domain=co.uk is refused, as the suffix has no base domain to lie under."""
+        url = "https://www.example.co.uk/"
+        self.assertIsNone(jar.parse_set_cookie("a=1; Domain=co.uk", url, NOW_US))
+        self.assertEqual(parsed("a=1; Domain=example.co.uk", url).host, ".example.co.uk")
+
+    def test_domain_on_an_address(self) -> None:
+        """An address takes only its own Domain, and the cookie stays host-only."""
+        url = "https://93.184.215.14/"
+        self.assertEqual(parsed("a=1; Domain=93.184.215.14", url).host, "93.184.215.14")
+        self.assertIsNone(jar.parse_set_cookie("a=1; Domain=184.215.14", url, NOW_US))
+
+    def test_valueless(self) -> None:
+        """A token without "=" is the name with an empty value; an empty name is refused.
+
+        network.cookie.valueless_cookie is true in 158 (ParseAttributes),
+        and CheckName then refuses an empty name.
+        """
+        flag = parsed("token123; Path=/")
+        self.assertEqual((flag.name, flag.value), ("token123", ""))
+        self.assertIsNone(jar.parse_set_cookie("=value", URL, NOW_US))
+
+    def test_max_age(self) -> None:
+        """Max-Age counts from the creation time, capped at 400 days (MaybeCapMaxAge)."""
+        result = parsed("a=1; Max-Age=60")
+        self.assertEqual(result.expiry_ms, result.created // 1000 + 60_000)
+        self.assertFalse(result.session)
+        capped = parsed("a=1; Max-Age=999999999999")
+        self.assertEqual(capped.expiry_ms, capped.created // 1000 + 34_560_000_000)
+
+    def test_max_age_wins_over_expires_unless_it_is_not_a_number(self) -> None:
+        """Max-Age overrides Expires; one with a non-digit is ignored (ParseMaxAgeAttribute)."""
+        expires = "Expires=Thu, 15 Jan 2027 09:00:00 GMT"
+        five = parsed(f"a=1; {expires}; Max-Age=5")
+        self.assertEqual(five.expiry_ms, five.created // 1000 + 5000)
+        self.assertEqual(parsed(f"a=1; {expires}; Max-Age=5s").expiry_ms, NOW + HOUR_MS)
+
+    def test_negative_max_age_is_expired(self) -> None:
+        """A Max-Age starting with "-" expires the cookie at once."""
+        self.assertTrue(parsed("a=1; Max-Age=-1").expired(NOW))
+        self.assertTrue(parsed("a=; Max-Age=0").expired(NOW))
+
+    def test_expires_follows_the_servers_clock(self) -> None:
+        """Expires is moved by the gap between this clock and the Date header (GetExpiry).
+
+        The server's clock is an hour behind: an Expires an hour after its
+        Date is an hour after now here.
+        """
+        date = "Thu, 15 Jan 2027 07:00:00 GMT"
+        result = parsed("a=1; Expires=Thu, 15 Jan 2027 08:00:00 GMT", date=date)
+        self.assertEqual(result.expiry_ms, result.created // 1000 + HOUR_MS)
+
+    def test_unparsable_expires_is_a_session_cookie(self) -> None:
+        """An Expires PR_ParseTimeString cannot read leaves a session cookie."""
+        self.assertTrue(parsed("a=1; Expires=soon").session)
 
     def test_attributes(self) -> None:
-        """Max-Age sets the expiry, and the flags are kept."""
-        parsed = jar.parse_set_cookie(
-            "a=1; Max-Age=60; Secure; HttpOnly; SameSite=Strict", URL, NOW
-        )
-        if parsed is None:
-            self.fail("the cookie was ignored")
-        self.assertEqual(parsed.expiry_ms, NOW + 60_000)
+        """Secure, HttpOnly and SameSite are kept as nsICookie's values."""
+        result = parsed("a=1; Max-Age=60; Secure; HttpOnly; SameSite=Strict")
         self.assertEqual(
-            (parsed.secure, parsed.http_only, parsed.same_site),
+            (result.secure, result.http_only, result.same_site),
             (True, True, jar.SAME_SITE_STRICT),
         )
 
-    def test_apply_replaces_and_deletes(self) -> None:
-        """A newer value replaces the cookie; Max-Age=0 leaves a tombstone that is never sent."""
-        start = jar.apply([], URL, ["a=1; Path=/", "b=2; Path=/"], NOW)
-        later = jar.apply(start, URL, ["a=3; Path=/", "b=; Path=/; Max-Age=0"], NOW)
-        self.assertEqual(jar.header(jar.for_request(later, URL, NOW)), "a=3")
-        self.assertEqual([c.name for c in later if c.expiry_ms <= NOW], ["b"])
+    def test_same_site_values(self) -> None:
+        """None 0, Lax 1, Strict 2, absent or unknown 256 (nsICookie.idl, Bug 1682450)."""
+        for attribute, value in (
+            ("; SameSite=None; Secure", 0),
+            ("; SameSite=lax", 1),
+            ("; SameSite=STRICT", 2),
+            ("", 256),
+            ("; SameSite=bogus", 256),
+        ):
+            with self.subTest(attribute=attribute):
+                self.assertEqual(parsed(f"a=1{attribute}").same_site, value)
 
-    def test_deletion_shadows_a_stored_cookie(self) -> None:
-        """A Set-Cookie deletion wins over the stored jar it deletes from, through merge."""
-        stored = [jar.Cookie("sid", "OLD", "www.example.org", "/", LATER, secure=True, created=1)]
-        received = jar.apply([], URL, ["sid=; Path=/; Max-Age=0"], NOW)
-        self.assertEqual(jar.for_request(jar.merge(received, stored), URL, NOW), [])
+    def test_same_site_none_needs_secure(self) -> None:
+        """network.cookie.sameSite.noneRequiresSecure refuses SameSite=None without Secure."""
+        self.assertIsNone(jar.parse_set_cookie("a=1; SameSite=None", URL, NOW_US))
 
-    def test_live_drops_expired_rows(self) -> None:
-        """An expired stored row is not a cookie at all."""
-        dead = jar.Cookie("a", "old", "example.org", "/", NOW - 1, secure=True, created=1)
-        kept = jar.Cookie("b", "new", "example.org", "/", LATER, secure=True, created=1)
-        self.assertEqual(jar.live([dead, kept], NOW), [kept])
+    def test_secure_needs_a_secure_origin(self) -> None:
+        """A Secure cookie from http is refused (eRejectedSecureButNonHttps)."""
+        self.assertIsNone(jar.parse_set_cookie("a=1; Secure", "http://example.org/", NOW_US))
+        self.assertEqual(parsed("a=1", "http://example.org/").scheme_map, jar.SCHEME_HTTP)
+        self.assertEqual(parsed("a=1").scheme_map, jar.SCHEME_HTTPS)
 
-    def test_merge_prefers_the_first(self) -> None:
-        """On the same name, host and path, the preferred jar's cookie is the one kept."""
-        mine = jar.Cookie(
-            "cf_clearance", "camoufox", ".example.org", "/", LATER, secure=True, created=5
+    def test_partitioned(self) -> None:
+        """Partitioned needs Secure, and puts the cookie in the page's own site partition."""
+        self.assertIsNone(jar.parse_set_cookie("a=1; Partitioned", URL, NOW_US))
+        result = parsed("a=1; Secure; Partitioned")
+        self.assertEqual(result.partition, "(https,example.org)")
+        self.assertEqual(result.origin_attributes, "^partitionKey=%28https%2Cexample.org%29")
+
+    def test_prefixes(self) -> None:
+        """__Host- wants Secure, no Domain and Path=/ as sent; __Secure- wants Secure."""
+        self.assertEqual(parsed("__Host-a=1; Secure; Path=/").path, "/")
+        for line in (
+            "__Host-a=1; Secure",
+            "__host-a=1; Path=/",
+            "__Host-a=1; Secure; Path=/; Domain=example.org",
+            "__Secure-a=1",
+            "__Http-a=1; Secure",
+        ):
+            with self.subTest(line=line):
+                self.assertIsNone(jar.parse_set_cookie(line, URL, NOW_US))
+
+    def test_invalid_characters(self) -> None:
+        """A control character in an attribute refuses the cookie; ";" never reaches a value."""
+        self.assertIsNone(jar.parse_set_cookie("a=1; Path=/\x01", URL, NOW_US))
+        self.assertIsNone(jar.parse_set_cookie("a\x7f=1", URL, NOW_US))
+        self.assertEqual(parsed("a=1;2").value, "1")
+
+    def test_oversized(self) -> None:
+        """Name and value over 4096 bytes refuse the cookie; an attribute over 1024 is ignored."""
+        self.assertIsNone(jar.parse_set_cookie("a=" + "x" * 4096, URL, NOW_US))
+        self.assertEqual(len(parsed("a=" + "x" * 4095).value), 4095)
+        self.assertEqual(parsed("a=1; Path=/" + "p" * 1024).path, "/a")
+
+    def test_later_attribute_wins(self) -> None:
+        """A repeated Path, Domain, Expires or Max-Age takes the last one (CheckAttributeSize)."""
+        self.assertEqual(parsed("a=1; Path=/x; Path=/y").path, "/y")
+
+    def test_creation_times_are_unique(self) -> None:
+        """Two cookies of one response never share a creation time (GenerateUniqueCreationTime)."""
+        first, second = parsed("a=1"), parsed("b=1")
+        self.assertLess(first.created, second.created)
+        self.assertEqual((first.accessed, first.updated), (NOW_US, first.created))
+
+
+class JarTest(FreshClock):
+    """A fetch's responses applied to the jar, as CookieStorage::AddCookie applies them."""
+
+    def stored(self, *cookies: jar.Cookie) -> jar.Jar:
+        """A jar holding the given rows."""
+        return jar.Jar.of(cookies)
+
+    def test_replacement_keeps_the_creation_time(self) -> None:
+        """A cookie replacing a live one keeps its creation time, for ordering."""
+        old = replace(parsed("sid=old; Max-Age=600; Path=/"), created=5)
+        cookies = self.stored(old)
+        cookies.receive(URL, ["sid=new; Max-Age=600; Path=/"], NOW_US + 1000, None)
+        (new,) = cookies.pending()
+        self.assertEqual((new.value, new.created), ("new", 5))
+
+    def test_deletion_shadows_the_stored_row(self) -> None:
+        """A deletion of a stored cookie is a change, and the cookie is no longer sent."""
+        cookies = self.stored(parsed("sid=old; Max-Age=600; Path=/"))
+        cookies.receive(URL, ["sid=; Path=/; Max-Age=0"], NOW_US + 1000, None)
+        self.assertEqual([c.name for c in cookies.pending()], ["sid"])
+        self.assertEqual(jar.for_request(cookies.cookies(), URL, NOW + 1), [])
+
+    def test_deleting_what_is_not_there_changes_nothing(self) -> None:
+        """An expired cookie with no live one of its key is dropped ("already expired")."""
+        cookies = self.stored()
+        cookies.receive(URL, ["sid=; Max-Age=0"], NOW_US, None)
+        self.assertEqual(cookies.pending(), [])
+
+    def test_same_cookie_again_changes_nothing(self) -> None:
+        """An identical cookie set within the stale threshold leaves the old one."""
+        cookies = self.stored()
+        line = "sid=1; Expires=Thu, 15 Jan 2027 09:00:00 GMT; Path=/"
+        cookies.receive(URL, [line], NOW_US, None)
+        cookies.unsaved.clear()
+        cookies.receive(URL, [line], NOW_US + 1_000_000, None)
+        self.assertEqual(cookies.pending(), [])
+
+    def test_received_cookies_win_and_reach_the_next_request(self) -> None:
+        """A cookie a response set is sent with the next request, over the stored one."""
+        cookies = self.stored(replace(parsed("sid=old; Max-Age=600; Path=/"), created=5))
+        cookies.receive(URL, ["sid=new; Path=/"], NOW_US + 1000, None)
+        self.assertEqual(jar.header(jar.for_request(cookies.cookies(), URL, NOW + 2)), "sid=new")
+
+
+class DatabaseTest(FreshClock):
+    """cookies.sqlite at schema 17, written and read as Gecko does."""
+
+    def setUp(self) -> None:
+        """A profile directory without a database."""
+        super().setUp()
+        holder = tempfile.TemporaryDirectory(prefix="browser-fetch-test-")
+        self.addCleanup(holder.cleanup)
+        self.database = Path(holder.name) / "profile" / jar.DB_NAME
+
+    def store(self, *cookies: jar.Cookie, now: int = NOW_US) -> int:
+        """Write the cookies."""
+        return jar.store(self.database, cookies, now)
+
+    def test_new_database_is_geckos(self) -> None:
+        """A database written first here has Gecko's version, table and page size."""
+        self.store(parsed("a=1; Max-Age=60"))
+        self.assertEqual(pragma(self.database, "user_version"), 17)
+        self.assertEqual(pragma(self.database, "page_size"), 32768)
+        connection = sqlite3.connect(self.database)
+        try:
+            sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'moz_cookies'"
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(sql, SCHEMA)
+
+    def test_row_roundtrip(self) -> None:
+        """Every column of the row as Gecko's insert binds it, and the same cookie read back.
+
+        expiry is in milliseconds, lastAccessed, creationTime and updateTime
+        in microseconds (GetCookieFromRow); inBrowserElement keeps its default.
+        """
+        written = parsed(
+            "sid=abc; Max-Age=3600; Domain=example.org; Path=/; Secure; HttpOnly; SameSite=Lax"
         )
-        theirs = jar.Cookie(
-            "cf_clearance", "librewolf", ".example.org", "/", LATER, secure=True, created=1
-        )
-        other = jar.Cookie("sid", "s", ".example.org", "/", LATER, secure=True, created=1)
-        merged = jar.merge([mine], [theirs, other])
+        self.store(written)
+        (row,) = rows(self.database)
         self.assertEqual(
-            sorted((c.name, c.value) for c in merged),
-            [("cf_clearance", "camoufox"), ("sid", "s")],
+            {k: v for k, v in row.items() if k != "id"},
+            {
+                "originAttributes": "",
+                "name": "sid",
+                "value": "abc",
+                "host": ".example.org",
+                "path": "/",
+                "expiry": written.created // 1000 + 3_600_000,
+                "lastAccessed": NOW_US,
+                "creationTime": written.created,
+                "isSecure": 1,
+                "isHttpOnly": 1,
+                "inBrowserElement": 0,
+                "sameSite": 1,
+                "schemeMap": 2,
+                "isPartitionedAttributeSet": 0,
+                "updateTime": written.created,
+            },
+        )
+        self.assertEqual(jar.read(self.database), [written])
+
+    def test_session_cookie_is_never_stored(self) -> None:
+        """Gecko writes no session cookie (StoreCookie returns early on IsSession)."""
+        self.assertEqual(self.store(parsed("s=1; Path=/")), 0)
+        self.assertEqual(rows(self.database), [])
+
+    def test_session_cookie_replacing_a_stored_one_removes_its_row(self) -> None:
+        """Replacing a persistent cookie removes its row; the session cookie stays in memory."""
+        self.store(parsed("s=1; Max-Age=600; Path=/"))
+        cookies = jar.Jar.of(jar.read(self.database))
+        cookies.receive(URL, ["s=2; Path=/"], NOW_US + 1000, None)
+        self.store(*cookies.pending(), now=NOW_US + 1000)
+        self.assertEqual(rows(self.database), [])
+
+    def test_deletion_removes_the_row(self) -> None:
+        """A Set-Cookie that expires the cookie deletes its row (RemoveCookieFromDB)."""
+        self.store(parsed("d=1; Max-Age=600; Path=/"), parsed("keep=1; Max-Age=600; Path=/"))
+        cookies = jar.Jar.of(jar.read(self.database))
+        cookies.receive(URL, ["d=; Max-Age=0; Path=/"], NOW_US + 1000, None)
+        self.store(*cookies.pending(), now=NOW_US + 1000)
+        self.assertEqual([row["name"] for row in rows(self.database)], ["keep"])
+
+    def test_replacement_on_the_unique_key(self) -> None:
+        """One row per name, host, path and originAttributes: a new value replaces the row.
+
+        The creation time stays the first cookie's (AddCookie); updateTime
+        and lastAccessed are the new one's. Another path is another row.
+        """
+        first = parsed("r=1; Max-Age=600; Path=/")
+        self.store(first)
+        later = NOW_US + 5_000_000
+        second = parsed("r=2; Max-Age=600; Path=/", now=later)
+        self.store(second, parsed("r=3; Max-Age=600; Path=/x", now=later), now=later)
+        replaced = [row for row in rows(self.database) if row["path"] == "/"]
+        self.assertEqual(len(rows(self.database)), 2)
+        self.assertEqual(
+            [(r["value"], r["creationTime"], r["updateTime"], r["lastAccessed"]) for r in replaced],
+            [("2", first.created, second.created, later)],
         )
 
+    def test_identical_cookie_leaves_the_row(self) -> None:
+        """The same cookie again within the stale threshold changes nothing."""
+        line = "i=1; Expires=Thu, 15 Jan 2027 09:00:00 GMT; Path=/"
+        self.store(parsed(line))
+        before = rows(self.database)
+        self.assertEqual(self.store(parsed(line, now=NOW_US + 1_000_000)), 0)
+        self.assertEqual(rows(self.database), before)
 
-class ProfileTest(unittest.TestCase):
-    """Which profile profiles.ini names as the default."""
+    def test_partitioned_row(self) -> None:
+        """A Partitioned cookie of a top-level page is keyed by the page's site partition.
 
-    def test_install_default_wins(self) -> None:
-        """An Install section's Default names the profile."""
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "profiles.ini").write_text(
-                "[Profile0]\nName=a\nPath=a.default\nDefault=1\n\n[InstallABC]\nDefault=b.main\n"
-            )
-            self.assertEqual(jar.default_profile(root), root / "b.main")
+        It has its own row beside an unpartitioned cookie of the same name,
+        host and path, and is read back for that site only.
+        """
+        self.store(
+            parsed("p=chips; Max-Age=600; Path=/; Secure; Partitioned"),
+            parsed("p=plain; Max-Age=600; Path=/; Secure"),
+        )
+        by_value = {row["value"]: row for row in rows(self.database)}
+        self.assertEqual(
+            (by_value["chips"]["originAttributes"], by_value["chips"]["isPartitionedAttributeSet"]),
+            ("^partitionKey=%28https%2Cexample.org%29", 1),
+        )
+        self.assertEqual(
+            (by_value["plain"]["originAttributes"], by_value["plain"]["isPartitionedAttributeSet"]),
+            ("", 0),
+        )
+        read = jar.read(self.database)
+        self.assertEqual(
+            sorted(c.value for c in jar.for_request(read, URL, NOW + 1)), ["chips", "plain"]
+        )
+        self.assertEqual(
+            [c.value for c in jar.for_request(read, "https://www.other.org/", NOW + 1)], []
+        )
 
-    def test_no_ini(self) -> None:
-        """A missing profiles.ini is an error."""
-        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(jar.CookieError):
-            jar.default_profile(Path(tmp))
+    def test_other_schema_versions_are_refused(self) -> None:
+        """Neither read nor write touches a database at another version, which stays as it was."""
+        self.store(parsed("a=1; Max-Age=600"))
+        for version in (16, 18, 0):
+            with self.subTest(version=version):
+                connection = sqlite3.connect(self.database)
+                connection.execute(f"PRAGMA user_version = {version}")
+                connection.commit()
+                connection.close()
+                before = rows(self.database)
+                with self.assertRaisesRegex(jar.CookieError, f"schema version {version}"):
+                    self.store(parsed("b=1; Max-Age=600"))
+                with self.assertRaisesRegex(jar.CookieError, f"schema version {version}"):
+                    jar.read(self.database)
+                self.assertEqual(rows(self.database), before)
+                self.assertEqual(pragma(self.database, "user_version"), version)
+
+    def test_empty_file_gets_the_table(self) -> None:
+        """An empty database file gets Gecko's table, as TryInitDB creates it."""
+        self.database.parent.mkdir()
+        self.database.touch()
+        self.assertEqual(jar.read(self.database), [])
+        self.store(parsed("a=1; Max-Age=600"))
+        self.assertEqual(pragma(self.database, "user_version"), 17)
+        self.assertEqual(len(rows(self.database)), 1)
+
+    def test_no_connection_outlives_a_write(self) -> None:
+        """No -wal or -shm file is left: the last connection closed, so SQLite checkpointed."""
+        self.store(parsed("a=1; Max-Age=600"))
+        self.assertEqual(pragma(self.database, "journal_mode"), "wal")
+        leftovers = [p.name for p in self.database.parent.iterdir() if p.name != jar.DB_NAME]
+        self.assertEqual(leftovers, [])
+
+    def test_rows_gecko_leaves_out(self) -> None:
+        """The rows a top-level request reads, and those of other jars or Gecko drops.
+
+        Gecko asks the unpartitioned jar and the site's partition, taking
+        only Partitioned cookies from it (CookieService.cpp); Read() drops
+        nameless rows and domain rows of a public suffix; a partition of a
+        foreign ancestor (",f") is another site's.
+        """
+        self.store(parsed("seed=1; Max-Age=600"))
+        connection = sqlite3.connect(self.database)
+        key = "^partitionKey=%28https%2Cexample.org%29"
+        connection.executemany(
+            "INSERT INTO moz_cookies (originAttributes, name, value, host, path, expiry,"
+            " lastAccessed, creationTime, isSecure, isHttpOnly, isPartitionedAttributeSet)"
+            " VALUES (?, ?, 'v', ?, '/', ?, 1, 1, 1, 0, ?)",
+            [
+                (o, n, h, LATER, p)
+                for o, n, h, p in (
+                    ("", "plain", "example.org", 0),
+                    (key, "chips", "example.org", 1),
+                    (key, "unflagged", "example.org", 0),
+                    ("^partitionKey=%28https%2Cexample.org%2Cf%29", "ancestor", "example.org", 1),
+                    ("^partitionKey=%28https%2Cother.org%29", "foreign", "example.org", 1),
+                    ("^userContextId=1", "container", "example.org", 0),
+                    ("^firstPartyDomain=example.org", "fpi", "example.org", 0),
+                    ("^privateBrowsingId=1", "private", "example.org", 0),
+                    (f"{key}&userContextId=1", "both", "example.org", 1),
+                    ("", "", "example.org", 0),
+                    ("", "suffix", ".org", 0),
+                    ("", "crlf", "example.org", 0),
+                )
+            ],
+        )
+        connection.execute("UPDATE moz_cookies SET value = 'a\r\nX: y' WHERE name = 'crlf'")
+        connection.commit()
+        connection.close()
+        sent = jar.for_request(jar.read(self.database), "https://example.org/", NOW)
+        self.assertEqual(sorted(names(sent)), ["chips", "plain"])
+
+    def test_store_of_nothing_creates_nothing(self) -> None:
+        """No change, no database."""
+        self.assertEqual(self.store(), 0)
+        self.assertFalse(self.database.exists())

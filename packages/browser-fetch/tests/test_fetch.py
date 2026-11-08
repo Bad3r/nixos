@@ -3,10 +3,8 @@
 
 import dataclasses
 import fcntl
-import json
 import os
 import shutil
-import sqlite3
 import tempfile
 import unittest
 import unittest.mock
@@ -17,48 +15,41 @@ from browser_fetch import browser, challenge, curl, fetch, urls
 from browser_fetch import cookies as jar
 
 from tests.fakes import PUBLIC_ADDRESS, FakeBrowser, fake_curl, public
-from tests.test_cookies import LATER, SCHEMA
+from tests.test_cookies import LATER
 
 FIXTURES = Path(__file__).parent / "fixtures"
 HTML = {"Content-Type": "text/html; charset=utf-8"}
 PAGE = "<h1>Hello</h1><p>" + "words " * 40 + "</p>"
 IDENTITY = curl.Identity("Camoufox/UA", "en-US,en;q=0.9")
 URL = "https://a.example/"
+BUSY = "another fetch kept the browser profile busy; try again"
+
+
+def profile_cookie(name: str, value: str, host: str, path: str = "/") -> jar.Cookie:
+    """A persistent cookie of the profile's jar."""
+    return jar.Cookie(name, value, host, path, LATER, secure=True, created=1)
 
 
 class FetchTest(unittest.TestCase):
     """fetch.fetch against a fake curl and a fake browser."""
 
     def setUp(self) -> None:
-        """Create a LibreWolf root with cookies for two hosts, and a fake curl."""
+        """A profile jar with cookies for two hosts, a fake browser and a fake curl."""
         self.fake, self.holder = fake_curl()
         self.tmp = Path(tempfile.mkdtemp(prefix="browser-fetch-test-"))
-        root = self.tmp / "librewolf"
-        profile = root / "p.default"
-        profile.mkdir(parents=True)
-        (root / "profiles.ini").write_text("[Profile0]\nName=p\nPath=p.default\nDefault=1\n")
-        db = sqlite3.connect(profile / jar.DB_NAME)
-        db.execute(SCHEMA)
-        db.executemany(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " creationTime, isSecure) values ('', ?, ?, ?, ?, ?, 1, 1)",
-            [
-                ("a", "va", "a.example", "/", LATER),
-                ("www", "vw", "www.a.example", "/", LATER),
-                ("deep", "vd", "a.example", "/deep", LATER),
-                ("b", "vb", "b.example", "/", LATER),
-                ("lan", "vl", "10.1.2.3", "/", LATER),
-                ("cf", "librewolf", ".a.example", "/", LATER),
-            ],
-        )
-        db.commit()
-        db.close()
-        patch = unittest.mock.patch.object(jar, "librewolf_root", return_value=root)
-        patch.start()
-        self.addCleanup(patch.stop)
         self.work = self.tmp / "work"
         self.work.mkdir()
-        self.browser = FakeBrowser(identity_value=IDENTITY)
+        self.browser = FakeBrowser(
+            identity_value=IDENTITY,
+            own=[
+                profile_cookie("a", "va", "a.example"),
+                profile_cookie("www", "vw", "www.a.example"),
+                profile_cookie("deep", "vd", "a.example", "/deep"),
+                profile_cookie("b", "vb", "b.example"),
+                profile_cookie("lan", "vl", "10.1.2.3"),
+                profile_cookie("cf", "earned", ".a.example"),
+            ],
+        )
         self.settings = fetch.Settings(
             curl=self.fake.path,
             browser=self.browser,
@@ -96,7 +87,7 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(page.outcome, "ok")
         self.assertEqual(
             self.cookies_sent(),
-            ["a=va; cf=librewolf", "www=vw; cf=librewolf", "www=vw; cf=librewolf"],
+            ["a=va; cf=earned", "www=vw; cf=earned", "www=vw; cf=earned"],
         )
         self.assertIn("# Hello", page.text)
 
@@ -115,17 +106,6 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(page.outcome, "ok")
         self.assertIn("gate=passed", self.cookies_sent()[1])
 
-    def test_browser_cookie_wins_over_librewolf(self) -> None:
-        """On the same name, host and path, curl sends the browser's earned cookie."""
-        self.browser.own = [
-            jar.Cookie("cf", "camoufox", ".a.example", "/", LATER, secure=True, created=9)
-        ]
-        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
-        fetch.fetch("https://a.example/", self.settings)
-        sent = self.cookies_sent()[0]
-        self.assertIn("cf=camoufox", sent)
-        self.assertNotIn("librewolf", sent)
-
     def test_identity_headers_reach_curl(self) -> None:
         """Curl sends the browser fingerprint's User-Agent and languages."""
         self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
@@ -143,13 +123,9 @@ class FetchTest(unittest.TestCase):
 
         settings = dataclasses.replace(self.settings, resolve=resolve)
         for url in ("https://10.1.2.3/", "https://lan.example/", "https://loop.example/"):
-            with (
-                self.subTest(url=url),
-                unittest.mock.patch.object(jar, "default_profile") as profile,
-                self.assertRaises(urls.PrivateAddressError),
-            ):
+            with self.subTest(url=url), self.assertRaises(urls.PrivateAddressError):
                 fetch.fetch(url, settings)
-            profile.assert_not_called()
+        self.assertEqual((self.browser.reads, self.browser.stored), (0, []))
         self.assertEqual(self.fake.calls(), [])
         self.assertIsNone(self.browser.calls)
 
@@ -226,13 +202,20 @@ class FetchTest(unittest.TestCase):
         return browser.Rendered(**values)
 
     def test_challenge_goes_to_the_browser_with_all_cookies_seen(self) -> None:
-        """A challenge is rendered with LibreWolf's jar and the cookies its response set."""
+        """A challenge is rendered on the profile, given the cookies its response set.
+
+        They are written by the render, before the browser starts, and not again after it.
+        """
         challenge_page = (FIXTURES / "cloudflare-indeed.txt").read_text()
         self.fake.serve(
             {
                 "https://a.example/": {
                     "status": 403,
-                    "headers": {**HTML, "cf-mitigated": "challenge", "Set-Cookie": "__cf_bm=x"},
+                    "headers": {
+                        **HTML,
+                        "cf-mitigated": "challenge",
+                        "Set-Cookie": "__cf_bm=x; Max-Age=1800; Secure",
+                    },
                     "body": challenge_page,
                 }
             }
@@ -241,8 +224,8 @@ class FetchTest(unittest.TestCase):
         page = fetch.fetch("https://a.example/", self.settings)
         (call,) = self.browser.calls or []
         self.assertEqual(call["url"], "https://a.example/")
-        self.assertIn("a", [c.name for c in call["librewolf"]])
-        self.assertEqual([c.name for c in call["received"]], ["__cf_bm"])
+        self.assertEqual(([c.name for c in call["pending"]], call["keep"]), (["__cf_bm"], True))
+        self.assertEqual(self.browser.stored, [])
         self.assertEqual(
             (page.via, page.status, page.reason), ("browser", 200, "a Cloudflare challenge")
         )
@@ -398,17 +381,29 @@ class FetchTest(unittest.TestCase):
         self.assertFalse(page.converted)
 
     def test_no_cookies(self) -> None:
-        """--no-cookies reads no LibreWolf profile; the browser's own jar still counts."""
-        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
-        self.browser.own = [jar.Cookie("own", "x", "a.example", "/", LATER, secure=True, created=9)]
-        cookieless = dataclasses.replace(self.settings, use_cookies=False)
-        with unittest.mock.patch.object(jar, "default_profile") as profile:
-            fetch.fetch("https://a.example/", cookieless)
-        profile.assert_not_called()
-        self.assertEqual(self.cookies_sent(), ["own=x"])
+        """--no-cookies reads and writes no jar; the fetch's own cookies still go on later hops.
 
-    def test_deletion_on_a_redirect_is_not_undone_by_the_stored_jars(self) -> None:
-        """A Set-Cookie deletion of a LibreWolf cookie keeps it off every later hop."""
+        A fallback gets a throwaway profile (keep is off).
+        """
+        self.fake.serve(
+            {
+                "https://a.example/gate": {
+                    "status": 302,
+                    "headers": {"Location": "/", "Set-Cookie": "gate=1; Max-Age=60; Secure"},
+                },
+                "https://a.example/": {"status": 403, "headers": {"cf-mitigated": "challenge"}},
+            }
+        )
+        self.browser.rendered = self.rendered()
+        cookieless = dataclasses.replace(self.settings, use_cookies=False)
+        fetch.fetch("https://a.example/gate", cookieless)
+        self.assertEqual(self.cookies_sent(), ["", "gate=1"])
+        self.assertEqual((self.browser.reads, self.browser.stored), (0, []))
+        (call,) = self.browser.calls or []
+        self.assertFalse(call["keep"])
+
+    def test_deletion_on_a_redirect_is_not_undone_by_the_profile(self) -> None:
+        """A Set-Cookie deletion of a profile cookie keeps it off later hops and leaves its row."""
         self.fake.serve(
             {
                 "https://a.example/out": {
@@ -419,102 +414,130 @@ class FetchTest(unittest.TestCase):
             }
         )
         fetch.fetch("https://a.example/out", self.settings)
-        self.assertEqual(self.cookies_sent(), ["a=va; cf=librewolf", "cf=librewolf"])
+        self.assertEqual(self.cookies_sent(), ["a=va; cf=earned", "cf=earned"])
+        ((deleted,),) = self.browser.stored
+        self.assertEqual((deleted.name, deleted.expired(jar.now_us() // 1000)), ("a", True))
 
-    def test_deletion_reaches_the_browser_handoff(self) -> None:
-        """The deleted cookie's tombstone goes to the browser, and no live copy of it."""
+    def test_received_cookie_wins_over_the_profile(self) -> None:
+        """A cookie a response set replaces the profile's of its key on the next hop."""
+        self.fake.serve(
+            {
+                "https://a.example/next": {
+                    "status": 302,
+                    "headers": {
+                        "Location": "/",
+                        "Set-Cookie": "cf=fresh; Domain=a.example; Path=/; Max-Age=60; Secure",
+                    },
+                },
+                "https://a.example/": {"status": 200, "headers": HTML, "body": PAGE},
+            }
+        )
+        fetch.fetch("https://a.example/next", self.settings)
+        self.assertEqual(self.cookies_sent(), ["a=va; cf=earned", "a=va; cf=fresh"])
+
+    def test_received_cookies_are_saved_before_the_fetch_returns(self) -> None:
+        """Every change a response made is written once, persistent or session alike.
+
+        The jar's write drops the session cookie (test_cookies), but it may
+        replace a stored row, so it goes too.
+        """
         self.fake.serve(
             {
                 "https://a.example/": {
-                    "status": 403,
-                    "headers": {"cf-mitigated": "challenge", "Set-Cookie": "a=; Max-Age=0"},
-                }
+                    "status": 200,
+                    "headers": {**HTML, "Set-Cookie": "sid=1; Max-Age=60; Secure"},
+                    "body": PAGE,
+                },
             }
         )
-        self.browser.rendered = browser.Rendered("https://a.example/", 200, "text/html", PAGE)
         fetch.fetch("https://a.example/", self.settings)
-        (call,) = self.browser.calls or []
-        handed = browser.injection([], call["librewolf"], call["received"], URL, jar.now_ms())
-        self.assertNotIn("a", [c.name for c in handed])
-        self.assertIn("cf", [c.name for c in handed])
+        self.assertEqual([[c.name for c in batch] for batch in self.browser.stored], [["sid"]])
 
-    def test_expired_browser_cookie_does_not_hide_librewolfs(self) -> None:
-        """An expired Camoufox row loses to LibreWolf's live cookie of the same key."""
-        self.browser.own = [
-            jar.Cookie("cf", "camoufox", ".a.example", "/", 1, secure=True, created=9)
-        ]
-        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
-        fetch.fetch("https://a.example/", self.settings)
-        self.assertIn("cf=librewolf", self.cookies_sent()[0])
-
-    def test_killed_render_leaves_nothing_for_a_curl_only_fetch(self) -> None:
-        """After a SIGKILLed render, --no-cookies --browser never sends no injected cookie.
-
-        The profile holds the injected row and the journal, as a render killed
-        between add_cookies and its purge leaves them; the jar read purges
-        first and consumes the journal.
-        """
-        state = self.tmp / "state"
-        profile = state / browser.PROFILE
-        profile.mkdir(parents=True)
-        (state / browser.FINGERPRINT).write_text(
-            json.dumps(
-                {"browser": "v", "headers": {"user-agent": "UA", "accept-language": "en-US"}}
-            )
-        )
-        db = sqlite3.connect(profile / jar.DB_NAME)
-        db.execute(SCHEMA)
-        db.executemany(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " creationTime, isSecure) values ('', ?, ?, '.a.example', '/', ?, 1, 1)",
-            [("lent", "LIBREWOLF-CANARY", LATER), ("earned", "own", LATER)],
-        )
-        db.commit()
-        db.close()
-        journal = [
+    def test_cookies_are_saved_when_the_fetch_fails(self) -> None:
+        """A redirect's cookies are written even when the next hop fails."""
+        self.fake.serve(
             {
-                "name": "lent",
-                "host": ".a.example",
-                "path": "/",
-                "digest": browser.digest("LIBREWOLF-CANARY"),
+                "https://a.example/": {
+                    "status": 302,
+                    "headers": {"Location": "/next", "Set-Cookie": "sid=1; Max-Age=60; Secure"},
+                },
             }
-        ]
-        (state / browser.JOURNAL).write_text(json.dumps(journal))
-        camoufox = browser.Camoufox(
-            browser.Tools("unshare", "session", "v", "pasta"), state, self.work
         )
-        settings = dataclasses.replace(
-            self.settings, browser=camoufox, use_cookies=False, browser_mode="never"
+        with self.assertRaises(curl.TransportError):
+            fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual([[c.name for c in batch] for batch in self.browser.stored], [["sid"]])
+
+    def test_unsaved_cookies_are_reported(self) -> None:
+        """A profile still busy at the write leaves a warning on the page, or on the failure."""
+        self.browser.store_error = browser.BrowserError(BUSY)
+        set_cookie = {"Set-Cookie": "sid=1; Max-Age=60; Secure"}
+        self.fake.serve(
+            {
+                "https://a.example/": {
+                    "status": 200,
+                    "headers": {**HTML, **set_cookie},
+                    "body": PAGE,
+                },
+                "https://b.example/": {"status": 302, "headers": {"Location": "/x", **set_cookie}},
+            }
         )
-        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
-        page = fetch.fetch("https://a.example/", settings)
-        self.assertEqual((page.outcome, page.via), ("ok", "curl"))
-        self.assertEqual(self.cookies_sent(), ["earned=own"])
-        self.assertFalse((state / browser.JOURNAL).exists())
+        page = fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual(
+            (page.outcome, page.warnings), ("ok", [f"1 cookie changes were not saved: {BUSY}"])
+        )
+        with self.assertRaises(curl.TransportError) as failed:
+            fetch.fetch("https://b.example/", self.settings)
+        self.assertEqual(failed.exception.__notes__, [f"1 cookie changes were not saved: {BUSY}"])
+
+    def test_unreadable_jar_is_an_error(self) -> None:
+        """A database at another schema or corrupt fails the fetch before any request."""
+        self.browser.jar_error = jar.CookieError("schema version 18")
+        with self.assertRaisesRegex(jar.CookieError, "schema version 18"):
+            fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual(self.fake.calls(), [])
+
+    def camoufox(self, state: Path) -> browser.Camoufox:
+        """The real browser state handling, with no browser run."""
+        return browser.Camoufox(browser.Tools("unshare", "session", "v", "pasta"), state, self.work)
+
+    def test_profile_cookies_reach_the_next_fetch(self) -> None:
+        """A fetch's persistent cookie is in the profile for the next; its session cookie is not."""
+        camoufox = self.camoufox(self.tmp / "state")
+        settings = dataclasses.replace(self.settings, browser=camoufox, browser_mode="never")
+        self.fake.serve(
+            {
+                "https://a.example/set": {
+                    "status": 200,
+                    "headers": {
+                        **HTML,
+                        "Set-Cookie": [
+                            "kept=1; Max-Age=600; Secure; Path=/",
+                            "fleeting=1; Secure; Path=/",
+                        ],
+                    },
+                    "body": PAGE,
+                },
+                "https://a.example/": {"status": 200, "headers": HTML, "body": PAGE},
+            }
+        )
+        with unittest.mock.patch.object(camoufox, "identity", return_value=None):
+            fetch.fetch("https://a.example/set", settings)
+            fetch.fetch("https://a.example/", settings)
+        self.assertEqual(self.cookies_sent(), ["", "kept=1"])
 
     def test_a_busy_profile_is_left_out_not_read(self) -> None:
-        """While another fetch's session holds the profile, its jar is not read at all."""
+        """While another fetch's session holds the profile, the jar is not read, and it says so."""
         state = self.tmp / "state"
-        profile = state / browser.PROFILE
-        profile.mkdir(parents=True)
-        db = sqlite3.connect(profile / jar.DB_NAME)
-        db.execute(SCHEMA)
-        db.execute(
-            "insert into moz_cookies (originAttributes, name, value, host, path, expiry,"
-            " creationTime, isSecure) values ('', 'lent', 'x', '.a.example', '/', ?, 1, 1)",
-            (LATER,),
+        jar.store(
+            state / browser.PROFILE / jar.DB_NAME,
+            [profile_cookie("lent", "x", ".a.example")],
+            jar.now_us(),
         )
-        db.commit()
-        db.close()
         holder = os.open(state / browser.LOCK, os.O_RDWR | os.O_CREAT, 0o600)
         fcntl.flock(holder, fcntl.LOCK_EX)
         self.addCleanup(os.close, holder)
-        camoufox = browser.Camoufox(
-            browser.Tools("unshare", "session", "v", "pasta"), state, self.work
-        )
-        settings = dataclasses.replace(
-            self.settings, browser=camoufox, use_cookies=False, browser_mode="never"
-        )
+        camoufox = self.camoufox(state)
+        settings = dataclasses.replace(self.settings, browser=camoufox, browser_mode="never")
         self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
         with (
             unittest.mock.patch.object(camoufox, "identity", return_value=None),
@@ -522,7 +545,7 @@ class FetchTest(unittest.TestCase):
         ):
             page = fetch.fetch("https://a.example/", settings)
         self.assertEqual(self.cookies_sent(), [""])
-        self.assertIn("busy", " ".join(page.notes))
+        self.assertEqual(page.warnings, [f"no cookies were read: {BUSY}"])
 
     def test_curl_only_fetch_never_draws_a_fingerprint(self) -> None:
         """--browser never asks for a stored fingerprint only."""
