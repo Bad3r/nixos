@@ -69,10 +69,12 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "modules/apps/i3wm/_idle-screensaver.py" = ["CPY001"]
 "packages/*/update.py" = ["EXE003", "EXE005"]
+"packages/browser-fetch/tests/*" = ["PT009", "PT027"]
 "packages/kagi-search/tests/*" = ["PT009", "PT027"]
 "packages/sbx/tests/*" = ["PT009", "PT027"]
 "packages/warp-devices/tests/*" = ["PT009", "PT027"]
 "packages/workloads/tests/*" = ["PT009", "PT027"]
+"tests/camoufox-update/*" = ["PT009", "PT027"]
 # TODO: Remove each temporary quarantine in its own cleanup commit:
 # 1. packages/duplicati-r2-tools/**
 # 2. scripts/url-catalog-add.py
@@ -104,6 +106,12 @@ extraPaths = ["scripts"]
 root = "scripts"
 pythonVersion = "3.12"
 extraPaths = ["scripts"]
+
+# kagi-search imports browser-fetch's modules, as its package does.
+[[tool.pyright.executionEnvironments]]
+root = "packages/kagi-search"
+pythonVersion = "3.14"
+extraPaths = ["scripts", "packages/browser-fetch"]
 
 [[tool.pyright.executionEnvironments]]
 root = "."

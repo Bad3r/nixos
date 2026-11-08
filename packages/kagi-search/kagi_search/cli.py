@@ -12,7 +12,11 @@ import traceback
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
-from kagi_search import client, cookie
+from browser_fetch import cli as fetch_cli
+from browser_fetch import cookies as jar
+from browser_fetch import fetch, tools
+
+from kagi_search import client
 from kagi_search.log import FileLog, state_root
 from kagi_search.page import Hit, UnrecognizedPageError
 
@@ -37,10 +41,14 @@ def _limit(value: str) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kagi-search",
-        description="Search Kagi with the session of LibreWolf's default profile.",
+        description=(
+            "Search Kagi with the session in browser-fetch's cookie jar, through browser-fetch's "
+            "curl-impersonate. Sign in with 'browser-fetch login https://kagi.com'."
+        ),
         epilog=(
-            f"Exit status: {SESSION_EXIT} no session in LibreWolf, {SIGNED_OUT_EXIT} Kagi "
-            f"rejected it, {CHALLENGE_EXIT} bot challenge, {FAILURE_EXIT} other failure."
+            f"Exit status: {SESSION_EXIT} no Kagi session in browser-fetch's profile, "
+            f"{SIGNED_OUT_EXIT} Kagi rejected it, {CHALLENGE_EXIT} bot challenge, "
+            f"{FAILURE_EXIT} other failure."
         ),
     )
     parser.add_argument("query", nargs="+", help="the search query")
@@ -61,9 +69,29 @@ def run(
     limit: int | None = 10,
     since: dt.date | None = None,
 ) -> list[Hit]:
-    """Search with LibreWolf's session; raises SessionError or SearchError."""
-    session = cookie.read_session(cookie.default_profile(cookie.librewolf_root()))
-    return client.search(query, session, allowed=allowed, blocked=blocked, limit=limit, since=since)
+    """Search with the Kagi session in browser-fetch's jar.
+
+    Raises SessionError, CookieError, SearchError or UnrecognizedPageError;
+    what browser-fetch could not do, such as save a cookie, is logged.
+    """
+    with fetch_cli.workspace() as workdir:
+        settings = fetch.Settings(
+            curl=tools.CURL,
+            browser=fetch_cli.camoufox(workdir),
+            workdir=workdir,
+            save_dir=fetch_cli.save_dir(),
+            browser_mode="never",
+            deadline=client.DEADLINE_SECONDS,
+        )
+        requests = fetch.Client(settings)
+        try:
+            return client.search(
+                query, requests, allowed=allowed, blocked=blocked, limit=limit, since=since
+            )
+        finally:
+            log = FileLog(log_path())
+            for warning in requests.close():
+                log(f"search {query!r}: warning: {warning}")
 
 
 def render(hits: list[Hit]) -> str:
@@ -78,7 +106,8 @@ def render(hits: list[Hit]) -> str:
 
 
 EXIT_CODES: tuple[tuple[type[Exception], int], ...] = (
-    (cookie.SessionError, SESSION_EXIT),
+    (client.SessionError, SESSION_EXIT),
+    (jar.CookieError, SESSION_EXIT),
     (client.SignedOutError, SIGNED_OUT_EXIT),
     (client.ChallengeError, CHALLENGE_EXIT),
     (client.SearchError, FAILURE_EXIT),
@@ -105,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
     """Run the command line and return its exit status; failures are also logged."""
     args = _parser().parse_args(argv)
     query = " ".join(args.query)
+    os.umask(0o077)
+    fetch_cli.exit_on_signals()
     try:
         hits = run(query, allowed=args.allow, blocked=args.block, limit=args.limit or None)
         if args.json:

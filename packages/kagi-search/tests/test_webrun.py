@@ -15,7 +15,7 @@ import unittest.mock
 from pathlib import Path
 from typing import cast, override
 
-from kagi_search import cli, client, cookie, fetch, webrun
+from kagi_search import cli, client, fetch, webrun
 from kagi_search.page import Hit
 
 SEPARATOR = "-" * 80 + "\n"
@@ -953,7 +953,7 @@ class MainTest(WebRunTestCase):
     def test_kagi_failures_answer_as_the_service_503(self) -> None:
         """Any Kagi failure fails the call with Codex's 503 text; the reason goes to the log."""
         errors: list[Exception] = [
-            cookie.SessionError("no kagi_session cookie in x; sign in"),
+            client.SessionError(),
             client.SignedOutError(),
             client.ChallengeError(),
             client.SearchError("Kagi answered HTTP 502"),

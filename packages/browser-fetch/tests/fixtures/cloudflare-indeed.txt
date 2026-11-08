@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en-US">
+	<head>
+		<title>Security Check - Indeed.com</title>
+	</head>
+	<body>
+		<div>
+			<h1>Additional Verification Required</h1>
+			<noscript
+				><div>
+					<span>Please enable JavaScript and cookies to continue</span>
+				</div></noscript
+			>
+		</div>
+		<script>
+		(function () {
+			window._cf_chl_opt = { cFPWv: "b", cH: "trimmed" };
+			var a = document.createElement("script");
+			a.src =
+				"/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1?ray=trimmed";
+			document.getElementsByTagName("head")[0].appendChild(a);
+		})();
+		</script>
+	</body>
+</html>

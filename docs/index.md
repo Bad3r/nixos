@@ -380,6 +380,11 @@
 - [apps/herdr/README.md](apps/herdr/README.md)
   - Herdr configuration ownership and privacy boundaries.
 
+### browser-fetch
+
+- [apps/browser-fetch/README.md](apps/browser-fetch/README.md)
+  - Fetching pages with curl-impersonate and the cookie jar it shares with Camoufox and kagi-search, signing in to a site with `browser-fetch login`, the Camoufox fallback and its state, and the Claude Code WebFetch plugin.
+
 ### Cloudflare
 
 - [apps/cloudflare/README.md](apps/cloudflare/README.md)
@@ -461,7 +466,7 @@
 ### kagi-search
 
 - [apps/kagi-search/README.md](apps/kagi-search/README.md)
-  - Searching Kagi with LibreWolf's session, the Claude Code WebSearch plugin, and session failures.
+  - Searching Kagi with the session in browser-fetch's cookie jar, signing in with `browser-fetch login`, the Claude Code WebSearch plugin, and session failures.
 
 ### libvirt
 
