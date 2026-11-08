@@ -4,6 +4,7 @@
   fetchurl,
   unzip,
   autoPatchelfHook,
+  jq,
   makeWrapper,
   patchelfUnstable,
   python3Packages,
@@ -49,6 +50,7 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [
     unzip
     autoPatchelfHook
+    jq
     makeWrapper
     patchelfUnstable
   ];
@@ -66,9 +68,14 @@ stdenv.mkDerivation (finalAttrs: {
   dontConfigure = true;
   dontBuild = true;
 
+  # A Linux fingerprint reads only the font groups groups.json lists for
+  # "lin" (the launcher's _generate_fontconfig); the macOS- and
+  # Windows-only groups are dropped, and the build fails if Linux reads one.
   installPhase = ''
     runHook preInstall
     mkdir -p $out/lib $out/bin
+    jq -e '.readBy.lin - ["L", "LM", "LMW", "LW"] == []' camoufox/fonts/groups.json
+    rm -r camoufox/fonts/{M,MW,W}
     cp -r camoufox $out/lib/camoufox
     ln -s $out/lib/camoufox/camoufox $out/bin/camoufox
     runHook postInstall
@@ -104,7 +111,23 @@ stdenv.mkDerivation (finalAttrs: {
     description = "Firefox build that spoofs a consistent device fingerprint, driven through Playwright";
     homepage = "https://camoufox.com/";
     changelog = "https://github.com/daijro/camoufox/releases/tag/v${finalAttrs.version}";
-    license = lib.licenses.mpl20;
+    # The browser is MPL-2.0 and the bundled uBlock Origin GPL-3.0-or-later.
+    # The Linux font groups add their own licenses, and Adobe's Kozuka
+    # Mincho and Gothic Pr6N and Myriad Pro, which are not free.
+    license = with lib.licenses; [
+      mpl20
+      gpl3Plus
+      unfree
+      ofl
+      asl20
+      ufl
+      gpl2Only
+      agpl3Only
+      bitstreamVera
+      cc-by-40
+      arphicpl
+      mit
+    ];
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     platforms = [ "x86_64-linux" ];
     mainProgram = "camoufox";

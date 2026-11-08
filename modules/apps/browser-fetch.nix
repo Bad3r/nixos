@@ -48,6 +48,8 @@ let
     };
 in
 {
+  # Camoufox's Linux font groups carry Adobe fonts (packages/camoufox).
+  nixpkgs.allowedUnfreePackages = [ "camoufox" ];
   flake.nixosModules.apps.browser-fetch = BrowserFetchModule;
 
   perSystem =

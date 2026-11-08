@@ -91,7 +91,8 @@ buildPythonPackage {
 
   build-system = [ poetry-core ];
   nativeBuildInputs = [ pythonRelaxDepsHook ];
-  # Camoufox caps Playwright below the release nixpkgs ships; browser-fetch's check drives the pair.
+  # Camoufox caps Playwright below the release nixpkgs ships; browser-fetch's
+  # GuardTest launches this browser through the pair in its check.
   pythonRelaxDeps = [ "playwright" ];
 
   dependencies = [
@@ -122,6 +123,12 @@ buildPythonPackage {
   '';
 
   pythonImportsCheck = [ "camoufox" ];
+
+  # The launcher's model pin and the one fpgen carries must agree, or the
+  # first fingerprint fails at run time.
+  postInstallCheck = ''
+    ${python.interpreter} -c 'from camoufox.fpgen_model import is_pinned; assert is_pinned()'
+  '';
 
   passthru = { inherit fpgen model; };
 

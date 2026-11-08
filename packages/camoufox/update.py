@@ -103,19 +103,26 @@ def _member_json(archive: tarfile.TarFile, name: str) -> dict[str, Any]:
     return cast("dict[str, Any]", json.load(member))
 
 
-def paired_library(browser_version: str) -> tuple[str, str, dict[str, Any]]:
+def paired_library(
+    browser_version: str, floor: str | None = None
+) -> tuple[str, str, dict[str, Any]] | None:
     """Return the launcher release paired with the browser, its sdist sha256 and fpgen pin.
 
     A launcher release names its browser in browser-pin.json; the newest
-    stable one naming this browser is taken, and none is an error.
+    stable one naming this browser is taken. Releases older than floor, the
+    launcher pinned now, are not read. None when no release pairs yet:
+    Camoufox publishes a browser build before its launcher.
     """
     data = pypi("camoufox")
+    lowest = _stable(floor) if floor is not None else None
     versions = sorted(
         (v for v in cast("dict[str, Any]", data["releases"]) if _stable(v)),
         key=lambda v: _stable(v) or (),
         reverse=True,
     )
     for version in versions:
+        if lowest is not None and (_stable(version) or ()) < lowest:
+            break
         entry = sdist(cast("list[dict[str, Any]]", data["releases"][version]))
         with urllib.request.urlopen(str(entry["url"]), timeout=60) as response:  # noqa: S310 - PyPI https
             data_bytes = response.read()
@@ -126,8 +133,7 @@ def paired_library(browser_version: str) -> tuple[str, str, dict[str, Any]]:
                 continue
             model = _member_json(archive, prefix + "fpgen-model.json")
         return version, str(entry["digests"]["sha256"]), model
-    msg = f"No camoufox launcher release on PyPI pairs with browser {browser_version}"
-    raise RuntimeError(msg)
+    return None
 
 
 def latest_fpgen() -> tuple[str, str]:
@@ -166,7 +172,11 @@ def main() -> None:
         print("Already up to date")
         return
 
-    library, library_digest, model = paired_library(latest)
+    paired = paired_library(latest, str(data["libraryVersion"]))
+    if paired is None:
+        print(f"No camoufox launcher on PyPI pairs with browser {latest} yet; keeping {current}")
+        return
+    library, library_digest, model = paired
     model_url = str(model["url"])
     if not MODEL_URL.fullmatch(model_url):
         msg = f"Unexpected fpgen model URL: {model_url}"
