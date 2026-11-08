@@ -419,7 +419,7 @@ def fetch_page(url: str, deadline: float | None = None) -> Page:
     except urllib.error.URLError as error:
         raise _failure(error.reason, deadline) from None
     except (OSError, http.client.HTTPException) as error:
-        raise _failure(error or type(error).__name__, deadline) from None
+        raise _failure(str(error) or type(error).__name__, deadline) from None
     try:
         text = None if body is None else body.decode(_charset(declared, body), errors="replace")
     except (LookupError, UnicodeError, ValueError) as error:

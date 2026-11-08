@@ -977,11 +977,13 @@ class MainTest(WebRunTestCase):
                 self.assertIn(str(error), self.log_text())
 
     def test_log_file_is_private(self) -> None:
-        """The log file is created 0600 in a 0700 directory."""
+        """The log file is created 0600 in a 0700 directory; the state home keeps its mode."""
+        self.root.chmod(0o755)
         run_main(b"not json", state_home=self.root)
         log = self.root / "kagi-search" / "web-run.log"
         self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(log.parent.stat().st_mode), 0o700)
+        self.assertEqual(stat.S_IMODE(self.root.stat().st_mode), 0o755)
 
     def test_state_chores_never_cost_the_response(self) -> None:
         """A failing record or prune still prints the response; the reason goes to the log."""

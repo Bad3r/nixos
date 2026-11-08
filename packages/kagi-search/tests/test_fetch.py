@@ -199,3 +199,17 @@ class RedirectTest(unittest.TestCase):
         """charset=base64 names a codec that cannot decode text; the page decodes as UTF-8."""
         page = fetch.fetch_page(f"http://public.test:{self.port}/b64")
         self.assertEqual(page.body, "<title>Local</title><p>hello</p>")
+
+
+class FailureTest(unittest.TestCase):
+    """How a failed request is reported."""
+
+    def test_an_error_without_a_message_names_its_type(self) -> None:
+        """A connection error with an empty message is reported by its type."""
+        with (
+            unittest.mock.patch.object(
+                fetch.urllib.request.OpenerDirector, "open", side_effect=ConnectionResetError()
+            ),
+            self.assertRaisesRegex(fetch.FetchError, r"^request failed: ConnectionResetError$"),
+        ):
+            fetch.fetch_page("http://public.test/")

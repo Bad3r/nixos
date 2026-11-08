@@ -322,8 +322,9 @@ def state_name(session: str) -> str:
     return f"{readable}-{digest}"
 
 
-def _private_directory(path: Path) -> None:
-    for directory in (path.parent, path):
+def _private_directory(*directories: Path) -> None:
+    """Create the directories and make each one private, leaving their parents alone."""
+    for directory in directories:
         directory.mkdir(mode=DIRECTORY_MODE, parents=True, exist_ok=True)
         directory.chmod(DIRECTORY_MODE)
 
@@ -443,7 +444,7 @@ class Session:
 
     @contextlib.contextmanager
     def _locked(self) -> Generator[None]:
-        _private_directory(self.directory)
+        _private_directory(self.directory.parent, self.directory)
         descriptor = _acquire(self.lock_path, fcntl.LOCK_EX)
         if descriptor is None:
             msg = f"cannot lock {self.lock_path}"
@@ -788,7 +789,7 @@ def _query(call: _Call, request: Request, search: Searcher, query: Query) -> lis
         limit=HITS_PER_LENGTH[request.length],
         since=since,
     )
-    return filter_hits(filter_hits(hits, request.allowed, request.blocked), query.domains)
+    return filter_hits(hits, allowed, request.blocked)
 
 
 def _search(call: _Call, request: Request, search: Searcher, group: Group) -> None:
