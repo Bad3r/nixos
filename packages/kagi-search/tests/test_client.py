@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlsplit
 
-from browser_fetch import browser, curl, tools, urls
+from browser_fetch import browser, curl, tools
 from browser_fetch import cookies as jar
 from kagi_search import cli, client
 
@@ -41,10 +41,8 @@ with open(args[args.index("--output") + 1], "w") as body:
     body.write(answer.get("body", ""))
 given = answer.get("headers", {})
 headers = {k.lower(): v if isinstance(v, list) else [v] for k, v in given.items()}
-pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
-sys.stdout.write(f"{answer['status']:03d}\\n000\\n{pinned}\\n{json.dumps(headers)}")
+sys.stdout.write(f"{answer['status']:03d}\\n000\\n{json.dumps(headers)}")
 """
-PUBLIC = "93.184.215.14"
 SIGN_IN = "run `browser-fetch login https://kagi.com` and sign in"
 NO_SESSION = f"kagi-search: no Kagi session in browser-fetch's profile; {SIGN_IN}\n"
 DAY_MS = 86_400_000
@@ -59,7 +57,7 @@ class SearchTest(unittest.TestCase):
     """kagi-search's command line against a stand-in curl and a real jar."""
 
     def setUp(self) -> None:
-        """Throwaway state, runtime and cache directories, the stand-in curl, a public resolver."""
+        """Throwaway state, runtime and cache directories and the stand-in curl."""
         self.tmp = Path(tempfile.mkdtemp(prefix="kagi-search-test-"))
         self.addCleanup(shutil.rmtree, self.tmp)
         for name in ("state", "runtime", "cache", "curl"):
@@ -79,7 +77,6 @@ class SearchTest(unittest.TestCase):
         for patch in (
             unittest.mock.patch.dict(os.environ, env),
             unittest.mock.patch.object(tools, "CURL", str(fake)),
-            unittest.mock.patch.object(urls, "lookup", return_value=[PUBLIC]),
         ):
             patch.start()
             self.addCleanup(patch.stop)
@@ -179,7 +176,6 @@ class SearchTest(unittest.TestCase):
         self.assertEqual((url.scheme, url.netloc, url.path), ("https", "kagi.com", "/html/search"))
         self.assertEqual(parse_qs(url.query), {"q": ["nix flakes site:wiki.nixos.org -site:b.org"]})
         self.assertEqual(argv[argv.index("--impersonate") + 1], curl.IMPERSONATE)
-        self.assertEqual(argv[argv.index("--resolve") + 1], f"kagi.com:443:{PUBLIC}")
         self.assertNotIn("tok", " ".join(argv))
         headers = [
             line.removeprefix('header = "').removesuffix('"')
@@ -196,7 +192,8 @@ class SearchTest(unittest.TestCase):
         """A start date reaches Kagi as the from_date of its date-range filter."""
         self.jar_rows(self.session())
         cli.run("nix", since=dt.date(2026, 11, 1))
-        query = parse_qs(urlsplit(self.calls()[0]["argv"][-1]).query)
+        argv: list[str] = self.calls()[0]["argv"]
+        query = parse_qs(urlsplit(argv[-1]).query)
         self.assertEqual(query, {"q": ["nix"], "from_date": ["2026-11-01"]})
 
     def test_limit(self) -> None:

@@ -6,8 +6,7 @@ work directory, the page to page.html or page.body beside it. A login opens
 its window on the user's display instead, whose socket alone is bound in.
 
 The namespace has its own network, which browser.py connects with pasta once
-netns.ready appears; network.ready answers it. Routes to this machine and to
-private networks are then refused before anything else starts.
+netns.ready appears; network.ready answers it.
 """
 
 from __future__ import annotations
@@ -68,7 +67,6 @@ _MS_NOSUID = 2
 _MS_NODEV = 4
 _MS_BIND = 4096
 _MS_REC = 16384
-_IPV6 = 6
 _PR_CAP_AMBIENT = 47
 _PR_CAP_AMBIENT_CLEAR_ALL = 4
 # curl's proxy schemes (lib/peer.c, Curl_scheme_to_proxytype) as Playwright's
@@ -272,26 +270,9 @@ def await_network(workdir: Path, until: float) -> None:
         time.sleep(0.05)
 
 
-def confine_network() -> None:
-    """Refuse routes to this machine and private networks, and bring loopback up.
-
-    Rules ahead of the main table leave the namespace's own addresses, which
-    the local table answers first, and send nothing to a blocked range,
-    whatever address a name resolves to.
-    """
+def loopback_up() -> None:
+    """Bring the namespace's loopback up, for the session's own listeners."""
     _ip(["link", "set", "lo", "up"])
-    families: dict[int, list[str]] = {4: [], _IPV6: []}
-    for network in urls.BLOCKED_NETWORKS:
-        if not network.is_multicast:
-            families[network.version].append(str(network))
-    for version, networks in families.items():
-        if version == _IPV6 and not Path("/proc/net/if_inet6").exists():
-            continue
-        batch = "".join(
-            f"rule add prohibit to {network} pref {100 + index}\n"
-            for index, network in enumerate(networks)
-        )
-        _ip([f"-{version}", "-batch", "-"], batch)
 
 
 def _ip(args: list[str], stdin: str = "") -> None:
@@ -811,7 +792,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         private_tmp([workdir, state], [Path(str(request["socket"]))] if login else [])
         await_network(workdir, until)
-        confine_network()
+        loopback_up()
         drop_capabilities()
         if login:
             display = str(request["display"])

@@ -57,17 +57,11 @@ It also stores `SameSite=None` as unset, which Firefox treats the same while `ne
 `--no-cookies` neither reads nor writes the jar.
 curl still sends a cookie the site set on an earlier hop, and a fallback renders in a throwaway profile given those cookies.
 
-## Private networks
-
-A host is resolved before each request, including every redirect hop.
-One that resolves to this machine or a private, shared, link-local, ULA or documentation range is refused with exit 4, before any cookie is read or sent.
-curl connects only to the addresses that were checked, so a second DNS answer cannot move the request.
-
 ## Proxies
 
 curl takes its proxy from the first of `https_proxy`, `HTTPS_PROXY`, `all_proxy` and `ALL_PROXY` that is set and not empty.
 It reaches a host directly when `no_proxy`, or `NO_PROXY` if `no_proxy` is unset or empty, names it by [curl's rules](https://curl.se/libcurl/c/CURLOPT_NOPROXY.html).
-An HTTP, HTTPS, `socks5h` or `socks4a` proxy resolves the name itself; to a `socks5` or `socks4` proxy, curl sends the checked address.
+An HTTP, HTTPS, `socks5h` or `socks4a` proxy resolves the name itself; to a `socks5` or `socks4` proxy, curl sends the address it resolved.
 Camoufox goes through the proxy curl uses for the page it takes over, or directly when curl does, and has a SOCKS proxy resolve names.
 A redirect in Camoufox to the host's `www.` twin is reported, not followed, when curl would route the twin differently.
 A proxy at an IPv6 address, or a SOCKS proxy with credentials, fails the browser, since Playwright cannot give either to Firefox.
@@ -77,9 +71,8 @@ A proxy at an IPv6 address, or a SOCKS proxy with credentials, fails the browser
 A bot challenge or a page its scripts have yet to build goes to [Camoufox](../../../packages/camoufox/default.nix), driven by Playwright.
 The markers for Cloudflare, DataDome, PerimeterX and Akamai, and the threshold for a script-built page, live in [challenge.py](../../../packages/browser-fetch/browser_fetch/challenge.py).
 Camoufox runs headed on a private Xvfb display, in a user, mount, network and PID namespace that dies with `browser-fetch`, with its own `/tmp`.
-[pasta](https://passt.top/) gives that namespace internet access, with no mapping of the host's loopback or gateway and no port forwarding.
-Routing rules in the namespace refuse the ranges above, so no page or redirect reaches this machine or a private network, whatever a name resolves to.
-A proxy on this machine or a private network is out of the browser's reach, so the browser fails before it starts.
+[pasta](https://passt.top/) gives that namespace the host's network, with an address of `192.0.0.0/29` of its own, so the host's addresses and gateway are the real ones.
+A loopback port the host listens on is forwarded to the host's, so loopback, LAN and other private addresses, and proxies on them, are reached as curl reaches them; nothing connects into the namespace.
 It waits for the load and for a challenge to clear, within the bounds in [session.py](../../../packages/browser-fetch/browser_fetch/session.py).
 A page the browser ends on comes back with the status its document got.
 Outside 2xx that is an HTTP error, as from curl, so a challenge that does not clear in time on a 403 reads as that 403.
@@ -130,6 +123,7 @@ It follows Claude Code's own WebFetch: the haiku prompt, the 100,000-character c
 It preapproves no site, so every page, Markdown included, goes to haiku with the quote rules the built-in gives sites it does not preapprove.
 A same-host redirect is followed even out of a documentation path the built-in preapproves.
 It makes no domain safety check against `api.anthropic.com`.
+It fetches `localhost` and other hostnames without a dot, which the built-in refuses, and every address like any other; an http URL is upgraded to https, as the built-in upgrades every one.
 It answers the call before Claude Code's permission check, so WebFetch permission rules, the auto-mode classifier and PreToolUse hooks do not apply to it.
 A failed fetch puts its reason in the status line and refuses the call with the built-in tool's failure text, never falling back to it.
 Each of `browser-fetch`'s warnings follows the result, or that refusal, as a `[WebFetch warning: …]` note for the model.

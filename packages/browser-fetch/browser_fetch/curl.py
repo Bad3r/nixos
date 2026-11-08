@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import os
 import socket
@@ -17,8 +16,6 @@ from browser_fetch.redact import Redactor
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
     from pathlib import Path
-
-    from browser_fetch.urls import Pinned
 
 # curl-impersonate's target: TLS, HTTP/2 and the headers, as upstream ships it.
 IMPERSONATE = "firefox155"
@@ -115,12 +112,6 @@ def _header_lines(identity: Identity | None, cookie_header: str) -> str:
         # no "=" as a file name.
         headers.append(f"Cookie: {cookie_header}")
     return "".join(f"header = {_quote(line)}\n" for line in headers if not {"\r", "\n"} & set(line))
-
-
-def _resolve_entry(pinned: Pinned) -> str:
-    """Curl's --resolve entry: the URL's host and port to the checked addresses."""
-    listed = ",".join(f"[{a}]" if ":" in a else a for a in pinned.addresses)
-    return f"{pinned.host}:{pinned.port}:{listed}"
 
 
 def _first(environ: Mapping[str, str], names: tuple[str, ...]) -> str | None:
@@ -221,17 +212,6 @@ def _within(address: bytes, network: bytes, bits: int) -> bool:
     return rest == 0 or (address[whole] ^ network[whole]) >> (8 - rest) == 0
 
 
-def _connected_elsewhere(remote: str, pinned: Pinned, environ: Mapping[str, str]) -> bool:
-    # With a proxy, the proxy resolves the name and curl connects to the proxy.
-    if not remote or proxy(pinned.host, environ) is not None:
-        return False
-    try:
-        address = ipaddress.ip_address(remote)
-    except ValueError:
-        return True
-    return address not in {ipaddress.ip_address(a.split("%", 1)[0]) for a in pinned.addresses}
-
-
 def _proxy_refusal(connect: str) -> str | None:
     """Why the proxy refused the tunnel, from its CONNECT status; None when it did not."""
     try:
@@ -246,7 +226,7 @@ def _proxy_refusal(connect: str) -> str | None:
 
 
 def request(  # noqa: PLR0913 - keyword-only knobs of one request
-    pinned: Pinned,
+    url: str,
     *,
     cookies: list[jar.Cookie],
     identity: Identity | None,
@@ -255,13 +235,10 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
     curl: str,
     timeout: float,
 ) -> Response:
-    """GET the pinned URL without following redirects; the body lands in workdir.
+    """GET the URL without following redirects; the body lands in workdir.
 
-    curl connects only to the pinned addresses, so a second DNS answer
-    cannot move the request. The Cookie header travels in a private config
-    file, never in argv.
+    The Cookie header travels in a private config file, never in argv.
     """
-    url = pinned.url
     config = workdir / f"{name}.conf"
     body = workdir / f"{name}.body"
     redactor = Redactor([cookie.value for cookie in cookies])
@@ -282,14 +259,12 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         f"{max(timeout, 1.0):.0f}",
         "--max-filesize",
         str(MAX_BYTES),
-        "--resolve",
-        _resolve_entry(pinned),
         "--config",
         str(config),
         "--output",
         str(body),
         "--write-out",
-        "%{http_code}\n%{http_connect}\n%{remote_ip}\n%{header_json}",
+        "%{http_code}\n%{http_connect}\n%{header_json}",
         "--",
         url,
     ]
@@ -307,8 +282,7 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         raise TransportError(msg) from None
     finally:
         config.unlink(missing_ok=True)
-    status_line, connect_line, remote, header_json = [*ran.stdout.split("\n", 3), "", "", ""][:4]
-    elsewhere = _connected_elsewhere(remote.strip(), pinned, os.environ)
+    status_line, connect_line, header_json = [*ran.stdout.split("\n", 2), "", ""][:3]
     try:
         status = int(status_line)
         raw: dict[str, list[str]] = json.loads(header_json or "{}")
@@ -324,10 +298,7 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
             or redactor.scrub(ran.stderr.strip())
         )
         msg = f"request to {url} failed: {reason or f'curl exited {ran.returncode}'}"
-        raise TransportError(msg, {} if elsewhere else headers)
-    if elsewhere:
-        msg = f"request to {url} reached {remote.strip()}, not the address it was checked at"
-        raise TransportError(msg)
+        raise TransportError(msg, headers)
     if not status:
         msg = f"request to {url} returned no readable status"
         raise TransportError(msg)

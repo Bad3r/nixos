@@ -380,7 +380,7 @@ import time
 until = time.monotonic() + 20
 session.private_tmp([work], [target])
 session.await_network(work, until)
-session.confine_network()
+session.loopback_up()
 session.drop_capabilities()
 client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 client.connect(str(target))
@@ -504,14 +504,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         return
 
-confine = session.confine_network
+loopback_up = session.loopback_up
 
-def confine_then_serve():
-    confine()
+def loopback_then_serve():
+    loopback_up()
     server = http.server.ThreadingHTTPServer(("127.0.0.1", {port}), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
-session.confine_network = confine_then_serve
+session.loopback_up = loopback_then_serve
 sys.exit(session.main(sys.argv[1:]))
 """
 LOGIN_PORT = 8767

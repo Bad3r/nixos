@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from browser_fetch import cli as fetch_cli
 from browser_fetch import cookies as jar
-from browser_fetch import fetch, tools, urls
+from browser_fetch import fetch, tools
 
 from kagi_search import client
 from kagi_search.log import FileLog, state_root
@@ -82,7 +82,6 @@ def run(
             save_dir=fetch_cli.save_dir(),
             browser_mode="never",
             deadline=client.DEADLINE_SECONDS,
-            resolve=urls.lookup,
         )
         requests = fetch.Client(settings)
         try:

@@ -1,22 +1,20 @@
 # Copyright (c) 2026 Bad3r
 """The curl-impersonate call: argv, the private cookie file, failures."""
 
-import os
 import shutil
 import subprocess
 import tempfile
 import unittest
-import unittest.mock
 from pathlib import Path
 
 from browser_fetch import cookies as jar
-from browser_fetch import curl, tools, urls
+from browser_fetch import curl, tools
 
-from tests.fakes import PUBLIC_ADDRESS, fake_curl
+from tests.fakes import fake_curl
 
 SECRET = "s3cr3t-session-value"  # noqa: S105 - a stand-in cookie value
 COOKIES = [jar.Cookie("session", SECRET, "example.org", "/", 1, secure=True, created=1)]
-PINNED = urls.Pinned("https://example.org/", "example.org", 443, (PUBLIC_ADDRESS,))
+URL = "https://example.org/"
 IDENTITY = curl.Identity(
     "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0", "en-US,en;q=0.9"
 )
@@ -40,7 +38,7 @@ class RequestTest(unittest.TestCase):
     ) -> curl.Response:
         """Request the test URL with the secret cookie."""
         return curl.request(
-            PINNED,
+            URL,
             cookies=COOKIES if cookies is None else cookies,
             identity=identity,
             workdir=self.work,
@@ -114,7 +112,7 @@ class RequestTest(unittest.TestCase):
         self.fake.serve({"https://example.org/": {"status": 200}})
         quoted = [jar.Cookie("q", '"a\\b"', "example.org", "/", 1, secure=True, created=1)]
         curl.request(
-            PINNED,
+            URL,
             cookies=quoted,
             identity=None,
             workdir=self.work,
@@ -170,15 +168,10 @@ class RequestTest(unittest.TestCase):
                 with self.assertRaisesRegex(curl.TransportError, reason) as caught:
                     self.run_request()
                 self.assertEqual(caught.exception.headers["set-cookie"], cookies)
-        for route in (
-            {"status": 0, "exit": 7},
-            {"status": 200, "exit": 28, "headers": {"Set-Cookie": cookies}, "remote_ip": "1.1.1.1"},
-        ):
-            with self.subTest(route=route):
-                self.fake.serve({"https://example.org/": route})
-                with self.assertRaises(curl.TransportError) as caught:
-                    self.run_request()
-                self.assertEqual(caught.exception.headers, {})
+        self.fake.serve({"https://example.org/": {"status": 0, "exit": 7}})
+        with self.assertRaises(curl.TransportError) as caught:
+            self.run_request()
+        self.assertEqual(caught.exception.headers, {})
 
     def test_failure_text_never_carries_the_cookie(self) -> None:
         """Curl's own error text is passed on with cookie values masked."""
@@ -201,53 +194,32 @@ class RequestTest(unittest.TestCase):
         self.fake.serve({"https://example.org/": {"status": 301, "headers": {"Location": "/x"}}})
         self.assertEqual(self.run_request().header("location"), "/x")
 
-    def test_connection_is_pinned_to_the_checked_addresses(self) -> None:
-        """Curl resolves nothing itself: the URL's host maps to the checked addresses."""
-        self.fake.serve({"https://example.org:8443/": {"status": 200}})
-        pinned = urls.Pinned(
-            "https://example.org:8443/", "example.org", 8443, (PUBLIC_ADDRESS, "2606:2800::1")
-        )
-        curl.request(
-            pinned,
-            cookies=[],
-            identity=None,
-            workdir=self.work,
-            name="h",
-            curl=self.fake.path,
-            timeout=5,
-        )
-        argv = self.fake.calls()[0]["argv"]
-        self.assertEqual(
-            argv[argv.index("--resolve") + 1], f"example.org:8443:{PUBLIC_ADDRESS},[2606:2800::1]"
-        )
-        self.assertEqual(argv[-1], "https://example.org:8443/")
-
-    def test_a_connection_elsewhere_fails(self) -> None:
-        """A response from an address other than the pinned ones is not used."""
-        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "127.0.0.1"}})
-        with (
-            unittest.mock.patch.dict(os.environ, clear=False) as env,
-            self.assertRaisesRegex(curl.TransportError, "not the address it was checked at"),
+    def test_curl_resolves_and_connects_as_it_would_alone(self) -> None:
+        """No address is pinned or checked: a local, private or dotless host goes as given."""
+        for url in (
+            "https://localhost:8443/",
+            "https://router/",
+            "https://127.0.0.1:3000/a",
+            "https://10.0.0.1/",
+            "https://[::1]:8080/",
         ):
-            for name in ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
-                env.pop(name, None)
-            self.run_request()
-
-    def test_a_proxy_answers_from_its_own_address(self) -> None:
-        """Through a proxy, curl connects to the proxy, which resolves the name itself."""
-        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "203.0.113.9"}})
-        with unittest.mock.patch.dict(os.environ, {"https_proxy": "http://proxy.example:3128"}):
-            self.assertEqual(self.run_request().status, 200)
-
-    def test_a_host_no_proxy_sends_direct_is_checked(self) -> None:
-        """A proxy variable that no_proxy overrides for the host leaves curl connecting directly."""
-        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "127.0.0.1"}})
-        direct = {"ALL_PROXY": "http://proxy.example:3128", "no_proxy": "example.org"}
-        with (
-            unittest.mock.patch.dict(os.environ, direct),
-            self.assertRaisesRegex(curl.TransportError, "not the address it was checked at"),
-        ):
-            self.run_request()
+            with self.subTest(url=url):
+                self.fake.serve({url: {"status": 200, "body": "local"}})
+                response = curl.request(
+                    url,
+                    cookies=[],
+                    identity=None,
+                    workdir=self.work,
+                    name="h",
+                    curl=self.fake.path,
+                    timeout=5,
+                )
+                argv = self.fake.calls()[-1]["argv"]
+                self.assertNotIn("--resolve", argv)
+                self.assertNotIn("--connect-to", argv)
+                self.assertEqual(argv[-1], url)
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.body.read_text(), "local")
 
 
 PROXY = "http://proxy.example:3128"

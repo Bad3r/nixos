@@ -11,10 +11,10 @@ import unittest.mock
 from pathlib import Path
 from typing import Any
 
-from browser_fetch import browser, challenge, convert, curl, fetch, urls
+from browser_fetch import browser, challenge, convert, curl, fetch
 from browser_fetch import cookies as jar
 
-from tests.fakes import PUBLIC_ADDRESS, FakeBrowser, fake_curl, public
+from tests.fakes import FakeBrowser, fake_curl
 from tests.test_cookies import LATER
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -55,7 +55,6 @@ class FetchTest(unittest.TestCase):
             browser=self.browser,
             workdir=self.work,
             save_dir=self.tmp / "saved",
-            resolve=public,
         )
 
     def tearDown(self) -> None:
@@ -114,35 +113,30 @@ class FetchTest(unittest.TestCase):
         self.assertIn('header = "User-Agent: Camoufox/UA"', config)
         self.assertIn('header = "Accept-Language: en-US,en;q=0.9"', config)
 
-    def test_private_hosts_are_refused_before_anything_is_read_or_sent(self) -> None:
-        """A literal or a name resolving privately is refused: no request, cookie or browser."""
-        resolved = {"lan.example": ["10.1.2.3"], "loop.example": ["127.0.0.1"]}
-
-        def resolve(host: str, _port: int) -> list[str]:
-            return resolved.get(host, [PUBLIC_ADDRESS])
-
-        settings = dataclasses.replace(self.settings, resolve=resolve)
-        for url in ("https://10.1.2.3/", "https://lan.example/", "https://loop.example/"):
-            with self.subTest(url=url), self.assertRaises(urls.PrivateAddressError):
-                fetch.fetch(url, settings)
-        self.assertEqual((self.browser.reads, self.browser.stored), (0, []))
-        self.assertEqual(self.fake.calls(), [])
-        self.assertIsNone(self.browser.calls)
-
-    def test_each_hop_is_checked_and_pinned_against_rebinding(self) -> None:
-        """A same-host redirect is resolved again; a private answer stops it before curl runs."""
-        self.fake.serve({"https://a.example/": {"status": 302, "headers": {"Location": "/next"}}})
-        answers = iter([[PUBLIC_ADDRESS], [PUBLIC_ADDRESS], ["127.0.0.1"]])
-
-        def resolve(_host: str, _port: int) -> list[str]:
-            return next(answers)
-
-        settings = dataclasses.replace(self.settings, resolve=resolve)
-        with self.assertRaises(urls.PrivateAddressError):
-            fetch.fetch("https://a.example/", settings)
-        (call,) = self.fake.calls()
-        argv = call["argv"]
-        self.assertEqual(argv[argv.index("--resolve") + 1], f"a.example:443:{PUBLIC_ADDRESS}")
+    def test_local_and_private_hosts_are_fetched_like_any_other(self) -> None:
+        """Loopback, private and dotless hosts get cookies, redirects and pages as any host."""
+        self.fake.serve(
+            {
+                "https://10.1.2.3/": {"status": 302, "headers": {"Location": "/home"}},
+                "https://10.1.2.3/home": {"status": 200, "headers": HTML, "body": PAGE},
+                "https://localhost:8443/": {"status": 200, "headers": HTML, "body": PAGE},
+                "https://router/": {"status": 200, "headers": HTML, "body": PAGE},
+            }
+        )
+        page = fetch.fetch("http://10.1.2.3/", self.settings)
+        self.assertEqual((page.outcome, page.status), ("ok", 200))
+        self.assertEqual(
+            [call["argv"][-1] for call in self.fake.calls()],
+            ["https://10.1.2.3/", "https://10.1.2.3/home"],
+        )
+        self.assertEqual(self.cookies_sent(), ["lan=vl", "lan=vl"])
+        for url, requested in (
+            ("http://localhost:8443/", "https://localhost:8443/"),
+            ("http://router/", "https://router/"),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(fetch.fetch(url, self.settings).status, 200)
+                self.assertEqual(self.fake.calls()[-1]["argv"][-1], requested)
 
     def test_cross_host_redirect_is_reported(self) -> None:
         """A redirect to another host stops with the redirect and sends nothing there."""

@@ -118,8 +118,6 @@ class Settings:
     browser_mode: BrowserMode = "auto"
     deadline: float = 240.0
     clock: Callable[[], float] = time.monotonic
-    # The resolver each hop's host is checked and pinned with.
-    resolve: Callable[[str, int], list[str]] = urls.lookup
 
 
 class _Fetch:
@@ -202,7 +200,7 @@ class _Fetch:
         sent = jar.for_request(self.cookies.cookies(), url, jar.now_us() // 1000)
         try:
             response = curl.request(
-                urls.pin(url, self.settings.resolve),
+                url,
                 cookies=sent,
                 identity=self.identity,
                 workdir=self.settings.workdir,
@@ -274,7 +272,7 @@ class Client:
         return jar.for_request(self._run.cookies.cookies(), url, jar.now_us() // 1000)
 
     def get(self, url: str) -> Reply:
-        """GET the https URL once; refused hosts raise urls.AddressError, as in a fetch."""
+        """GET the https URL once, as a fetch's hop."""
         response = self._run.get(url)
         return Reply(response.status, response.headers, response.body.read_bytes())
 
@@ -356,13 +354,10 @@ def _retry_after(response: curl.Response) -> str | None:
 def fetch(url: str, settings: Settings) -> Page:
     """Fetch url as WebFetch would, with curl-impersonate and Camoufox's cookie jar.
 
-    Every hop's host is resolved and checked before anything is sent: one on
-    this machine or a private network is refused. What each response did to
-    the jar is written back as it arrives, and a failure carries the
-    warnings as its notes.
+    What each response did to the jar is written back as it arrives, and a
+    failure carries the warnings as its notes.
     """
     target = urls.check_url(url)
-    urls.pin(target, settings.resolve)
     run = _Fetch(settings)
     run.load_identity()
     run.load_cookies()

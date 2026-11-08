@@ -50,9 +50,8 @@ def _parser() -> argparse.ArgumentParser:
         epilog=(
             f"Exit status: {USAGE_EXIT} invalid URL, {COOKIE_EXIT} Camoufox's cookie database "
             f"unusable, {FETCH_EXIT} fetch failed, {BROWSER_EXIT} browser failed, "
-            f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error. A host "
-            "that resolves to this machine or a private network is refused with "
-            f"{FETCH_EXIT}. Run 'browser-fetch {LOGIN} [URL]' to sign in to a site in Camoufox."
+            f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error. "
+            f"Run 'browser-fetch {LOGIN} [URL]' to sign in to a site in Camoufox."
         ),
     )
     parser.add_argument("url")
@@ -270,14 +269,13 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
                 use_cookies=not args.no_cookies,
                 browser_mode=args.browser,
                 deadline=args.deadline,
-                resolve=urls.lookup,
             )
             page = fetch.fetch(args.url, settings)
     except urls.UrlError as error:
         return _fail(str(error), USAGE_EXIT, error)
     except jar.CookieError as error:
         return _fail(str(error), COOKIE_EXIT, error)
-    except (fetch.FetchError, curl.TransportError, urls.AddressError) as error:
+    except (fetch.FetchError, curl.TransportError) as error:
         return _fail(str(error), FETCH_EXIT, error)
     except browser.BrowserError as error:
         return _fail(str(error), BROWSER_EXIT, error)

@@ -32,22 +32,14 @@ with open(output, "wb") as body:
     body.write(route.get("body", "").encode())
 given = route.get("headers", {})
 headers = {k.lower(): v if isinstance(v, list) else [v] for k, v in given.items()}
-pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
-remote = route.get("remote_ip", pinned)
 # As curl does, the --write-out goes out on a failed transfer too, with
 # status 000 when no response came; connect is the proxy's CONNECT status.
 connect = route.get("connect", 0)
-sys.stdout.write(f"{route['status']:03d}\\n{connect:03d}\\n{remote}\\n{json.dumps(headers)}")
+sys.stdout.write(f"{route['status']:03d}\\n{connect:03d}\\n{json.dumps(headers)}")
 if route.get("exit"):
     sys.stderr.write(route.get("stderr", ""))
     sys.exit(route["exit"])
 """
-PUBLIC_ADDRESS = "93.184.215.14"
-
-
-def public(host: str, port: int) -> list[str]:  # noqa: ARG001
-    """A resolver that answers every name with one public address."""
-    return [PUBLIC_ADDRESS]
 
 
 @dataclass

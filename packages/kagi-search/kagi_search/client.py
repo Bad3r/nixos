@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
-from browser_fetch import curl, fetch, urls
+from browser_fetch import curl, fetch
 
 from kagi_search.page import Hit, filter_hits, kagi_query, parse_page
 
@@ -73,7 +73,7 @@ def fetch_page(query: str, client: fetch.Client, *, since: dt.date | None = None
         raise SessionError(client.warnings)
     try:
         reply = client.get(url)
-    except (curl.TransportError, urls.AddressError, fetch.FetchError) as error:
+    except (curl.TransportError, fetch.FetchError) as error:
         raise SearchError(str(error)) from None
     if reply.status in _REDIRECTS:
         location = reply.header("location") or ""

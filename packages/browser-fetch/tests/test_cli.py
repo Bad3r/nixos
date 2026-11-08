@@ -19,7 +19,7 @@ from pathlib import Path
 from browser_fetch import cli, fetch
 from browser_fetch import cookies as jar
 
-from tests.fakes import FakeBrowser, fake_curl, public
+from tests.fakes import FakeBrowser, fake_curl
 
 cli_browser = cli.camoufox
 
@@ -64,10 +64,8 @@ class MainTest(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         curl_patch = unittest.mock.patch.object(cli.tools, "CURL", self.fake.path)
-        lookup_patch = unittest.mock.patch.object(cli.urls, "lookup", side_effect=public)
-        for patch in (curl_patch, lookup_patch):
-            patch.start()
-            self.addCleanup(patch.stop)
+        curl_patch.start()
+        self.addCleanup(curl_patch.stop)
         cookie = jar.Cookie("session", SECRET, "example.org", "/", 2**62, secure=True, created=1)
         self.browser = FakeBrowser(own=[cookie])
         browser_patch = unittest.mock.patch.object(cli, "camoufox", return_value=self.browser)
@@ -151,10 +149,20 @@ class MainTest(unittest.TestCase):
 
     def test_invalid_url(self) -> None:
         """An invalid URL exits 2 before any request."""
-        status, _, err = self.run_main("http://localhost/")
-        self.assertEqual(status, cli.USAGE_EXIT)
-        self.assertIn("without a dot", err)
+        status, _, err = self.run_main("ftp://example.org/")
+        self.assertEqual((status, err), (cli.USAGE_EXIT, "browser-fetch: Invalid URL\n"))
         self.assertEqual(self.fake.calls(), [])
+
+    def test_a_dotless_loopback_host_is_fetched(self) -> None:
+        """Localhost is requested like any host, over https as WebFetch upgrades every URL."""
+        html = {"Content-Type": "text/html"}
+        self.fake.serve(
+            {"https://localhost:8443/": {"status": 200, "headers": html, "body": "<p>up</p>"}}
+        )
+        status, out, _ = self.run_main("http://localhost:8443/")
+        self.assertEqual(status, 0)
+        self.assertIn("up", out)
+        self.assertEqual(self.fake.calls()[0]["argv"][-1], "https://localhost:8443/")
 
     def test_unexpected_error_is_one_line_without_secrets(self) -> None:
         """Any other exception exits 7 with its type alone: no traceback, no message."""

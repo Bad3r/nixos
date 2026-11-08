@@ -34,7 +34,7 @@ work = Path(sys.argv[1])
 until = time.monotonic() + 20
 session.private_tmp([work])
 session.await_network(work, until)
-session.confine_network()
+session.loopback_up()
 session.drop_capabilities()
 xvfb, display = session.start_xvfb(until)
 xvfb.terminate()

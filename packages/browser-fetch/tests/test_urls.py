@@ -31,19 +31,39 @@ class CheckUrlTest(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaisesRegex(urls.UrlError, "^Invalid URL$"):
                 urls.check_url(bad)
 
-    def test_dotless_host(self) -> None:
-        """A host without a dot names the local-server alternative."""
-        with self.assertRaisesRegex(urls.UrlError, "without a dot"):
-            urls.check_url("http://localhost:8000/")
+    def test_local_and_dotless_hosts_are_taken(self) -> None:
+        """Loopback, private, link-local and dotless hosts are URLs like any other."""
+        for given, wanted in (
+            ("http://localhost:8000/", "https://localhost:8000/"),
+            ("http://router/status", "https://router/status"),
+            ("http://127.0.0.1:3000/", "https://127.0.0.1:3000/"),
+            ("http://10.0.0.1/", "https://10.0.0.1/"),
+            ("https://192.168.1.10/a", "https://192.168.1.10/a"),
+            ("http://169.254.169.254/latest", "https://169.254.169.254/latest"),
+            ("http://100.96.0.9/", "https://100.96.0.9/"),
+        ):
+            with self.subTest(url=given):
+                self.assertEqual(urls.check_url(given), wanted)
 
-    def test_ipv6_literal_is_dotless(self) -> None:
-        """An IPv6 literal is refused, as WebFetch's hostname dot check refuses it."""
-        for literal in ("http://[::1]/", "http://[::ffff:127.0.0.1]/x", "https://[2001:db8::1]/"):
-            with (
-                self.subTest(literal=literal),
-                self.assertRaisesRegex(urls.UrlError, "without a dot"),
-            ):
-                urls.check_url(literal)
+    def test_ipv6_literals_are_serialized_as_the_url_standard_does(self) -> None:
+        """Lowercase hex pieces, embedded IPv4 in hex, the first longest zero run compressed."""
+        for given, wanted in (
+            ("http://[::1]:8080/", "https://[::1]:8080/"),
+            ("http://[::ffff:127.0.0.1]/x", "https://[::ffff:7f00:1]/x"),
+            ("https://[2001:DB8::1]/", "https://[2001:db8::1]/"),
+            ("http://[fd00:0:0:0:0:0:0:1]/", "https://[fd00::1]/"),
+            ("http://[1:0:0:0:2:0:0:0]/", "https://[1::2:0:0:0]/"),
+            ("http://[1:0:2:3:4:5:6:7]/", "https://[1:0:2:3:4:5:6:7]/"),
+            ("http://[0:0:0:0:0:0:0:0]/", "https://[::]/"),
+        ):
+            with self.subTest(url=given):
+                self.assertEqual(urls.check_url(given), wanted)
+
+    def test_bad_ipv6_literals_are_invalid(self) -> None:
+        """A zone ID or a malformed literal is WebFetch's invalid URL, as the URL parser says."""
+        for bad in ("http://[fe80::1%25eth0]/", "http://[::g]/", "http://[1:2:3:4:5:6:7:8:9]/"):
+            with self.subTest(bad=bad), self.assertRaisesRegex(urls.UrlError, "^Invalid URL$"):
+                urls.check_url(bad)
 
     def test_hosts_are_serialized_as_the_url_standard_does(self) -> None:
         """Unicode names become A-labels, numeric hosts dotted quads, case folds."""
@@ -54,70 +74,6 @@ class CheckUrlTest(unittest.TestCase):
         self.assertEqual(urls.check_url("https://EXAMPLE.org/"), "https://example.org/")
         with self.assertRaises(urls.UrlError):
             urls.check_url("https://1.2.3.999/")
-
-
-class PinTest(unittest.TestCase):
-    """Each request's host, resolved once, checked and pinned."""
-
-    def test_private_addresses_are_refused(self) -> None:
-        """Loopback, private, shared, link-local, documentation and mapped addresses."""
-        for address in (
-            "127.0.0.1",
-            "10.0.0.1",
-            "192.168.1.1",
-            "172.16.0.1",
-            "169.254.169.254",
-            "100.96.0.9",
-            "0.0.0.0",  # noqa: S104 - an address under test
-            "192.0.2.10",
-            "198.51.100.7",
-            "203.0.113.5",
-            "::1",
-            "fd00::1",
-            "fe80::1",
-            "2001:db8::1",
-            "::ffff:127.0.0.1",
-            "64:ff9b::a00:1",
-        ):
-            with (
-                self.subTest(address=address),
-                self.assertRaisesRegex(urls.PrivateAddressError, "private network"),
-            ):
-                urls.pin("https://rebind.example/", lambda _h, _p, a=address: [a])
-
-    def test_one_private_answer_refuses_the_host(self) -> None:
-        """A name with a public and a private address is refused, not filtered."""
-        with self.assertRaises(urls.PrivateAddressError):
-            urls.pin("https://mixed.example/", lambda _h, _p: ["93.184.215.14", "10.1.2.3"])
-
-    def test_literal_hosts_are_checked_without_a_lookup(self) -> None:
-        """A numeric host is its own address."""
-
-        def never(_host: str, _port: int) -> list[str]:
-            raise AssertionError
-
-        with self.assertRaises(urls.PrivateAddressError):
-            urls.pin("https://10.1.2.3/", never)
-        self.assertEqual(urls.pin("https://93.184.215.14/x", never).addresses, ("93.184.215.14",))
-
-    def test_public_host_is_pinned_as_spelled_for_curl(self) -> None:
-        """The URL's host is the lowercase A-label form the pin names, port and path kept."""
-        asked: list[tuple[str, int]] = []
-
-        def resolve(host: str, port: int) -> list[str]:
-            asked.append((host, port))
-            return ["93.184.215.14", "2606:2800:21f:cb07:6820:80da:af6b:8b2c"]
-
-        pinned = urls.pin("https://Example.ORG:8443/a?b#c", resolve)
-        self.assertEqual(asked, [("example.org", 8443)])
-        self.assertEqual(pinned.url, "https://example.org:8443/a?b#c")
-        self.assertEqual((pinned.host, pinned.port), ("example.org", 8443))
-        self.assertEqual(len(pinned.addresses), 2)
-
-    def test_unresolved_host(self) -> None:
-        """A name with no address is an error of its own."""
-        with self.assertRaisesRegex(urls.AddressError, "did not resolve"):
-            urls.pin("https://nowhere.example/", lambda _h, _p: [])
 
 
 class RedirectTest(unittest.TestCase):

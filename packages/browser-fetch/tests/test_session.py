@@ -639,7 +639,7 @@ work = Path(sys.argv[1])
 (work / browser.NETWORK_READY).write_text("")
 session.private_tmp([work])
 session.await_network(work, time.monotonic() + 20)
-session.confine_network()
+session.loopback_up()
 session.drop_capabilities()
 
 def connect(address):
@@ -653,22 +653,22 @@ def connect(address):
     return "connected"
 
 out = {a: connect(a) for a in sys.argv[2:]}
-removed = subprocess.run([tools.IP, "rule", "del", "pref", "100"], capture_output=True)
-out["rule del"] = removed.returncode
+rules = subprocess.run([tools.IP, "rule", "show"], capture_output=True, text=True)
+out["rules"] = rules.stdout
 print(json.dumps(out))
 """
 
 
-class ConfinementTest(unittest.TestCase):
-    """The session's namespace refuses blocked ranges by rule, and the browser cannot undo it."""
+class NetworkTest(unittest.TestCase):
+    """The session's namespace treats local and private ranges as any other."""
 
     @classmethod
     def setUpClass(cls) -> None:
         """Skip, saying why, where the host cannot make the session's namespace."""
         require_namespaces()
 
-    def test_blocked_ranges_are_prohibited_and_public_ones_are_not(self) -> None:
-        """Private addresses fail with EACCES from a rule; a public one only lacks a route here."""
+    def test_no_range_is_refused(self) -> None:
+        """Private addresses fail as a public one does without a route; no rule refuses them."""
         private = ["10.0.0.1", "100.96.0.9", "169.254.169.254", "172.16.0.1", "192.168.1.1"]
         with tempfile.TemporaryDirectory(prefix="browser-fetch-test-") as work:
             ran = run_in_namespace(
@@ -676,8 +676,8 @@ class ConfinementTest(unittest.TestCase):
             )
         self.assertEqual(ran.returncode, 0, ran.stderr)
         out = json.loads(ran.stdout)
+        self.assertEqual(out["93.184.215.14"], "ENETUNREACH")
         for address in private:
             with self.subTest(address=address):
-                self.assertEqual(out[address], "EACCES")
-        self.assertEqual(out["93.184.215.14"], "ENETUNREACH")
-        self.assertNotEqual(out["rule del"], 0)
+                self.assertEqual(out[address], "ENETUNREACH")
+        self.assertNotIn("prohibit", out["rules"])
