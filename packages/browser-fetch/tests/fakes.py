@@ -35,8 +35,9 @@ headers = {k.lower(): v if isinstance(v, list) else [v] for k, v in given.items(
 pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
 remote = route.get("remote_ip", pinned)
 # As curl does, the --write-out goes out on a failed transfer too, with
-# status 000 when no response came.
-sys.stdout.write(f"{route['status']:03d}\\n{remote}\\n{json.dumps(headers)}")
+# status 000 when no response came; connect is the proxy's CONNECT status.
+connect = route.get("connect", 0)
+sys.stdout.write(f"{route['status']:03d}\\n{connect:03d}\\n{remote}\\n{json.dumps(headers)}")
 if route.get("exit"):
     sys.stderr.write(route.get("stderr", ""))
     sys.exit(route["exit"])

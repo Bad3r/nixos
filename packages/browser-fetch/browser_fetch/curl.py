@@ -41,6 +41,9 @@ _REASONS = {
 # counts as unset (curl_getenv).
 PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
 NO_PROXY_VARIABLES = ("no_proxy", "NO_PROXY")
+# A proxy's CONNECT answers (%{http_connect}): anything from 300 up refuses the tunnel.
+_PROXY_AUTHENTICATION = 407
+_REDIRECTION = 300
 _BLANKS = b" \t"
 # match_ip: an entry this long never matches, and /bits goes up to 128.
 _ADDRESS_ENTRY_BYTES = 128
@@ -229,6 +232,19 @@ def _connected_elsewhere(remote: str, pinned: Pinned, environ: Mapping[str, str]
     return address not in {ipaddress.ip_address(a.split("%", 1)[0]) for a in pinned.addresses}
 
 
+def _proxy_refusal(connect: str) -> str | None:
+    """Why the proxy refused the tunnel, from its CONNECT status; None when it did not."""
+    try:
+        code = int(connect)
+    except ValueError:
+        return None
+    if code == _PROXY_AUTHENTICATION:
+        return "the proxy refused its credentials (HTTP 407 Proxy Authentication Required)"
+    if code >= _REDIRECTION:
+        return f"the proxy refused the tunnel with HTTP {code}"
+    return None
+
+
 def request(  # noqa: PLR0913 - keyword-only knobs of one request
     pinned: Pinned,
     *,
@@ -273,7 +289,7 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         "--output",
         str(body),
         "--write-out",
-        "%{http_code}\n%{remote_ip}\n%{header_json}",
+        "%{http_code}\n%{http_connect}\n%{remote_ip}\n%{header_json}",
         "--",
         url,
     ]
@@ -291,8 +307,7 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         raise TransportError(msg) from None
     finally:
         config.unlink(missing_ok=True)
-    status_line, _, rest = ran.stdout.partition("\n")
-    remote, _, header_json = rest.partition("\n")
+    status_line, connect_line, remote, header_json = [*ran.stdout.split("\n", 3), "", "", ""][:4]
     elsewhere = _connected_elsewhere(remote.strip(), pinned, os.environ)
     try:
         status = int(status_line)
@@ -303,7 +318,11 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
     # status 0 means no response came.
     headers = {key.lower(): value for key, value in raw.items()} if status else {}
     if ran.returncode != 0:
-        reason = _REASONS.get(ran.returncode) or redactor.scrub(ran.stderr.strip())
+        reason = (
+            _proxy_refusal(connect_line)
+            or _REASONS.get(ran.returncode)
+            or redactor.scrub(ran.stderr.strip())
+        )
         msg = f"request to {url} failed: {reason or f'curl exited {ran.returncode}'}"
         raise TransportError(msg, {} if elsewhere else headers)
     if elsewhere:

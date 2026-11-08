@@ -131,6 +131,23 @@ class RequestTest(unittest.TestCase):
             self.run_request()
         self.assertFalse((self.work / "hop1.conf").exists())
 
+    def test_proxy_refusal_names_the_proxy(self) -> None:
+        """A proxy that answers CONNECT with 407 is named, not taken for a refused connection.
+
+        curl exits 7 ("CONNECT tunnel failed, response 407") and writes the
+        proxy's status in %{http_connect}; its code 7 alone reads as a
+        connection failure.
+        """
+        self.fake.serve({"https://example.org/": {"status": 0, "connect": 407, "exit": 7}})
+        with self.assertRaisesRegex(curl.TransportError, "proxy refused its credentials.*407"):
+            self.run_request()
+        self.fake.serve({"https://example.org/": {"status": 0, "connect": 403, "exit": 7}})
+        with self.assertRaisesRegex(curl.TransportError, "proxy refused the tunnel with HTTP 403"):
+            self.run_request()
+        self.fake.serve({"https://example.org/": {"status": 0, "exit": 7}})
+        with self.assertRaisesRegex(curl.TransportError, "connection was refused or failed"):
+            self.run_request()
+
     def test_failed_transfer_keeps_the_headers_it_got(self) -> None:
         """Curl writes the status and headers out when the transfer fails after them.
 

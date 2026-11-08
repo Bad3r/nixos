@@ -157,12 +157,13 @@ class _Fetch:
             self.notes.append("curl sends its profile's own headers: no fingerprint was drawn yet")
 
     def load_cookies(self) -> None:
-        """Read the profile's jar, unless cookies are off.
+        """Read the profile's jar for curl, unless cookies are off or only the browser runs.
 
-        A profile another fetch's browser holds past the short lock wait is
-        left out with a warning; a database that cannot be read is an error.
+        Camoufox loads the profile itself. A profile another fetch's browser
+        holds past the short lock wait is left out with a warning; a database
+        that cannot be read is an error.
         """
-        if not self.settings.use_cookies:
+        if not self.settings.use_cookies or self.settings.browser_mode == "always":
             return
         try:
             self.cookies = jar.Jar.of(self.settings.browser.jar(self.until))

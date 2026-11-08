@@ -23,7 +23,7 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 
 ## The cookie jar
 
-Each fetch reads the jar under the profile lock, and each request carries what Firefox would send to its URL.
+Each fetch that runs curl reads the jar under the profile lock, and each request carries what Firefox would send to its URL.
 That is the unpartitioned jar plus the CHIPS cookies partitioned to the page's own site, with expired rows counting for nothing.
 A cookie the site set on an earlier hop of the same fetch wins over the jar's.
 

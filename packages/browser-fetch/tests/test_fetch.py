@@ -641,6 +641,17 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(self.cookies_sent(), [""])
         self.assertEqual(page.warnings, [f"no cookies were read: {BUSY}"])
 
+    def test_browser_only_fetch_leaves_the_jar_to_the_browser(self) -> None:
+        """--browser always reads no jar for curl, so a busy profile warns of nothing unread.
+
+        Camoufox loads the profile itself once the render's lock is its.
+        """
+        self.browser.jar_error = browser.BrowserError(BUSY)
+        self.browser.rendered = self.rendered()
+        always = dataclasses.replace(self.settings, browser_mode="always")
+        page = fetch.fetch("https://a.example/", always)
+        self.assertEqual((page.via, page.warnings, self.browser.reads), ("browser", [], 0))
+
     def test_curl_only_fetch_never_draws_a_fingerprint(self) -> None:
         """--browser never asks for a stored fingerprint only."""
         never = dataclasses.replace(self.settings, browser_mode="never")
