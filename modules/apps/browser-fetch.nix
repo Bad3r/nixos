@@ -1,12 +1,12 @@
 /*
   Package: browser-fetch
-  Description: Fetch a web page with a browser's TLS fingerprint and LibreWolf's cookies.
+  Description: Fetch a web page with a browser's TLS fingerprint and Camoufox's cookie jar.
   Homepage: https://github.com/Bad3r/nixos
   Documentation: https://github.com/Bad3r/nixos/blob/main/docs/apps/browser-fetch/README.md
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Requests the page through curl-impersonate's Firefox profile with the cookies of LibreWolf's default profile.
+    * Requests the page through curl-impersonate's Firefox profile with the cookies of Camoufox's profile, and writes back what the site sets.
     * Renders bot challenges and script-built pages in Camoufox on a private display, with one persistent profile and fingerprint.
     * Prints the page as Markdown, or the WebFetch record as JSON.
 
@@ -15,7 +15,7 @@
     --offset N / --max-chars N: Print the text from code unit N, at most N code units.
     --browser auto|never|always: When to render in Camoufox (default auto).
     --deadline SECONDS: How long the whole fetch may take (default 240).
-    --no-cookies: Send no LibreWolf cookies.
+    --no-cookies: Neither read nor write Camoufox's cookie jar.
 */
 _:
 let
@@ -42,8 +42,6 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
-        # The cookies come from LibreWolf.
-        programs.librewolf.extended.enable = lib.mkOverride 1050 true;
       };
     };
 in

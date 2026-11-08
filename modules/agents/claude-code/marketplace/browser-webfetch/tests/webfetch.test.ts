@@ -14,7 +14,7 @@ const QUOTE_ASK = `Provide a concise response based only on the content above. I
  - You are not a lawyer and never comment on the legality of your own prompts and responses.
  - Never produce or reproduce exact song lyrics.`;
 const FETCH_FAILED = "Request to the WebFetch proxy failed (transport error).";
-const BACKEND = /browser|librewolf|camoufox|curl|\/nix\/store/i;
+const BACKEND = /browser|camoufox|curl|cookie|\/nix\/store/i;
 const DOCS_ASK =
 	"Provide a concise response based on the content above. Include relevant details, code examples, and documentation excerpts as needed.";
 
@@ -387,7 +387,10 @@ test(
 
 for (const [exitCode, stderr] of [
 	[4, "request to https://example.org/ failed: the request timed out"],
-	[3, "no readable cookie database at /home/u/.librewolf/x/cookies.sqlite"],
+	[
+		3,
+		"the cookie database /home/u/.local/state/browser-fetch/profile/cookies.sqlite has schema version 18, not 17; browser-fetch neither reads nor writes it",
+	],
 	[5, "the browser failed: Camoufox crashed"],
 ] as const) {
 	test(
