@@ -61,7 +61,8 @@ pkgs.writeShellApplication {
     fi
 
     if ((''${#problems[@]})); then
-      mkdir -p -m 700 "''${report%/*}"
+      mkdir -p "''${report%/*}"
+      chmod 700 "''${report%/*}"
       {
         "$claude" --version 2>/dev/null || echo "$claude"
         printf '%s\n' "''${problems[@]}"
