@@ -34,6 +34,7 @@ Plugin-owned skill bundles follow their `enabledPlugins` entry in the same file.
 The `cloudflare` marketplace's `extraKnownMarketplaces` entry in `modules/agents/claude-code/_plugins.nix` is left as a commented template while `cloudflare@cloudflare` stays disabled, since a disabled plugin gains nothing from a registered marketplace.
 Enabling `cloudflare@cloudflare` means uncommenting that entry with `sparsePaths` covering `skills` as well as `.claude-plugin`, or no `sparsePaths` at all for a full clone.
 The `cloudflare/skills` repository keeps its skill bundle in a top-level `skills/` directory that a `.claude-plugin`-only sparse clone would exclude; only its MCP server manifest, a root-level file, would register.
-This is a property of that repository's layout, not of sparse clones in general: `chrome-devtools-plugins` stays sparse to `.claude-plugin` because its plugin is MCP-only and fetched via `npx` at runtime, with nothing else needed from the clone.
+`chrome-devtools-plugins` stays sparse to `.claude-plugin` because its plugin provides only an MCP server.
+Use the shared MCP registry's wrapper to keep DevTools privacy options consistent across clients.
 
 Cloudflare's [Claude Code plugin](https://github.com/cloudflare/skills) documents the bundled skills and MCP server.

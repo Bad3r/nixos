@@ -176,13 +176,17 @@ _: {
       args = [
         "--isolated"
         "--no-usage-statistics"
+        "--no-performance-crux"
       ];
       timeout = 240;
-      clients = [ "codex" ];
+      clients = [
+        "claude"
+        "codex"
+      ];
       docs = {
         primaryUse = "Control and inspect a live Chrome browser session.";
-        accessNotes = "Local wrapper auto-detects Chrome or Chromium, passes `--executablePath`, and keeps `--isolated --no-usage-statistics`. Claude Code consumes the same server via the `chrome-devtools-mcp@chrome-devtools-plugins` plugin instead, so this entry is scoped to codex to avoid double-registration.";
-        example = "`npx -y chrome-devtools-mcp@latest --executablePath=\"$(command -v google-chrome-stable)\" --isolated --no-usage-statistics`";
+        accessNotes = "Shared wrapper forces usage statistics and CrUX off and disables update checks and npm update notifications. Standalone `--` is rejected so required flags cannot become positional arguments. Both clients use it instead of the upstream Claude plugin. Browser traffic and npm package resolution remain enabled; these controls are not a network sandbox.";
+        example = "`npx -y chrome-devtools-mcp@latest --executablePath=\"$(command -v google-chrome-stable)\" --isolated --no-usage-statistics --no-performance-crux`";
       };
     };
 
