@@ -160,15 +160,18 @@ class FakePage:
         error: Exception | None = None,
         then: Callable[[], object] | None = None,
         status: int = 0,
+        poll: Callable[[], object] | None = None,
     ) -> None:
         """Navigate through hops on goto, then call then, or raise error before any commit.
 
-        status is the navigation timing's responseStatus of the document.
+        status is the navigation timing's responseStatus of the document;
+        poll runs once the page's state is read, before it is returned.
         """
         self.hops = hops
         self.error = error
         self.then = then
         self.status = status
+        self.poll = poll
         self.url = "about:blank"
         self.main_frame = MAIN
         self.calls: list[str] = []
@@ -194,7 +197,7 @@ class FakePage:
         """A settled page, or its source."""
         if "outerHTML" in script and "ready" not in script:
             return "<html><body><p>page</p></body></html>"
-        return {
+        state = {
             "ready": "complete",
             "size": 10,
             "text": 500,
@@ -202,6 +205,15 @@ class FakePage:
             "status": self.status,
             "type": "text/html",
         }
+        if self.poll is not None:
+            self.poll()
+        return state
+
+    def load(self, request: FakeRequest, status: int) -> None:
+        """Commit a document the page navigated to itself, with its timing status."""
+        self.listener(FakeResponse(request))
+        self.url = request.url
+        self.status = status
 
 
 class FakeContext:
@@ -268,23 +280,61 @@ class DriveTest(unittest.TestCase):
         """A page's own cross-host navigation, refused before goto returns, reports its status.
 
         The hop has no HTTP status of its own; the redirect is reported with
-        the status of the document that started it, or 200 when the browser
-        records none, as for a hop refused after the load.
+        the HTTP status of the response that delivered the document it
+        leaves, even when the navigation timing has none (0) or reading the
+        page fails while it navigates.
         """
         leave = "https://b.example/next"
-        for document, reported in ((404, 404), (0, 200)):
-            with self.subTest(document=document):
+
+        def destroyed() -> None:
+            raise RuntimeError("Execution context was destroyed")  # noqa: EM101, TRY003
+
+        for sent, timing, poll in ((404, 0, None), (503, 503, destroyed)):
+            with self.subTest(sent=sent, timing=timing):
                 self.policy = session.Policy(target=TARGET, token="t")  # noqa: S106
                 self.policy.ready.set()
                 page = FakePage(
-                    [FakeRequest(TARGET, status=document or 200)],
+                    [FakeRequest(TARGET, status=sent)],
                     then=lambda: self.policy.check("navigate", TARGET, leave, 0),
-                    status=document,
+                    status=timing,
+                    poll=poll,
                 )
                 result = self.drive(page)
                 self.assertEqual(
-                    result["blocked"], {"origin": TARGET, "target": leave, "status": reported}
+                    result["blocked"], {"origin": TARGET, "target": leave, "status": sent}
                 )
+
+    def test_script_navigation_blocked_after_a_later_load_has_that_documents_status(self) -> None:
+        """A document loaded between two polls, which leaves the host at once, gives its status.
+
+        The 200 page loads a same-host 404 page during the settle wait,
+        and that page's navigation off the host is refused before the next
+        poll: the 404 page's status, not the last poll's 200.
+        """
+        self.policy.ready.set()
+        other, leave = "https://a.example/other", "https://b.example/next"
+        polled: list[int] = []
+
+        def after_first_poll() -> None:
+            if polled:
+                return
+            polled.append(1)
+            self.policy.check("navigate", TARGET, other, 0)
+            page.load(FakeRequest(other, status=404), 404)
+            self.policy.check("navigate", other, leave, 0)
+
+        page = FakePage([FakeRequest(TARGET)], status=200, poll=after_first_poll)
+        result = self.drive(page)
+        self.assertEqual(result["blocked"], {"origin": other, "target": leave, "status": 404})
+
+    def test_refused_navigation_of_a_page_no_response_made_is_a_failure(self) -> None:
+        """With no main-document response there is no status to report, and none is made up."""
+        self.policy.ready.set()
+        page = FakePage(
+            [], then=lambda: self.policy.check("navigate", TARGET, "https://b.example/", 0)
+        )
+        with self.assertRaisesRegex(session.SessionError, "no response made"):
+            self.drive(page)
 
     def test_navigation_that_never_commits_is_a_failure(self) -> None:
         """A goto timeout on about:blank is an error, never an empty 200 page."""

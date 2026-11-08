@@ -593,22 +593,30 @@ def drive(
     except Exception as error:  # noqa: BLE001 - a later allowed navigation may still commit
         failure = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
     if policy.blocked is not None:
-        return {"blocked": _blocked(page, policy.blocked, {}), "cookies": added}
+        return {"blocked": _blocked(policy.blocked, document), "cookies": added}
     state = _settle(page, policy, min(until, time.monotonic() + SETTLE_SECONDS))
     _verify(page, policy, document)
     if policy.blocked is not None:
-        return {"blocked": _blocked(page, policy.blocked, state), "cookies": added}
+        return {"blocked": _blocked(policy.blocked, document), "cookies": added}
     result = _document(page, Path(str(request["workdir"])), state, document, failure)
     result["cookies"] = added
     return result
 
 
-def _blocked(page: Page, blocked: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
-    """The refused hop; a script's navigation has no status and takes the document's."""
+def _blocked(blocked: dict[str, Any], document: list[Response]) -> dict[str, Any]:
+    """The refused hop; a script's navigation has no status and takes its document's.
+
+    That is the status of the last main-document response: a refused
+    navigation never replaces the document it leaves.
+    """
     if blocked["status"]:
         return blocked
-    status = int((state or _page_state(page)).get("status") or 200)
-    return {**blocked, "status": status}
+    if not document:
+        msg = (
+            f"the browser refused a navigation to {blocked['target']} from a page no response made"
+        )
+        raise SessionError(msg)
+    return {**blocked, "status": document[-1].status}
 
 
 def _document(
