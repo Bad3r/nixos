@@ -545,6 +545,7 @@ let
       wrangler.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       xdotool.extended.enable = lib.mkOverride 1100 true;
+      xdpyinfo.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
       "xfce4-settings".extended.enable = lib.mkOverride 1100 false;
       xh.extended.enable = lib.mkOverride 1100 true;
