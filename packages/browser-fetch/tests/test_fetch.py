@@ -489,6 +489,26 @@ class FetchTest(unittest.TestCase):
             fetch.fetch("https://b.example/", self.settings)
         self.assertEqual(failed.exception.__notes__, [f"1 cookie changes were not saved: {BUSY}"])
 
+    def test_deletion_received_while_the_jar_was_busy_is_saved(self) -> None:
+        """With the jar unread, a deletion still goes to the profile, or is reported unsaved."""
+        self.browser.jar_error = browser.BrowserError(BUSY)
+        self.fake.serve(
+            {
+                "https://a.example/": {
+                    "status": 200,
+                    "headers": {**HTML, "Set-Cookie": "a=; Path=/; Max-Age=0"},
+                    "body": PAGE,
+                },
+            }
+        )
+        page = fetch.fetch("https://a.example/", self.settings)
+        ((deleted,),) = self.browser.stored
+        self.assertEqual((deleted.name, deleted.expired(jar.now_us() // 1000)), ("a", True))
+        self.assertEqual(page.warnings, [f"no cookies were read: {BUSY}"])
+        self.browser.store_error = browser.BrowserError(BUSY)
+        page = fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual(page.warnings[-1], f"1 cookie changes were not saved: {BUSY}")
+
     def test_unreadable_jar_is_an_error(self) -> None:
         """A database at another schema or corrupt fails the fetch before any request."""
         self.browser.jar_error = jar.CookieError("schema version 18")

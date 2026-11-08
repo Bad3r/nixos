@@ -392,11 +392,16 @@ class JarTest(FreshClock):
         self.assertEqual([c.name for c in cookies.pending()], ["sid"])
         self.assertEqual(jar.for_request(cookies.cookies(), URL, NOW + 1), [])
 
-    def test_deleting_what_is_not_there_changes_nothing(self) -> None:
-        """An expired cookie with no live one of its key is dropped ("already expired")."""
+    def test_deletion_is_kept_whatever_the_view_holds(self) -> None:
+        """An expired cookie is a deletion even with no live cookie of its key in sight.
+
+        The fetch's view may lack a row the database holds, when a busy
+        profile went unread; AddCookie removes whatever cookie the key has.
+        """
         cookies = self.stored()
         cookies.receive(URL, ["sid=; Max-Age=0"], NOW_US, None)
-        self.assertEqual(cookies.pending(), [])
+        (deleted,) = cookies.pending()
+        self.assertEqual((deleted.name, deleted.expired(NOW)), ("sid", True))
 
     def test_same_cookie_again_changes_nothing(self) -> None:
         """An identical cookie set within the stale threshold leaves the old one."""
@@ -495,6 +500,23 @@ class DatabaseTest(FreshClock):
         cookies.receive(URL, ["d=; Max-Age=0; Path=/"], NOW_US + 1000, None)
         self.store(*cookies.pending(), now=NOW_US + 1000)
         self.assertEqual([row["name"] for row in rows(self.database)], ["keep"])
+
+    def test_deletion_reaches_a_row_the_fetch_never_read(self) -> None:
+        """A deletion received while the jar went unread removes the row all the same."""
+        self.store(parsed("sid=secret; Max-Age=600; Path=/"), parsed("keep=1; Max-Age=600; Path=/"))
+        cookies = jar.Jar.of([])
+        cookies.receive(URL, ["sid=; Max-Age=0; Path=/"], NOW_US + 1000, None)
+        self.assertEqual(self.store(*cookies.pending(), now=NOW_US + 1000), 1)
+        self.assertEqual([row["name"] for row in rows(self.database)], ["keep"])
+
+    def test_deleting_an_absent_row_changes_nothing(self) -> None:
+        """With no row of the key, a deletion leaves the table as it was ("already expired")."""
+        self.store(parsed("keep=1; Max-Age=600; Path=/"))
+        before = rows(self.database)
+        cookies = jar.Jar.of(jar.read(self.database))
+        cookies.receive(URL, ["sid=; Max-Age=0; Path=/"], NOW_US + 1000, None)
+        self.assertEqual(self.store(*cookies.pending(), now=NOW_US + 1000), 0)
+        self.assertEqual(rows(self.database), before)
 
     def test_replacement_on_the_unique_key(self) -> None:
         """One row per name, host, path and originAttributes: a new value replaces the row.

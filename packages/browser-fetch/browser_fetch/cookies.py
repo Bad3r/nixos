@@ -622,15 +622,18 @@ def _stale(cookie: Cookie, now: int) -> bool:
 def _added(old: Cookie | None, new: Cookie, now: int) -> Cookie | None:
     """The cookie of new's key once Gecko's AddCookie has run, or None when nothing changes.
 
-    An expired result deletes the key. now is in microseconds.
+    An expired result deletes the key. It is kept even with no live cookie
+    of the key in sight: the fetch's view may lack a row the database
+    holds, and deleting an absent row changes nothing, as AddCookie drops
+    an expired cookie with nothing to remove. now is in microseconds.
     """
     now_ms = now // 1000
-    if old is None or old.expired(now_ms):
-        return None if new.expired(now_ms) else new
-    if _same(old, new) and not _stale(old, now):
-        return None
     if new.expired(now_ms):
         return new
+    if old is None or old.expired(now_ms):
+        return new
+    if _same(old, new) and not _stale(old, now):
+        return None
     return replace(new, created=old.created, scheme_map=old.scheme_map | new.scheme_map)
 
 
