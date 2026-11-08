@@ -335,7 +335,20 @@ class CamoufoxTest(unittest.TestCase):
             self.work,
             environ=environ,
         )
-        kept = camoufox._environment()  # noqa: SLF001 - what the session is started with
+        kept: dict[str, str] = {}
+
+        class StartedError(Exception):
+            """The session's launch, stopped once its environment is seen."""
+
+        def popen(*_args: Any, **options: Any) -> None:  # noqa: ANN401
+            kept.update(options["env"])
+            raise StartedError
+
+        with (
+            unittest.mock.patch.object(browser.subprocess, "Popen", side_effect=popen),
+            self.assertRaises(StartedError),
+        ):
+            camoufox.render(URL, [], [], time.monotonic() + 30)
         del environ["HOME"], environ["DISPLAY"]
         self.assertEqual(kept, {**environ, "PATH": "/var/empty"})
 
