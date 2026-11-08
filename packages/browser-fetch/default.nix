@@ -35,10 +35,11 @@ stdenvNoCC.mkDerivation {
 
   src = lib.fileset.toSource {
     root = ./.;
-    fileset = lib.fileset.unions [
+    # A path: flake copies ignored files too, such as a worktree's bytecode.
+    fileset = lib.fileset.intersection (lib.fileset.unions [
       ./browser_fetch
       ./tests
-    ];
+    ]) (lib.fileset.fileFilter (file: !file.hasExt "pyc") ./.);
   };
 
   dontConfigure = true;
@@ -57,9 +58,10 @@ stdenvNoCC.mkDerivation {
       --replace-fail "@pasta@" "${lib.getExe' passt "pasta"}" \
       --replace-fail "@ip@" "${lib.getExe' iproute2 "ip"}" \
       --replace-fail "@session@" "$out/libexec/browser-fetch-session"
+    # -B: bytecode the check's runs would write into $out differs per build.
     for entry in bin/browser-fetch:cli libexec/browser-fetch-session:session; do
       cat > $out/''${entry%%:*} <<EOF
-    #!${python.interpreter} -I
+    #!${python.interpreter} -IB
     import sys
 
     sys.path.insert(0, "$out/lib/browser-fetch")
@@ -82,6 +84,10 @@ stdenvNoCC.mkDerivation {
     (cd check && BROWSER_FETCH_TEST_NSPR=${lib.getLib nspr}/lib/libnspr4.so \
       ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .)
     $out/bin/browser-fetch --help >/dev/null
+    if find $out -name __pycache__ | grep .; then
+      echo "the check wrote bytecode into $out" >&2
+      exit 1
+    fi
     runHook postInstallCheck
   '';
 
