@@ -47,11 +47,14 @@ class FileLogTest(unittest.TestCase):
             path = Path(directory) / "x.log"
             closed: list[int] = []
             real_close = os.close
+
+            def close(descriptor: int) -> None:
+                closed.append(descriptor)
+                real_close(descriptor)
+
             with (
                 unittest.mock.patch.object(log.os, "fstat", side_effect=OSError(5, "EIO")),
-                unittest.mock.patch.object(
-                    log.os, "close", side_effect=lambda d: (closed.append(d), real_close(d))
-                ),
+                unittest.mock.patch.object(log.os, "close", side_effect=close),
             ):
                 log.FileLog(path)("entry")
             self.assertEqual(len(closed), 1)
