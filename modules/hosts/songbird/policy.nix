@@ -72,7 +72,7 @@ _: {
       ttl = 2;
       maxTtl = 24;
       disk = 60;
-      minFree = 200;
+      minFree = 50;
     };
   };
 }
