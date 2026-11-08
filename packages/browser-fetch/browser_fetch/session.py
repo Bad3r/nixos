@@ -426,16 +426,23 @@ def _guard(policy: Policy, port: int) -> Path:
     return addon
 
 
+def _page_state(page: Page) -> dict[str, Any]:
+    """The document's load state, or {} while a navigation replaces it."""
+    try:
+        return cast("dict[str, Any]", page.evaluate(_STATE, list(challenge.BODY_MARKERS)))
+    except Exception:  # noqa: BLE001 - a navigation replaced the document mid-poll
+        return {}
+
+
 def _settle(page: Page, policy: Policy, until: float) -> dict[str, Any]:
     """Wait for the load, a challenge to clear and the DOM to hold still, within until."""
     previous_size = -1
     stable = 0
     state: dict[str, Any] = {}
     while policy.blocked is None:
-        try:
-            state = cast("dict[str, Any]", page.evaluate(_STATE, list(challenge.BODY_MARKERS)))
-        except Exception:  # noqa: BLE001 - a navigation replaced the document mid-poll
-            state, previous_size, stable = {}, -1, 0
+        state = _page_state(page)
+        if not state:
+            previous_size, stable = -1, 0
         else:
             stable = stable + 1 if state["size"] == previous_size else 0
             previous_size = state["size"]
@@ -530,16 +537,22 @@ def drive(
     except Exception as error:  # noqa: BLE001 - a later allowed navigation may still commit
         failure = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
     if policy.blocked is not None:
-        return {"blocked": policy.blocked, "cookies": added}
+        return {"blocked": _blocked(page, policy.blocked, {}), "cookies": added}
     state = _settle(page, policy, min(until, time.monotonic() + SETTLE_SECONDS))
     _verify(page, policy, document)
     if policy.blocked is not None:
-        blocked: dict[str, Any] = dict(policy.blocked)
-        blocked["status"] = blocked["status"] or int(state.get("status") or 200)
-        return {"blocked": blocked, "cookies": added}
+        return {"blocked": _blocked(page, policy.blocked, state), "cookies": added}
     result = _document(page, Path(str(request["workdir"])), state, document, failure)
     result["cookies"] = added
     return result
+
+
+def _blocked(page: Page, blocked: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    """The refused hop; a script's navigation has no status and takes the document's."""
+    if blocked["status"]:
+        return blocked
+    status = int((state or _page_state(page)).get("status") or 200)
+    return {**blocked, "status": status}
 
 
 def _document(

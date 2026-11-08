@@ -9,11 +9,14 @@ import unittest
 import unittest.mock
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from browser_fetch import curl, session
 
 from tests.namespaces import require_namespaces, run_in_namespace
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 TARGET = "https://a.example/start"
 
@@ -147,10 +150,21 @@ MAIN = object()
 class FakePage:
     """A page whose navigations follow a script: the requests a goto makes, or an error."""
 
-    def __init__(self, hops: list[FakeRequest], error: Exception | None = None) -> None:
-        """Navigate through hops on goto, or raise error before any commit."""
+    def __init__(
+        self,
+        hops: list[FakeRequest],
+        error: Exception | None = None,
+        then: Callable[[], object] | None = None,
+        status: int = 0,
+    ) -> None:
+        """Navigate through hops on goto, then call then, or raise error before any commit.
+
+        status is the navigation timing's responseStatus of the document.
+        """
         self.hops = hops
         self.error = error
+        self.then = then
+        self.status = status
         self.url = "about:blank"
         self.main_frame = MAIN
         self.calls: list[str] = []
@@ -169,6 +183,8 @@ class FakePage:
             self.listener(FakeResponse(hop))
         if self.hops:
             self.url = self.hops[-1].url
+        if self.then is not None:
+            self.then()
 
     def evaluate(self, script: str, *_args: Any) -> Any:  # noqa: ANN401
         """A settled page, or its source."""
@@ -179,7 +195,7 @@ class FakePage:
             "size": 10,
             "text": 500,
             "challenge": False,
-            "status": 0,
+            "status": self.status,
             "type": "text/html",
         }
 
@@ -243,6 +259,28 @@ class DriveTest(unittest.TestCase):
             result["blocked"],
             {"origin": TARGET, "target": "https://b.example/landing", "status": 302},
         )
+
+    def test_script_navigation_blocked_during_goto_has_the_documents_status(self) -> None:
+        """A page's own cross-host navigation, refused before goto returns, reports its status.
+
+        The hop has no HTTP status of its own; the redirect is reported with
+        the status of the document that started it, or 200 when the browser
+        records none, as for a hop refused after the load.
+        """
+        leave = "https://b.example/next"
+        for document, reported in ((404, 404), (0, 200)):
+            with self.subTest(document=document):
+                self.policy = session.Policy(target=TARGET, token="t")  # noqa: S106
+                self.policy.ready.set()
+                page = FakePage(
+                    [FakeRequest(TARGET, status=document or 200)],
+                    then=lambda: self.policy.check("navigate", TARGET, leave, 0),
+                    status=document,
+                )
+                result = self.drive(page)
+                self.assertEqual(
+                    result["blocked"], {"origin": TARGET, "target": leave, "status": reported}
+                )
 
     def test_navigation_that_never_commits_is_a_failure(self) -> None:
         """A goto timeout on about:blank is an error, never an empty 200 page."""
