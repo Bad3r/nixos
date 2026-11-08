@@ -76,7 +76,7 @@ A loopback port the host listens on is forwarded to the host's, so loopback, LAN
 It waits for the load and for a challenge to clear, within the bounds in [session.py](../../../packages/browser-fetch/browser_fetch/session.py).
 A page the browser ends on comes back with the status its document got.
 Outside 2xx that is an HTTP error, as from curl, so a challenge that does not clear in time on a 403 reads as that 403.
-A main-document request that leaves the page's host, scheme or port is cancelled before it is sent and reported as a redirect.
+A main-document request that leaves the page's host or port, or its scheme other than from http to https, is cancelled before it is sent and reported as a redirect.
 The browser navigates only once the guard addon that cancels it reports its listeners in place, and the document's redirect chain is checked again afterwards.
 A navigation that never commits a document is a browser failure, not an empty page.
 Firefox shows its own error page for an empty 4xx or 5xx document, which comes back at once with that status; any other Firefox error page, such as an unreachable proxy's, is a browser failure.

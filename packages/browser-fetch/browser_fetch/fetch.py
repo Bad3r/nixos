@@ -250,9 +250,8 @@ class Client:
     """Single requests as a fetch makes them, for another tool on browser-fetch's jar.
 
     Each request goes through curl-impersonate with the fingerprint's
-    headers, after its host is checked as a fetch's is, and carries the
-    jar's cookies for its URL; what each response sets is written back to
-    the jar as it arrives. No redirect is followed and the browser never
+    headers and carries the jar's cookies for its URL; what each response
+    sets is written back to the jar as it arrives. No redirect is followed and the browser never
     runs, so no fingerprint is drawn.
     """
 
