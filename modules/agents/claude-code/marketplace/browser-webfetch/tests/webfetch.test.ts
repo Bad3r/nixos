@@ -15,8 +15,6 @@ const QUOTE_ASK = `Provide a concise response based only on the content above. I
  - Never produce or reproduce exact song lyrics.`;
 const FETCH_FAILED = "Request to the WebFetch proxy failed (transport error).";
 const BACKEND = /browser|camoufox|curl|cookie|\/nix\/store/i;
-const DOCS_ASK =
-	"Provide a concise response based on the content above. Include relevant details, code examples, and documentation excerpts as needed.";
 
 type Record = {
 	outcome: "ok" | "redirect" | "http_error";
@@ -25,7 +23,6 @@ type Record = {
 	contentType: string;
 	bytes: number;
 	binary: boolean;
-	preapproved: boolean;
 	length: number;
 	text: string;
 	via?: string;
@@ -52,7 +49,6 @@ function page(fields: Partial<Record>): Record {
 		contentType: "text/html; charset=utf-8",
 		bytes: 1234,
 		binary: false,
-		preapproved: false,
 		length: text.length,
 		text,
 		via: "curl",
@@ -156,18 +152,6 @@ test(
 );
 
 test(
-	"a preapproved page gets the documentation prompt",
-	OPTIONS,
-	async ($, on) => {
-		const seen = engine(on, ok(page({ preapproved: true })));
-		await $.tool.call(fetch("https://docs.python.org/3/", "Summarize"));
-		expect(seen.asks[0]?.prompt).toBe(
-			`\nWeb page content:\n---\nHello page.\n---\n\nSummarize\n\n${DOCS_ASK}\n`,
-		);
-	},
-);
-
-test(
 	"a page past the cap is cut and the result says where to read on",
 	OPTIONS,
 	async ($, on) => {
@@ -230,24 +214,25 @@ test("an offset past the end needs no model call", OPTIONS, async ($, on) => {
 });
 
 test(
-	"preapproved Markdown under the cap is returned as it is",
+	"Markdown from a documentation host the built-in preapproves goes through haiku",
 	OPTIONS,
 	async ($, on) => {
 		const seen = engine(
 			on,
-			ok(
-				page({
-					preapproved: true,
-					contentType: "text/markdown",
-					text: "# Doc",
-				}),
-			),
+			ok(page({ contentType: "text/markdown", text: "# Doc" })),
 		);
 		const answer = await $.tool.call(
-			fetch("https://code.claude.com/x.md", "q"),
+			fetch("https://docs.python.org/3/x.md", "q"),
 		);
-		expect(seen.asks).toEqual([]);
-		expect(answer.result).toEqual(expect.objectContaining({ result: "# Doc" }));
+		expect(seen.asks).toEqual([
+			{
+				model: "haiku",
+				prompt: `\nWeb page content:\n---\n# Doc\n---\n\nq\n\n${QUOTE_ASK}\n`,
+			},
+		]);
+		expect(answer.result).toEqual(
+			expect.objectContaining({ result: "The answer." }),
+		);
 	},
 );
 

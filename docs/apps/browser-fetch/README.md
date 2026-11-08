@@ -111,6 +111,7 @@ Each conversion runs in a child process that is killed at the fetch's deadline.
 The `browser-webfetch` plugin of the `nixos-local` marketplace answers every `WebFetch` call with `browser-fetch` ([plugin](../../../modules/agents/claude-code/marketplace/browser-webfetch/hooks/register.ts)).
 It runs `/run/current-system/sw/bin/browser-fetch`, so each switch moves it to the current build.
 It follows Claude Code's own WebFetch: the haiku prompt, the 100,000-character cap, `offset` paging, and the redirect, HTTP error and binary notes.
+It preapproves no site, so every page, Markdown included, goes to haiku with the quote rules the built-in gives sites it does not preapprove.
 A same-host redirect is followed even out of a documentation path the built-in preapproves.
 It makes no domain safety check against `api.anthropic.com`.
 It answers the call before Claude Code's permission check, so WebFetch permission rules, the auto-mode classifier and PreToolUse hooks do not apply to it.

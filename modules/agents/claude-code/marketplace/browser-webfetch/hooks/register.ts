@@ -1,11 +1,10 @@
 import type { Register } from "claude-code";
 
 // Claude Code 2.1.319's WebFetch, from its tool module: the cap on the text
-// the secondary model reads, and the prompts it reads it with.
+// the secondary model reads, and the prompt it uses for a site it does not
+// preapprove.
 const CAP = 100_000;
 const TRUNCATED = "\n\n[Content truncated due to length...]";
-const PREAPPROVED_ASK =
-	"Provide a concise response based on the content above. Include relevant details, code examples, and documentation excerpts as needed.";
 const QUOTE_RULES = ` - Enforce a strict 125-character maximum for quotes from any source document. Open Source Software is ok as long as we respect the license.
  - Use quotation marks for exact language from articles; any language outside of the quotation should never be word-for-word the same.
  - You are not a lawyer and never comment on the legality of your own prompts and responses.
@@ -33,7 +32,6 @@ type Page = {
 	contentType: string;
 	bytes: number;
 	binary: boolean;
-	preapproved: boolean;
 	length: number;
 	text: string;
 	redirectFrom?: string;
@@ -106,9 +104,8 @@ function mediaType(contentType: string): string {
 	);
 }
 
-function askFor(content: string, prompt: string, preapproved: boolean): string {
-	const ask = preapproved ? PREAPPROVED_ASK : OTHER_ASK;
-	return `\nWeb page content:\n---\n${content}\n---\n\n${prompt}\n\n${ask}\n`;
+function askFor(content: string, prompt: string): string {
+	return `\nWeb page content:\n---\n${content}\n---\n\n${prompt}\n\n${OTHER_ASK}\n`;
 }
 
 function httpError(page: Page): string {
@@ -241,13 +238,6 @@ export const register: Register = (on, options) => {
 				page.bytes,
 			);
 		}
-		if (
-			page.preapproved &&
-			page.contentType.includes("text/markdown") &&
-			rest < CAP
-		) {
-			return done(window + saved, page.bytes);
-		}
 
 		const shown = head(window, CAP);
 		const content = rest > CAP ? shown + TRUNCATED : window;
@@ -257,7 +247,7 @@ export const register: Register = (on, options) => {
 				: "";
 		const answer = await $.model.complete({
 			model: "haiku",
-			prompt: lead + askFor(content, e.prompt, page.preapproved),
+			prompt: lead + askFor(content, e.prompt),
 			maxTokens: MAX_TOKENS,
 			timeoutMs: MODEL_TIMEOUT_MS,
 		});
