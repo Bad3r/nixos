@@ -72,6 +72,7 @@ across all connected outputs is not supported in a reliable way.
 | Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context).        |
 | ProtonVPN | SNI via bridge   | Low-Medium        | Local overlay rewrites tray states to the theme-provided `protonvpn-tray` icon name before `snixembed` proxies it.   |
 | Teams     | SNI via bridge   | Low-Medium        | Electron tray image is bundled in `app.asar`; the local package override replaces those PNG assets directly.         |
+| ChatGPT   | SNI via bridge   | Low-Medium        | Shares `icon-chatgpt.png` with the window; the local module repoints the tray loader in `app.asar`.                  |
 
 ## Broken Launcher Icons Found
 

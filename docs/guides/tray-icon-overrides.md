@@ -43,6 +43,16 @@ The same override extracts and repacks `app.asar`, replacing every bundled tray 
 That template uses `base05` for the glyph and `base00` for the front tile letter, so it stays legible against the dark i3bar panel.
 The tray PNG render uses the same `11/16` glyph scale as the icon-theme overrides, so the Electron tray image does not fill the entire icon frame.
 
+## ChatGPT Tray Icon
+
+On Linux, the ChatGPT tray, window, and About icons all load the same bundled `resources/icon-chatgpt.png`, and the tray downscales it to 16 px.
+
+The local ChatGPT module (`modules/apps/chatgpt/nixos.nix`) renders `modules/stylix/icons/openai-blossom.svg.mustache` into `resources/chatgpt-tray.png`.
+The glyph uses `base04`, the i3bar status text color, at the same `11/16` glyph scale as the icon-theme overrides.
+`modules/apps/chatgpt/_tray-icon.py` then points the Linux tray loader in `app.asar` at that file and drops the 16 px downscale, so the bar scales the image itself.
+The window and About icons keep `icon-chatgpt.png`.
+The build fails when the loader pattern in `app.asar` changes, so an upstream rewrite of the tray code surfaces at build time.
+
 ## udiskie Tray Icon
 
 udiskie looks up tray icons through `Gtk.IconTheme`.
