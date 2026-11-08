@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Bad3r
-"""URL checks, preapproved locations and the redirect policy."""
+"""URL checks and the redirect policy."""
 
 import unittest
 
@@ -120,36 +120,6 @@ class PinTest(unittest.TestCase):
             urls.pin("https://nowhere.example/", lambda _h, _p: [])
 
 
-class PreapprovedTest(unittest.TestCase):
-    """The documentation hosts that get WebFetch's other prompt."""
-
-    def test_hosts_and_prefixes(self) -> None:
-        """Whole hosts match any path; prefixed entries match their subtree."""
-        self.assertTrue(urls.is_preapproved("https://docs.python.org/3/library/"))
-        self.assertTrue(urls.is_preapproved("https://go.dev/doc/effective_go"))
-        self.assertTrue(urls.is_preapproved("https://go.dev/doc"))
-        self.assertFalse(urls.is_preapproved("https://go.dev/blog/x"))
-        self.assertFalse(urls.is_preapproved("https://go.dev/docs"))
-        self.assertFalse(urls.is_preapproved("https://example.org/"))
-
-    def test_encoded_separator(self) -> None:
-        """An encoded slash or dot never matches a path prefix."""
-        self.assertFalse(urls.is_preapproved("https://go.dev/doc%2F..%2Fblog"))
-
-    def test_github(self) -> None:
-        """GitHub entries cover only main-branch views outside anthropics."""
-        self.assertTrue(urls.is_preapproved("https://github.com/anthropics/anything/pulls"))
-        self.assertTrue(urls.is_preapproved("https://github.com/anthropic-experimental/r"))
-        self.assertTrue(
-            urls.is_preapproved("https://github.com/anthropic-experimental/r/blob/main/a")
-        )
-        self.assertFalse(urls.is_preapproved("https://github.com/anthropic-experimental/r/issues"))
-        self.assertTrue(
-            urls.is_preapproved("https://raw.githubusercontent.com/anthropics/r/refs/heads/main/x")
-        )
-        self.assertFalse(urls.is_preapproved("https://raw.githubusercontent.com/anthropics/r/v1/x"))
-
-
 class RedirectTest(unittest.TestCase):
     """Which redirects are followed and which are reported."""
 
@@ -171,7 +141,6 @@ class RedirectTest(unittest.TestCase):
         self.assertTrue(urls.redirect_allowed("https://a.example/", "https://a.example:443/"))
         self.assertFalse(urls.redirect_allowed("https://a.example/", "https://u:p@a.example/"))
 
-    def test_leaving_preapproved_path(self) -> None:
-        """A redirect out of a preapproved subtree on the same host is reported."""
-        self.assertFalse(urls.redirect_allowed("https://go.dev/doc/x", "https://go.dev/blog/y"))
-        self.assertTrue(urls.redirect_allowed("https://go.dev/doc/x", "https://go.dev/ref/y"))
+    def test_leaving_documentation_path(self) -> None:
+        """A same-host redirect out of a subtree the built-in preapproves is followed."""
+        self.assertTrue(urls.redirect_allowed("https://go.dev/doc/x", "https://go.dev/blog/y"))

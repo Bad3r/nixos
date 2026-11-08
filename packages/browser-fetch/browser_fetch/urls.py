@@ -20,155 +20,9 @@ MAX_REDIRECTS = 10
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 DEFAULT_PORTS = {"http": 80, "https": 443}
 
-# The hosts and path prefixes WebFetch treats as preapproved documentation.
-PREAPPROVED = (
-    "platform.claude.com",
-    "code.claude.com",
-    "claude.dev",
-    "www.claude.dev",
-    "claude.com/docs",
-    "modelcontextprotocol.io",
-    "github.com/anthropics",
-    "github.com/anthropic-experimental",
-    "raw.githubusercontent.com/anthropics",
-    "raw.githubusercontent.com/anthropic-experimental",
-    "agentskills.io",
-    "docs.python.org",
-    "en.cppreference.com",
-    "docs.oracle.com",
-    "learn.microsoft.com",
-    "developer.mozilla.org",
-    "go.dev/doc",
-    "go.dev/ref",
-    "www.php.net",
-    "docs.swift.org",
-    "kotlinlang.org",
-    "ruby-doc.org",
-    "doc.rust-lang.org",
-    "www.typescriptlang.org",
-    "react.dev",
-    "angular.io",
-    "vuejs.org",
-    "nextjs.org",
-    "expressjs.com",
-    "nodejs.org",
-    "bun.sh",
-    "jquery.com",
-    "getbootstrap.com",
-    "tailwindcss.com",
-    "d3js.org",
-    "threejs.org",
-    "redux.js.org",
-    "webpack.js.org",
-    "jestjs.io",
-    "reactrouter.com",
-    "docs.djangoproject.com",
-    "flask.palletsprojects.com",
-    "fastapi.tiangolo.com",
-    "pandas.pydata.org",
-    "numpy.org",
-    "www.tensorflow.org",
-    "pytorch.org",
-    "scikit-learn.org",
-    "matplotlib.org",
-    "requests.readthedocs.io",
-    "jupyter.org",
-    "laravel.com",
-    "symfony.com",
-    "wordpress.org/documentation",
-    "docs.spring.io",
-    "hibernate.org",
-    "tomcat.apache.org",
-    "gradle.org",
-    "maven.apache.org",
-    "asp.net",
-    "dotnet.microsoft.com",
-    "blazor.net",
-    "reactnative.dev",
-    "docs.flutter.dev",
-    "developer.apple.com",
-    "developer.android.com",
-    "keras.io",
-    "spark.apache.org",
-    "huggingface.co/docs",
-    "www.kaggle.com/docs",
-    "www.mongodb.com",
-    "redis.io",
-    "www.postgresql.org",
-    "dev.mysql.com",
-    "www.sqlite.org",
-    "graphql.org",
-    "prisma.io",
-    "docs.getdbt.com",
-    "docs.aws.amazon.com",
-    "cloud.google.com",
-    "kubernetes.io",
-    "www.docker.com",
-    "www.terraform.io",
-    "www.ansible.com",
-    "vercel.com/docs",
-    "docs.stripe.com",
-    "docs.netlify.com",
-    "devcenter.heroku.com",
-    "dev.wix.com/docs",
-    "cypress.io",
-    "selenium.dev",
-    "docs.unity.com",
-    "docs.unrealengine.com",
-    "git-scm.com",
-    "nginx.org",
-    "httpd.apache.org",
-)
-_HOSTS = frozenset(entry for entry in PREAPPROVED if "/" not in entry)
-_PREFIXES: dict[str, list[str]] = {}
-for _entry in PREAPPROVED:
-    if "/" in _entry:
-        _host, _, _rest = _entry.partition("/")
-        _PREFIXES.setdefault(_host, []).append(f"/{_rest}")
-_GITHUB_HOSTS = frozenset({"github.com", "raw.githubusercontent.com"})
-_ENCODED_SEPARATOR = re.compile(r"%(25)*(2f|5c|2e)", re.IGNORECASE)
-_RAW_MAIN = re.compile(r"^/[^/]+/[^/]+/refs/heads/main/.")
-_GITHUB_MAIN = re.compile(r"^/[^/]+/[^/]+(/?|/(tree|blob)/main(/.*)?)$")
-
 
 class UrlError(Exception):
     """The URL is not one WebFetch fetches."""
-
-
-def _github_main(host: str, path: str) -> bool:
-    if host == "raw.githubusercontent.com":
-        return _RAW_MAIN.match(path) is not None
-    return _GITHUB_MAIN.match(path) is not None
-
-
-def preapproved_location(host: str, path: str) -> bool:
-    """Whether host and path fall under a preapproved entry."""
-    if host in _HOSTS:
-        return True
-    prefixes = _PREFIXES.get(host)
-    if not prefixes or _ENCODED_SEPARATOR.search(path):
-        return False
-    for prefix in prefixes:
-        if path == prefix or path.startswith(f"{prefix}/"):
-            return (
-                host not in _GITHUB_HOSTS
-                or f"{host}{prefix}" == "github.com/anthropics"
-                or _github_main(host, path)
-            )
-    return False
-
-
-def _path(parts: SplitResult) -> str:
-    return parts.path or "/"
-
-
-def is_preapproved(url: str) -> bool:
-    """Whether WebFetch answers this URL with its documentation prompt."""
-    try:
-        parts = urlsplit(url)
-    except ValueError:
-        return False
-    return preapproved_location(parts.hostname or "", _path(parts))
 
 
 def _whatwg_ipv4(host: str) -> str | None:
@@ -403,11 +257,6 @@ def redirect_allowed(origin: str, target: str) -> bool:
         return False
     source_host = source.hostname or ""
     bare = _strip_www(source_host)
-    hosts = dict.fromkeys([source_host, bare, f"www.{bare}"])
-    if any(preapproved_location(h, _path(source)) for h in hosts) and not any(
-        preapproved_location(h, _path(dest)) for h in hosts
-    ):
-        return False
     if dest.username is not None or dest.password is not None:
         return False
     return _strip_www(dest.hostname or "") == bare

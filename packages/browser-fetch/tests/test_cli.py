@@ -39,10 +39,9 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(record))["text"], "\ude00b")
 
     def test_flags(self) -> None:
-        """The record says whether the URL is preapproved and the type binary."""
-        page = fetch.Page("ok", "https://docs.python.org/3/", 200, content_type="application/pdf")
+        """The record says whether the type is binary."""
+        page = fetch.Page("ok", "https://example.org/", 200, content_type="application/pdf")
         record = cli.record(page, 0, None)
-        self.assertTrue(record["preapproved"])
         self.assertTrue(record["binary"])
         self.assertNotIn("savedPath", record)
 
