@@ -58,6 +58,8 @@
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
+      # web.run answered by the kagi-search emulator (llm-agents' web-run-command.patch)
+      webRunEnv.CODEX_WEB_RUN_COMMAND = "/run/current-system/sw/bin/kagi-search-webrun";
       telemetry = import ./_telemetry.nix { inherit pkgs; };
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
@@ -89,6 +91,7 @@
       };
 
       codexRuntime = import ./_wrapper.nix {
+        extraEnv = webRunEnv;
         inherit
           configDir
           codexPkg
@@ -208,9 +211,12 @@
             '';
           };
 
-          sessionVariables = codexEnv.vars // {
-            CODEX_HOME = lib.mkDefault configDir;
-          };
+          sessionVariables =
+            codexEnv.vars
+            // webRunEnv
+            // {
+              CODEX_HOME = lib.mkDefault configDir;
+            };
         };
 
         systemd.user.services.codex-telemetry = lib.mkIf telemetry.enabled {

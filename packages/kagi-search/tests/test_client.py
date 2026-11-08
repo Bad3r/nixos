@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Requests to Kagi and how their answers map to errors."""
 
+import datetime as dt
 import http.client
 import io
 import unittest
@@ -65,6 +66,14 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(query, {"q": ["nix flakes site:wiki.nixos.org -site:b.org"]})
         self.assertEqual(request.get_header("Cookie"), "kagi_session=tok")
         self.assertIn("Safari/605.1.15", request.get_header("User-agent") or "")
+
+    def test_since_adds_a_start_date(self) -> None:
+        """A start date reaches Kagi as the from_date of its date-range filter."""
+        director = FakeDirector(200, RESULTS)
+        client.search("nix", "tok", since=dt.date(2026, 11, 1), director=director)
+        (request,) = director.requests
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
+        self.assertEqual(query, {"q": ["nix"], "from_date": ["2026-11-01"]})
 
     def test_limit(self) -> None:
         """At most limit hits come back."""

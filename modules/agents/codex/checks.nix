@@ -88,6 +88,57 @@ in
     in
     {
       checks = {
+        # Fails a Codex bump that would send web.run elsewhere or change what the
+        # kagi-search-webrun emulator answers (packages/kagi-search/kagi_search/webrun.py).
+        "codex/web-run-contract" =
+          let
+            src = "${codexPkg.src}/codex-rs";
+            webRunPatch = lib.findFirst (patch: lib.hasSuffix "web-run-command.patch" (toString patch)) null (
+              codexPkg.patches or [ ]
+            );
+            pinned = {
+              "ext/web-search/web_run_description.md" =
+                "1f3879b44690eb7aad9ba97351acda16c4d0c26847bcb4af2964d5989404407e";
+              "codex-api/src/search.rs" = "393f53fbdedd7882c5416d00fdde166b06d39d5d669f06981c509d35fb79a53b";
+            };
+            required = {
+              "features/src/lib.rs" = ''key: "standalone_web_search"'';
+              "core/src/tools/spec_plan.rs" = "let web_search_mode = (!standalone_web_search_available";
+            };
+          in
+          pkgs.runCommandLocal "codex-web-run-contract-check" { passthru.runtimeCheck = true; } ''
+            failed=0
+            fail() {
+              echo "FAIL (codex ${codexPkg.version}): $1" >&2
+              failed=1
+            }
+            ${
+              if webRunPatch == null then
+                ''
+                  fail "llm-agents' codex lacks web-run-command.patch, so web.run would call OpenAI's alpha/search"
+                ''
+              else
+                ''
+                  grep -qF CODEX_WEB_RUN_COMMAND ${webRunPatch} \
+                    || fail "web-run-command.patch no longer reads CODEX_WEB_RUN_COMMAND, which home.nix sets"
+                ''
+            }
+            ${lib.concatStrings (
+              lib.mapAttrsToList (file: hash: ''
+                got=$(sha256sum ${src}/${file} | cut -d' ' -f1) || got=missing
+                [ "$got" = ${hash} ] || fail "${file} changed upstream (sha256 $got); recheck kagi-search-webrun against it, then update the pin"
+              '') pinned
+            )}
+            ${lib.concatStrings (
+              lib.mapAttrsToList (file: needle: ''
+                grep -qF ${lib.escapeShellArg needle} ${src}/${file} \
+                  || fail "${file} no longer has '${needle}'; Codex may now offer OpenAI's hosted web_search beside or instead of web.run"
+              '') required
+            )}
+            [ "$failed" = 0 ]
+            touch "$out"
+          '';
+
         "codex/telemetry-collector" =
           pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
             ''

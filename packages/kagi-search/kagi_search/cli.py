@@ -17,6 +17,7 @@ from kagi_search.log import FileLog, state_root
 from kagi_search.page import Hit, UnrecognizedPageError
 
 if TYPE_CHECKING:
+    import datetime as dt
     from pathlib import Path
 
 SESSION_EXIT = 3
@@ -58,10 +59,11 @@ def run(
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
     limit: int | None = 10,
+    since: dt.date | None = None,
 ) -> list[Hit]:
     """Search with LibreWolf's session; raises SessionError or SearchError."""
     session = cookie.read_session(cookie.default_profile(cookie.librewolf_root()))
-    return client.search(query, session, allowed=allowed, blocked=blocked, limit=limit)
+    return client.search(query, session, allowed=allowed, blocked=blocked, limit=limit, since=since)
 
 
 def render(hits: list[Hit]) -> str:

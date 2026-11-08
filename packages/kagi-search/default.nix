@@ -22,16 +22,19 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     install -d $out/lib/kagi-search $out/bin
     cp -r kagi_search $out/lib/kagi-search/
-    cat > $out/bin/kagi-search <<EOF
+    for entry in kagi-search:cli kagi-search-webrun:webrun; do
+      name=''${entry%%:*}
+      cat > $out/bin/$name <<EOF
     #!${python3.interpreter} -I
     import sys
 
     sys.path.insert(0, "$out/lib/kagi-search")
-    from kagi_search.cli import main
+    from kagi_search.''${entry#*:} import main
 
     sys.exit(main())
     EOF
-    chmod 0755 $out/bin/kagi-search
+      chmod 0755 $out/bin/$name
+    done
     runHook postInstall
   '';
 
@@ -40,6 +43,9 @@ stdenvNoCC.mkDerivation {
     runHook preInstallCheck
     ${python3.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
     $out/bin/kagi-search --help >/dev/null
+    echo '{"id":"install-check","model":"m","commands":{"time":[{"utc_offset":"+00:00"}]}}' \
+      | XDG_STATE_HOME=$TMPDIR $out/bin/kagi-search-webrun > $TMPDIR/webrun.json
+    grep -q '"encrypted_output": null' $TMPDIR/webrun.json
     runHook postInstallCheck
   '';
 

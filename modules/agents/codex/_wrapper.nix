@@ -8,11 +8,14 @@
   scratchDir,
   lib,
   pkgs,
+  extraEnv ? { },
 }:
 let
   codexEnv = import ./_env.nix;
   envExports = lib.concatStringsSep "\n" (
-    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") codexEnv.vars
+    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") (
+      codexEnv.vars // extraEnv
+    )
   );
 
   tomlFormat = pkgs.formats.toml { };

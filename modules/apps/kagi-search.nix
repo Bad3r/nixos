@@ -8,6 +8,7 @@
   Summary:
     * Reads the kagi_session cookie from a snapshot of LibreWolf's cookie database.
     * Prints Kagi's first results page as numbered hits or JSON.
+    * kagi-search-webrun answers Codex's web.run tool in place of OpenAI's search service.
 
   Options:
     --json: Print JSON instead of text.

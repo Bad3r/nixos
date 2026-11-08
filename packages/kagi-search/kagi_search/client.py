@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, override
 from kagi_search.page import Hit, filter_hits, kagi_query, parse_page
 
 if TYPE_CHECKING:
+    import datetime as dt
     from email.message import Message
     from typing import IO
     from urllib.request import Request
@@ -69,10 +70,17 @@ def opener() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(NoRedirect)
 
 
-def fetch_page(query: str, cookie: str, director: urllib.request.OpenerDirector) -> str:
-    """Return the HTML of Kagi's results page for the query."""
+def fetch_page(
+    query: str,
+    cookie: str,
+    director: urllib.request.OpenerDirector,
+    *,
+    since: dt.date | None = None,
+) -> str:
+    """Return the HTML of Kagi's results page for the query, from since onward if given."""
+    params = {"q": query} | ({"from_date": since.isoformat()} if since else {})
     request = urllib.request.Request(  # noqa: S310 - SEARCH_URL is https
-        f"{SEARCH_URL}?{urllib.parse.urlencode({'q': query})}",
+        f"{SEARCH_URL}?{urllib.parse.urlencode(params)}",
         headers={
             "Cookie": f"kagi_session={cookie}",
             "User-Agent": USER_AGENT,
@@ -108,8 +116,11 @@ def search(  # noqa: PLR0913 - keyword-only options of the public entry point
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
     limit: int | None = 10,
+    since: dt.date | None = None,
     director: urllib.request.OpenerDirector | None = None,
 ) -> list[Hit]:
     """Return at most limit hits (every hit without one), filtered by domain."""
-    page = fetch_page(kagi_query(query, allowed, blocked), cookie, director or opener())
+    page = fetch_page(
+        kagi_query(query, allowed, blocked), cookie, director or opener(), since=since
+    )
     return filter_hits(parse_page(page), allowed, blocked)[:limit]
