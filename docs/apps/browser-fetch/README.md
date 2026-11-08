@@ -59,7 +59,7 @@ curl still sends a cookie the site set on an earlier hop, and a fallback renders
 
 ## Proxies
 
-curl takes its proxy from the first of `https_proxy`, `HTTPS_PROXY`, `all_proxy` and `ALL_PROXY` that is set and not empty.
+curl takes an https URL's proxy from the first of `https_proxy`, `HTTPS_PROXY`, `all_proxy` and `ALL_PROXY` that is set and not empty, and an http URL's from `http_proxy`, `all_proxy` and `ALL_PROXY`, never `HTTP_PROXY`.
 It reaches a host directly when `no_proxy`, or `NO_PROXY` if `no_proxy` is unset or empty, names it by [curl's rules](https://curl.se/libcurl/c/CURLOPT_NOPROXY.html).
 An HTTP, HTTPS, `socks5h` or `socks4a` proxy resolves the name itself; to a `socks5` or `socks4` proxy, curl sends the address it resolved.
 Camoufox goes through the proxy curl uses for the page it takes over, or directly when curl does, and has a SOCKS proxy resolve names.
@@ -123,7 +123,8 @@ It follows Claude Code's own WebFetch: the haiku prompt, the 100,000-character c
 It preapproves no site, so every page, Markdown included, goes to haiku with the quote rules the built-in gives sites it does not preapprove.
 A same-host redirect is followed even out of a documentation path the built-in preapproves.
 It makes no domain safety check against `api.anthropic.com`.
-It fetches `localhost` and other hostnames without a dot, which the built-in refuses, and every address like any other; an http URL is upgraded to https, as the built-in upgrades every one.
+It fetches `localhost` and other hostnames without a dot, which the built-in refuses, and every address like any other.
+An http URL is requested over http, where the built-in upgrades every URL to https, and a same-host redirect from http to https is followed.
 It answers the call before Claude Code's permission check, so WebFetch permission rules, the auto-mode classifier and PreToolUse hooks do not apply to it.
 A failed fetch puts its reason in the status line and refuses the call with the built-in tool's failure text, never falling back to it.
 Each of `browser-fetch`'s warnings follows the result, or that refusal, as a `[WebFetch warning: …]` note for the model.

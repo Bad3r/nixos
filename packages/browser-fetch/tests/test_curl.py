@@ -101,7 +101,7 @@ class RequestTest(unittest.TestCase):
         self.run_request()
         argv = self.fake.calls()[0]["argv"]
         self.assertEqual(argv[0], "--disable")
-        self.assertEqual(argv[argv.index("--proto") + 1], "=https")
+        self.assertEqual(argv[argv.index("--proto") + 1], "=http,https")
         self.assertEqual(argv[argv.index("--max-filesize") + 1], str(curl.MAX_BYTES))
         self.assertEqual(argv[argv.index("--connect-timeout") + 1], "5")
         self.assertEqual(argv[argv.index("--max-time") + 1], "5")
@@ -281,6 +281,18 @@ class ProxyChoiceTest(unittest.TestCase):
         ):
             with self.subTest(environ=environ):
                 self.assertEqual(curl.proxy("example.com", environ), server)
+
+    def test_an_http_url_reads_http_proxy_only_in_lowercase(self) -> None:
+        """http_proxy, then all_proxy and ALL_PROXY; never HTTP_PROXY or the https ones."""
+        a, b, c, d = (f"http://{name}.example:3128" for name in "abcd")
+        for environ, server in (
+            ({"http_proxy": a, "all_proxy": c}, a),
+            ({"HTTP_PROXY": b, "ALL_PROXY": d}, d),
+            ({"https_proxy": a, "HTTPS_PROXY": b}, None),
+            ({"http_proxy": "", "all_proxy": c}, c),
+        ):
+            with self.subTest(environ=environ):
+                self.assertEqual(curl.proxy("example.com", environ, "http"), server)
 
     def test_no_proxy_entries(self) -> None:
         """no_proxy names hosts curl reaches directly, by curl's own matching."""

@@ -82,13 +82,28 @@ class FetchTest(unittest.TestCase):
                 "https://www.a.example/deep/y": {"status": 200, "headers": HTML, "body": PAGE},
             }
         )
-        page = fetch.fetch("http://a.example/", self.settings)
+        page = fetch.fetch("https://a.example/", self.settings)
         self.assertEqual(page.outcome, "ok")
         self.assertEqual(
             self.cookies_sent(),
             ["a=va; cf=earned", "www=vw; cf=earned", "www=vw; cf=earned"],
         )
         self.assertIn("# Hello", page.text)
+
+    def test_http_goes_as_given_and_follows_its_https_redirect(self) -> None:
+        """An http URL is requested over http, and the site's move to https is followed."""
+        self.fake.serve(
+            {
+                "http://a.example/": {"status": 301, "headers": {"Location": "https://a.example/"}},
+                "https://a.example/": {"status": 200, "headers": HTML, "body": PAGE},
+            }
+        )
+        page = fetch.fetch("http://a.example/", self.settings)
+        self.assertEqual((page.outcome, page.status), ("ok", 200))
+        self.assertEqual(
+            [call["argv"][-1] for call in self.fake.calls()],
+            ["http://a.example/", "https://a.example/"],
+        )
 
     def test_cookie_set_on_a_redirect_reaches_the_next_hop(self) -> None:
         """A cookie-gated redirect reaches the page, as in a browser."""
@@ -120,10 +135,10 @@ class FetchTest(unittest.TestCase):
                 "https://10.1.2.3/": {"status": 302, "headers": {"Location": "/home"}},
                 "https://10.1.2.3/home": {"status": 200, "headers": HTML, "body": PAGE},
                 "https://localhost:8443/": {"status": 200, "headers": HTML, "body": PAGE},
-                "https://router/": {"status": 200, "headers": HTML, "body": PAGE},
+                "http://router/": {"status": 200, "headers": HTML, "body": PAGE},
             }
         )
-        page = fetch.fetch("http://10.1.2.3/", self.settings)
+        page = fetch.fetch("https://10.1.2.3/", self.settings)
         self.assertEqual((page.outcome, page.status), ("ok", 200))
         self.assertEqual(
             [call["argv"][-1] for call in self.fake.calls()],
@@ -131,8 +146,8 @@ class FetchTest(unittest.TestCase):
         )
         self.assertEqual(self.cookies_sent(), ["lan=vl", "lan=vl"])
         for url, requested in (
-            ("http://localhost:8443/", "https://localhost:8443/"),
-            ("http://router/", "https://router/"),
+            ("https://localhost:8443/", "https://localhost:8443/"),
+            ("http://router/", "http://router/"),
         ):
             with self.subTest(url=url):
                 self.assertEqual(fetch.fetch(url, self.settings).status, 200)

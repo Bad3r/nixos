@@ -164,8 +164,10 @@ class Policy:
         if not urls.redirect_allowed(origin, to):
             return False
         try:
-            return curl.proxy(urls.request_host(to), self.environ) == curl.proxy(
-                urls.request_host(self.target), self.environ
+            return curl.proxy(
+                urls.request_host(to), self.environ, urlsplit(to).scheme
+            ) == curl.proxy(
+                urls.request_host(self.target), self.environ, urlsplit(self.target).scheme
             )
         except urls.UrlError:
             return False
@@ -360,7 +362,7 @@ def proxy_settings(url: str, environ: Mapping[str, str]) -> dict[str, str] | Non
     curl's no_proxy is decided here and never handed over: Juggler reads a
     bypass entry as a bare suffix of the host, unlike curl.
     """
-    server = curl.proxy(urls.request_host(url), environ)
+    server = curl.proxy(urls.request_host(url), environ, urlsplit(url).scheme)
     if server is None:
         return None
     parts = urlsplit(server if "://" in server else f"http://{server}")

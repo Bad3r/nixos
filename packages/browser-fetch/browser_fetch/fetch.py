@@ -272,7 +272,7 @@ class Client:
         return jar.for_request(self._run.cookies.cookies(), url, jar.now_us() // 1000)
 
     def get(self, url: str) -> Reply:
-        """GET the https URL once, as a fetch's hop."""
+        """GET the URL once, as a fetch's hop."""
         response = self._run.get(url)
         return Reply(response.status, response.headers, response.body.read_bytes())
 

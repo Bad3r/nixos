@@ -100,7 +100,7 @@ def request_host(url: str) -> str:
 
 
 def check_url(url: str) -> str:
-    """Return the URL to request, upgraded to https; raise UrlError otherwise.
+    """Return the URL to request, with its own scheme; raise UrlError otherwise.
 
     The host is written as the URL standard serializes it, so a Unicode name
     becomes its A-labels and a numeric host its dotted address.
@@ -123,9 +123,8 @@ def check_url(url: str) -> str:
         raise UrlError(msg)
     host = _ascii_host(host)
     named = f"[{host}]" if ":" in host else host
-    dropped = {None, 80} if parts.scheme == "http" else {None}
-    netloc = named if port in dropped else f"{named}:{port}"
-    return urlunsplit(parts._replace(scheme="https", netloc=netloc))
+    netloc = named if port in {None, DEFAULT_PORTS[parts.scheme]} else f"{named}:{port}"
+    return urlunsplit(parts._replace(netloc=netloc))
 
 
 # What stays unescaped once a path or query is decoded and encoded again.
@@ -167,11 +166,14 @@ def redirect_allowed(origin: str, target: str) -> bool:
     """Whether WebFetch follows a redirect from origin to target itself.
 
     Only a redirect to the same host, give or take a leading www., on the same
-    scheme and port and without credentials is followed; the rest are reported.
+    port and without credentials is followed, on the same scheme or from http
+    to https, which the built-in reaches by upgrading every URL; the rest are
+    reported.
     """
     try:
         source, dest = urlsplit(origin), urlsplit(target)
-        if dest.scheme != source.scheme or _port(dest) != _port(source):
+        upgrade = (source.scheme, dest.scheme) == ("http", "https")
+        if (dest.scheme != source.scheme and not upgrade) or _port(dest) != _port(source):
             return False
     except ValueError:
         return False

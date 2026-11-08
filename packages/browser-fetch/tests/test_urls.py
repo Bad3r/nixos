@@ -7,13 +7,15 @@ from browser_fetch import urls
 
 
 class CheckUrlTest(unittest.TestCase):
-    """Which URLs WebFetch takes, and the https upgrade."""
+    """Which URLs WebFetch takes, each requested with its own scheme."""
 
-    def test_http_is_upgraded(self) -> None:
-        """A plain http URL is requested over https, default port dropped."""
-        self.assertEqual(urls.check_url("http://example.org/a?b=1"), "https://example.org/a?b=1")
-        self.assertEqual(urls.check_url("http://example.org:80/"), "https://example.org/")
-        self.assertEqual(urls.check_url("http://example.org:8080/"), "https://example.org:8080/")
+    def test_http_is_kept(self) -> None:
+        """A plain http URL is requested over http, its scheme's default port dropped."""
+        self.assertEqual(urls.check_url("http://example.org/a?b=1"), "http://example.org/a?b=1")
+        self.assertEqual(urls.check_url("http://example.org:80/"), "http://example.org/")
+        self.assertEqual(urls.check_url("http://example.org:443/"), "http://example.org:443/")
+        self.assertEqual(urls.check_url("https://example.org:443/"), "https://example.org/")
+        self.assertEqual(urls.check_url("http://example.org:8080/"), "http://example.org:8080/")
 
     def test_https_is_kept(self) -> None:
         """An https URL passes unchanged."""
@@ -34,13 +36,13 @@ class CheckUrlTest(unittest.TestCase):
     def test_local_and_dotless_hosts_are_taken(self) -> None:
         """Loopback, private, link-local and dotless hosts are URLs like any other."""
         for given, wanted in (
-            ("http://localhost:8000/", "https://localhost:8000/"),
-            ("http://router/status", "https://router/status"),
-            ("http://127.0.0.1:3000/", "https://127.0.0.1:3000/"),
-            ("http://10.0.0.1/", "https://10.0.0.1/"),
+            ("http://localhost:8000/", "http://localhost:8000/"),
+            ("http://router/status", "http://router/status"),
+            ("http://127.0.0.1:3000/", "http://127.0.0.1:3000/"),
+            ("http://10.0.0.1/", "http://10.0.0.1/"),
             ("https://192.168.1.10/a", "https://192.168.1.10/a"),
-            ("http://169.254.169.254/latest", "https://169.254.169.254/latest"),
-            ("http://100.96.0.9/", "https://100.96.0.9/"),
+            ("http://169.254.169.254/latest", "http://169.254.169.254/latest"),
+            ("http://100.96.0.9/", "http://100.96.0.9/"),
         ):
             with self.subTest(url=given):
                 self.assertEqual(urls.check_url(given), wanted)
@@ -48,13 +50,13 @@ class CheckUrlTest(unittest.TestCase):
     def test_ipv6_literals_are_serialized_as_the_url_standard_does(self) -> None:
         """Lowercase hex pieces, embedded IPv4 in hex, the first longest zero run compressed."""
         for given, wanted in (
-            ("http://[::1]:8080/", "https://[::1]:8080/"),
-            ("http://[::ffff:127.0.0.1]/x", "https://[::ffff:7f00:1]/x"),
+            ("http://[::1]:8080/", "http://[::1]:8080/"),
+            ("http://[::ffff:127.0.0.1]/x", "http://[::ffff:7f00:1]/x"),
             ("https://[2001:DB8::1]/", "https://[2001:db8::1]/"),
-            ("http://[fd00:0:0:0:0:0:0:1]/", "https://[fd00::1]/"),
-            ("http://[1:0:0:0:2:0:0:0]/", "https://[1::2:0:0:0]/"),
-            ("http://[1:0:2:3:4:5:6:7]/", "https://[1:0:2:3:4:5:6:7]/"),
-            ("http://[0:0:0:0:0:0:0:0]/", "https://[::]/"),
+            ("http://[fd00:0:0:0:0:0:0:1]/", "http://[fd00::1]/"),
+            ("http://[1:0:0:0:2:0:0:0]/", "http://[1::2:0:0:0]/"),
+            ("http://[1:0:2:3:4:5:6:7]/", "http://[1:0:2:3:4:5:6:7]/"),
+            ("http://[0:0:0:0:0:0:0:0]/", "http://[::]/"),
         ):
             with self.subTest(url=given):
                 self.assertEqual(urls.check_url(given), wanted)
@@ -70,7 +72,7 @@ class CheckUrlTest(unittest.TestCase):
         self.assertEqual(
             urls.check_url("https://Bücher.example/a"), "https://xn--bcher-kva.example/a"
         )
-        self.assertEqual(urls.check_url("http://0x7f.1/"), "https://127.0.0.1/")
+        self.assertEqual(urls.check_url("http://0x7f.1/"), "http://127.0.0.1/")
         self.assertEqual(urls.check_url("https://EXAMPLE.org/"), "https://example.org/")
         with self.assertRaises(urls.UrlError):
             urls.check_url("https://1.2.3.999/")
@@ -91,8 +93,11 @@ class RedirectTest(unittest.TestCase):
         self.assertFalse(urls.redirect_allowed("https://a.example/", "https://cdn.a.example/"))
 
     def test_scheme_port_credentials(self) -> None:
-        """A scheme or port change and credentials are reported."""
+        """A scheme or port change and credentials are reported, save http to https."""
         self.assertFalse(urls.redirect_allowed("https://a.example/", "http://a.example/"))
+        self.assertTrue(urls.redirect_allowed("http://a.example/", "https://a.example/"))
+        self.assertTrue(urls.redirect_allowed("http://a.example/", "https://www.a.example/x"))
+        self.assertFalse(urls.redirect_allowed("http://a.example:8080/", "https://a.example/"))
         self.assertFalse(urls.redirect_allowed("https://a.example/", "https://a.example:8443/"))
         self.assertTrue(urls.redirect_allowed("https://a.example/", "https://a.example:443/"))
         self.assertFalse(urls.redirect_allowed("https://a.example/", "https://u:p@a.example/"))

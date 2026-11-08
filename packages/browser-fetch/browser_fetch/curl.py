@@ -33,10 +33,14 @@ _REASONS = {
     60: "the server's TLS certificate was not trusted",
     63: f"the response is larger than {MAX_BYTES} bytes",
 }
-# The variables curl reads a proxy for an https URL from, and the list of
-# hosts it reaches directly, first one set wins (lib/proxy.c); an empty one
-# counts as unset (curl_getenv).
-PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
+# The variables curl reads a URL's proxy from, by scheme, and the list of
+# hosts it reaches directly, first one set wins (lib/proxy.c); an http URL
+# never reads HTTP_PROXY, and an empty one counts as unset (curl_getenv).
+SCHEME_PROXY_VARIABLES = {
+    "https": ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"),
+    "http": ("http_proxy", "all_proxy", "ALL_PROXY"),
+}
+PROXY_VARIABLES = ("http_proxy", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
 NO_PROXY_VARIABLES = ("no_proxy", "NO_PROXY")
 # A proxy's CONNECT answers (%{http_connect}): anything from 300 up refuses the tunnel.
 _PROXY_AUTHENTICATION = 407
@@ -118,11 +122,11 @@ def _first(environ: Mapping[str, str], names: tuple[str, ...]) -> str | None:
     return next((environ[name] for name in names if environ.get(name)), None)
 
 
-def proxy(host: str, environ: Mapping[str, str]) -> str | None:
-    """The proxy curl uses for an https URL to host under environ, or None when it goes direct."""
+def proxy(host: str, environ: Mapping[str, str], scheme: str = "https") -> str | None:
+    """The proxy curl uses for a scheme URL to host under environ, or None when it goes direct."""
     if _bypassed(host, _first(environ, NO_PROXY_VARIABLES)):
         return None
-    return _first(environ, PROXY_VARIABLES)
+    return _first(environ, SCHEME_PROXY_VARIABLES[scheme])
 
 
 def _bypassed(name: str, no_proxy: str | None) -> bool:
@@ -252,7 +256,7 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         "--silent",
         "--show-error",
         "--proto",
-        "=https",
+        "=http,https",
         "--connect-timeout",
         f"{max(min(CONNECT_SECONDS, timeout), 1.0):.0f}",
         "--max-time",

@@ -154,15 +154,15 @@ class MainTest(unittest.TestCase):
         self.assertEqual(self.fake.calls(), [])
 
     def test_a_dotless_loopback_host_is_fetched(self) -> None:
-        """Localhost is requested like any host, over https as WebFetch upgrades every URL."""
+        """Localhost is requested like any host, over the URL's own http."""
         html = {"Content-Type": "text/html"}
         self.fake.serve(
-            {"https://localhost:8443/": {"status": 200, "headers": html, "body": "<p>up</p>"}}
+            {"http://localhost:8080/": {"status": 200, "headers": html, "body": "<p>up</p>"}}
         )
-        status, out, _ = self.run_main("http://localhost:8443/")
+        status, out, _ = self.run_main("http://localhost:8080/")
         self.assertEqual(status, 0)
         self.assertIn("up", out)
-        self.assertEqual(self.fake.calls()[0]["argv"][-1], "https://localhost:8443/")
+        self.assertEqual(self.fake.calls()[0]["argv"][-1], "http://localhost:8080/")
 
     def test_unexpected_error_is_one_line_without_secrets(self) -> None:
         """Any other exception exits 7 with its type alone: no traceback, no message."""
