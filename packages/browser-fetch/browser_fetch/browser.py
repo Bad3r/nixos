@@ -149,15 +149,42 @@ def injection(
     """The cookies a fallback adds to the browser's jar for url's host.
 
     The site's responses during this fetch come first; a LibreWolf cookie
-    goes in only where the browser holds none of that name, host and path,
-    so a cookie the browser earned wins. Partitioned cookies stay out:
-    Playwright adds to the unpartitioned jar only.
+    goes in only where the browser holds no live cookie of that name, host
+    and path, so a cookie the browser earned wins. A cookie the site deleted
+    during the fetch keeps LibreWolf's copy out too. Partitioned cookies stay
+    out: Playwright adds to the unpartitioned jar only.
     """
-    held = {cookie.key for cookie in own}
+    held = {cookie.key for cookie in jar.live(own, now)}
     fresh = list(received)
     taken = {cookie.key for cookie in fresh}
     chosen = fresh + [c for c in librewolf if c.key not in held and c.key not in taken]
     return [c for c in jar.for_host(chosen, url, now) if not c.partition]
+
+
+def forget(database: Path, deleted: Iterable[jar.Cookie]) -> int:
+    """Delete the browser's own unpartitioned cookies the site deleted during this fetch.
+
+    The browser would have applied the same Set-Cookie had it made the request.
+    """
+    keys = [(c.name, c.host, c.path) for c in deleted if not c.partition]
+    if not keys or not database.exists():
+        return 0
+    connection = sqlite3.connect(database, timeout=10)
+    try:
+        removed = 0
+        for name, host, path in keys:
+            removed += connection.execute(
+                "delete from moz_cookies where coalesce(name, '') = ? and host = ? and path = ?"
+                " and originAttributes = ''",
+                (name, host, path),
+            ).rowcount
+        connection.commit()
+    except sqlite3.Error as error:
+        msg = f"the browser's deleted cookies could not be removed: {error}"
+        raise BrowserError(msg) from None
+    finally:
+        connection.close()
+    return removed
 
 
 def purge(database: Path, journal: list[dict[str, str]]) -> int:
@@ -223,8 +250,12 @@ class Camoufox:
 
         The lock lasts until the returned descriptor is closed.
         """
-        self._prepare()
-        fd = os.open(self.state / LOCK, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+        try:
+            self._prepare()
+            fd = os.open(self.state / LOCK, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+        except OSError as error:
+            msg = f"the browser's state directory {self.state} is unusable: {error.strerror}"
+            raise BrowserError(msg) from None
         give_up = min(until, self.clock() + LOCK_SECONDS)
         while True:
             try:
@@ -273,8 +304,23 @@ class Camoufox:
         headers = cast("dict[str, str]", fingerprint.get("headers", {}))
         return curl.Identity(headers["user-agent"], headers["accept-language"])
 
-    def jar(self) -> list[jar.Cookie]:
-        """The cookies of the browser's own profile, read from a consistent copy."""
+    def jar(self, until: float) -> list[jar.Cookie]:
+        """The cookies of the browser's own profile, under the profile lock.
+
+        A killed session's injected cookies are purged first, and no other
+        fetch's session runs meanwhile, so only the browser's own are read.
+        """
+        if not (self.profile / jar.DB_NAME).exists():
+            return []
+        lock = self._lock(until)
+        try:
+            self._recover()
+            return self._own_jar()
+        finally:
+            os.close(lock)
+
+    def _own_jar(self) -> list[jar.Cookie]:
+        """The profile's cookies from a consistent copy; the caller holds the lock."""
         if not (self.profile / jar.DB_NAME).exists():
             return []
         into = self.workdir / "camoufox-jar"
@@ -305,7 +351,10 @@ class Camoufox:
         lock = self._lock(until)
         try:
             self._recover()
-            cookies = injection(self.jar(), librewolf, received, url, jar.now_ms())
+            now = jar.now_ms()
+            deleted = [c for c in received if c.expiry_ms <= now]
+            forget(self.profile / jar.DB_NAME, deleted)
+            cookies = injection(self._own_jar(), librewolf, received, url, now)
             journal = [
                 {"name": c.name, "host": c.host, "path": c.path, "digest": digest(c.value)}
                 for c in cookies

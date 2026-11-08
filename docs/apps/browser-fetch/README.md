@@ -28,6 +28,8 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 - LibreWolf's unpartitioned jar, and its CHIPS cookies partitioned to the page's own site.
 - Camoufox's jar; on the same name, host and path, Camoufox's cookie wins.
 - Cookies the site set on an earlier redirect of the same fetch, which win over both.
+- Expired rows of either jar count for nothing.
+  A cookie a redirect deletes stays deleted for the rest of the fetch, in Camoufox's profile too.
 
 `--no-cookies` leaves LibreWolf out; Camoufox's jar still goes along.
 
@@ -63,7 +65,9 @@ Camoufox keeps one profile and one fingerprint under `$XDG_STATE_HOME/browser-fe
 The fingerprint is drawn once per Camoufox release by Camoufox's own launcher, as Linux in `en-US`.
 One fetch at a time uses the profile; another waits a bounded time, then fails.
 LibreWolf's cookies for the page's host are added to the profile for the fetch and removed afterwards, unless the site set a new value meanwhile.
-A fetch killed before that removal leaves a journal of hashes, and the next fetch removes them first.
+A fetch killed before that removal leaves a journal of hashes.
+Every fetch, curl-only ones included, removes them under the profile lock before it reads the profile's cookies.
+A fetch that cannot take the lock in time goes on without Camoufox's cookies.
 The profile keeps no disk cache.
 
 Start over with a new fingerprint and an empty profile:

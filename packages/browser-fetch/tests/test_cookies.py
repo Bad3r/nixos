@@ -315,10 +315,23 @@ class SetCookieTest(unittest.TestCase):
         )
 
     def test_apply_replaces_and_deletes(self) -> None:
-        """A newer value replaces the cookie; Max-Age=0 removes it."""
+        """A newer value replaces the cookie; Max-Age=0 leaves a tombstone that is never sent."""
         start = jar.apply([], URL, ["a=1; Path=/", "b=2; Path=/"], NOW)
         later = jar.apply(start, URL, ["a=3; Path=/", "b=; Path=/; Max-Age=0"], NOW)
-        self.assertEqual(jar.header(later), "a=3")
+        self.assertEqual(jar.header(jar.for_request(later, URL, NOW)), "a=3")
+        self.assertEqual([c.name for c in later if c.expiry_ms <= NOW], ["b"])
+
+    def test_deletion_shadows_a_stored_cookie(self) -> None:
+        """A Set-Cookie deletion wins over the stored jar it deletes from, through merge."""
+        stored = [jar.Cookie("sid", "OLD", "www.example.org", "/", LATER, secure=True, created=1)]
+        received = jar.apply([], URL, ["sid=; Path=/; Max-Age=0"], NOW)
+        self.assertEqual(jar.for_request(jar.merge(received, stored), URL, NOW), [])
+
+    def test_live_drops_expired_rows(self) -> None:
+        """An expired stored row is not a cookie at all."""
+        dead = jar.Cookie("a", "old", "example.org", "/", NOW - 1, secure=True, created=1)
+        kept = jar.Cookie("b", "new", "example.org", "/", LATER, secure=True, created=1)
+        self.assertEqual(jar.live([dead, kept], NOW), [kept])
 
     def test_merge_prefers_the_first(self) -> None:
         """On the same name, host and path, the preferred jar's cookie is the one kept."""

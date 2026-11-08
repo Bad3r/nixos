@@ -296,8 +296,17 @@ def header(cookies: list[Cookie]) -> str:
     return "; ".join(cookie.pair for cookie in cookies)
 
 
+def live(cookies: Iterable[Cookie], now: int) -> list[Cookie]:
+    """Return the cookies that have not expired; a stored expired row decides nothing."""
+    return [cookie for cookie in cookies if cookie.expiry_ms > now]
+
+
 def merge(preferred: Iterable[Cookie], other: Iterable[Cookie]) -> list[Cookie]:
-    """Return both sets as one jar; a preferred cookie wins on the same key."""
+    """Return both sets as one jar; a preferred cookie wins on the same key.
+
+    An expired preferred cookie is a deletion: it shadows the other jar's
+    cookie of that key, and for_request never sends it.
+    """
     kept = {cookie.key: cookie for cookie in other}
     kept.update((cookie.key, cookie) for cookie in preferred)
     return list(kept.values())
@@ -387,7 +396,11 @@ def parse_set_cookie(line: str, url: str, now: int) -> Cookie | None:  # noqa: C
 def apply(
     cookies: Iterable[Cookie], url: str, set_cookies: Iterable[str], now: int
 ) -> list[Cookie]:
-    """Return the jar after a response for url set its cookies, in order."""
+    """Return the jar after a response for url set its cookies, in order.
+
+    A cookie the response expired stays as a tombstone, so it still shadows
+    the stored jars it was deleted from.
+    """
     jar = {cookie.key: cookie for cookie in cookies}
     for line in set_cookies:
         cookie = parse_set_cookie(line, url, now)
@@ -397,4 +410,4 @@ def apply(
         if old is not None:
             cookie = replace(cookie, created=old.created)
         jar[cookie.key] = cookie
-    return [cookie for cookie in jar.values() if cookie.expiry_ms > now]
+    return list(jar.values())

@@ -227,8 +227,15 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
         with contextlib.suppress(FileNotFoundError):
             shutil.rmtree(workdir)
         os.close(owner)
+    _print(page, args)
+    return 0
+
+
+def _print(page: fetch.Page, args: argparse.Namespace) -> None:
+    if os.environ.get("BROWSER_FETCH_DEBUG"):
+        for note in page.notes:
+            print(f"browser-fetch: note: {note}", file=sys.stderr)
     if args.json:
         print(json.dumps(record(page, max(args.offset, 0), args.max_chars)))
     else:
         print(_render_text(page))
-    return 0

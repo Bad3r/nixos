@@ -97,7 +97,7 @@ class FakeBrowser:
         """The canned identity."""
         return self.identity_value
 
-    def jar(self) -> list[Any]:
+    def jar(self, until: float) -> list[Any]:  # noqa: ARG002
         """The canned own cookies."""
         return list(self.own or [])
 

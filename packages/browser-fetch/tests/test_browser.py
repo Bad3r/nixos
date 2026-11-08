@@ -186,6 +186,23 @@ class CamoufoxTest(unittest.TestCase):
         )
         self.assertFalse((self.state / browser.JOURNAL).exists())
 
+    def test_expired_own_cookie_does_not_keep_librewolfs_out(self) -> None:
+        """An expired row in the browser's jar holds no key against LibreWolf's live cookie."""
+        expired = jar.Cookie("sid", "old", ".a.example", "/", 1, secure=True, created=1)
+        handed = browser.injection([expired], [lw("sid", "fresh")], [], URL, jar.now_ms())
+        self.assertEqual([(c.name, c.value) for c in handed], [("sid", "fresh")])
+
+    def test_site_deletion_reaches_the_browsers_own_jar(self) -> None:
+        """A cookie the site deleted on curl's hop leaves the profile and is not lent back."""
+        gecko_jar(
+            self.state / browser.PROFILE / jar.DB_NAME,
+            [("sid", "earned", ".a.example"), ("keep", "k", ".a.example")],
+        )
+        tombstone = jar.Cookie("sid", "", ".a.example", "/", 0, secure=True, created=3)
+        seen = self.run_render([lw("sid", "librewolf")], [tombstone])
+        self.assertEqual(seen["before"], {"keep": "k"})
+        self.assertNotIn("sid", seen["handed"])
+
     def test_purge_runs_when_the_session_fails(self) -> None:
         """A failed session still takes the injected values out."""
         database = self.state / browser.PROFILE / jar.DB_NAME

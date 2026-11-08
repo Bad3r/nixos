@@ -7,7 +7,7 @@ import http
 import os
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, Protocol
 from urllib.parse import urljoin
 
@@ -58,8 +58,8 @@ class Renderer(Protocol):
         """The headers curl sends so the browser's cookies hold for it."""
         ...
 
-    def jar(self) -> list[jar.Cookie]:
-        """The cookies the browser holds of its own."""
+    def jar(self, until: float) -> list[jar.Cookie]:
+        """The cookies the browser holds of its own, none it was lent."""
         ...
 
     def render(
@@ -92,6 +92,8 @@ class Page:
     saved_bytes: int | None = None
     # Whether a document converter wrote the text, rather than raw bytes.
     converted: bool = False
+    # What the fetch did without, for BROWSER_FETCH_DEBUG.
+    notes: list[str] = field(default_factory=list[str])
 
     @property
     def status_text(self) -> str:
@@ -127,6 +129,8 @@ class _Fetch:
         self.received: list[jar.Cookie] = []
         self.identity: curl.Identity | None = None
         self.hops = 0
+        # Why the browser's state was left out; printed only for debugging.
+        self.notes: list[str] = []
 
     def left(self) -> float:
         remaining = self.until - self.settings.clock()
@@ -136,8 +140,15 @@ class _Fetch:
         return remaining
 
     def load_cookies(self) -> None:
-        """Read the browser's own jar, and LibreWolf's unless cookies are off."""
-        self.camoufox = self.settings.browser.jar()
+        """Read the browser's own jar, and LibreWolf's unless cookies are off.
+
+        The browser's jar is optional: when its state cannot be read the
+        fetch goes on without it.
+        """
+        try:
+            self.camoufox = self.settings.browser.jar(self.until)
+        except (browser.BrowserError, jar.CookieError, OSError) as error:
+            self.notes.append(f"the browser's own cookies were left out: {error}")
         if not self.settings.use_cookies:
             return
         profile = jar.default_profile(jar.librewolf_root())
@@ -145,8 +156,8 @@ class _Fetch:
 
     def get(self, url: str) -> curl.Response:
         self.hops += 1
-        stored = jar.merge(self.camoufox, self.librewolf)
         now = jar.now_ms()
+        stored = jar.merge(jar.live(self.camoufox, now), jar.live(self.librewolf, now))
         sent = jar.for_request(jar.merge(self.received, stored), url, now)
         response = curl.request(
             urls.pin(url, self.settings.resolve),
@@ -238,7 +249,14 @@ def fetch(url: str, settings: Settings) -> Page:
     run = _Fetch(settings)
     run.identity = settings.browser.identity(run.until)
     run.load_cookies()
-    if settings.browser_mode == "always":
+    page = _follow(run, url, target)
+    page.notes = run.notes
+    return page
+
+
+def _follow(run: _Fetch, url: str, target: str) -> Page:
+    """Request target and its same-host redirects with curl, then answer or hand over."""
+    if run.settings.browser_mode == "always":
         return _via_browser(run, url, target, "the browser was asked for")
     current = target
     for _ in range(urls.MAX_REDIRECTS + 1):
