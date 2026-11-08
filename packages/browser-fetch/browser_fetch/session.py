@@ -102,10 +102,12 @@ class Policy:
 
     URLs are compared in canonical form (urls.canonical): the browser asks
     about the URL it requests, which may be spelled other than the target.
+    environ holds curl's proxy variables, which choose the browser's proxy.
     """
 
     target: str
     token: str
+    environ: Mapping[str, str] = field(default_factory=dict[str, str])
     approved: set[str] = field(default_factory=set[str])
     blocked: dict[str, Any] | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -121,14 +123,29 @@ class Policy:
             if self.blocked is not None:
                 return False
             if kind == "redirect":
-                allow = urls.redirect_allowed(origin, to)
+                allow = self.follows(origin, to)
             else:
-                allow = self.may_start(to) or (bool(origin) and urls.redirect_allowed(origin, to))
+                allow = self.may_start(to) or (bool(origin) and self.follows(origin, to))
             if allow:
                 self.approved.add(urls.canonical(to))
             else:
                 self.block(origin or self.target, to, status)
             return allow
+
+    def follows(self, origin: str, to: str) -> bool:
+        """Whether WebFetch follows origin to `to`, which curl reaches as it reaches the target.
+
+        The browser has one proxy, curl's for the target: a host curl routes
+        otherwise, such as a www. twin no_proxy names alone, is not followed.
+        """
+        if not urls.redirect_allowed(origin, to):
+            return False
+        try:
+            return curl.proxy(urls.request_host(to), self.environ) == curl.proxy(
+                urls.request_host(self.target), self.environ
+            )
+        except urls.UrlError:
+            return False
 
     def may_start(self, url: str) -> bool:
         """Whether a navigation that no page started may load url."""
@@ -326,20 +343,20 @@ def browser_env(home: Path, display: str) -> dict[str, str]:
     return env
 
 
-def proxy_settings(environ: Mapping[str, str]) -> dict[str, str] | None:
-    """The proxy curl uses for the page, for Playwright."""
-    server = curl.proxy(environ)
+def proxy_settings(url: str, environ: Mapping[str, str]) -> dict[str, str] | None:
+    """The proxy curl uses for url, for Playwright; None when curl goes direct.
+
+    curl's no_proxy is decided here and never handed over: Juggler reads a
+    bypass entry as a bare suffix of the host, unlike curl.
+    """
+    server = curl.proxy(urls.request_host(url), environ)
     if server is None:
         return None
     scheme, found, rest = server.partition("://")
     if not found:
         scheme, rest = "http", server
     scheme = scheme.lower()
-    proxy = {"server": f"{_PROXY_SCHEMES.get(scheme, scheme)}://{rest}"}
-    bypass = environ.get("no_proxy") or environ.get("NO_PROXY")
-    if bypass:
-        proxy["bypass"] = bypass
-    return proxy
+    return {"server": f"{_PROXY_SCHEMES.get(scheme, scheme)}://{rest}"}
 
 
 def _generate(state: Path, env: dict[str, str], until: float) -> None:
@@ -463,7 +480,7 @@ def _render(
 
     fingerprint = cast("dict[str, Any]", json.loads((state / "fingerprint.json").read_text()))
     url = str(request["url"])
-    policy = Policy(target=url, token=secrets.token_urlsafe(24))
+    policy = Policy(target=url, token=secrets.token_urlsafe(24), environ=os.environ)
     server = policy_server(policy)
     config = dict(cast("dict[str, Any]", fingerprint["config"]))
     # The addons the build bundles, from this build: a store path may move.
@@ -491,7 +508,7 @@ def _render(
                 reduced_motion="null",
                 forced_colors="null",
                 contrast="null",
-                proxy=proxy_settings(os.environ),  # type: ignore[arg-type]
+                proxy=proxy_settings(url, os.environ),  # type: ignore[arg-type]
                 timeout=_ms(until, START_SECONDS),
             )
             try:
@@ -602,7 +619,7 @@ def _verify(page: Page, policy: Policy, document: list[Response]) -> None:
         policy.block(policy.target, hops[0].url, 0)
         return
     for before, after in itertools.pairwise(hops):
-        if not urls.redirect_allowed(before.url, after.url):
+        if not policy.follows(before.url, after.url):
             sent = before.response()
             policy.block(before.url, after.url, sent.status if sent is not None else 0)
             return
@@ -610,7 +627,7 @@ def _verify(page: Page, policy: Policy, document: list[Response]) -> None:
     if final.startswith(("about:", "data:")) or policy.blocked is not None:
         return
     landed = hops[-1].url if hops else policy.target
-    if not urls.redirect_allowed(landed, final) and urls.canonical(final) not in policy.approved:
+    if not policy.follows(landed, final) and urls.canonical(final) not in policy.approved:
         policy.block(landed, final, 0)
 
 

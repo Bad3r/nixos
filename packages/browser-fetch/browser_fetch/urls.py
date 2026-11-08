@@ -277,6 +277,11 @@ def lookup(host: str, port: int) -> list[str]:
     return list(dict.fromkeys(str(info[4][0]) for info in infos))
 
 
+def request_host(url: str) -> str:
+    """The URL's host as a request names it to curl: A-labels, a numeric host dotted."""
+    return _ascii_host(urlsplit(url).hostname or "")
+
+
 @dataclass(frozen=True)
 class Pinned:
     """A request URL and the checked addresses curl must connect to."""
@@ -294,7 +299,7 @@ def pin(url: str, resolve: Callable[[str, int], list[str]] = lookup) -> Pinned:
     pinned addresses instead of resolving the name again.
     """
     parts = urlsplit(url)
-    host = _ascii_host(parts.hostname or "")
+    host = request_host(url)
     port = parts.port or DEFAULT_PORTS.get(parts.scheme, 443)
     try:
         literal = ipaddress.ip_address(host)

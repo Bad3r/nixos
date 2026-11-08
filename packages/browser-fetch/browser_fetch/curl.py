@@ -6,6 +6,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import os
+import socket
 import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -14,7 +15,7 @@ from browser_fetch import cookies as jar
 from browser_fetch.redact import Redactor
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
     from pathlib import Path
 
     from browser_fetch.urls import Pinned
@@ -35,9 +36,15 @@ _REASONS = {
     60: "the server's TLS certificate was not trusted",
     63: f"the response is larger than {MAX_BYTES} bytes",
 }
-# The variables curl reads a proxy for an https URL from, first one set wins
-# (lib/proxy.c); an empty one counts as unset.
+# The variables curl reads a proxy for an https URL from, and the list of
+# hosts it reaches directly, first one set wins (lib/proxy.c); an empty one
+# counts as unset (curl_getenv).
 PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
+NO_PROXY_VARIABLES = ("no_proxy", "NO_PROXY")
+_BLANKS = b" \t"
+# match_ip: an entry this long never matches, and /bits goes up to 128.
+_ADDRESS_ENTRY_BYTES = 128
+_MAX_BITS = 128
 
 
 @dataclass(frozen=True)
@@ -103,14 +110,107 @@ def _resolve_entry(pinned: Pinned) -> str:
     return f"{pinned.host}:{pinned.port}:{listed}"
 
 
-def proxy(environ: Mapping[str, str]) -> str | None:
-    """The proxy curl uses for an https URL under environ, or None."""
-    return next((environ[name] for name in PROXY_VARIABLES if environ.get(name)), None)
+def _first(environ: Mapping[str, str], names: tuple[str, ...]) -> str | None:
+    return next((environ[name] for name in names if environ.get(name)), None)
+
+
+def proxy(host: str, environ: Mapping[str, str]) -> str | None:
+    """The proxy curl uses for an https URL to host under environ, or None when it goes direct."""
+    if _bypassed(host, _first(environ, NO_PROXY_VARIABLES)):
+        return None
+    return _first(environ, PROXY_VARIABLES)
+
+
+def _bypassed(name: str, no_proxy: str | None) -> bool:
+    """Whether curl's no_proxy list sends host name direct (lib/proxy.c, proxy_check_noproxy)."""
+    if not name or not no_proxy:
+        return False
+    if no_proxy == "*":
+        return True
+    family = _family(name)
+    host = os.fsencode(name)
+    if family is None and host.endswith(b"."):
+        host = host[:-1]
+    return any(
+        _host_matches(entry, host) if family is None else _address_matches(family, entry, name)
+        for entry in _entries(os.fsencode(no_proxy))
+    )
+
+
+def _entries(listed: bytes) -> Iterator[bytes]:
+    """The list's entries, split as curl splits them: one that a blank ends stops the list."""
+    at, end = 0, len(listed)
+    while at < end:
+        while at < end and listed[at] in _BLANKS:
+            at += 1
+        start = at
+        while at < end and listed[at] not in _BLANKS + b",":
+            at += 1
+        if at > start:
+            yield listed[start:at]
+        while at < end and listed[at] in _BLANKS:
+            at += 1
+        if at >= end or listed[at] != ord(","):
+            return
+        while at < end and listed[at] == ord(","):
+            at += 1
+
+
+def _host_matches(entry: bytes, host: bytes) -> bool:
+    """The host itself or a name under it, in ASCII case; one dot at either end is ignored."""
+    entry = entry.removesuffix(b".")
+    entry = entry.removeprefix(b".")
+    if len(entry) == len(host):
+        return entry.lower() == host.lower()
+    if len(entry) < len(host):
+        cut = len(host) - len(entry)
+        return host[cut - 1] == ord(".") and host[cut:].lower() == entry.lower()
+    return False
+
+
+def _family(name: str) -> socket.AddressFamily | None:
+    """The address family name is a numeric address of, or None for a host name.
+
+    glibc's inet_pton is the BIND parser curl carries as curlx_inet_pton.
+    """
+    for family in (socket.AF_INET, socket.AF_INET6):
+        try:
+            socket.inet_pton(family, name)
+        except OSError, ValueError, UnicodeError:
+            continue
+        return family
+    return None
+
+
+def _address_matches(family: socket.AddressFamily, entry: bytes, name: str) -> bool:
+    """An address entry, optionally with /bits, against a numeric host (match_ip)."""
+    network, slash, bits = entry.partition(b"/")
+    if len(entry) >= _ADDRESS_ENTRY_BYTES or (
+        slash and not (bits.isdigit() and int(bits) <= _MAX_BITS)
+    ):
+        return False
+    try:
+        address = socket.inet_pton(family, name)
+        listed = socket.inet_pton(family, network.decode("ascii"))
+    except OSError, ValueError, UnicodeError:
+        return False
+    return _within(address, listed, int(bits or 0))
+
+
+def _within(address: bytes, network: bytes, bits: int) -> bool:
+    """Whether the leading bits agree (cidr4_match, cidr6_match): 0 bits is the whole address."""
+    width = len(address) * 8
+    if bits > width:
+        return False
+    whole, rest = divmod(bits or width, 8)
+    if address[:whole] != network[:whole]:
+        return False
+    return rest == 0 or (address[whole] ^ network[whole]) >> (8 - rest) == 0
 
 
 def _connected_elsewhere(remote: str, pinned: Pinned, environ: Mapping[str, str]) -> bool:
     # With a proxy, the proxy resolves the name and curl connects to the proxy.
-    if not remote or proxy(environ) is not None:
+    if not remote or proxy(pinned.host, environ) is not None:
         return False
     try:
         address = ipaddress.ip_address(remote)

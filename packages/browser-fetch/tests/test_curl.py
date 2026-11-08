@@ -3,13 +3,14 @@
 
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 import unittest.mock
 from pathlib import Path
 
 from browser_fetch import cookies as jar
-from browser_fetch import curl, urls
+from browser_fetch import curl, tools, urls
 
 from tests.fakes import PUBLIC_ADDRESS, fake_curl
 
@@ -183,3 +184,131 @@ class RequestTest(unittest.TestCase):
         self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "203.0.113.9"}})
         with unittest.mock.patch.dict(os.environ, {"https_proxy": "http://proxy.example:3128"}):
             self.assertEqual(self.run_request().status, 200)
+
+    def test_a_host_no_proxy_sends_direct_is_checked(self) -> None:
+        """A proxy variable that no_proxy overrides for the host leaves curl connecting directly."""
+        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "127.0.0.1"}})
+        direct = {"ALL_PROXY": "http://proxy.example:3128", "no_proxy": "example.org"}
+        with (
+            unittest.mock.patch.dict(os.environ, direct),
+            self.assertRaisesRegex(curl.TransportError, "not the address it was checked at"),
+        ):
+            self.run_request()
+
+
+PROXY = "http://proxy.example:3128"
+# (host, no_proxy, whether curl goes direct), from curl 8.23's lib/proxy.c
+# (proxy_check_noproxy, match_host, match_ip) and CURLOPT_NOPROXY(3).
+NO_PROXY_CASES = (
+    # CURLOPT_NOPROXY(3): "ample.com" matches ample.com and www.ample.com, not
+    # www.example.com or ample.com.org.
+    ("ample.com", "ample.com", True),
+    ("www.ample.com", "ample.com", True),
+    ("www.example.com", "ample.com", False),
+    ("ample.com.org", "ample.com", False),
+    # match_host, case C: nonexample.com does not match example.com.
+    ("notexample.com", "example.com", False),
+    # match_host ignores an entry's leading and trailing dot, and
+    # proxy_check_noproxy the host's trailing dot.
+    ("example.com", ".example.com", True),
+    ("www.example.com", ".example.com", True),
+    ("example.com", "example.com.", True),
+    ("example.com.", "example.com", True),
+    # The comparison ignores ASCII case (curl_strnequal).
+    ("example.com", "EXAMPLE.Com", True),
+    # A lone "*" matches every host; in a list it is a name like any other.
+    ("example.com", "*", True),
+    ("example.com", "other.example,*", False),
+    # Blanks around entries and runs of commas are skipped, so an empty entry
+    # matches nothing; an entry followed by a blank and no comma ends the list.
+    ("example.com", "other.example,", False),
+    ("example.com", ",, other.example ,\texample.com", True),
+    ("example.com", "other.example example.com", False),
+    # A numeric host matches addresses and /bits ranges, never names
+    # (match_ip); no bits, or 0, is the address itself (cidr4_match).
+    ("192.0.2.7", "192.0.2.0/24", True),
+    ("192.0.2.7", "192.0.3.0/24", False),
+    ("192.0.2.7", "192.0.2.7", True),
+    ("192.0.2.7", "192.0.2.0", False),
+    ("192.0.2.7", "192.0.2.0/0", False),
+    ("192.0.2.7", "192.0.2.0/33", False),
+    ("192.0.2.7", "2.7", False),
+    ("2001:db8::7", "2001:db8::/32", True),
+    ("2001:db8::7", "2001:db9::/32", False),
+    ("2001:db8::7", "2001:db8::7", True),
+)
+
+
+class ProxyChoiceTest(unittest.TestCase):
+    """The proxy curl uses for an https URL to a host (curl 8.23's lib/proxy.c)."""
+
+    def test_variables_in_curls_order(self) -> None:
+        """https_proxy, HTTPS_PROXY, all_proxy, then ALL_PROXY; an empty one counts as unset."""
+        a, b, c, d = (f"http://{name}.example:3128" for name in "abcd")
+        for environ, server in (
+            ({"ALL_PROXY": d}, d),
+            ({"all_proxy": c, "ALL_PROXY": d}, c),
+            ({"HTTPS_PROXY": b, "all_proxy": c, "ALL_PROXY": d}, b),
+            ({"https_proxy": a, "HTTPS_PROXY": b, "all_proxy": c}, a),
+            ({"https_proxy": "", "HTTPS_PROXY": "", "ALL_PROXY": d}, d),
+            ({"http_proxy": a, "HTTP_PROXY": b}, None),
+        ):
+            with self.subTest(environ=environ):
+                self.assertEqual(curl.proxy("example.com", environ), server)
+
+    def test_no_proxy_entries(self) -> None:
+        """no_proxy names hosts curl reaches directly, by curl's own matching."""
+        for host, no_proxy, direct in NO_PROXY_CASES:
+            with self.subTest(host=host, no_proxy=no_proxy):
+                chosen = curl.proxy(host, {"ALL_PROXY": PROXY, "no_proxy": no_proxy})
+                self.assertEqual(chosen, None if direct else PROXY)
+
+    def test_no_proxy_variables(self) -> None:
+        """no_proxy, else NO_PROXY; an empty one counts as unset, so it exempts nothing."""
+        for listed, server in (
+            ({"NO_PROXY": "example.com"}, None),
+            ({"no_proxy": "", "NO_PROXY": "example.com"}, None),
+            ({"no_proxy": "other.example", "NO_PROXY": "example.com"}, PROXY),
+            ({"no_proxy": ""}, PROXY),
+        ):
+            with self.subTest(listed=listed):
+                self.assertEqual(curl.proxy("example.com", {"ALL_PROXY": PROXY, **listed}), server)
+
+
+@unittest.skipIf(
+    tools.CURL.startswith("@"), "the source tree's tools are not store paths; run the package"
+)
+class CurlAgreesTest(unittest.TestCase):
+    """curl-impersonate itself makes each choice, as its verbose log reports it."""
+
+    def uses_proxy(self, host: str, environ: dict[str, str]) -> bool:
+        """Whether curl took a proxy for https://host/; nothing leaves loopback."""
+        named = f"[{host}]" if ":" in host else host
+        ran = subprocess.run(
+            [
+                tools.CURL,
+                "--disable",
+                "--silent",
+                "--verbose",
+                "--max-time",
+                "5",
+                "--connect-to",
+                "::127.0.0.1:1",
+                f"https://{named}/",
+            ],
+            capture_output=True,
+            text=True,
+            env={"PATH": "/var/empty", "ALL_PROXY": "http://127.0.0.1:1", **environ},
+            timeout=30,
+            check=False,
+        )
+        return "Uses proxy env variable ALL_PROXY" in ran.stderr
+
+    def test_no_proxy_entries(self) -> None:
+        """Every no_proxy case is curl's own decision."""
+        for host, no_proxy, direct in NO_PROXY_CASES:
+            with self.subTest(host=host, no_proxy=no_proxy):
+                environ = {"no_proxy": no_proxy}
+                self.assertEqual(self.uses_proxy(host, environ), not direct)
+                chosen = curl.proxy(host, {"ALL_PROXY": PROXY, **environ})
+                self.assertEqual(chosen is not None, not direct)

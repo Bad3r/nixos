@@ -11,7 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from browser_fetch import curl, session
+from browser_fetch import session
 
 from tests.namespaces import require_namespaces, run_in_namespace
 
@@ -314,7 +314,7 @@ class EnvironmentTest(unittest.TestCase):
 
 
 class ProxyTest(unittest.TestCase):
-    """The browser leaves through the proxy curl uses for an https URL (curl's lib/proxy.c)."""
+    """The browser leaves through the proxy curl uses for the page (curl's lib/proxy.c)."""
 
     def test_curls_variables_in_curls_order(self) -> None:
         """https_proxy, HTTPS_PROXY, all_proxy, then ALL_PROXY; an empty one counts as unset."""
@@ -328,9 +328,27 @@ class ProxyTest(unittest.TestCase):
             ({"http_proxy": a, "HTTP_PROXY": b}, None),
         ):
             with self.subTest(environ=environ):
-                settings = session.proxy_settings(environ)
+                settings = session.proxy_settings(TARGET, environ)
                 self.assertEqual(settings and settings["server"], server)
-                self.assertEqual(curl.proxy(environ), server)
+
+    def test_no_proxy_is_curls_and_never_handed_over(self) -> None:
+        """The browser gets curl's proxy for the page, or none when curl goes direct; no bypass.
+
+        Each case is one where Juggler's bypass test, the host's endsWith(entry),
+        and curl's match_host disagree; NO_PROXY_CASES in test_curl holds curl's.
+        """
+        proxy = "http://proxy.example:3128"
+        for page, no_proxy, server in (
+            ("https://notexample.com/", "example.com", proxy),
+            ("https://example.com/", ".example.com", None),
+            ("https://example.com/", "*", None),
+            ("https://example.com/", "other.example,", proxy),
+            ("https://example.com/", "EXAMPLE.com", None),
+            ("https://192.0.2.7/", "192.0.2.0/24", None),
+        ):
+            with self.subTest(page=page, no_proxy=no_proxy):
+                settings = session.proxy_settings(page, {"ALL_PROXY": proxy, "no_proxy": no_proxy})
+                self.assertEqual(settings, None if server is None else {"server": server})
 
     def test_schemes_firefox_takes(self) -> None:
         """A bare host is HTTP, as for curl; socks5h and socks4a are Firefox's socks5 and socks4."""
@@ -343,9 +361,26 @@ class ProxyTest(unittest.TestCase):
         ):
             with self.subTest(given=given):
                 self.assertEqual(
-                    session.proxy_settings({"ALL_PROXY": given, "no_proxy": "b.example"}),
-                    {"server": server, "bypass": "b.example"},
+                    session.proxy_settings(TARGET, {"ALL_PROXY": given, "no_proxy": "b.example"}),
+                    {"server": server},
                 )
+
+    def test_a_twin_curl_routes_otherwise_is_not_followed(self) -> None:
+        """A redirect to the www. twin curl would reach through another proxy is reported instead.
+
+        no_proxy=www.a.example names the twin alone (match_host: the entry is
+        longer than a.example), so curl proxies a.example and goes direct to
+        www.a.example, while the browser has one proxy for the fetch.
+        """
+        twin = "https://www.a.example/next"
+        proxy = {"ALL_PROXY": "http://proxy.example:3128"}
+        twin_direct = {**proxy, "no_proxy": "www.a.example"}
+        split = session.Policy(target=TARGET, token="t", environ=twin_direct)  # noqa: S106
+        self.assertFalse(split.check("redirect", TARGET, twin, 302))
+        self.assertEqual(split.blocked, {"origin": TARGET, "target": twin, "status": 302})
+        self.assertFalse(split.check("navigate", TARGET, twin, 0))
+        alike = session.Policy(target=TARGET, token="t", environ=proxy)  # noqa: S106
+        self.assertTrue(alike.check("redirect", TARGET, twin, 302))
 
 
 CONFINED = """\
