@@ -35,8 +35,9 @@ _REASONS = {
     60: "the server's TLS certificate was not trusted",
     63: f"the response is larger than {MAX_BYTES} bytes",
 }
-# With a proxy, the proxy resolves the name and curl connects to the proxy.
-_PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
+# The variables curl reads a proxy for an https URL from, first one set wins
+# (lib/proxy.c); an empty one counts as unset.
+PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
 
 
 @dataclass(frozen=True)
@@ -102,8 +103,14 @@ def _resolve_entry(pinned: Pinned) -> str:
     return f"{pinned.host}:{pinned.port}:{listed}"
 
 
+def proxy(environ: Mapping[str, str]) -> str | None:
+    """The proxy curl uses for an https URL under environ, or None."""
+    return next((environ[name] for name in PROXY_VARIABLES if environ.get(name)), None)
+
+
 def _connected_elsewhere(remote: str, pinned: Pinned, environ: Mapping[str, str]) -> bool:
-    if not remote or any(environ.get(name) for name in _PROXY_VARIABLES):
+    # With a proxy, the proxy resolves the name and curl connects to the proxy.
+    if not remote or proxy(environ) is not None:
         return False
     try:
         address = ipaddress.ip_address(remote)

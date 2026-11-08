@@ -318,6 +318,27 @@ class CamoufoxTest(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 10)
         self.assertFalse((self.work / browser.NETWORK_READY).exists())
 
+    def test_session_keeps_curls_proxy_variables(self) -> None:
+        """The session gets each variable curl reads its proxy from, and no other of the user's."""
+        environ = {
+            "HOME": "/home/u",
+            "DISPLAY": ":0",
+            "all_proxy": "socks5h://a.example:1080",
+            "ALL_PROXY": "socks5h://b.example:1080",
+            "https_proxy": "http://c.example:3128",
+            "HTTPS_PROXY": "http://d.example:3128",
+            "no_proxy": "e.example",
+        }
+        camoufox = browser.Camoufox(
+            browser.Tools("unshare", "session", VERSION, "pasta"),
+            self.state,
+            self.work,
+            environ=environ,
+        )
+        kept = camoufox._environment()  # noqa: SLF001 - what the session is started with
+        del environ["HOME"], environ["DISPLAY"]
+        self.assertEqual(kept, {**environ, "PATH": "/var/empty"})
+
     def test_expiry_is_clamped_to_geckos_cap(self) -> None:
         """A cookie Gecko would refuse as too long-lived is handed over at the cap."""
         far = jar.Cookie("a", "1", "a.example", "/", 4_000_000_000_000, secure=True, created=1)

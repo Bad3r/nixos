@@ -28,9 +28,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, override
 
-from browser_fetch import browser, challenge, tools, urls
+from browser_fetch import browser, challenge, curl, tools, urls
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from playwright.sync_api import BrowserContext, Page, Request, Response
 
 # The identity drawn once per browser release, by Camoufox's own launcher.
@@ -63,6 +65,10 @@ _MS_REC = 16384
 _IPV6 = 6
 _PR_CAP_AMBIENT = 47
 _PR_CAP_AMBIENT_CLEAR_ALL = 4
+# Playwright's Firefox takes socks5 and socks4 and has the proxy resolve
+# names (Juggler's TRANSPARENT_PROXY_RESOLVES_HOST), as curl's socks5h and
+# socks4a do; the egress is the proxy's either way.
+_PROXY_SCHEMES = {"socks5h": "socks5", "socks4a": "socks4"}
 _STATE = """
 (markers) => {
   const html = document.documentElement ? document.documentElement.outerHTML : "";
@@ -320,13 +326,17 @@ def browser_env(home: Path, display: str) -> dict[str, str]:
     return env
 
 
-def _proxy() -> dict[str, str] | None:
-    """The https_proxy convention curl follows, for Playwright."""
-    server = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
-    if not server:
+def proxy_settings(environ: Mapping[str, str]) -> dict[str, str] | None:
+    """The proxy curl uses for the page, for Playwright."""
+    server = curl.proxy(environ)
+    if server is None:
         return None
-    proxy = {"server": server if "://" in server else f"http://{server}"}
-    bypass = os.environ.get("no_proxy") or os.environ.get("NO_PROXY")
+    scheme, found, rest = server.partition("://")
+    if not found:
+        scheme, rest = "http", server
+    scheme = scheme.lower()
+    proxy = {"server": f"{_PROXY_SCHEMES.get(scheme, scheme)}://{rest}"}
+    bypass = environ.get("no_proxy") or environ.get("NO_PROXY")
     if bypass:
         proxy["bypass"] = bypass
     return proxy
@@ -474,7 +484,7 @@ def _render(
                 reduced_motion="null",
                 forced_colors="null",
                 contrast="null",
-                proxy=_proxy(),  # type: ignore[arg-type]
+                proxy=proxy_settings(os.environ),  # type: ignore[arg-type]
                 timeout=_ms(until, START_SECONDS),
             )
             try:

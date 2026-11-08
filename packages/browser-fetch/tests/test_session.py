@@ -11,7 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from browser_fetch import session
+from browser_fetch import curl, session
 
 from tests.namespaces import require_namespaces, run_in_namespace
 
@@ -273,6 +273,41 @@ class EnvironmentTest(unittest.TestCase):
             self.assertNotIn(key, env)
         self.assertEqual(env["TZ"], "Europe/Prague")
         self.assertEqual(env["HOME"], "/state/home")
+
+
+class ProxyTest(unittest.TestCase):
+    """The browser leaves through the proxy curl uses for an https URL (curl's lib/proxy.c)."""
+
+    def test_curls_variables_in_curls_order(self) -> None:
+        """https_proxy, HTTPS_PROXY, all_proxy, then ALL_PROXY; an empty one counts as unset."""
+        a, b, c, d = (f"http://{name}.example:3128" for name in "abcd")
+        for environ, server in (
+            ({"ALL_PROXY": d}, d),
+            ({"all_proxy": c, "ALL_PROXY": d}, c),
+            ({"HTTPS_PROXY": b, "all_proxy": c, "ALL_PROXY": d}, b),
+            ({"https_proxy": a, "HTTPS_PROXY": b, "all_proxy": c}, a),
+            ({"https_proxy": "", "HTTPS_PROXY": "", "ALL_PROXY": d}, d),
+            ({"http_proxy": a, "HTTP_PROXY": b}, None),
+        ):
+            with self.subTest(environ=environ):
+                settings = session.proxy_settings(environ)
+                self.assertEqual(settings and settings["server"], server)
+                self.assertEqual(curl.proxy(environ), server)
+
+    def test_schemes_firefox_takes(self) -> None:
+        """A bare host is HTTP, as for curl; socks5h and socks4a are Firefox's socks5 and socks4."""
+        for given, server in (
+            ("proxy.example:3128", "http://proxy.example:3128"),
+            ("socks5h://proxy.example:1080", "socks5://proxy.example:1080"),
+            ("SOCKS4A://proxy.example:1080", "socks4://proxy.example:1080"),
+            ("socks5://proxy.example:1080", "socks5://proxy.example:1080"),
+            ("https://proxy.example:443", "https://proxy.example:443"),
+        ):
+            with self.subTest(given=given):
+                self.assertEqual(
+                    session.proxy_settings({"ALL_PROXY": given, "no_proxy": "b.example"}),
+                    {"server": server, "bypass": "b.example"},
+                )
 
 
 CONFINED = """\

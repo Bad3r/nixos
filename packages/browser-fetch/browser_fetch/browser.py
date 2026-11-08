@@ -41,7 +41,7 @@ _POLL_SECONDS = 0.1
 # CookieValidation.cpp) when added directly; Set-Cookie clamps it instead.
 MAXAGE_CAP_SECONDS = 34_560_000
 _CAP_MARGIN_SECONDS = 3600
-_ENV_KEEP = ("LANG", "LC_ALL", "TZ", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY")
+_ENV_KEEP = ("LANG", "LC_ALL", "TZ", *curl.PROXY_VARIABLES, "no_proxy", "NO_PROXY")
 # The session's handshake files in the work directory (session.py).
 NETNS_READY = "netns.ready"
 NETWORK_READY = "network.ready"

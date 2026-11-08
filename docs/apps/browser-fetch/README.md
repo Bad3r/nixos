@@ -38,7 +38,8 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 A host is resolved before each request, including every redirect hop.
 One that resolves to this machine or a private, shared, link-local, ULA or documentation range is refused with exit 4, before any cookie is read or sent.
 curl connects only to the addresses that were checked, so a second DNS answer cannot move the request.
-Behind an `https_proxy`, the proxy resolves the name instead.
+Behind a proxy, the proxy resolves the name instead.
+curl takes it from `https_proxy`, `HTTPS_PROXY`, `all_proxy` or `ALL_PROXY`, the first one set, and Camoufox uses the same one.
 
 ## When Camoufox takes over
 
