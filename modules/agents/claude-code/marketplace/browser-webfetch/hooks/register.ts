@@ -239,11 +239,13 @@ export const register: Register = (on, options) => {
 			timeoutMs: MODEL_TIMEOUT_MS,
 		});
 		if (!answer.isAnswered && answer.reason !== "empty-reply") {
-			const reason =
+			// The API's own error text is not exposed, so the model reads the
+			// built-in's proxy failure and the status line gets the reason.
+			return fail(
 				answer.reason === "api-error"
 					? `the secondary model call failed (HTTP ${answer.status} ${answer.error})`
-					: `the secondary model call was ${answer.reason}`;
-			return fail(reason, reason);
+					: `the secondary model call was ${answer.reason}`,
+			);
 		}
 		let result =
 			answer.isAnswered && answer.text ? answer.text : "No response from model";
@@ -252,5 +254,8 @@ export const register: Register = (on, options) => {
 			result += `\n\n[WebFetch note: this page's text is ${page.length} characters long and the answer above covers only characters ${from} to ${covered}; the final ${page.length - covered} were not read — to read on, call WebFetch again with the same url and offset: ${covered}.]`;
 		}
 		return done(result + saved, page.bytes);
-	}).catch(() => ({ deny: FETCH_FAILED }));
+	}).catch(($) => {
+		$.ui.status("WebFetch failed: the plugin's hook threw");
+		return { deny: FETCH_FAILED };
+	});
 };

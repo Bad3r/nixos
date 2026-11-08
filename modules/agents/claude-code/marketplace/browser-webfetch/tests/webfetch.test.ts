@@ -418,13 +418,26 @@ test(
 	},
 );
 
-test("a model call that fails is refused", OPTIONS, async ($, on) => {
-	engine(on, ok(page({})), { reason: "api-error" });
-	const answer = await $.tool.call(fetch("https://example.org/", "q"));
-	expect(answer.deny).toBe(
-		"the secondary model call failed (HTTP 529 overloaded)",
-	);
-});
+test(
+	"a model call that fails is refused with the built-in's text",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, ok(page({})), { reason: "api-error" });
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.deny).toBe(FETCH_FAILED);
+	},
+);
+
+test(
+	"an aborted model call is refused with the built-in's text",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, ok(page({})), { reason: "aborted" });
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.deny).toBe(FETCH_FAILED);
+		expect(answer.deny).not.toMatch(/secondary|model call/);
+	},
+);
 
 test("an empty reply reads as the built-in's", OPTIONS, async ($, on) => {
 	engine(on, ok(page({})), { reason: "empty-reply" });
