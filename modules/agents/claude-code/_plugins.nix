@@ -23,7 +23,8 @@
   # be registered: extraKnownMarketplaces below, or out of band.
   enabledPlugins = {
     "cc-plugin-you-should-know@builtin" = true;
-    "chrome-devtools-mcp@chrome-devtools-plugins" = true;
+    # The shared MCP registry supplies DevTools with enforced privacy flags.
+    "chrome-devtools-mcp@chrome-devtools-plugins" = false;
     "claude-code-setup@claude-plugins-official" = true;
     # CF bundled MCP server would duplicate the per-endpoint servers in
     # modules/agents/mcp/servers.nix.

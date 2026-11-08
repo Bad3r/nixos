@@ -338,6 +338,17 @@ let
               wrapper = pkgs.writeShellScriptBin "chrome-devtools-mcp-wrapper" ''
                 set -euo pipefail
 
+                export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS=1
+                export CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1
+                export NPM_CONFIG_UPDATE_NOTIFIER=false
+
+                for arg in "$@"; do
+                  if [ "$arg" = "--" ]; then
+                    echo "chrome-devtools MCP: standalone -- would disable mandatory privacy options." >&2
+                    exit 2
+                  fi
+                done
+
                 browser_executable=""
 
                 for candidate in google-chrome-stable google-chrome chromium chromium-browser; do
@@ -357,7 +368,9 @@ let
                   -y \
                   ${meta.package} \
                   "--executablePath=$browser_executable" \
-                  "$@"
+                  "$@" \
+                  --no-usage-statistics \
+                  --no-performance-crux
               '';
             in
             {
