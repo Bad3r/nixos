@@ -40,7 +40,7 @@ SCHEME_PROXY_VARIABLES = {
     "https": ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"),
     "http": ("http_proxy", "all_proxy", "ALL_PROXY"),
 }
-PROXY_VARIABLES = ("http_proxy", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
+PROXY_VARIABLES = tuple(dict.fromkeys(v for vs in SCHEME_PROXY_VARIABLES.values() for v in vs))
 NO_PROXY_VARIABLES = ("no_proxy", "NO_PROXY")
 # A proxy's CONNECT answers (%{http_connect}): anything from 300 up refuses the tunnel.
 _PROXY_AUTHENTICATION = 407
