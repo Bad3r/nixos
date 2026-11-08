@@ -49,6 +49,7 @@ class Cookie:
     path: str
     expiry_ms: int
     secure: bool
+    # Microseconds, as Gecko's creationTime.
     created: int
     http_only: bool = False
     same_site: int = SAME_SITE_UNSET
@@ -385,7 +386,7 @@ def parse_set_cookie(line: str, url: str, now: int) -> Cookie | None:  # noqa: C
         path,
         SESSION_EXPIRY_MS if expiry is None else expiry,
         secure,
-        now,
+        now * 1000,
         http_only=http_only,
         same_site=same_site,
         partition=site if partitioned and secure else "",
