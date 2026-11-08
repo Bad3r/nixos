@@ -1,11 +1,10 @@
 # Copyright (c) 2026 Bad3r
-"""Public http(s) pages fetched without ever reaching a local or private host."""
+"""http(s) pages fetched for web.run's open, click, and find."""
 
 from __future__ import annotations
 
 import codecs
 import http.client
-import ipaddress
 import math
 import re
 import socket
@@ -35,18 +34,14 @@ HTML_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 TEXT_TYPES = frozenset({"application/json", "application/xml", "application/javascript"})
 LAST_CONTROL_CODE_POINT = 0x20
 DELETE_CODE_POINT = 0x7F
-NAT64 = ipaddress.IPv6Network("64:ff9b::/96")
-NAT64_LOCAL = ipaddress.IPv6Network("64:ff9b:1::/48")
-IPV4_COMPATIBLE = ipaddress.IPv6Network("::/96")
-IPV4_BITS = 0xFFFFFFFF
 
 
 class FetchError(Exception):
     """A page could not be fetched."""
 
 
-class BlockedURLError(FetchError):
-    """A URL points somewhere other than a public http(s) host."""
+class InvalidURLError(FetchError):
+    """A URL is not a plain http(s) URL."""
 
 
 @dataclass(frozen=True)
@@ -60,21 +55,6 @@ class Page:
     pdf_pages: int | None = None
 
 
-def is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """Tell whether the address is a public unicast internet address."""
-    if address.is_multicast or not address.is_global:
-        return False
-    if isinstance(address, ipaddress.IPv6Address):
-        if address in IPV4_COMPATIBLE or address in NAT64_LOCAL:
-            return False
-        embedded = address.ipv4_mapped or address.sixtofour
-        if address in NAT64:
-            embedded = ipaddress.IPv4Address(int(address) & IPV4_BITS)
-        if embedded is not None:
-            return is_public_address(embedded)
-    return True
-
-
 def resolve(host: str, port: int) -> list[str]:
     """Return the host's addresses."""
     try:
@@ -82,23 +62,10 @@ def resolve(host: str, port: int) -> list[str]:
     except (socket.gaierror, UnicodeError) as error:
         msg = f"cannot resolve {host}: {error}"
         raise FetchError(msg) from None
-    return list(dict.fromkeys(str(info[4][0]) for info in infos))
-
-
-def public_addresses(host: str, port: int) -> list[str]:
-    """Return the host's addresses, refusing a host with any non-public one."""
-    addresses = resolve(host, port)
+    addresses = list(dict.fromkeys(str(info[4][0]) for info in infos))
     if not addresses:
         msg = f"cannot resolve {host}"
         raise FetchError(msg)
-    for address in addresses:
-        parsed = ipaddress.ip_address(address.split("%", 1)[0])
-        if not is_public_address(parsed):
-            msg = (
-                f"{host} resolves to the non-public address {parsed}; "
-                "only public internet hosts can be opened"
-            )
-            raise BlockedURLError(msg)
     return addresses
 
 
@@ -148,9 +115,14 @@ class _DeadlineSSLSocket(ssl.SSLSocket):
 
 def _connect(host: str, port: int, deadline: float) -> _DeadlineSocket:
     failure: OSError | None = None
-    for address in public_addresses(host, port):
+    for address in resolve(host, port):
         family = socket.AF_INET6 if ":" in address else socket.AF_INET
-        sock = _DeadlineSocket(family, socket.SOCK_STREAM)
+        try:
+            # A host without IPv6 refuses the socket; its IPv4 addresses still get their turn.
+            sock = _DeadlineSocket(family, socket.SOCK_STREAM)
+        except OSError as error:
+            failure = error
+            continue
         sock.deadline = deadline
         try:
             _arm(sock, deadline)
@@ -168,8 +140,8 @@ _TLS = ssl.create_default_context()
 _TLS.sslsocket_class = _DeadlineSSLSocket
 
 
-class _PublicHTTPConnection(http.client.HTTPConnection):
-    """HTTP connection that connects only to a vetted public address."""
+class _DeadlineHTTPConnection(http.client.HTTPConnection):
+    """HTTP connection whose socket operations end by the fetch deadline."""
 
     def __init__(  # noqa: PLR0913 - HTTPConnection's own parameters plus the deadline
         self,
@@ -190,8 +162,8 @@ class _PublicHTTPConnection(http.client.HTTPConnection):
         self.sock = _connect(self.host, self.port, self.deadline)
 
 
-class _PublicHTTPSConnection(http.client.HTTPSConnection):
-    """HTTPS connection that connects only to a vetted public address."""
+class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection whose socket operations end by the fetch deadline."""
 
     def __init__(  # noqa: PLR0913 - HTTPSConnection's own parameters plus the deadline
         self,
@@ -221,27 +193,27 @@ class _PublicHTTPSConnection(http.client.HTTPSConnection):
         self.sock = sock
 
 
-class _PublicHTTPHandler(urllib.request.HTTPHandler):
+class _DeadlineHTTPHandler(urllib.request.HTTPHandler):
     def __init__(self, deadline: float) -> None:
         super().__init__()
         self.deadline = deadline
 
     @override
     def http_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
-        return self.do_open(_PublicHTTPConnection, req, deadline=self.deadline)
+        return self.do_open(_DeadlineHTTPConnection, req, deadline=self.deadline)
 
 
-class _PublicHTTPSHandler(urllib.request.HTTPSHandler):
+class _DeadlineHTTPSHandler(urllib.request.HTTPSHandler):
     def __init__(self, deadline: float) -> None:
         super().__init__()
         self.deadline = deadline
 
     @override
     def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
-        return self.do_open(_PublicHTTPSConnection, req, deadline=self.deadline)
+        return self.do_open(_DeadlineHTTPSConnection, req, deadline=self.deadline)
 
 
-class _PublicRedirectHandler(urllib.request.HTTPRedirectHandler):
+class _URLCheckingRedirectHandler(urllib.request.HTTPRedirectHandler):
     @override
     def redirect_request(
         self,
@@ -254,22 +226,22 @@ class _PublicRedirectHandler(urllib.request.HTTPRedirectHandler):
     ) -> urllib.request.Request | None:
         try:
             target = normalize_url(newurl)
-        except BlockedURLError:
+        except InvalidURLError:
             fp.close()
             raise
         return super().redirect_request(req, fp, code, msg, headers, target)
 
 
-def public_opener(deadline: float) -> urllib.request.OpenerDirector:
-    """Return an opener for public http(s) hosts only: no proxies, files, or cookies.
+def opener(deadline: float) -> urllib.request.OpenerDirector:
+    """Return an opener for http(s) only: no proxies, files, or cookies.
 
     Every socket operation of its connections ends by the monotonic deadline.
     """
     director = urllib.request.OpenerDirector()
     for handler in (
-        _PublicHTTPHandler(deadline),
-        _PublicHTTPSHandler(deadline),
-        _PublicRedirectHandler(),
+        _DeadlineHTTPHandler(deadline),
+        _DeadlineHTTPSHandler(deadline),
+        _URLCheckingRedirectHandler(),
         urllib.request.HTTPDefaultErrorHandler(),
         urllib.request.HTTPErrorProcessor(),
     ):
@@ -283,33 +255,33 @@ def normalize_url(url: str) -> str:
         ord(char) <= LAST_CONTROL_CODE_POINT or ord(char) == DELETE_CODE_POINT for char in url
     ):
         msg = "URLs with whitespace, control characters, or backslashes are refused"
-        raise BlockedURLError(msg)
+        raise InvalidURLError(msg)
     try:
         parts = urllib.parse.urlsplit(url)
     except ValueError as error:
         msg = f"malformed URL: {error}"
-        raise BlockedURLError(msg) from None
+        raise InvalidURLError(msg) from None
     scheme = parts.scheme.lower()
     if scheme not in {"http", "https"}:
         msg = f"only http and https URLs can be opened, not {scheme or 'a relative URL'}"
-        raise BlockedURLError(msg)
+        raise InvalidURLError(msg)
     if "@" in parts.netloc:
         msg = "URLs with user information are refused"
-        raise BlockedURLError(msg)
+        raise InvalidURLError(msg)
     try:
         host = parts.hostname
         port = parts.port
     except ValueError as error:
         msg = f"malformed URL: {error}"
-        raise BlockedURLError(msg) from None
+        raise InvalidURLError(msg) from None
     if not host:
         msg = "the URL names no host"
-        raise BlockedURLError(msg)
+        raise InvalidURLError(msg)
     try:
         ascii_host = host.encode("idna").decode("ascii")
     except UnicodeError:
         msg = f"cannot encode the host name {host}"
-        raise BlockedURLError(msg) from None
+        raise InvalidURLError(msg) from None
     netloc = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
     if port is not None:
         netloc = f"{netloc}:{port}"
@@ -386,7 +358,7 @@ def pdf_page_count(data: bytes) -> int | None:
 
 
 def fetch_page(url: str, deadline: float | None = None) -> Page:
-    """Fetch a public http(s) page, following redirects that stay public.
+    """Fetch an http(s) page, following redirects to other http(s) URLs.
 
     The fetch ends by FETCH_DEADLINE_SECONDS or the caller's monotonic deadline,
     whichever comes first.
@@ -405,7 +377,7 @@ def fetch_page(url: str, deadline: float | None = None) -> Page:
     try:
         with cast(
             "http.client.HTTPResponse",
-            public_opener(deadline).open(request, timeout=FETCH_TIMEOUT),
+            opener(deadline).open(request, timeout=FETCH_TIMEOUT),
         ) as response:
             final = response.url or target
             content_type = response.headers.get_content_type()
