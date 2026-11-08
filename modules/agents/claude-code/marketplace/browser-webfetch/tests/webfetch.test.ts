@@ -29,6 +29,7 @@ type Record = {
 	length: number;
 	text: string;
 	via?: string;
+	reason?: string;
 	redirectFrom?: string;
 	redirectTo?: string;
 	retryAfter?: string;
@@ -323,29 +324,38 @@ test(
 );
 
 test(
-	"a challenge the browser could not clear is still a page",
+	"a challenge the browser could not clear is an HTTP error",
 	OPTIONS,
 	async ($, on) => {
-		engine(
+		// The record browser-fetch prints when the browser ends on a 403.
+		const seen = engine(
 			on,
 			ok(
 				page({
+					outcome: "http_error",
 					status: 403,
 					statusText: "Forbidden",
+					contentType: "",
+					bytes: 0,
 					via: "browser",
-					text: "# Additional Verification Required",
+					reason: "a Cloudflare challenge",
+					text: "",
+					length: 0,
 				}),
 			),
 		);
 		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(seen.asks).toEqual([]);
 		expect(answer.deny).toBeUndefined();
-		expect(answer.result).toEqual(
-			expect.objectContaining({
-				code: 403,
-				codeText: "Forbidden",
-				result: "The answer.",
-			}),
-		);
+		expect(answer.result).toEqual({
+			bytes: 0,
+			code: 403,
+			codeText: "Forbidden",
+			result:
+				"The server returned HTTP 403 Forbidden.\n\nThe response body was not retrieved. If this URL requires authentication, use an authenticated tool (e.g. `gh` for GitHub, or an MCP-provided fetch tool) instead of WebFetch.",
+			durationMs: expect.any(Number),
+			url: "https://example.org/",
+		});
 	},
 );
 
