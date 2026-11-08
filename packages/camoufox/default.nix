@@ -7,6 +7,7 @@
   jq,
   makeWrapper,
   patchelfUnstable,
+  python3,
   python3Packages,
   alsa-lib,
   curl,
@@ -53,6 +54,7 @@ stdenv.mkDerivation (finalAttrs: {
     jq
     makeWrapper
     patchelfUnstable
+    python3
   ];
 
   buildInputs = [
@@ -67,6 +69,12 @@ stdenv.mkDerivation (finalAttrs: {
 
   dontConfigure = true;
   dontBuild = true;
+
+  # Locked built-ins cannot be uninstalled by enterprise policy. Reconcile the
+  # shipped registry instead, so Firefox also removes them from existing profiles.
+  postPatch = ''
+    python3 ${./patch-policies.py} camoufox
+  '';
 
   # A Linux fingerprint reads only the font groups groups.json lists for
   # "lin" (the launcher's _generate_fontconfig); the macOS- and
@@ -94,6 +102,7 @@ stdenv.mkDerivation (finalAttrs: {
     runHook preInstallCheck
     grep -qx "Version=${finalAttrs.version}" $out/lib/camoufox/application.ini
     HOME=$TMPDIR $out/lib/camoufox/camoufox --version
+    python3 ${./check-policies.py} $out/bin/camoufox
     runHook postInstallCheck
   '';
 
