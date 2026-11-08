@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """The session's redirect guard policy and the browser's environment."""
 
+import base64
 import json
 import os
 import re
@@ -384,6 +385,36 @@ class ProxyTest(unittest.TestCase):
                     {"server": server},
                 )
 
+    def test_credentials_go_decoded(self) -> None:
+        """An HTTP proxy's credentials go to Playwright's own fields, decoded as curl decodes them.
+
+        curl's parse_proxy reads the URL's user and password decoded
+        (CURLU_URLDECODE); Playwright keeps only the scheme and host of
+        `server` (browserContext.ts, normalizeProxySettings).
+        """
+        for given, settings in (
+            (
+                "http://al%40ice:p%3Ass@proxy.example:3128",
+                {"server": "http://proxy.example:3128", "username": "al@ice", "password": "p:ss"},
+            ),
+            (
+                "https://bob@proxy.example",
+                {"server": "https://proxy.example:443", "username": "bob", "password": ""},
+            ),
+        ):
+            with self.subTest(given=given):
+                self.assertEqual(session.proxy_settings(TARGET, {"ALL_PROXY": given}), settings)
+
+    def test_socks_credentials_fail(self) -> None:
+        """Playwright's Firefox cannot authenticate to SOCKS, so the browser fails, never goes bare.
+
+        normalizeProxySettings throws for socks4 or socks5 with a username or
+        password; curl authenticates (lib/socks.c).
+        """
+        for given in ("socks5h://alice:pw@proxy.example:1080", "socks4://alice@proxy.example"):
+            with self.subTest(given=given), self.assertRaisesRegex(session.SessionError, "SOCKS"):
+                session.proxy_settings(TARGET, {"ALL_PROXY": given})
+
     def test_a_proxy_firefox_cannot_reach_as_curl_does_fails(self) -> None:
         """An IPv6 proxy address, or a scheme curl refuses, fails the browser rather than diverge.
 
@@ -477,6 +508,31 @@ class CurlProxyTest(unittest.TestCase):
                 self.assertEqual(first.startswith(b"CONNECT "), spoken == "http")
                 settings = session.proxy_settings(TARGET, {"ALL_PROXY": proxy})
                 self.assertEqual(scheme_of(settings), spoken)
+
+    def test_credentials_are_curls(self) -> None:
+        """The credentials the browser gets are the ones curl sends the proxy."""
+        with socket.create_server(("127.0.0.1", 0)) as listener:
+            listener.settimeout(20)
+            proxy = f"http://al%40ice:p%3Ass@127.0.0.1:{listener.getsockname()[1]}"
+            running = self.curl(proxy)
+            connection, _ = listener.accept()
+            with connection:
+                connection.settimeout(20)
+                sent = b""
+                while b"\r\n\r\n" not in sent:
+                    chunk = connection.recv(4096)
+                    if not chunk:
+                        break
+                    sent += chunk
+            running.kill()
+            running.communicate()
+        found = re.search(rb"\r\nProxy-Authorization: Basic (\S+)\r\n", sent)
+        self.assertIsNotNone(found, sent)
+        settings = session.proxy_settings(TARGET, {"ALL_PROXY": proxy}) or {}
+        self.assertEqual(
+            base64.b64decode(found[1] if found else b"").decode(),
+            f"{settings.get('username')}:{settings.get('password')}",
+        )
 
 
 def scheme_of(settings: dict[str, str] | None) -> str:

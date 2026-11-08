@@ -27,7 +27,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, override
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from browser_fetch import browser, challenge, curl, tools, urls
 
@@ -382,7 +382,20 @@ def proxy_settings(url: str, environ: Mapping[str, str]) -> dict[str, str] | Non
         # brackets, and Gecko takes that for an unresolvable name.
         msg = "the browser cannot use a proxy at an IPv6 address"
         raise SessionError(msg)
-    return {"server": f"{scheme}://{host}:{port}"}
+    settings = {"server": f"{scheme}://{host}:{port}"}
+    if parts.username is None and parts.password is None:
+        return settings
+    if scheme.startswith("socks"):
+        msg = "the browser cannot authenticate to a SOCKS proxy"
+        raise SessionError(msg)
+    # Decoded, as curl's parse_proxy reads them (CURLU_URLDECODE).
+    try:
+        settings["username"] = unquote(parts.username or "", errors="strict")
+        settings["password"] = unquote(parts.password or "", errors="strict")
+    except UnicodeDecodeError:
+        msg = "the proxy's credentials are not UTF-8"
+        raise SessionError(msg) from None
+    return settings
 
 
 def _generate(state: Path, env: dict[str, str], until: float) -> None:
