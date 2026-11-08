@@ -1,0 +1,42 @@
+<html lang="en">
+	<head>
+		<title>etsy.com</title>
+		<style>
+		#cmsg {
+			animation: A 1.5s;
+		}
+		@keyframes A {
+			0% {
+				opacity: 0;
+			}
+			99% {
+				opacity: 0;
+			}
+			100% {
+				opacity: 1;
+			}
+		}
+		</style>
+	</head>
+	<body style="margin:0">
+		<p id="cmsg">Please enable JS and disable any ad blocker</p>
+		<script data-cfasync="false">
+		var dd = {
+			rt: "i",
+			cid: "trimmed",
+			hsh: "trimmed",
+			b: 1,
+			s: 1,
+			e: "trimmed",
+			rr: "",
+			qp: "",
+			host: "geo.captcha-delivery.com",
+			cookie: "trimmed",
+		};
+		</script>
+		<script
+			data-cfasync="false"
+			src="https://ct.captcha-delivery.com/i.js"
+		></script>
+	</body>
+</html>

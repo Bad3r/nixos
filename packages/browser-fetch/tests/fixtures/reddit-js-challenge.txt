@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Reddit</title>
+		<script>
+		document.addEventListener(
+			"DOMContentLoaded",
+			async function () {
+				var e = document.forms[0];
+				(e.elements.namedItem("solution").value = "trimmed"), e.requestSubmit();
+			},
+			{ once: !0 },
+		);
+		</script>
+	</head>
+	<body>
+		<main>
+			<div class="logo">
+				<svg viewBox="0 0 216 216"><path d="M0 0"></path></svg>
+			</div>
+			<form hidden method="GET" action="/">
+				<input type="hidden" name="solution">
+				<input type="hidden" name="js_challenge" value="1">
+			</form>
+		</main>
+	</body>
+</html>

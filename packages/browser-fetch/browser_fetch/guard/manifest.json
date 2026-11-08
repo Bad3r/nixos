@@ -1,0 +1,10 @@
+{
+	"manifest_version": 2,
+	"name": "browser-fetch guard",
+	"version": "1.0",
+	"browser_specific_settings": {
+		"gecko": { "id": "guard@browser-fetch.invalid" }
+	},
+	"permissions": ["webRequest", "webRequestBlocking", "<all_urls>"],
+	"background": { "scripts": ["config.js", "background.js"] }
+}
