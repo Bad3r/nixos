@@ -337,6 +337,7 @@ class CamoufoxTest(unittest.TestCase):
             self.state,
             self.work,
             environ=environ,
+            resolve=public,
         )
         kept: dict[str, str] = {}
 
@@ -354,6 +355,44 @@ class CamoufoxTest(unittest.TestCase):
             camoufox.render(URL, jar.Jar(), time.monotonic() + 30)
         del environ["HOME"], environ["DISPLAY"]
         self.assertEqual(kept, {**environ, "PATH": "/var/empty"})
+
+    def test_a_proxy_out_of_the_browsers_reach_fails_before_it_starts(self) -> None:
+        """A proxy on this machine or a private network fails the browser up front.
+
+        The namespace refuses those ranges (README, "When Camoufox takes
+        over"), so Firefox could only show proxyConnectFailure. A public
+        proxy, and one whose name does not resolve here, go on to the session.
+        """
+
+        def resolve(host: str, _port: int) -> list[str]:
+            return {"proxy.lan": ["192.168.1.2"], "proxy.example": ["93.184.215.14"]}.get(host, [])
+
+        for proxy, refused in (
+            ("http://127.0.0.1:8899", True),
+            ("socks5h://[::1]:1080", True),
+            ("http://u:p@proxy.lan:3128", True),
+            ("http://proxy.example:3128", False),
+            ("http://unknown.example:3128", False),
+        ):
+            with self.subTest(proxy=proxy):
+                camoufox = browser.Camoufox(
+                    browser.Tools("unshare", "session", VERSION, "pasta"),
+                    self.state,
+                    self.work,
+                    environ={"HTTPS_PROXY": proxy},
+                    resolve=resolve,
+                )
+                (self.work / "page.html").write_text("<p>ok</p>")
+                started = {"url": URL, "status": 200, "contentType": "text/html", "html": True}
+                with unittest.mock.patch.object(
+                    browser.Camoufox, "_session", return_value=started
+                ) as session:
+                    if refused:
+                        with self.assertRaisesRegex(browser.BrowserError, "cannot reach the proxy"):
+                            camoufox.render(URL, jar.Jar(), time.monotonic() + 30)
+                    else:
+                        camoufox.render(URL, jar.Jar(), time.monotonic() + 30)
+                self.assertEqual(session.called, not refused)
 
     def test_playwright_cookie(self) -> None:
         """A session cookie in Gecko's host form; None and unset go without SameSite.

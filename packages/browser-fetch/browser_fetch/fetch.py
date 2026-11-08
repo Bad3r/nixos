@@ -92,7 +92,7 @@ class Page:
     converted: bool = False
     # What the fetch did without, for BROWSER_FETCH_DEBUG.
     notes: list[str] = field(default_factory=list[str])
-    # Cookies that were not read or saved, always reported.
+    # What the fetch could not do, such as read or save cookies, always reported.
     warnings: list[str] = field(default_factory=list[str])
 
     @property
@@ -368,10 +368,13 @@ def _answer(run: _Fetch, url: str, current: str, response: curl.Response) -> Pag
     if reason is not None and run.settings.browser_mode == "auto":
         try:
             return _via_browser(run, url, current, reason)
-        except browser.BrowserError:
+        except browser.BrowserError as error:
             # A short page with scripts is still the page curl got.
             if reason != challenge.SHELL:
                 raise
+            run.warnings.append(
+                f"the browser could not render the page, so curl's copy stands: {error}"
+            )
     if not ok:
         return Page("http_error", url, response.status, retry_after=_retry_after(response))
     if html is None:

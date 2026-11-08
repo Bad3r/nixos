@@ -313,7 +313,11 @@ class FetchTest(unittest.TestCase):
         )
 
     def test_failed_browser_keeps_a_script_built_page(self) -> None:
-        """A short page with scripts is still the page curl got when the browser fails."""
+        """A short page with scripts is still the page curl got when the browser fails.
+
+        The README's documented outcome; the failure is a warning, since the
+        page may lack what its scripts would have built.
+        """
         self.fake.serve(
             {
                 "https://a.example/": {
@@ -326,6 +330,10 @@ class FetchTest(unittest.TestCase):
         self.browser.error = browser.BrowserError("no display")
         page = fetch.fetch("https://a.example/", self.settings)
         self.assertEqual((page.outcome, page.via, page.text), ("ok", "curl", "hi"))
+        self.assertEqual(
+            page.warnings,
+            ["the browser could not render the page, so curl's copy stands: no display"],
+        )
 
     def test_failed_browser_on_a_challenge_is_an_error(self) -> None:
         """A challenge the browser could not even try is a failure, not the block page."""

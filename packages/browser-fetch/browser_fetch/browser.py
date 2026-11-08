@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 import fcntl
+import ipaddress
 import json
 import os
 import signal
@@ -12,9 +13,10 @@ import subprocess
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlsplit
 
 from browser_fetch import cookies as jar
-from browser_fetch import curl
+from browser_fetch import curl, urls
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -132,7 +134,7 @@ def playwright_cookie(cookie: jar.Cookie) -> dict[str, Any]:
 class Camoufox:
     """The fallback browser: one profile and one fingerprint under the state directory."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - keyword-only stand-ins for tests
         self,
         tools: Tools,
         state: Path,
@@ -140,6 +142,7 @@ class Camoufox:
         *,
         clock: Callable[[], float] = time.monotonic,
         environ: Mapping[str, str] | None = None,
+        resolve: Callable[[str, int], list[str]] = urls.lookup,
     ) -> None:
         """Remember where the state lives; nothing is created yet."""
         self.tools = tools
@@ -147,6 +150,7 @@ class Camoufox:
         self.workdir = workdir
         self.clock = clock
         self.environ = dict(os.environ if environ is None else environ)
+        self.resolve = resolve
 
     @property
     def profile(self) -> Path:
@@ -268,6 +272,7 @@ class Camoufox:
         cookie. Playwright adds to the unpartitioned jar only, so a
         partitioned cookie is not added.
         """
+        self._check_proxy(url)
         now = jar.now_us() // 1000
         if not keep:
             handed = [c for c in cookies.received(now) if not c.partition]
@@ -280,6 +285,30 @@ class Camoufox:
         finally:
             os.close(lock)
         return self._rendered(result)
+
+    def _check_proxy(self, url: str) -> None:
+        """Fail before the browser starts when curl's proxy for url is out of its reach.
+
+        The namespace reaches neither this machine nor a private network, so
+        Firefox would only show its proxyConnectFailure page. A name that
+        does not resolve here is left for the browser to report.
+        """
+        server = curl.proxy(urls.request_host(url), self.environ)
+        if server is None:
+            return
+        host = urlsplit(server if "://" in server else f"http://{server}").hostname or ""
+        try:
+            addresses = [str(ipaddress.ip_address(host))]
+        except ValueError:
+            addresses = self.resolve(host, 0) if host else []
+        if addresses and all(
+            urls.blocked_address(ipaddress.ip_address(a.split("%", 1)[0])) for a in addresses
+        ):
+            msg = (
+                f"the browser cannot reach the proxy {host}, which is on this machine or a "
+                "private network"
+            )
+            raise BrowserError(msg)
 
     def _session_for(
         self, url: str, profile: Path, handed: list[jar.Cookie], until: float

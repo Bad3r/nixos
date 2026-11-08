@@ -63,7 +63,7 @@ The markers for Cloudflare, DataDome, PerimeterX and Akamai, and the threshold f
 Camoufox runs headed on a private Xvfb display, in a user, mount, network and PID namespace that dies with `browser-fetch`, with its own `/tmp`.
 [pasta](https://passt.top/) gives that namespace internet access, with no mapping of the host's loopback or gateway and no port forwarding.
 Routing rules in the namespace refuse the ranges above, so no page or redirect reaches this machine or a private network, whatever a name resolves to.
-A proxy on this machine is out of the browser's reach.
+A proxy on this machine or a private network is out of the browser's reach, so the browser fails before it starts.
 It waits for the load and for a challenge to clear, within the bounds in [session.py](../../../packages/browser-fetch/browser_fetch/session.py).
 A page the browser ends on comes back with the status its document got.
 Outside 2xx that is an HTTP error, as from curl, so a challenge that does not clear in time on a 403 reads as that 403.
@@ -129,5 +129,5 @@ Challenges that want a click are not answered.
 ## The browser fails
 
 `browser-fetch` exits 5 with the reason, such as another fetch holding the profile past the wait.
-A page curl fetched whole is returned as curl got it when only its script-built look sent it to the browser.
+A page curl fetched whole is returned as curl got it when only its script-built look sent it to the browser, with a warning that names the browser's failure.
 Set `BROWSER_FETCH_DEBUG=1` to print the stack of an unexpected error, which exits 7.
