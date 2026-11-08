@@ -172,6 +172,7 @@ class FakeLogin:
         self.logins: list[tuple[str, display.Display]] = []
         self.warnings: list[str] = []
         self.cookies: list[jar.Cookie] = []
+        self.jar_error: jar.CookieError | None = None
 
     def login(self, url: str, screen: display.Display, until: float) -> list[str]:  # noqa: ARG002
         """Record the call."""
@@ -179,7 +180,9 @@ class FakeLogin:
         return list(self.warnings)
 
     def jar(self, until: float) -> list[jar.Cookie]:  # noqa: ARG002
-        """The canned cookies."""
+        """The canned cookies, or the canned error."""
+        if self.jar_error is not None:
+            raise self.jar_error
         return self.cookies
 
 
@@ -267,6 +270,20 @@ class LoginCliTest(unittest.TestCase):
         database = self.tmp / "profile" / jar.DB_NAME
         self.assertEqual(out, f"2 cookies for kagi.com are in {database}\n")
         self.assertIn("browser-fetch: warning: the browser did not close cleanly\n", err)
+
+    def test_an_unusable_jar_still_reports_the_logins_warnings(self) -> None:
+        """A jar that cannot be read back exits 3 after the login's own warnings."""
+        self.fake.warnings = ["the browser did not close cleanly"]
+        self.fake.jar_error = jar.CookieError("the cookie database is at schema 18")
+        status, out, err = self.run_main("login")
+        self.assertEqual((status, out), (cli.COOKIE_EXIT, ""))
+        self.assertTrue(
+            err.endswith(
+                "browser-fetch: warning: the browser did not close cleanly\n"
+                "browser-fetch: the cookie database is at schema 18\n"
+            ),
+            err,
+        )
 
     def test_no_work_directory_is_left(self) -> None:
         """The run's work directory, which held the Xauthority copy, goes with it."""

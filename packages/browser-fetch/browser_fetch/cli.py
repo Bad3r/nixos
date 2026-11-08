@@ -314,6 +314,10 @@ def login(argv: list[str]) -> int:
             except browser.BrowserError as error:
                 warnings.append(f"the jar could not be read back: {error}")
                 stored = None
+            except jar.CookieError as error:
+                for warning in warnings:
+                    error.add_note(warning)
+                raise
     except jar.CookieError as error:
         return _fail(str(error), COOKIE_EXIT, error)
     except (browser.BrowserError, display.DisplayError) as error:
