@@ -424,6 +424,27 @@ test(
 );
 
 test(
+	"a run killed with only warnings on stderr names its exit, not a warning",
+	OPTIONS,
+	async ($, on) => {
+		const statuses: (string | undefined)[] = [];
+		on("ui.status", (_, e) => {
+			statuses.push(e.text);
+			return { value: undefined };
+		});
+		engine(on, {
+			exitCode: 143,
+			stderr: `browser-fetch: warning: ${BUSY_WARNING}\n`,
+		});
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.deny).toBe(
+			`${FETCH_FAILED}\n\n[WebFetch warning: ${BUSY_WARNING}]`,
+		);
+		expect(statuses.at(-1)).toBe(`WebFetch failed: ${COMMAND} exited 143`);
+	},
+);
+
+test(
 	"a page's warnings follow the answer, never dropped",
 	OPTIONS,
 	async ($, on) => {

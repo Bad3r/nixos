@@ -182,14 +182,16 @@ export const register: Register = (on, options) => {
 			return fail(`${command} did not finish: ${ran.message}`);
 		}
 		if (ran.exitCode !== 0) {
-			// The last line is the error; warning lines may come before it.
+			// The last line that is not a warning is the error; a run killed by
+			// a signal ends on its warnings alone.
 			const lines = ran.stderr.trim().split("\n");
 			warnings = warned(
 				lines
 					.filter((line) => line.startsWith(WARNING))
 					.map((line) => line.slice(WARNING.length)),
 			);
-			const last = lines.at(-1) ?? "";
+			const last =
+				lines.filter((line) => !line.startsWith(WARNING)).at(-1) ?? "";
 			const reason = last.replace(/^browser-fetch: /, "");
 			return BUILTIN_REASONS.has(reason)
 				? fail(reason, reason)
