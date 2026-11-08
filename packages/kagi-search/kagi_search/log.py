@@ -41,11 +41,23 @@ class FileLog:
         entry = f"{stamp} {text.rstrip()}\n".encode(errors="replace")
         with contextlib.suppress(OSError):
             private_directory(self.path.parent)
-            if self.path.exists() and self.path.stat().st_size > LOG_MAX_BYTES:
+            # Opening first makes a log that already existed private before it rotates.
+            descriptor = self._open()
+            if os.fstat(descriptor).st_size > LOG_MAX_BYTES:
+                os.close(descriptor)
                 self.path.replace(self.path.with_name(f"{self.path.name}.1"))
-            descriptor = os.open(self.path, LOG_FLAGS, FILE_MODE)
+                descriptor = self._open()
             try:
-                os.fchmod(descriptor, FILE_MODE)
                 os.write(descriptor, entry)
             finally:
                 os.close(descriptor)
+
+    def _open(self) -> int:
+        """Open the log for appending, private whether or not it existed before."""
+        descriptor = os.open(self.path, LOG_FLAGS, FILE_MODE)
+        try:
+            os.fchmod(descriptor, FILE_MODE)
+        except BaseException:
+            os.close(descriptor)
+            raise
+        return descriptor

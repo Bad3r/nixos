@@ -31,6 +31,16 @@ class FileLogTest(unittest.TestCase):
             log.FileLog(path)("entry")
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_a_rotated_log_is_private(self) -> None:
+        """A wide, oversized log is made private before it moves to .1."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "x.log"
+            path.write_bytes(b"o" * (log.LOG_MAX_BYTES + 1))
+            path.chmod(0o644)
+            log.FileLog(path)("new")
+            self.assertEqual(path.with_name("x.log.1").stat().st_mode & 0o777, 0o600)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
     def test_state_root_follows_an_absolute_xdg_state_home(self) -> None:
         """A relative XDG_STATE_HOME is ignored, as the spec requires."""
         with unittest.mock.patch.dict(os.environ, {"XDG_STATE_HOME": "/s"}):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import traceback
 from dataclasses import asdict
@@ -87,7 +88,11 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"query": query, "hits": [asdict(hit) for hit in hits]}))
         else:
             print(render(hits))
+        sys.stdout.flush()
     except Exception as error:  # noqa: BLE001 - every failure is reported and logged
+        if isinstance(error, BrokenPipeError):
+            # Nothing buffered may be retried against the closed pipe at exit.
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
         known = next((c for kind, c in EXIT_CODES if isinstance(error, kind)), None)
         detail = "" if known else "\n" + "".join(traceback.format_exception(error))
         FileLog(log_path())(f"search {query!r} failed: {type(error).__name__}: {error}{detail}")

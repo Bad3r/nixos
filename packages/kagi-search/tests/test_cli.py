@@ -5,6 +5,8 @@ import contextlib
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 import unittest.mock
@@ -145,3 +147,28 @@ class CliTest(unittest.TestCase):
         """Only unexpected errors carry a traceback in the log."""
         call(["x"], client.SearchError("Kagi answered HTTP 503"))
         self.assertNotIn("Traceback", self.log.read_text())
+
+    def test_a_closed_pipe_is_logged_without_a_shutdown_error(self) -> None:
+        """Hits written to a closed pipe exit 6, are logged, and leave nothing for exit."""
+        script = (
+            "import sys, unittest.mock\n"
+            "from kagi_search import cli\n"
+            "from kagi_search.page import Hit\n"
+            "hits = [Hit('a', 'https://a.org/', '')]\n"
+            "with unittest.mock.patch.object(cli, 'run', return_value=hits):\n"
+            "    sys.exit(cli.main(['x']))\n"
+        )
+        read, write = os.pipe()
+        os.close(read)
+        root = Path(__file__).resolve().parent.parent
+        done = subprocess.run(
+            [sys.executable, "-c", script],
+            stdout=write,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": str(root)},
+            check=False,
+        )
+        os.close(write)
+        self.assertEqual(done.returncode, cli.FAILURE_EXIT)
+        self.assertEqual(done.stderr.decode().count("\n"), 1)
+        self.assertIn("BrokenPipeError", self.log.read_text())
