@@ -3,7 +3,7 @@
 `browser-fetch` fetches a web page the way Firefox does and prints it as Markdown ([module](../../../modules/apps/browser-fetch.nix), [package](../../../packages/browser-fetch/default.nix)).
 It requests the page through curl-impersonate's Firefox profile, which sets the TLS handshake, the HTTP/2 settings and the headers.
 The User-Agent and Accept-Language are those of its Camoufox fingerprint instead, so cookies Camoufox earned hold for curl too.
-curl and Camoufox share one cookie jar, the `cookies.sqlite` of Camoufox's profile, so whatever one side earns, the other sends.
+curl, Camoufox and [kagi-search](../kagi-search/README.md) share one cookie jar under the profile lock, the `cookies.sqlite` of Camoufox's profile, so what one earns, the others send.
 
 ## Fetch a page
 
@@ -20,6 +20,22 @@ curl and Camoufox share one cookie jar, the `cookies.sqlite` of Camoufox's profi
    ```
 
 Verify that the record's `via` is `curl` and its `status` is `200`.
+
+## Sign in to a site
+
+Precondition: a local X display in `DISPLAY`.
+Open an http or https page in Camoufox, sign in in the window, then close every window:
+
+```sh
+browser-fetch login https://kagi.com
+```
+
+Verify that the last line counts the site's cookies in `cookies.sqlite`.
+
+The window runs Camoufox on the profile and fingerprint fetches use, in the same namespaces but without the guard addon, so it navigates anywhere.
+The namespace gets the display's socket and an Xauthority file with only that display's entries.
+The login holds the profile lock until every window is closed, or until `LOGIN_SECONDS` of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) pass.
+It then closes Camoufox, which writes the cookies to the jar; session cookies are lost, as when Firefox closes.
 
 ## The cookie jar
 
@@ -83,11 +99,11 @@ browser-fetch --browser never https://example.org/
 
 Camoufox keeps one profile and one fingerprint under `$XDG_STATE_HOME/browser-fetch/`, mode 0700, so a challenge it passed stays passed.
 The fingerprint is drawn once per Camoufox release by Camoufox's own launcher, as Linux in `en-US`.
-Drawing it starts Camoufox, so only a fetch that may use the browser draws it.
+Drawing it starts Camoufox, so only a login or a fetch that may use the browser draws it.
 Until one exists, or when it cannot be drawn, curl sends its Firefox profile's own User-Agent and Accept-Language; `BROWSER_FETCH_DEBUG=1` prints why.
-One render at a time uses the profile; another waits a bounded time, then fails.
+One render or login at a time uses the profile; another waits a bounded time, then fails.
 The render closes the browser before its deadline, which writes the cookies Firefox holds in memory to the jar for the next fetch.
-A jar read or write waits only `JAR_LOCK_SECONDS` of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) for another fetch's render.
+A jar read or write waits only `JAR_LOCK_SECONDS` of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) for a render or login.
 Past that the fetch goes on without the jar; a write that missed is tried again with the next response and by a render, and what none took is reported.
 Each warning is a `browser-fetch: warning:` line on stderr and an entry of the record's `warnings`.
 The profile keeps no disk cache.
@@ -131,6 +147,6 @@ Challenges that want a click are not answered.
 
 ## The browser fails
 
-`browser-fetch` exits 5 with the reason, such as another fetch holding the profile past the wait.
+`browser-fetch` exits 5 with the reason, such as another fetch or a login holding the profile past the wait, or a login without a local X display.
 A page curl fetched whole is returned as curl got it when only its script-built look sent it to the browser, with a warning that names the browser's failure.
 Set `BROWSER_FETCH_DEBUG=1` to print the stack of an unexpected error, which exits 7.
