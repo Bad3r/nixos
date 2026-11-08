@@ -71,6 +71,7 @@ let
       bzip2.extended.enable = lib.mkOverride 1100 false;
       bzmenu.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
+      capstone.extended.enable = lib.mkOverride 1100 false;
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
       cewl.extended.enable = lib.mkOverride 1100 true;
@@ -257,6 +258,7 @@ let
       libsecret.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       libvirt.extended.enable = lib.mkOverride 1100 true;
+      lief.extended.enable = lib.mkOverride 1100 false;
       "llama-cpp".extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;

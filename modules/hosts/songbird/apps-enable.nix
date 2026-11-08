@@ -22,11 +22,13 @@ let
     lact = true;
     babashka = true;
     bibimbap = true;
+    capstone = true;
     "realforce-connect" = true;
     openshell = true;
     "clojure-cli" = true;
     "clojure-lsp" = true;
     leiningen = true;
+    lief = true;
     delve = true;
     discordo = true;
     go = true;
