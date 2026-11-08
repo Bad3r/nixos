@@ -35,6 +35,7 @@ type Record = {
 	retryAfter?: string;
 	savedPath?: string;
 	savedBytes?: number;
+	warnings?: string[];
 };
 type Ran = { exitCode: number; stdout?: string; stderr?: string };
 type Answer =
@@ -405,19 +406,73 @@ for (const [exitCode, stderr] of [
 	);
 }
 
+const BUSY_WARNING = "1 cookie changes were not saved: busy";
+
 test(
-	"a warning line before the error leaves the error as the reason",
+	"a failure keeps the last line as the reason and tells the model the warnings",
 	OPTIONS,
 	async ($, on) => {
 		engine(on, {
 			exitCode: 4,
-			stderr:
-				"browser-fetch: warning: 1 cookie changes were not saved: busy\nbrowser-fetch: Too many redirects (exceeded 10)\n",
+			stderr: `browser-fetch: warning: no cookies were read: busy\nbrowser-fetch: warning: ${BUSY_WARNING}\nbrowser-fetch: Too many redirects (exceeded 10)\n`,
 		});
 		const answer = await $.tool.call(fetch("https://example.org/", "q"));
-		expect(answer.deny).toBe("Too many redirects (exceeded 10)");
+		expect(answer.deny).toBe(
+			`Too many redirects (exceeded 10)\n\n[WebFetch warning: no cookies were read: busy]\n\n[WebFetch warning: ${BUSY_WARNING}]`,
+		);
 	},
 );
+
+test(
+	"a failure the model reads as the proxy's still carries the warnings",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, {
+			exitCode: 5,
+			stderr: `browser-fetch: warning: ${BUSY_WARNING}\nbrowser-fetch: the browser failed: Camoufox crashed\n`,
+		});
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.deny).toBe(
+			`${FETCH_FAILED}\n\n[WebFetch warning: ${BUSY_WARNING}]`,
+		);
+	},
+);
+
+test(
+	"a page's warnings follow the answer, never dropped",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, ok(page({ warnings: [BUSY_WARNING] })));
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.result).toEqual(
+			expect.objectContaining({
+				result: `The answer.\n\n[WebFetch warning: ${BUSY_WARNING}]`,
+			}),
+		);
+	},
+);
+
+test("an HTTP error's warnings follow its report", OPTIONS, async ($, on) => {
+	engine(
+		on,
+		ok(
+			page({
+				outcome: "http_error",
+				status: 404,
+				statusText: "Not Found",
+				text: "",
+				length: 0,
+				warnings: [BUSY_WARNING],
+			}),
+		),
+	);
+	const answer = await $.tool.call(fetch("https://example.org/", "q"));
+	expect(answer.result).toEqual(
+		expect.objectContaining({
+			result: `The server returned HTTP 404 Not Found.\n\nThe response body was not retrieved. If this URL requires authentication, use an authenticated tool (e.g. \`gh\` for GitHub, or an MCP-provided fetch tool) instead of WebFetch.\n\n[WebFetch warning: ${BUSY_WARNING}]`,
+		}),
+	);
+});
 
 for (const reason of [
 	"Invalid URL",

@@ -41,6 +41,8 @@ type Page = {
 	retryAfter?: string;
 	savedPath?: string;
 	savedBytes?: number;
+	// What the fetch could not do, such as save a cookie change.
+	warnings?: string[];
 };
 
 function isPage(value: unknown): value is Page {
@@ -56,6 +58,16 @@ function isPage(value: unknown): value is Page {
 		typeof page.text === "string"
 	);
 }
+
+// browser-fetch's warnings, one note each, for the model to weigh.
+function warned(warnings: readonly unknown[]): string {
+	return warnings
+		.filter((w): w is string => typeof w === "string" && w !== "")
+		.map((w) => `\n\n[WebFetch warning: ${w}]`)
+		.join("");
+}
+
+const WARNING = "browser-fetch: warning: ";
 
 function pageOf(stdout: string): Page | undefined {
 	try {
@@ -144,10 +156,12 @@ export const register: Register = (on, options) => {
 	// Answers WebFetch before Claude Code's permission check runs.
 	on("tool.call", { tool: "WebFetch" }, async ($, e) => {
 		$.ui.status(undefined);
-		// The reason goes to the status line; the model gets the built-in's text.
+		// The reason goes to the status line; the model gets the built-in's
+		// text and the fetch's warnings.
+		let warnings = "";
 		const fail = (reason: string, told = FETCH_FAILED) => {
 			$.ui.status(`WebFetch failed: ${reason.slice(0, 60)}`);
-			return { deny: told };
+			return { deny: told + warnings };
 		};
 		if (!command) return fail("the fetchCommand option is not set");
 		const offset = e.offset ?? 0;
@@ -173,7 +187,13 @@ export const register: Register = (on, options) => {
 		}
 		if (ran.exitCode !== 0) {
 			// The last line is the error; warning lines may come before it.
-			const last = ran.stderr.trim().split("\n").at(-1) ?? "";
+			const lines = ran.stderr.trim().split("\n");
+			warnings = warned(
+				lines
+					.filter((line) => line.startsWith(WARNING))
+					.map((line) => line.slice(WARNING.length)),
+			);
+			const last = lines.at(-1) ?? "";
 			const reason = last.replace(/^browser-fetch: /, "");
 			return BUILTIN_REASONS.has(reason)
 				? fail(reason, reason)
@@ -181,6 +201,7 @@ export const register: Register = (on, options) => {
 		}
 		const page = pageOf(ran.stdout);
 		if (!page) return fail(`${command} printed no page record`);
+		warnings = warned(Array.isArray(page.warnings) ? page.warnings : []);
 		const done = (result: string, bytes: number) => {
 			$.ui.status(undefined);
 			return {
@@ -188,7 +209,7 @@ export const register: Register = (on, options) => {
 					bytes,
 					code: page.status,
 					codeText: page.statusText,
-					result,
+					result: result + warnings,
 					durationMs: Date.now() - started,
 					url: e.url,
 				},

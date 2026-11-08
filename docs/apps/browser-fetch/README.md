@@ -114,6 +114,7 @@ It follows Claude Code's own WebFetch: the haiku prompt, the 100,000-character c
 It makes no domain safety check against `api.anthropic.com`.
 It answers the call before Claude Code's permission check, so WebFetch permission rules, the auto-mode classifier and PreToolUse hooks do not apply to it.
 A failed fetch puts its reason in the status line and refuses the call with the built-in tool's failure text, never falling back to it.
+Each of `browser-fetch`'s warnings follows the result, or that refusal, as a `[WebFetch warning: …]` note for the model.
 
 ## The cookie jar is unusable
 
