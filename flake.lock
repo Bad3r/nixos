@@ -198,11 +198,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794143767,
-        "narHash": "sha256-fVYU1IP6kY8KEjW19t0Gdo1MbYB7MQFauHBRejoiJYg=",
+        "lastModified": 1794168481,
+        "narHash": "sha256-eSB4K693Ji8rsJiyprMk0zl3XhfNBXeciXXT5Lbq8p8=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "3d18a1c076e738c345c85c31f870a2f278f1da0f",
+        "rev": "46f1fcb1ab8ae305c517750c92fa37869539b0c0",
         "type": "github"
       },
       "original": {
@@ -268,11 +268,11 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1794112424,
-        "narHash": "sha256-B2/0mRJe2sOCP5/t726m0hpXDBqDUgl8yMynA4y7QXs=",
+        "lastModified": 1794149300,
+        "narHash": "sha256-lSPO8eVswnjhhPVydRB3IWL+Vc15wL1c0pypT5ryNeI=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "c85121b248724575336d01df60ef1d7efc9b034d",
+        "rev": "6003cc09cbf6ca471dca1542b8e472d0066e567e",
         "type": "github"
       },
       "original": {
@@ -291,11 +291,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794062588,
-        "narHash": "sha256-Nb5OQ6a35T6vXOW89540FYtgJ0rwX8jOgB4mDTN8zD8=",
+        "lastModified": 1794149300,
+        "narHash": "sha256-lSPO8eVswnjhhPVydRB3IWL+Vc15wL1c0pypT5ryNeI=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "e18944d7f31abc9d65ee56b6692cff566e1fa1b7",
+        "rev": "6003cc09cbf6ca471dca1542b8e472d0066e567e",
         "type": "github"
       },
       "original": {
@@ -685,11 +685,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794131409,
-        "narHash": "sha256-xmTSPK+Ykr/tCCEqB9sqeZhr0iTModR3NN/UkvnG/4w=",
+        "lastModified": 1794149346,
+        "narHash": "sha256-J+NOeQYs1ojNjgogf54BSiBJLhKQj5i8SamBblV5jVg=",
         "ref": "refs/heads/master",
-        "rev": "a691b2345844ce1b430201fc5fd404ce062e05f2",
-        "revCount": 12205,
+        "rev": "7d7f0287530bc8981690f361d8c1627dbae1c99a",
+        "revCount": 12211,
         "type": "git",
         "url": "https://github.com/ggml-org/llama.cpp"
       },
@@ -834,11 +834,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794063409,
-        "narHash": "sha256-7tfOo8ekRZV/cEci+mlhKdoM7JlFswS5gBKi/PI6FTk=",
+        "lastModified": 1794151309,
+        "narHash": "sha256-K+gyIpgLR+ok0ILKEd9olqrbnydy/tm7Qi883LPpJYQ=",
         "owner": "marienz",
         "repo": "nix-doom-emacs-unstraightened",
-        "rev": "167c8cb42137c38d3c3bbdb11801eb2cb7bbc466",
+        "rev": "c583b2832cd2505b1de533754da6aa2d64c7825e",
         "type": "github"
       },
       "original": {
