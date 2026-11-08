@@ -111,5 +111,5 @@ def search(  # noqa: PLR0913 - keyword-only options of the public entry point
     director: urllib.request.OpenerDirector | None = None,
 ) -> list[Hit]:
     """Return at most limit hits for the query, filtered by allowed and blocked domains."""
-    page = fetch_page(kagi_query(query, allowed), cookie, director or opener())
+    page = fetch_page(kagi_query(query, allowed, blocked), cookie, director or opener())
     return filter_hits(parse_page(page), allowed, blocked)[:limit]

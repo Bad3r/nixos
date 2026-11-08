@@ -122,7 +122,35 @@ class FilterTest(unittest.TestCase):
         kept = filter_hits(FILTER_HITS, blocked=["https://wiki.nixos.org/"])
         self.assertEqual([h.title for h in kept], ["a", "c"])
 
-    def test_one_allowed_domain_narrows_the_query(self) -> None:
-        """Only a single allowed domain adds site: to the query."""
+    def test_allowed_domains_narrow_the_query(self) -> None:
+        """One allowed domain adds site:, several add a site: OR group."""
         self.assertEqual(kagi_query("flakes", ["wiki.nixos.org"]), "flakes site:wiki.nixos.org")
-        self.assertEqual(kagi_query("flakes", ["a.org", "b.org"]), "flakes")
+        self.assertEqual(
+            kagi_query("flakes", ["https://a.org/x", "*.b.org", "a.org"]),
+            "flakes (site:a.org OR site:b.org)",
+        )
+
+    def test_blocked_domains_exclude_from_the_query(self) -> None:
+        """Each blocked domain adds -site:, after any allowed group."""
+        self.assertEqual(
+            kagi_query("flakes", ["nixos.org"], ["wiki.nixos.org", "b.org"]),
+            "flakes site:nixos.org -site:wiki.nixos.org -site:b.org",
+        )
+
+    def test_only_host_names_reach_the_query(self) -> None:
+        """A domain with spaces or operators stays out of the query but still filters."""
+        allowed = ["a.org) OR (x", "b.org"]
+        self.assertEqual(kagi_query("flakes", allowed), "flakes site:b.org")
+        hits = [Hit("x", "https://x.org/", ""), Hit("b", "https://b.org/", "")]
+        self.assertEqual([h.title for h in filter_hits(hits, allowed)], ["b"])
+
+    def test_single_label_domains_reach_the_query(self) -> None:
+        """A bare suffix such as edu narrows like any other domain."""
+        self.assertEqual(
+            kagi_query("research", ["edu", "nixos.org"], ["com"]),
+            "research (site:edu OR site:nixos.org) -site:com",
+        )
+
+    def test_no_domains_leave_the_query_unchanged(self) -> None:
+        """Without domains the query goes out as written."""
+        self.assertEqual(kagi_query("a OR b", [], []), "a OR b")

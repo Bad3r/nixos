@@ -235,7 +235,23 @@ def filter_hits(
     return kept
 
 
-def kagi_query(query: str, allowed: list[str] | None = None) -> str:
-    """Narrow the query with site: when exactly one domain is allowed."""
-    allow = _domains(allowed)
-    return f"{query} site:{allow[0]}" if len(allow) == 1 else query
+_OPERAND = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)*")
+
+
+def _operands(values: list[str] | None) -> list[str]:
+    # Only plain host names reach Kagi's query syntax; filter_hits still applies the rest.
+    return list(dict.fromkeys(d for d in _domains(values) if _OPERAND.fullmatch(d)))
+
+
+def kagi_query(
+    query: str, allowed: list[str] | None = None, blocked: list[str] | None = None
+) -> str:
+    """Narrow the query with site: for allowed domains and -site: for blocked ones."""
+    allow = _operands(allowed)
+    parts = [query]
+    if len(allow) == 1:
+        parts.append(f"site:{allow[0]}")
+    elif allow:
+        parts.append("(" + " OR ".join(f"site:{d}" for d in allow) + ")")
+    parts += [f"-site:{d}" for d in _operands(blocked)]
+    return " ".join(parts)

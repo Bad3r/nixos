@@ -54,13 +54,15 @@ class SearchTest(unittest.TestCase):
     """The request Kagi receives and how its answers map to hits or errors."""
 
     def test_the_request_carries_the_session_and_narrowed_query(self) -> None:
-        """The request sends the cookie, a Safari user agent, and the site: query."""
+        """The request sends the cookie, a Safari user agent, and the site: operators."""
         director = FakeDirector(200, RESULTS)
-        hits = client.search("nix flakes", "tok", allowed=["wiki.nixos.org"], director=director)
+        hits = client.search(
+            "nix flakes", "tok", allowed=["wiki.nixos.org"], blocked=["b.org"], director=director
+        )
         self.assertEqual([h.url for h in hits], ["https://wiki.nixos.org/wiki/Flakes"])
         (request,) = director.requests
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
-        self.assertEqual(query, {"q": ["nix flakes site:wiki.nixos.org"]})
+        self.assertEqual(query, {"q": ["nix flakes site:wiki.nixos.org -site:b.org"]})
         self.assertEqual(request.get_header("Cookie"), "kagi_session=tok")
         self.assertIn("Safari/605.1.15", request.get_header("User-agent") or "")
 

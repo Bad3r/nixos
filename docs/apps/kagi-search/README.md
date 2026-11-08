@@ -22,6 +22,8 @@ Verify that the output lists numbered hits with URLs.
 
 The `kagi-websearch` plugin of the `nixos-local` marketplace answers every `WebSearch` call with `kagi-search` ([plugin](../../../modules/agents/claude-code/marketplace/kagi-websearch/hooks/register.ts)).
 Its record matches the built-in tool's: one link list of titles and URLs, then a summary the session's model writes from the hits.
+It runs `/run/current-system/sw/bin/kagi-search`, so each switch moves it to the current build.
+Allowed domains narrow the Kagi query to `site:` (an `OR` group for several) and blocked ones add `-site:`; the hits are filtered by domain again afterwards.
 The `mode` argument has no Kagi counterpart and changes nothing.
 A failed search answers with the built-in tool's own error record (`Web search error: unavailable`) and shows the reason in the status line; it never falls back to the built-in search.
 
