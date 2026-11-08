@@ -62,6 +62,7 @@ let
       bottom.extended.enable = lib.mkOverride 1100 true;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
+      "browser-fetch".extended.enable = lib.mkOverride 1100 false;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
       "build-sh-completion".extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;

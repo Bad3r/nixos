@@ -158,6 +158,66 @@ let
       ];
       extraInputs = _: [ ];
     };
+    # The updater against a mocked release list: a browser build with no
+    # paired launcher yet is skipped, so run-packages-updaters goes on.
+    camoufox-update = {
+      dir = ../../tests/camoufox-update;
+      subjects = [
+        {
+          src = ../../packages/camoufox/update.py;
+          dest = "packages/camoufox/update.py";
+        }
+        {
+          src = ../../packages/camoufox/default.nix;
+          dest = "packages/camoufox/default.nix";
+        }
+        {
+          src = ../../scripts/updater_bootstrap.py;
+          dest = "scripts/updater_bootstrap.py";
+        }
+        {
+          src = ../../scripts/updater/__init__.py;
+          dest = "scripts/updater/__init__.py";
+        }
+        {
+          src = ../../scripts/updater/bun.py;
+          dest = "scripts/updater/bun.py";
+        }
+        {
+          src = ../../scripts/updater/deps.py;
+          dest = "scripts/updater/deps.py";
+        }
+        {
+          src = ../../scripts/updater/hash.py;
+          dest = "scripts/updater/hash.py";
+        }
+        {
+          src = ../../scripts/updater/hashes_file.py;
+          dest = "scripts/updater/hashes_file.py";
+        }
+        {
+          src = ../../scripts/updater/http.py;
+          dest = "scripts/updater/http.py";
+        }
+        {
+          src = ../../scripts/updater/nix.py;
+          dest = "scripts/updater/nix.py";
+        }
+        {
+          src = ../../scripts/updater/npm.py;
+          dest = "scripts/updater/npm.py";
+        }
+        {
+          src = ../../scripts/updater/platforms.py;
+          dest = "scripts/updater/platforms.py";
+        }
+        {
+          src = ../../scripts/updater/version.py;
+          dest = "scripts/updater/version.py";
+        }
+      ];
+      extraInputs = pkgs: [ pkgs.python3 ];
+    };
     flake-ref = {
       dir = ../../tests/flake-ref;
       subjects = [

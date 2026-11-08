@@ -49,6 +49,11 @@ _: {
                 "${
                   pkgs.python3.withPackages (ps: [
                     ps.argcomplete
+                    # browser-fetch converts pages with markitdown and drives Camoufox.
+                    ps.markitdown
+                    ps.playwright
+                    ps.publicsuffixlist
+                    (pkgs.callPackage ../../packages/camoufox { }).python
                     ps.pillow
                   ])
                 }/bin/python3"

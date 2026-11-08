@@ -19,10 +19,10 @@
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
     * Configuration managed by Home Manager module (modules/agents/claude-code/home.nix).
 */
-{ inputs, ... }:
+{ inputs, lib, ... }:
 let
-  # Program each plugin runs: a language server, or kagi-search for
-  # kagi-websearch. An enabledPlugins entry set to true in
+  # Program each plugin runs: a language server, or the app of a nixos-local
+  # plugin (_local-plugins.nix). An enabledPlugins entry set to true in
   # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
   # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
   pluginProgramMap = {
@@ -30,14 +30,16 @@ let
     "csharp-lsp@claude-plugins-official" = "csharp-ls";
     "gopls-lsp@claude-plugins-official" = "gopls";
     "jdtls-lsp@claude-plugins-official" = "jdt-language-server";
-    "kagi-websearch@nixos-local" = "kagi-search";
     "lua-lsp@claude-plugins-official" = "lua-language-server";
     "php-lsp@claude-plugins-official" = "intelephense";
     "pyright-lsp@claude-plugins-official" = "pyright";
     "rust-analyzer-lsp@claude-plugins-official" = "rust-analyzer";
     "swift-lsp@claude-plugins-official" = "sourcekit-lsp";
     "typescript-lsp@claude-plugins-official" = "typescript-language-server";
-  };
+  }
+  // lib.mapAttrs' (plugin: local: lib.nameValuePair "${plugin}@nixos-local" local.app) (
+    import ./_local-plugins.nix
+  );
 
   inherit (import ./_plugins.nix) enabledPlugins;
 in
