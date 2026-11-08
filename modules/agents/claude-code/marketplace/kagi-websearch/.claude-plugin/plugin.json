@@ -1,0 +1,19 @@
+{
+	"name": "kagi-websearch",
+	"version": "0.4.0",
+	"description": "Routes the WebSearch tool to Kagi through the kagi-search command line.",
+	"userConfig": {
+		"searchCommand": {
+			"type": "string",
+			"title": "kagi-search command",
+			"description": "The kagi-search executable; it prints JSON hits with --json and exits non-zero with the reason on stderr.",
+			"default": "/run/current-system/sw/bin/kagi-search"
+		},
+		"maxResults": {
+			"type": "number",
+			"title": "Results per search",
+			"description": "How many Kagi results a standard search returns, after domain filtering; an extended search returns all of Kagi's first page, about 25 to 35.",
+			"default": 10
+		}
+	}
+}

@@ -113,21 +113,19 @@ let
     exec "$realBash" "''${originalArgs[@]}"
   '';
 
+  target =
+    if installMethods.bun.enable then
+      "${bunInstallDir}/bin/claude"
+    else if installMethods.nix.enable then
+      "${claudePkg}/bin/claude"
+    else
+      externalBinary;
+
   # Keep this assignment standalone. packages/tweakcc/shell-wrapper.patch
   # parses it to reach the wrapped Claude executable.
-  targetScript =
-    if installMethods.bun.enable then
-      ''
-        target=${lib.escapeShellArg "${bunInstallDir}/bin/claude"}
-      ''
-    else if installMethods.nix.enable then
-      ''
-        target=${lib.escapeShellArg "${claudePkg}/bin/claude"}
-      ''
-    else
-      ''
-        target=${lib.escapeShellArg externalBinary}
-      '';
+  targetScript = ''
+    target=${lib.escapeShellArg target}
+  '';
 
   wrapperBody = ''
     set -euo pipefail
@@ -178,5 +176,6 @@ in
     claudeWrapped
     claudeRcWrapped
     wrapperBody
+    target
     ;
 }

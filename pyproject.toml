@@ -69,6 +69,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "modules/apps/i3wm/_idle-screensaver.py" = ["CPY001"]
 "packages/*/update.py" = ["EXE003", "EXE005"]
+"packages/kagi-search/tests/*" = ["PT009", "PT027"]
 "packages/sbx/tests/*" = ["PT009", "PT027"]
 "packages/warp-devices/tests/*" = ["PT009", "PT027"]
 "packages/workloads/tests/*" = ["PT009", "PT027"]

@@ -231,6 +231,7 @@ let
       jq.extended.enable = lib.mkOverride 1100 true;
       "jupyter-all".extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 true;
+      "kagi-search".extended.enable = lib.mkOverride 1100 false;
       karere.extended.enable = lib.mkOverride 1100 false;
       katana.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;

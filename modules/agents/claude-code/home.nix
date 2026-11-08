@@ -24,6 +24,10 @@
       `claude plugin marketplace add anthropics/claude-plugins-official`).
       `builtin` needs no registration; entries naming an unregistered
       marketplace are silently ignored.
+    * marketplace/ is the nixos-local marketplace, registered from the store.
+      Its kagi-websearch plugin answers WebSearch with the kagi-search app
+      (modules/apps/kagi-search.nix) through the current system profile, so a
+      rebuilt kagi-search never leaves it on a collected store path.
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
@@ -86,9 +90,33 @@ _: {
         ) "claude-code: ${lib.concatStringsSep ", " duplicates} declared by more than one settings part";
         lib.foldl' (acc: part: acc // part) { } parts;
 
+      plugins = import ./_plugins.nix;
+      kagiWebsearch = plugins.enabledPlugins."kagi-websearch@nixos-local" or false;
+      localMarketplace = builtins.path {
+        path = ./marketplace;
+        name = "claude-code-nixos-local-marketplace";
+      };
+      websearchCheck = import ./_websearch-check.nix {
+        inherit lib pkgs;
+        plugin = "${localMarketplace}/kagi-websearch";
+      };
+
       settingsJson = mergeParts [
         (import ./_settings.nix)
-        (import ./_plugins.nix)
+        (
+          plugins
+          // {
+            # Registered only with the kagi-websearch plugin.
+            extraKnownMarketplaces =
+              plugins.extraKnownMarketplaces
+              // lib.optionalAttrs kagiWebsearch {
+                nixos-local.source = {
+                  source = "directory";
+                  path = "${localMarketplace}";
+                };
+              };
+          }
+        )
         (import ./_permissions.nix {
           inherit (agents) scratchDir;
           sbx = sbxEnabled;
@@ -139,7 +167,17 @@ _: {
           claudeJsonConfigFile
           ;
       };
-      inherit (activationResult) activation;
+      activation =
+        activationResult.activation
+        // lib.optionalAttrs kagiWebsearch {
+          claudeCodeWebsearchCheck =
+            lib.hm.dag.entryAfter
+              ([ "writeBoundary" ] ++ lib.optional installMethods.bun.enable "installClaudeCodeViaBun")
+              ''
+                run ${lib.getExe websearchCheck} ${lib.escapeShellArg claudeRuntime.target} \
+                  || echo "warning: kagi-websearch: the Claude Code check did not run" >&2
+              '';
+        };
 
       claudeRuntime = import ./_launcher.nix {
         inherit

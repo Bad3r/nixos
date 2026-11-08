@@ -458,6 +458,11 @@
 - [apps/duplicati/security.md](apps/duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 
+### kagi-search
+
+- [apps/kagi-search/README.md](apps/kagi-search/README.md)
+  - Searching Kagi with LibreWolf's session, the Claude Code WebSearch plugin, and session failures.
+
 ### libvirt
 
 - [apps/libvirt/README.md](apps/libvirt/README.md)
