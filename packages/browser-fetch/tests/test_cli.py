@@ -21,6 +21,8 @@ from browser_fetch import cookies as jar
 
 from tests.fakes import FakeBrowser, fake_curl, public
 
+cli_browser = cli.camoufox
+
 SECRET = "s3cr3t-session-value"  # noqa: S105 - a stand-in cookie value
 
 
@@ -63,7 +65,7 @@ class MainTest(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         curl_patch = unittest.mock.patch.object(cli.tools, "CURL", self.fake.path)
-        browser_patch = unittest.mock.patch.object(cli, "_browser", return_value=FakeBrowser())
+        browser_patch = unittest.mock.patch.object(cli, "camoufox", return_value=FakeBrowser())
         lookup_patch = unittest.mock.patch.object(cli.urls, "lookup", side_effect=public)
         for patch in (curl_patch, browser_patch, lookup_patch):
             patch.start()
@@ -116,6 +118,42 @@ class MainTest(unittest.TestCase):
         self.assertTrue(err.startswith("browser-fetch: "))
         self.assertNotIn(SECRET, err)
         self.assertEqual(list(self.runtime.iterdir()), [])
+
+    def test_unwritable_state_still_fetches_with_curl(self) -> None:
+        """With no usable browser state, a page curl can fetch is still fetched, in both modes."""
+        self.fake.serve(
+            {"https://example.org/": {"status": 200, "headers": {"Content-Type": "text/plain"}}}
+        )
+        state = self.runtime.parent / f"{self.runtime.name}-state"
+        state.mkdir(mode=0o500)
+        self.addCleanup(state.rmdir)
+        self.addCleanup(state.chmod, 0o700)
+        with (
+            unittest.mock.patch.object(cli, "camoufox", cli_browser),
+            unittest.mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(state)}),
+        ):
+            for mode in ("never", "auto"):
+                with self.subTest(mode=mode):
+                    status, out, _ = self.run_main(
+                        "--json", "--browser", mode, "https://example.org/"
+                    )
+                    self.assertEqual((status, json.loads(out)["via"]), (0, "curl"))
+
+    def test_owner_file_is_locked_before_it_is_named(self) -> None:
+        """A sweep can never find a run's owner file unlocked."""
+        workdir = self.runtime / f"{cli.WORK_PREFIX}race"
+        workdir.mkdir()
+        named_at_lock: list[bool] = []
+        flock = fcntl.flock
+
+        def watch(fd: int, operation: int) -> None:
+            named_at_lock.append((workdir / cli.OWNER).exists())
+            flock(fd, operation)
+
+        with unittest.mock.patch.object(cli.fcntl, "flock", watch):
+            os.close(cli.claim(workdir))
+        self.assertEqual(named_at_lock, [False])
+        self.assertTrue((workdir / cli.OWNER).exists())
 
     def test_invalid_url(self) -> None:
         """An invalid URL exits 2 before any request."""

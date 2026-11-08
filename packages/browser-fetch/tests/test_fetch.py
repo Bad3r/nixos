@@ -500,3 +500,19 @@ class FetchTest(unittest.TestCase):
             page = fetch.fetch("https://a.example/", settings)
         self.assertEqual(self.cookies_sent(), [""])
         self.assertIn("busy", " ".join(page.notes))
+
+    def test_curl_only_fetch_never_draws_a_fingerprint(self) -> None:
+        """--browser never asks for a stored fingerprint only."""
+        never = dataclasses.replace(self.settings, browser_mode="never")
+        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
+        fetch.fetch("https://a.example/", never)
+        self.assertEqual(self.browser.generated, [False])
+
+    def test_fingerprint_failure_falls_back_to_the_profile_headers(self) -> None:
+        """A fingerprint that cannot be drawn leaves curl's own headers, and the fetch goes on."""
+        self.browser.identity_error = browser.BrowserError("no user namespaces")
+        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
+        page = fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual((page.outcome, page.via), ("ok", "curl"))
+        self.assertNotIn("User-Agent", self.fake.calls()[0]["config"])
+        self.assertIn("no user namespaces", " ".join(page.notes))

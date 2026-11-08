@@ -8,7 +8,7 @@ import os
 import stat
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -92,9 +92,14 @@ class FakeBrowser:
     rendered: Any = None
     error: Exception | None = None
     calls: list[dict[str, Any]] | None = None
+    identity_error: Exception | None = None
+    generated: list[bool] = field(default_factory=list[bool])
 
-    def identity(self, until: float) -> Any:  # noqa: ANN401, ARG002
-        """The canned identity."""
+    def identity(self, until: float, *, generate: bool = True) -> Any:  # noqa: ANN401, ARG002
+        """The canned identity, or the canned identity error; each call's generate is kept."""
+        self.generated.append(generate)
+        if self.identity_error is not None:
+            raise self.identity_error
         return self.identity_value
 
     def jar(self, until: float) -> list[Any]:  # noqa: ARG002

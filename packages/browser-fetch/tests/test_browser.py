@@ -16,7 +16,7 @@ import unittest.mock
 from pathlib import Path
 from typing import Any
 
-from browser_fetch import browser, tools
+from browser_fetch import browser, curl, tools
 from browser_fetch import cookies as jar
 
 from tests.namespaces import ROOT, require_namespaces, tools_with, write_fake_pasta
@@ -98,7 +98,7 @@ class CamoufoxTest(unittest.TestCase):
             first = self.camoufox().identity(time.monotonic() + 30)
             again = self.camoufox().identity(time.monotonic() + 30)
         self.assertEqual(first, again)
-        self.assertEqual(first.user_agent, "UA-1")
+        self.assertEqual(first, curl.Identity("UA-1", "en-US"))
         self.assertEqual([mode for mode, _ in self.sessions], ["generate"])
         self.assertEqual(self.state.stat().st_mode & 0o777, 0o700)
 
@@ -112,6 +112,23 @@ class CamoufoxTest(unittest.TestCase):
             session.side_effect = self.fake_session
             self.camoufox().identity(time.monotonic() + 30)
         self.assertEqual(len(self.sessions), 1)
+
+    def test_no_fingerprint_is_drawn_unless_asked(self) -> None:
+        """A fetch that will not run the browser reads a fingerprint but never draws one."""
+        with unittest.mock.patch.object(browser.Camoufox, "_session", autospec=True) as session:
+            self.assertIsNone(self.camoufox().identity(time.monotonic() + 30, generate=False))
+            session.assert_not_called()
+        self.assertFalse(self.state.exists())
+
+    def test_unusable_state_is_a_browser_error(self) -> None:
+        """A state directory that cannot be created is the browser's failure, not an OSError."""
+        blocked = self.tmp / "read-only"
+        blocked.mkdir(mode=0o500)
+        camoufox = browser.Camoufox(
+            browser.Tools("unshare", "session", VERSION, "pasta"), blocked / "state", self.work
+        )
+        with self.assertRaisesRegex(browser.BrowserError, "unusable"):
+            camoufox.identity(time.monotonic() + 30)
 
     def test_profile_lock_wait_is_bounded(self) -> None:
         """A second fallback waits for the profile, then gives up within its bound."""
@@ -564,6 +581,8 @@ class GuardTest(unittest.TestCase):
         Playwright against this Camoufox build.
         """
         identity = self.camoufox.identity(time.monotonic() + 120)
+        if identity is None:
+            self.fail("no fingerprint was drawn")
         self.assertIn("Firefox/", identity.user_agent)
         fingerprint_path = self.state / browser.FINGERPRINT
         fingerprint = json.loads(fingerprint_path.read_text())

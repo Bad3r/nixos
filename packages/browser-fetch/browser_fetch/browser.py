@@ -272,7 +272,7 @@ class Camoufox:
     def _fingerprint(self) -> dict[str, Any] | None:
         try:
             data = json.loads((self.state / FINGERPRINT).read_text())
-        except FileNotFoundError:
+        except FileNotFoundError, NotADirectoryError:
             return None
         except (OSError, ValueError) as error:
             msg = f"the browser fingerprint could not be read: {error}"
@@ -282,14 +282,16 @@ class Camoufox:
         fingerprint = cast("dict[str, Any]", data)
         return fingerprint if fingerprint.get("browser") == self.tools.camoufox_version else None
 
-    def identity(self, until: float) -> curl.Identity:
+    def identity(self, until: float, *, generate: bool = True) -> curl.Identity | None:
         """The fingerprint's User-Agent and Accept-Language, generated on first use.
 
         The fingerprint belongs to one browser release; another release
         draws a new one, since a User-Agent naming the old one would leak.
+        Drawing it starts the browser, which happens only when generate is
+        set; otherwise a missing fingerprint is None.
         """
         fingerprint = self._fingerprint()
-        if fingerprint is None:
+        if fingerprint is None and generate:
             lock = self._lock(until)
             try:
                 fingerprint = self._fingerprint()
@@ -301,6 +303,8 @@ class Camoufox:
             if fingerprint is None:
                 msg = "the browser wrote no fingerprint"
                 raise BrowserError(msg)
+        if fingerprint is None:
+            return None
         headers = cast("dict[str, str]", fingerprint.get("headers", {}))
         return curl.Identity(headers["user-agent"], headers["accept-language"])
 

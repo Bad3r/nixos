@@ -54,8 +54,8 @@ class FetchError(Exception):
 class Renderer(Protocol):
     """The browser fallback, as the fetch uses it."""
 
-    def identity(self, until: float) -> curl.Identity | None:
-        """The headers curl sends so the browser's cookies hold for it."""
+    def identity(self, until: float, *, generate: bool = True) -> curl.Identity | None:
+        """The headers curl sends so the browser's cookies hold for it; None without one."""
         ...
 
     def jar(self, until: float) -> list[jar.Cookie]:
@@ -138,6 +138,21 @@ class _Fetch:
             msg = f"the fetch took longer than {self.settings.deadline:.0f} s"
             raise FetchError(msg)
         return remaining
+
+    def load_identity(self) -> None:
+        """Take the browser fingerprint's headers for curl, drawing it only if the browser may run.
+
+        Without them curl sends its Firefox profile's own headers: a curl
+        fetch never fails for want of the browser's state.
+        """
+        may_render = self.settings.browser_mode != "never"
+        try:
+            self.identity = self.settings.browser.identity(self.until, generate=may_render)
+        except (browser.BrowserError, OSError) as error:
+            self.notes.append(f"curl sends its profile's own headers: {error}")
+            return
+        if self.identity is None:
+            self.notes.append("curl sends its profile's own headers: no fingerprint was drawn yet")
 
     def load_cookies(self) -> None:
         """Read the browser's own jar, and LibreWolf's unless cookies are off.
@@ -247,7 +262,7 @@ def fetch(url: str, settings: Settings) -> Page:
     target = urls.check_url(url)
     urls.pin(target, settings.resolve)
     run = _Fetch(settings)
-    run.identity = settings.browser.identity(run.until)
+    run.load_identity()
     run.load_cookies()
     page = _follow(run, url, target)
     page.notes = run.notes

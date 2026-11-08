@@ -120,10 +120,16 @@ def sweep(base: Path) -> None:
             os.close(fd)
 
 
-def _own(workdir: Path) -> int:
-    """Create and lock the work directory's owner file; the lock lasts the run."""
-    fd = os.open(workdir / OWNER, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+def claim(workdir: Path) -> int:
+    """Create and lock the work directory's owner file; the lock lasts the run.
+
+    The file is locked before it takes its name, so a sweep never finds it
+    unlocked; until then the directory is too young to count as orphaned.
+    """
+    partial = workdir / f"{OWNER}.partial"
+    fd = os.open(partial, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
     fcntl.flock(fd, fcntl.LOCK_EX)
+    partial.rename(workdir / OWNER)
     return fd
 
 
@@ -131,7 +137,8 @@ def _terminate(signum: int, frame: FrameType | None) -> NoReturn:  # noqa: ARG00
     raise SystemExit(128 + signum)
 
 
-def _browser(workdir: Path) -> browser.Camoufox:
+def camoufox(workdir: Path) -> browser.Camoufox:
+    """The fallback browser with its state under XDG_STATE_HOME."""
     return browser.Camoufox(
         browser.Tools(tools.UNSHARE, tools.SESSION, tools.CAMOUFOX_VERSION, tools.PASTA),
         _state_dir(),
@@ -198,11 +205,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
     base = _runtime_base()
     sweep(base)
     workdir = Path(tempfile.mkdtemp(prefix=f"{WORK_PREFIX}{os.getpid()}-", dir=base))
-    owner = _own(workdir)
+    owner = claim(workdir)
     try:
         settings = fetch.Settings(
             curl=tools.CURL,
-            browser=_browser(workdir),
+            browser=camoufox(workdir),
             workdir=workdir,
             save_dir=_save_dir(),
             use_cookies=not args.no_cookies,
