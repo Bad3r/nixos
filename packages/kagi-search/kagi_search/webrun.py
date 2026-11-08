@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 from kagi_search import cli
 from kagi_search.fetch import PDF_TYPE, FetchError, Page, fetch_page
+from kagi_search.log import FILE_MODE, FileLog, private_directory, state_root
 from kagi_search.page import filter_hits, matches_domain, normalize_domain
 from kagi_search.render import Rendered, render
 from kagi_search.run_schema import RUN_SCHEMA
@@ -56,13 +57,9 @@ PAGE_START_MARGIN_SECONDS = 10.0
 SEARCH_START_MARGIN_SECONDS = 30.0
 
 STATE_VERSION = 1
-DIRECTORY_MODE = 0o700
-FILE_MODE = 0o600
 STATE_NAME_CHARS = 64
 STATE_MAX_AGE = dt.timedelta(days=30)
 LOCK_FLAGS = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
-LOG_FLAGS = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
-LOG_MAX_BYTES = 5 * 1024 * 1024
 MAX_UTC_OFFSET_HOURS = 14
 MINUTES_PER_HOUR = 60
 HOURS_PER_HALF_DAY = 12
@@ -310,9 +307,7 @@ def schema_violation(commands: dict[str, object]) -> bool:
 
 def state_directory() -> Path:
     """Return the directory holding one state file per web.run session."""
-    base = os.environ.get("XDG_STATE_HOME", "")
-    root = Path(base) if base and Path(base).is_absolute() else Path.home() / ".local" / "state"
-    return root / "kagi-search" / "web-run"
+    return state_root() / "web-run"
 
 
 def state_name(session: str) -> str:
@@ -320,13 +315,6 @@ def state_name(session: str) -> str:
     readable = re.sub(r"[^A-Za-z0-9_-]", "_", session)[:STATE_NAME_CHARS] or "session"
     digest = hashlib.sha256(session.encode("utf-8", "surrogatepass")).hexdigest()[:16]
     return f"{readable}-{digest}"
-
-
-def _private_directory(*directories: Path) -> None:
-    """Create the directories and make each one private, leaving their parents alone."""
-    for directory in directories:
-        directory.mkdir(mode=DIRECTORY_MODE, parents=True, exist_ok=True)
-        directory.chmod(DIRECTORY_MODE)
 
 
 def _ref(value: object) -> Ref:
@@ -444,7 +432,7 @@ class Session:
 
     @contextlib.contextmanager
     def _locked(self) -> Generator[None]:
-        _private_directory(self.directory.parent, self.directory)
+        private_directory(self.directory.parent, self.directory)
         descriptor = _acquire(self.lock_path, fcntl.LOCK_EX)
         if descriptor is None:
             msg = f"cannot lock {self.lock_path}"
@@ -974,29 +962,7 @@ def _housekeep(call: _Call, what: str, action: Callable[[], None]) -> None:
 
 def log_path() -> Path:
     """Return the log file that holds the real reasons behind failures."""
-    return state_directory().parent / "web-run.log"
-
-
-class FileLog:
-    """Append timestamped entries to a private log file, rotating it past LOG_MAX_BYTES."""
-
-    def __init__(self, path: Path) -> None:
-        """Log to the file at path."""
-        self.path = path
-
-    def __call__(self, text: str) -> None:
-        """Append one entry; a log that cannot be written must not fail the call."""
-        stamp = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
-        entry = f"{stamp} {text.rstrip()}\n".encode(errors="replace")
-        with contextlib.suppress(OSError):
-            _private_directory(self.path.parent)
-            if self.path.exists() and self.path.stat().st_size > LOG_MAX_BYTES:
-                self.path.replace(self.path.with_name(f"{self.path.name}.1"))
-            descriptor = os.open(self.path, LOG_FLAGS, FILE_MODE)
-            try:
-                os.write(descriptor, entry)
-            finally:
-                os.close(descriptor)
+    return state_root() / "web-run.log"
 
 
 def main() -> int:
