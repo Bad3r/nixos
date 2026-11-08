@@ -1,6 +1,8 @@
 // Holds every top-level document request to WebFetch's redirect policy before
 // it is sent, and keeps pages off this machine and private networks.
-// session.py answers the policy; config.js names its port and token.
+// session.py answers the policy; config.js names its port and token. The
+// session navigates only after the "ready" this sends once both listeners
+// are in place.
 "use strict";
 
 const { port, token } = globalThis.BROWSER_FETCH;
@@ -99,3 +101,5 @@ browser.webRequest.onHeadersReceived.addListener(
 	{ urls: ["<all_urls>"], types: ["main_frame"] },
 	["blocking", "responseHeaders"],
 );
+
+allowed("ready", "", "", 0);

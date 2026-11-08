@@ -4,14 +4,16 @@
 import json
 import os
 import tempfile
+import time
 import unittest
 import unittest.mock
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from browser_fetch import session
 
-from tests import namespaces
+from tests.namespaces import require_namespaces, run_in_namespace
 
 TARGET = "https://a.example/start"
 
@@ -77,6 +79,180 @@ class PolicyTest(unittest.TestCase):
         self.assertTrue(ask("t"))
 
 
+class CanonicalTargetTest(unittest.TestCase):
+    """The browser's spelling of the target is the target."""
+
+    def test_browser_spellings_of_the_target_start(self) -> None:
+        """An empty path, a fragment, a default port, case and a Unicode path all match."""
+        for target, sent in (
+            ("https://a.example", "https://a.example/"),
+            ("https://a.example/page#section", "https://a.example/page"),
+            ("https://a.example:443/x", "https://a.example/x"),
+            ("https://A.Example/x", "https://a.example/x"),
+            ("https://a.example/caf\u00e9?q=\u00fc", "https://a.example/caf%C3%A9?q=%C3%BC"),
+            ("https://b\u00fccher.example/", "https://xn--bcher-kva.example/"),
+        ):
+            with self.subTest(target=target):
+                policy = session.Policy(target=target, token="t")  # noqa: S106
+                self.assertTrue(policy.check("navigate", "", sent, 0))
+                self.assertIsNone(policy.blocked)
+
+    def test_other_urls_still_do_not_start(self) -> None:
+        """Another path or port on the same host is not the target."""
+        for sent in ("https://a.example/other", "https://a.example:8443/", "http://a.example/"):
+            with self.subTest(sent=sent):
+                policy = session.Policy(target="https://a.example", token="t")  # noqa: S106
+                self.assertFalse(policy.check("navigate", "", sent, 0))
+
+    def test_ready_is_a_signal_not_a_navigation(self) -> None:
+        """The guard's ready message sets the event and approves nothing."""
+        policy = session.Policy(target=TARGET, token="t")  # noqa: S106
+        self.assertTrue(policy.check("ready", "", "", 0))
+        self.assertTrue(policy.ready.is_set())
+        self.assertEqual(policy.approved, set())
+
+
+class FakeRequest:
+    """A Playwright request of the main document."""
+
+    def __init__(self, url: str, before: FakeRequest | None = None, status: int = 200) -> None:
+        """A request for url, redirected from before."""
+        self.url = url
+        self.redirected_from = before
+        self.status = status
+
+    def response(self) -> FakeResponse:
+        """The response this request got."""
+        return FakeResponse(self)
+
+    def is_navigation_request(self) -> bool:
+        """Every fake request is one."""
+        return True
+
+
+class FakeResponse:
+    """The response to a FakeRequest."""
+
+    def __init__(self, request: FakeRequest) -> None:
+        """The response of request."""
+        self.request = request
+        self.status = request.status
+        self.headers = {"content-type": "text/html"}
+        self.frame = MAIN
+
+
+MAIN = object()
+
+
+class FakePage:
+    """A page whose navigations follow a script: the requests a goto makes, or an error."""
+
+    def __init__(self, hops: list[FakeRequest], error: Exception | None = None) -> None:
+        """Navigate through hops on goto, or raise error before any commit."""
+        self.hops = hops
+        self.error = error
+        self.url = "about:blank"
+        self.main_frame = MAIN
+        self.calls: list[str] = []
+        self.listener: Any = None
+
+    def on(self, _event: str, listener: Any) -> None:  # noqa: ANN401
+        """Keep the response listener."""
+        self.listener = listener
+
+    def goto(self, url: str, **_options: Any) -> None:  # noqa: ANN401
+        """Run the scripted navigation."""
+        self.calls.append(url)
+        if self.error is not None:
+            raise self.error
+        for hop in self.hops:
+            self.listener(FakeResponse(hop))
+        if self.hops:
+            self.url = self.hops[-1].url
+
+    def evaluate(self, script: str, *_args: Any) -> Any:  # noqa: ANN401
+        """A settled page, or its source."""
+        if "outerHTML" in script and "ready" not in script:
+            return "<html><body><p>page</p></body></html>"
+        return {
+            "ready": "complete",
+            "size": 10,
+            "text": 500,
+            "challenge": False,
+            "status": 0,
+            "type": "text/html",
+        }
+
+
+class FakeContext:
+    """A browser context with one page."""
+
+    def __init__(self, page: FakePage) -> None:
+        """The context of page."""
+        self.pages = [page]
+        self.cookies: list[Any] = []
+
+    def add_cookies(self, cookies: list[Any]) -> None:
+        """Record the cookies."""
+        self.cookies += cookies
+
+
+class DriveTest(unittest.TestCase):
+    """_drive's order and its result, with the browser scripted."""
+
+    def setUp(self) -> None:
+        """A policy for TARGET and a work directory; no settle waits."""
+        self.policy = session.Policy(target=TARGET, token="t")  # noqa: S106
+        self.work = Path(tempfile.mkdtemp(prefix="browser-fetch-test-"))
+        self.addCleanup(__import__("shutil").rmtree, self.work)
+        for name, value in (("POLL_SECONDS", 0), ("GUARD_SECONDS", 0.2)):
+            patch = unittest.mock.patch.object(session, name, value)
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def drive(self, page: FakePage) -> dict[str, Any]:
+        """Run _drive on page with one cookie."""
+        request = {"workdir": str(self.work), "cookies": [{"name": "a", "value": "1"}]}
+        return session.drive(
+            FakeContext(page),  # type: ignore[arg-type]
+            request,
+            self.policy,
+            [],
+            time.monotonic() + 5,
+        )
+
+    def test_no_navigation_before_the_guard_is_ready(self) -> None:
+        """Without the guard's ready, nothing is navigated and the session fails."""
+        page = FakePage([FakeRequest(TARGET)])
+        with self.assertRaisesRegex(session.SessionError, "guard did not start"):
+            self.drive(page)
+        self.assertEqual(page.calls, [])
+
+    def test_navigation_after_ready(self) -> None:
+        """Once ready, the target loads and its page is the result."""
+        self.policy.ready.set()
+        result = self.drive(FakePage([FakeRequest(TARGET)]))
+        self.assertEqual((result["url"], result["status"], result["cookies"]), (TARGET, 200, 1))
+
+    def test_unguarded_cross_host_redirect_is_blocked_afterwards(self) -> None:
+        """A hop the guard never saw is still refused from the redirect chain."""
+        self.policy.ready.set()
+        first = FakeRequest(TARGET, status=302)
+        result = self.drive(FakePage([first, FakeRequest("https://b.example/landing", first)]))
+        self.assertEqual(
+            result["blocked"],
+            {"origin": TARGET, "target": "https://b.example/landing", "status": 302},
+        )
+
+    def test_navigation_that_never_commits_is_a_failure(self) -> None:
+        """A goto timeout on about:blank is an error, never an empty 200 page."""
+        self.policy.ready.set()
+        page = FakePage([], error=TimeoutError("Timeout 60000ms exceeded."))
+        with self.assertRaisesRegex(session.SessionError, "no document.*Timeout 60000ms"):
+            self.drive(page)
+        self.assertFalse((self.work / "page.html").exists())
+
+
 class EnvironmentTest(unittest.TestCase):
     """What the browser inherits."""
 
@@ -133,13 +309,13 @@ class ConfinementTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Skip, saying why, where the host cannot make the session's namespace."""
-        namespaces.require_namespaces()
+        require_namespaces()
 
     def test_blocked_ranges_are_prohibited_and_public_ones_are_not(self) -> None:
         """Private addresses fail with EACCES from a rule; a public one only lacks a route here."""
         private = ["10.0.0.1", "100.96.0.9", "169.254.169.254", "172.16.0.1", "192.168.1.1"]
         with tempfile.TemporaryDirectory(prefix="browser-fetch-test-") as work:
-            ran = namespaces.run_in_namespace(
+            ran = run_in_namespace(
                 CONFINED.replace("sys.argv[2:]", repr([*private, "93.184.215.14"])), Path(work)
             )
         self.assertEqual(ran.returncode, 0, ran.stderr)

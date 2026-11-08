@@ -8,7 +8,7 @@ import re
 import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import SplitResult, urlsplit, urlunsplit
+from urllib.parse import SplitResult, quote, unquote, urlsplit, urlunsplit
 
 import idna
 
@@ -347,6 +347,32 @@ def check_url(url: str) -> str:
     dropped = {None, 80} if parts.scheme == "http" else {None}
     netloc = host if port in dropped else f"{host}:{port}"
     return urlunsplit(parts._replace(scheme="https", netloc=netloc))
+
+
+# What stays unescaped once a path or query is decoded and encoded again.
+_KEEP = "/!$&'()*+,;=:@~-._"
+
+
+def canonical(url: str) -> str:
+    """The URL with spelling differences gone, for comparing two that name one resource.
+
+    The scheme and host are lowercased, the host in A-labels, a default port
+    and the fragment are dropped, an empty path is "/", and the path and
+    query are decoded and encoded again, so Firefox's percent-encoding of a
+    Unicode path matches the URL as written.
+    """
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+        host = _ascii_host(parts.hostname or "")
+    except ValueError, UrlError:
+        return url
+    scheme = parts.scheme.lower()
+    named = f"[{host}]" if ":" in host else host
+    netloc = named if port in {None, DEFAULT_PORTS.get(scheme)} else f"{named}:{port}"
+    path = quote(unquote(parts.path or "/"), safe=_KEEP)
+    query = quote(unquote(parts.query), safe=_KEEP + "?")
+    return urlunsplit((scheme, netloc, path, query, ""))
 
 
 def _port(parts: SplitResult) -> int | None:

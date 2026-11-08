@@ -19,7 +19,7 @@ from typing import Any
 from browser_fetch import browser, tools
 from browser_fetch import cookies as jar
 
-from tests import namespaces
+from tests.namespaces import ROOT, require_namespaces, tools_with, write_fake_pasta
 from tests.test_cookies import LATER, SCHEMA
 
 VERSION = "158.0.1-beta.41"
@@ -263,7 +263,7 @@ class CamoufoxTest(unittest.TestCase):
         self.state.mkdir(mode=0o700)
         started = time.monotonic()
         with self.assertRaisesRegex(browser.BrowserError, "Operation not permitted"):
-            camoufox._session("render", {}, time.monotonic() + 60)  # noqa: SLF001
+            camoufox.render(URL, [], [], time.monotonic() + 60)
         self.assertLess(time.monotonic() - started, 5)
 
     def test_pasta_failure_fails_the_session(self) -> None:
@@ -284,7 +284,7 @@ class CamoufoxTest(unittest.TestCase):
         self.state.mkdir(mode=0o700)
         started = time.monotonic()
         with self.assertRaisesRegex(browser.BrowserError, "network could not be set up.*tun"):
-            camoufox._session("render", {}, time.monotonic() + 60)  # noqa: SLF001
+            camoufox.render(URL, [], [], time.monotonic() + 60)
         self.assertLess(time.monotonic() - started, 10)
         self.assertFalse((self.work / browser.NETWORK_READY).exists())
 
@@ -399,7 +399,7 @@ class CleanupTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Skip, saying why, where the host cannot make the session's namespace."""
-        namespaces.require_namespaces()
+        require_namespaces()
 
     def setUp(self) -> None:
         """A state and work directory and the stand-in session executable."""
@@ -411,7 +411,7 @@ class CleanupTest(unittest.TestCase):
         self.session.write_text(f"#!{sys.executable} -I\n" + FAKE_SESSION.format(root=root))
         self.session.chmod(0o700)
         self.root = root
-        self.pasta = namespaces.write_fake_pasta(self.tmp)
+        self.pasta = write_fake_pasta(self.tmp)
         self.x_before = _x_files()
 
     def tearDown(self) -> None:
@@ -480,3 +480,109 @@ class CleanupTest(unittest.TestCase):
         self.assertEqual(parent.returncode, 5)
         self.assertIn("longer than", out)
         self.assert_nothing_left(ns)
+
+
+# A session with two hosts of its own: a.test and b.test resolve to the
+# namespace's loopback (network.dns.localDomains), where this serves both on
+# GUARD_PORT once the session's network is up. Their requests go to hits.json.
+GUARD_SESSION = """\
+import http.server, json, sys, threading
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from browser_fetch import session
+PORT = {port}
+FILLER = "<p>" + "Plain readable paragraph text for the settle check. " * 8 + "</p>"
+hits = []
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        hits.append(self.headers.get("Host", "") + self.path)
+        if self.path == "/redirect":
+            self.send_response(302)
+            self.send_header("Location", f"http://b.test:{{PORT}}/landing")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        body = f"<!DOCTYPE html><title>{{self.path}}</title>{{FILLER}}".encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        return
+
+start_xvfb = session.start_xvfb
+
+def serve_then_start_xvfb(until):
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return start_xvfb(until)
+
+session.start_xvfb = serve_then_start_xvfb
+request = json.loads(Path(sys.argv[1]).read_text())
+status = session.main(sys.argv[1:])
+Path(request["workdir"], "hits.json").write_text(json.dumps(hits))
+sys.exit(status)
+"""
+GUARD_PORT = 8765
+
+
+class GuardTest(unittest.TestCase):
+    """Real Camoufox through Playwright: the fingerprint, and the guard on the first hop."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Skip, saying why, where the host cannot make the session's namespace."""
+        require_namespaces()
+
+    def setUp(self) -> None:
+        """A state and work directory, the stand-in pasta and the two-host session."""
+        self.tmp = Path(tempfile.mkdtemp(prefix="browser-fetch-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.state = self.tmp / "state"
+        self.work = self.tmp / "work"
+        self.work.mkdir()
+        session = self.tmp / "session"
+        session.write_text(
+            f"#!{sys.executable} -I\n" + GUARD_SESSION.format(root=ROOT, port=GUARD_PORT)
+        )
+        session.chmod(0o700)
+        self.camoufox = browser.Camoufox(
+            tools_with(write_fake_pasta(self.tmp), str(session)),
+            self.state,
+            self.work,
+            environ={},
+        )
+
+    def test_first_hop_redirect_is_cancelled_without_a_delay(self) -> None:
+        """A cross-host 302 on the very first navigation never reaches the other host.
+
+        No delay comes before the navigation. The fingerprint is drawn by
+        Camoufox's launcher and its browser, which is also what checks
+        Playwright against this Camoufox build.
+        """
+        identity = self.camoufox.identity(time.monotonic() + 120)
+        self.assertIn("Firefox/", identity.user_agent)
+        fingerprint_path = self.state / browser.FINGERPRINT
+        fingerprint = json.loads(fingerprint_path.read_text())
+        fingerprint["prefs"]["network.dns.localDomains"] = "a.test,b.test"
+        fingerprint_path.write_text(json.dumps(fingerprint))
+        # Camoufox installs the guard later on a profile that exists already,
+        # so the second launch is the one that raced the first navigation.
+        for launch in ("new profile", "existing profile"):
+            with self.subTest(launch=launch):
+                rendered = self.camoufox.render(
+                    f"http://a.test:{GUARD_PORT}/redirect", [], [], time.monotonic() + 120
+                )
+                hits = json.loads((self.work / "hits.json").read_text())
+                self.assertEqual(hits, [f"a.test:{GUARD_PORT}/redirect"])
+                self.assertEqual(
+                    rendered.blocked,
+                    browser.Blocked(
+                        f"http://a.test:{GUARD_PORT}/redirect",
+                        f"http://b.test:{GUARD_PORT}/landing",
+                        302,
+                    ),
+                )

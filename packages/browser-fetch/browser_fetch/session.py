@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import ctypes
 import http.server
+import itertools
 import json
 import os
 import secrets
@@ -30,7 +31,7 @@ from typing import TYPE_CHECKING, Any, cast, override
 from browser_fetch import browser, challenge, tools, urls
 
 if TYPE_CHECKING:
-    from playwright.sync_api import BrowserContext, Page, Response
+    from playwright.sync_api import BrowserContext, Page, Request, Response
 
 # The identity drawn once per browser release, by Camoufox's own launcher.
 # Linux is the host's OS: on Xvfb's software rendering Camoufox then needs no
@@ -40,6 +41,8 @@ START_SECONDS = 60
 LOAD_SECONDS = 60
 SETTLE_SECONDS = 30
 CLOSE_SECONDS = 10
+# How long Camoufox may take to install the guard addon after launch.
+GUARD_SECONDS = 30
 POLL_SECONDS = 0.5
 STABLE_POLLS = 2
 STABLE_POLLS_SPARSE = 6
@@ -89,32 +92,47 @@ class SessionError(Exception):
 
 @dataclass
 class Policy:
-    """WebFetch's redirect policy for top-level documents, answered for the guard addon."""
+    """WebFetch's redirect policy for top-level documents, answered for the guard addon.
+
+    URLs are compared in canonical form (urls.canonical): the browser asks
+    about the URL it requests, which may be spelled other than the target.
+    """
 
     target: str
     token: str
     approved: set[str] = field(default_factory=set[str])
     blocked: dict[str, Any] | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
+    # Set once the guard's listeners are in place, before any navigation.
+    ready: threading.Event = field(default_factory=threading.Event)
 
     def check(self, kind: str, origin: str, to: str, status: int) -> bool:
         """Whether the document request may go out; the first refusal is kept."""
+        if kind == "ready":
+            self.ready.set()
+            return True
         with self.lock:
             if self.blocked is not None:
                 return False
             if kind == "redirect":
                 allow = urls.redirect_allowed(origin, to)
             else:
-                allow = (
-                    to in self.approved
-                    or to == self.target
-                    or (bool(origin) and urls.redirect_allowed(origin, to))
-                )
+                allow = self.may_start(to) or (bool(origin) and urls.redirect_allowed(origin, to))
             if allow:
-                self.approved.add(to)
+                self.approved.add(urls.canonical(to))
             else:
-                self.blocked = {"origin": origin or self.target, "target": to, "status": status}
+                self.block(origin or self.target, to, status)
             return allow
+
+    def may_start(self, url: str) -> bool:
+        """Whether a navigation that no page started may load url."""
+        wanted = urls.canonical(url)
+        return wanted in self.approved or wanted == urls.canonical(self.target)
+
+    def block(self, origin: str, target: str, status: int) -> None:
+        """Keep the first refused hop."""
+        if self.blocked is None:
+            self.blocked = {"origin": origin, "target": target, "status": status}
 
 
 def policy_server(policy: Policy) -> http.server.ThreadingHTTPServer:
@@ -466,7 +484,7 @@ def _render(
                 timeout=_ms(until, START_SECONDS),
             )
             try:
-                return _drive(context, request, policy, document, until)
+                return drive(context, request, policy, document, until)
             finally:
                 with contextlib.suppress(Exception):
                     context.close()
@@ -475,13 +493,18 @@ def _render(
         server.server_close()
 
 
-def _drive(
+def drive(
     context: BrowserContext,
     request: dict[str, Any],
     policy: Policy,
     document: list[Response],
     until: float,
 ) -> dict[str, Any]:
+    """Load the target once the guard is ready, and write what the page became."""
+    give_up = min(until, time.monotonic() + GUARD_SECONDS)
+    if not policy.ready.wait(timeout=max(0.0, give_up - time.monotonic())):
+        msg = "the browser's request guard did not start"
+        raise SessionError(msg)
     cookies = cast("list[dict[str, Any]]", request.get("cookies", []))
     added = 0
     for cookie in cookies:
@@ -497,27 +520,46 @@ def _drive(
             document.append(response)
 
     page.on("response", keep)
-    with contextlib.suppress(Exception):
+    failure: str | None = None
+    try:
         page.goto(policy.target, wait_until="commit", timeout=_ms(until, LOAD_SECONDS))
+    except Exception as error:  # noqa: BLE001 - a later allowed navigation may still commit
+        failure = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
     if policy.blocked is not None:
         return {"blocked": policy.blocked, "cookies": added}
     state = _settle(page, policy, min(until, time.monotonic() + SETTLE_SECONDS))
+    _verify(page, policy, document)
     if policy.blocked is not None:
         blocked: dict[str, Any] = dict(policy.blocked)
         blocked["status"] = blocked["status"] or int(state.get("status") or 200)
         return {"blocked": blocked, "cookies": added}
+    result = _document(page, Path(str(request["workdir"])), state, document, failure)
+    result["cookies"] = added
+    return result
+
+
+def _document(
+    page: Page,
+    workdir: Path,
+    state: dict[str, Any],
+    document: list[Response],
+    failure: str | None,
+) -> dict[str, Any]:
+    """Write the document the page ended on, or fail when it has none."""
     final = page.url
     if final.startswith(("about:neterror", "about:certerror")):
         query = final.split("?", 1)[-1]
         reason = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         msg = f"the browser could not load the page ({reason.get('e', 'network error')})"
         raise SessionError(msg)
+    if not document and final in {"", "about:blank"}:
+        msg = f"the browser loaded no document ({failure or 'no navigation committed'})"
+        raise SessionError(msg)
     response = document[-1] if document else None
     header = response.headers.get("content-type", "") if response is not None else ""
     content_type = header or str(state.get("type") or "")
     status = int(state.get("status") or 0) or (response.status if response is not None else 200)
     result: dict[str, Any] = {"url": final, "status": status, "contentType": content_type}
-    workdir = Path(str(request["workdir"]))
     if response is None or "html" in content_type.lower():
         (workdir / "page.html").write_text(
             str(page.evaluate(_SOURCE)), encoding="utf-8", errors="surrogatepass"
@@ -525,8 +567,34 @@ def _drive(
         result["html"] = True
     else:
         (workdir / "page.body").write_bytes(response.body())
-    result["cookies"] = added
     return result
+
+
+def _verify(page: Page, policy: Policy, document: list[Response]) -> None:
+    """Hold the main document's redirect chain and final URL to the policy as well.
+
+    The guard stops a hop before it is sent; this catches one it never saw.
+    """
+    hops: list[Request] = []
+    if document:
+        request: Request | None = document[-1].request
+        while request is not None:
+            hops.insert(0, request)
+            request = request.redirected_from
+    if hops and not policy.may_start(hops[0].url):
+        policy.block(policy.target, hops[0].url, 0)
+        return
+    for before, after in itertools.pairwise(hops):
+        if not urls.redirect_allowed(before.url, after.url):
+            sent = before.response()
+            policy.block(before.url, after.url, sent.status if sent is not None else 0)
+            return
+    final = page.url
+    if final.startswith(("about:", "data:")) or policy.blocked is not None:
+        return
+    landed = hops[-1].url if hops else policy.target
+    if not urls.redirect_allowed(landed, final) and urls.canonical(final) not in policy.approved:
+        policy.block(landed, final, 0)
 
 
 def main(argv: list[str] | None = None) -> int:

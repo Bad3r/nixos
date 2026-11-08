@@ -51,6 +51,8 @@ A proxy on this machine is out of the browser's reach.
 It waits for the load and for a challenge to clear, within the bounds in [session.py](../../../packages/browser-fetch/browser_fetch/session.py).
 A challenge that does not clear in time comes back as the page the browser shows, with the status its document got.
 A main-document request that leaves the page's host, scheme or port is cancelled before it is sent and reported as a redirect.
+The browser navigates only once the guard addon that cancels it reports its listeners in place, and the document's redirect chain is checked again afterwards.
+A navigation that never commits a document is a browser failure, not an empty page.
 
 Force or skip the browser:
 

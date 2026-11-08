@@ -137,9 +137,11 @@ class FetchTest(unittest.TestCase):
     def test_private_hosts_are_refused_before_anything_is_read_or_sent(self) -> None:
         """A literal or a name resolving privately is refused: no request, cookie or browser."""
         resolved = {"lan.example": ["10.1.2.3"], "loop.example": ["127.0.0.1"]}
-        settings = dataclasses.replace(
-            self.settings, resolve=lambda host, _port: resolved.get(host, [PUBLIC_ADDRESS])
-        )
+
+        def resolve(host: str, _port: int) -> list[str]:
+            return resolved.get(host, [PUBLIC_ADDRESS])
+
+        settings = dataclasses.replace(self.settings, resolve=resolve)
         for url in ("https://10.1.2.3/", "https://lan.example/", "https://loop.example/"):
             with (
                 self.subTest(url=url),
@@ -155,7 +157,11 @@ class FetchTest(unittest.TestCase):
         """A same-host redirect is resolved again; a private answer stops it before curl runs."""
         self.fake.serve({"https://a.example/": {"status": 302, "headers": {"Location": "/next"}}})
         answers = iter([[PUBLIC_ADDRESS], [PUBLIC_ADDRESS], ["127.0.0.1"]])
-        settings = dataclasses.replace(self.settings, resolve=lambda _h, _p: next(answers))
+
+        def resolve(_host: str, _port: int) -> list[str]:
+            return next(answers)
+
+        settings = dataclasses.replace(self.settings, resolve=resolve)
         with self.assertRaises(urls.PrivateAddressError):
             fetch.fetch("https://a.example/", settings)
         (call,) = self.fake.calls()
