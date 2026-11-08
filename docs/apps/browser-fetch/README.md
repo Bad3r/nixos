@@ -38,8 +38,15 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 A host is resolved before each request, including every redirect hop.
 One that resolves to this machine or a private, shared, link-local, ULA or documentation range is refused with exit 4, before any cookie is read or sent.
 curl connects only to the addresses that were checked, so a second DNS answer cannot move the request.
-Behind a proxy, the proxy resolves the name instead.
-curl takes it from `https_proxy`, `HTTPS_PROXY`, `all_proxy` or `ALL_PROXY`, the first one set, and Camoufox uses the same one.
+
+## Proxies
+
+curl takes its proxy from the first of `https_proxy`, `HTTPS_PROXY`, `all_proxy` and `ALL_PROXY` that is set and not empty.
+It reaches a host directly when `no_proxy`, or `NO_PROXY` if `no_proxy` is unset or empty, names it by [curl's rules](https://curl.se/libcurl/c/CURLOPT_NOPROXY.html).
+An HTTP, HTTPS, `socks5h` or `socks4a` proxy resolves the name itself; to a `socks5` or `socks4` proxy, curl sends the checked address.
+Camoufox goes through the proxy curl uses for the page it takes over, or directly when curl does, and has a SOCKS proxy resolve names.
+A redirect in Camoufox to the host's `www.` twin is reported, not followed, when curl would route the twin differently.
+A proxy at an IPv6 address, or a SOCKS proxy with credentials, fails the browser, since Playwright cannot give either to Firefox.
 
 ## When Camoufox takes over
 
