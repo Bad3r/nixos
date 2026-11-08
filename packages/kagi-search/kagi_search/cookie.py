@@ -35,7 +35,11 @@ def librewolf_root() -> Path:
 
 
 def default_profile(root: Path) -> Path:
-    """Return the profile LibreWolf starts with, as its profiles.ini names it."""
+    """Return the profile LibreWolf starts with, as its profiles.ini names it.
+
+    Nixpkgs' wrapper sets MOZ_LEGACY_PROFILES, so Default=1 wins over an
+    Install section's Default.
+    """
     ini = root / "profiles.ini"
     parser = _CaseSensitiveParser(interpolation=None)
     if not parser.read(ini):
@@ -43,10 +47,11 @@ def default_profile(root: Path) -> Path:
         raise SessionError(msg)
     profiles = [parser[name] for name in parser.sections() if name.startswith("Profile")]
     installs = [parser[name] for name in parser.sections() if name.startswith("Install")]
-    path: str | None = next((s["Default"] for s in installs if s.get("Default")), None)
-    if path is not None:
-        return root / path
     chosen = next((s for s in profiles if s.get("Default") == "1"), None)
+    if chosen is None:
+        path: str | None = next((s["Default"] for s in installs if s.get("Default")), None)
+        if path is not None:
+            return root / path
     if chosen is None and len(profiles) == 1:
         chosen = profiles[0]
     if chosen is None or not chosen.get("Path"):
@@ -86,6 +91,9 @@ def _snapshot(db: Path, into: Path) -> Path:
                 msg = f"no readable LibreWolf cookie database at {db}"
                 raise SessionError(msg) from None
             continue
+        except OSError as error:
+            msg = f"cannot copy LibreWolf's cookie database: {error}"
+            raise SessionError(msg) from None
         if (_state(db), _state(wal)) == before:
             return copy
         time.sleep(RETRY_STEP_SECONDS * (attempt + 1))
@@ -113,6 +121,9 @@ def read_session(profile: Path) -> str:
                 limit 1
                 """
             ).fetchone()
+        except sqlite3.Error as error:
+            msg = f"cannot read the copy of {db}: {error}"
+            raise SessionError(msg) from None
         finally:
             connection.close()
     if row is None or not row[0]:

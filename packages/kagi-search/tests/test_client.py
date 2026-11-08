@@ -1,8 +1,10 @@
 # Copyright (c) 2026 Bad3r
 """Requests to Kagi and how their answers map to errors."""
 
+import http.client
 import io
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -87,6 +89,16 @@ class SearchTest(unittest.TestCase):
         """Any other status fails naming the code."""
         with self.assertRaisesRegex(client.SearchError, "HTTP 503"):
             client.search("x", "tok", director=FakeDirector(503))
+
+    def test_a_cut_response_is_a_search_error(self) -> None:
+        """A response that ends early is SearchError, not a traceback."""
+        director = FakeDirector(200)
+        cut = unittest.mock.Mock(side_effect=http.client.IncompleteRead(b"<html>", 4096))
+        with (
+            unittest.mock.patch.object(director, "open", cut),
+            self.assertRaisesRegex(client.SearchError, "request to Kagi failed"),
+        ):
+            client.search("x", "tok", director=director)
 
     def test_redirects_are_never_followed(self) -> None:
         """The opener's only redirect handler is the refusing one."""

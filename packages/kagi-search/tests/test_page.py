@@ -72,6 +72,15 @@ class ParsePageTest(unittest.TestCase):
         """Kagi's no-results page yields no hits."""
         self.assertEqual(parse_page(NO_RESULTS), [])
 
+    def test_containers_without_title_links_are_unrecognized(self) -> None:
+        """Result containers whose title links changed raise instead of reading as no results."""
+        page = (
+            '<title>nixos - Kagi Search</title><div class="search-result">'
+            '<h3><a class="__sri_link_renamed" href="https://nixos.org/">NixOS</a></h3></div>'
+        )
+        with self.assertRaises(UnrecognizedPageError):
+            parse_page(page)
+
     def test_a_foreign_page_is_unrecognized_with_its_title(self) -> None:
         """A page without result markup raises with its title."""
         with self.assertRaisesRegex(UnrecognizedPageError, r"title: Maintenance\)"):

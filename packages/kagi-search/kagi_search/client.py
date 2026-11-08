@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import http.client
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -93,7 +94,7 @@ def fetch_page(query: str, cookie: str, director: urllib.request.OpenerDirector)
             raise SearchError(msg) from None
         msg = f"Kagi answered HTTP {error.code}"
         raise SearchError(msg) from None
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
+    except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
         reason = error.reason if isinstance(error, urllib.error.URLError) else error
         msg = f"request to Kagi failed: {reason}"
         raise SearchError(msg) from None

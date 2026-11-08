@@ -56,11 +56,19 @@ class ProfileTest(unittest.TestCase):
         )
         self.assertEqual(cookie.default_profile(self.root), self.root / "primary")
 
-    def test_the_install_default_wins(self) -> None:
-        """An Install section's Default overrides Default=1."""
+    def test_default_1_wins_over_an_install_default(self) -> None:
+        """Under MOZ_LEGACY_PROFILES, Default=1 overrides an Install section's Default."""
         self.write_ini(
             "[Install4F96D1932A9F858E]\nDefault=work\nLocked=1\n\n"
             "[Profile0]\nPath=primary\nDefault=1\n\n[Profile1]\nPath=work\n"
+        )
+        self.assertEqual(cookie.default_profile(self.root), self.root / "primary")
+
+    def test_an_install_default_without_default_1(self) -> None:
+        """An Install section's Default names the profile when none has Default=1."""
+        self.write_ini(
+            "[Install4F96D1932A9F858E]\nDefault=work\nLocked=1\n\n"
+            "[Profile0]\nPath=primary\n\n[Profile1]\nPath=work\n"
         )
         self.assertEqual(cookie.default_profile(self.root), self.root / "work")
 
@@ -151,6 +159,23 @@ class SessionTest(unittest.TestCase):
         with (
             unittest.mock.patch.object(cookie.shutil, "copyfile", remove_then_copy),
             self.assertRaisesRegex(cookie.SessionError, "no readable LibreWolf cookie database"),
+        ):
+            cookie.read_session(self.profile)
+
+    def test_an_unreadable_copy_is_a_session_error(self) -> None:
+        """A database SQLite cannot read is a SessionError, not a traceback."""
+        self.connection.close()
+        self.db.write_bytes(b"not a database" * 512)
+        with self.assertRaisesRegex(cookie.SessionError, "cannot read the copy"):
+            cookie.read_session(self.profile)
+
+    def test_a_copy_refused_is_a_session_error(self) -> None:
+        """A copy the file system refuses is a SessionError, not a traceback."""
+        add_cookie(self.connection, "token")
+        refused = unittest.mock.Mock(side_effect=PermissionError(13, "Permission denied"))
+        with (
+            unittest.mock.patch.object(cookie.shutil, "copyfile", refused),
+            self.assertRaisesRegex(cookie.SessionError, "cannot copy"),
         ):
             cookie.read_session(self.profile)
 

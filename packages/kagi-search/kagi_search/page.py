@@ -94,7 +94,6 @@ class _Parser(HTMLParser):
         self.stack: list[str] = []
         self.frame: _Frame | None = None
         self.hits: list[Hit] = []
-        self.containers = 0
         self.no_results = False
         self.page_title: list[str] = []
 
@@ -110,7 +109,6 @@ class _Parser(HTMLParser):
         frame = self.frame
         if frame is None:
             if classes & CONTAINERS:
-                self.containers += 1
                 self.frame = _Frame(depth=depth)
         elif frame.desc_depth is not None:
             _skip_summarize(frame, tag, classes, depth)
@@ -168,13 +166,13 @@ class _Parser(HTMLParser):
 def parse_page(html: str) -> list[Hit]:
     """Return the page's hits in page order, each URL once.
 
-    Raises UnrecognizedPageError for a page that holds no result containers and
-    is not Kagi's no-results answer.
+    Raises UnrecognizedPageError for a page that yields no hits and is not
+    Kagi's no-results answer, result containers or not.
     """
     parser = _Parser()
     parser.feed(html)
     parser.close()
-    if parser.containers == 0 and not parser.no_results:
+    if not parser.hits and not parser.no_results:
         raise UnrecognizedPageError(_text(parser.page_title))
     hits: list[Hit] = []
     seen: set[str] = set()
@@ -212,6 +210,10 @@ def _domain(value: str) -> str:
     return re.sub(r"[/?#:].*$", "", value).lstrip("*.").rstrip(".")
 
 
+def _domains(values: list[str] | None) -> list[str]:
+    return [d for d in map(_domain, values or []) if d]
+
+
 def _matches(host: str, domain: str) -> bool:
     return host == domain or host.endswith(f".{domain}")
 
@@ -220,8 +222,8 @@ def filter_hits(
     hits: list[Hit], allowed: list[str] | None = None, blocked: list[str] | None = None
 ) -> list[Hit]:
     """Drop hits with an ambiguous host, a blocked domain, or a domain outside allowed."""
-    allow = [d for d in map(_domain, allowed or []) if d]
-    block = [d for d in map(_domain, blocked or []) if d]
+    allow = _domains(allowed)
+    block = _domains(blocked)
     kept: list[Hit] = []
     for hit in hits:
         host = host_of(hit.url)
@@ -235,5 +237,5 @@ def filter_hits(
 
 def kagi_query(query: str, allowed: list[str] | None = None) -> str:
     """Narrow the query with site: when exactly one domain is allowed."""
-    allow = [d for d in map(_domain, allowed or []) if d]
+    allow = _domains(allowed)
     return f"{query} site:{allow[0]}" if len(allow) == 1 else query
