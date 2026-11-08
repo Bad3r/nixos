@@ -172,7 +172,9 @@ export const register: Register = (on, options) => {
 			return fail(`${command} did not finish: ${ran.message}`);
 		}
 		if (ran.exitCode !== 0) {
-			const reason = ran.stderr.trim().replace(/^browser-fetch: /, "");
+			// The last line is the error; warning lines may come before it.
+			const last = ran.stderr.trim().split("\n").at(-1) ?? "";
+			const reason = last.replace(/^browser-fetch: /, "");
 			return BUILTIN_REASONS.has(reason)
 				? fail(reason, reason)
 				: fail(reason || `${command} exited ${ran.exitCode}`);

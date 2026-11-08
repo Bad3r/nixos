@@ -402,6 +402,20 @@ for (const [exitCode, stderr] of [
 	);
 }
 
+test(
+	"a warning line before the error leaves the error as the reason",
+	OPTIONS,
+	async ($, on) => {
+		engine(on, {
+			exitCode: 4,
+			stderr:
+				"browser-fetch: warning: 1 cookie changes were not saved: busy\nbrowser-fetch: Too many redirects (exceeded 10)\n",
+		});
+		const answer = await $.tool.call(fetch("https://example.org/", "q"));
+		expect(answer.deny).toBe("Too many redirects (exceeded 10)");
+	},
+);
+
 for (const reason of [
 	"Invalid URL",
 	"WebFetch cannot fetch localhost or other hostnames without a dot. To reach a local server, use Bash with curl instead.",
