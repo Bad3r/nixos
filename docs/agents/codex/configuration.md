@@ -27,7 +27,7 @@ Themes without semantic UI scopes retain the packaged defaults.
 
 ## Desktop application
 
-The [ChatGPT app module](../../../modules/apps/chatgpt.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
+The [ChatGPT app module](../../../modules/apps/chatgpt/nixos.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
 Use `programs.chatgpt.extended.enable` to control installation and `programs.chatgpt.extended.package` to select its package.
 The [shared app catalog](../../../modules/hosts/common/apps-enable.nix) owns its default enablement.
 After rebuilding and switching NixOS, launch the application from the desktop menu or run `chatgpt`.
