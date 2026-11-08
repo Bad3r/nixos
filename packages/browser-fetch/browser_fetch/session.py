@@ -403,13 +403,7 @@ def _ms(until: float, cap: float) -> float:
 
 
 def _write_json(path: Path, data: object) -> None:
-    partial = path.with_name(f".{path.name}.partial")
-    fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as handle:
-        json.dump(data, handle)
-        handle.flush()
-        os.fsync(handle.fileno())
-    partial.replace(path)
+    browser.write_private(path, json.dumps(data).encode())
 
 
 def _guard(policy: Policy, port: int) -> Path:

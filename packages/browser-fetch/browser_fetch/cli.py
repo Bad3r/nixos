@@ -161,7 +161,7 @@ def record(page: fetch.Page, offset: int, max_chars: int | None) -> dict[str, An
         "preapproved": urls.is_preapproved(page.url),
         "length": convert.utf16_length(page.text),
         "offset": offset,
-        "text": convert.utf16_slice(page.text, offset, stop) if offset >= 0 else "",
+        "text": convert.utf16_slice(page.text, offset, stop),
         "via": page.via,
     }
     optional = {
