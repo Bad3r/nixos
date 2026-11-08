@@ -96,7 +96,8 @@ class Rendered:
     blocked: Blocked | None = None
 
 
-def _die_with_parent() -> None:
+def die_with_parent() -> None:
+    """Have the kernel SIGKILL this process when its parent exits."""
     libc = ctypes.CDLL(None, use_errno=True)
     libc.prctl(_PR_SET_PDEATHSIG, signal.SIGKILL)
 
@@ -283,7 +284,14 @@ class Camoufox:
         if not isinstance(data, dict):
             return None
         fingerprint = cast("dict[str, Any]", data)
-        return fingerprint if fingerprint.get("browser") == self.tools.camoufox_version else None
+        headers = fingerprint.get("headers")
+        if not (
+            fingerprint.get("browser") == self.tools.camoufox_version
+            and isinstance(headers, dict)
+            and {"user-agent", "accept-language"} <= headers.keys()
+        ):
+            return None
+        return fingerprint
 
     def identity(self, until: float, *, generate: bool = True) -> curl.Identity | None:
         """The fingerprint's User-Agent and Accept-Language, generated on first use.
@@ -308,7 +316,7 @@ class Camoufox:
                 raise BrowserError(msg)
         if fingerprint is None:
             return None
-        headers = cast("dict[str, str]", fingerprint.get("headers", {}))
+        headers = cast("dict[str, str]", fingerprint["headers"])
         return curl.Identity(headers["user-agent"], headers["accept-language"])
 
     def jar(self, until: float) -> list[jar.Cookie]:
@@ -463,7 +471,7 @@ class Camoufox:
                 stderr=subprocess.STDOUT,
                 env=self._environment(),
                 cwd=self.workdir,
-                preexec_fn=_die_with_parent,  # noqa: PLW1509 - prctl only, before exec
+                preexec_fn=die_with_parent,  # noqa: PLW1509 - prctl only, before exec
             )
         try:
             pasta = self._connect(process, until)
@@ -515,7 +523,7 @@ class Camoufox:
                 stderr=subprocess.STDOUT,
                 env=self._environment(),
                 cwd=self.workdir,
-                preexec_fn=_die_with_parent,  # noqa: PLW1509 - prctl only, before exec
+                preexec_fn=die_with_parent,  # noqa: PLW1509 - prctl only, before exec
             )
         while not (pid_file.exists() and pid_file.stat().st_size):
             if pasta.poll() is not None or session.poll() is not None or self.clock() >= give_up:

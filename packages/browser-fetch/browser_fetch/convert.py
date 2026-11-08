@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import codecs
+import functools
 import io
 import os
 import pickle
@@ -13,7 +14,7 @@ import signal
 import time
 import warnings
 from html.parser import HTMLParser
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, NoReturn, override
 
 from markitdown import StreamInfo
 from markitdown.converters import (
@@ -24,6 +25,8 @@ from markitdown.converters import (
     PptxConverter,
     XlsxConverter,
 )
+
+from browser_fetch.browser import die_with_parent
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -194,6 +197,26 @@ def _read_all(fd: int, deadline: float) -> bytes | None:
         chunks.append(chunk)
 
 
+def _child(  # pragma: no cover - the child
+    parent: int, read_end: int, write_end: int, work: Callable[[], str]
+) -> NoReturn:
+    """Write work's outcome to the pipe and exit; never return into the parent's code."""
+    status = 1
+    try:
+        die_with_parent()
+        os.close(read_end)
+        if os.getppid() == parent:
+            try:
+                outcome: tuple[bool, str] = (True, work())
+                status = 0
+            except BaseException as error:  # noqa: BLE001 - reported to the parent by type
+                outcome = (False, type(error).__name__)
+            with os.fdopen(write_end, "wb") as sink:
+                sink.write(pickle.dumps(outcome))
+    finally:
+        os._exit(status)
+
+
 def in_child[**P](
     seconds: float, what: str, work: Callable[P, str], *args: P.args, **kwargs: P.kwargs
 ) -> str:
@@ -205,18 +228,11 @@ def in_child[**P](
     if seconds <= 0:
         msg = f"no time was left to convert {what}"
         raise ConversionError(msg)
+    parent = os.getpid()
     read_end, write_end = os.pipe()
     pid = os.fork()
     if pid == 0:  # pragma: no cover - the child
-        os.close(read_end)
-        status = 0
-        try:
-            outcome: tuple[bool, str] = (True, work(*args, **kwargs))
-        except BaseException as error:  # noqa: BLE001 - reported to the parent by type
-            outcome, status = (False, type(error).__name__), 1
-        with os.fdopen(write_end, "wb") as sink:
-            sink.write(pickle.dumps(outcome))
-        os._exit(status)
+        _child(parent, read_end, write_end, functools.partial(work, *args, **kwargs))
     os.close(write_end)
     data: bytes | None = None
     try:
@@ -240,7 +256,9 @@ def in_child[**P](
 
 
 def _html(html: str) -> str:
-    cleaned = strip_dropped(html).encode("utf-8", "surrogatepass")
+    # A lone surrogate (a pair split at HTML_LIMIT, or one in a DOM) becomes
+    # "?": encoded as is, it is invalid UTF-8 and the whole page is misdecoded.
+    cleaned = strip_dropped(html).encode("utf-8", "replace")
     return _markitdown(
         HtmlConverter(),
         cleaned,
