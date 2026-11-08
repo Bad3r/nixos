@@ -5,6 +5,7 @@
   python3,
   curl-impersonate,
   iproute2,
+  nspr,
   passt,
   util-linux,
   xvfb,
@@ -77,7 +78,9 @@ stdenvNoCC.mkDerivation {
     # Against the installed copy, whose tools are store paths.
     mkdir check
     cp -r $out/lib/browser-fetch/browser_fetch tests check/
-    (cd check && ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .)
+    # NSPR, whose PR_ParseTimeString Gecko reads cookie dates with, checks the port.
+    (cd check && BROWSER_FETCH_TEST_NSPR=${lib.getLib nspr}/lib/libnspr4.so \
+      ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .)
     $out/bin/browser-fetch --help >/dev/null
     runHook postInstallCheck
   '';

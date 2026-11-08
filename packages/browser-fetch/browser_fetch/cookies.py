@@ -9,18 +9,19 @@ from __future__ import annotations
 
 import contextlib
 import functools
-import http.cookiejar
 import ipaddress
 import sqlite3
 import time
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from urllib.parse import quote_plus, unquote_plus, urlsplit
 
 from publicsuffixlist import PublicSuffixList
 
+from browser_fetch import dates
+
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Iterator
+    from collections.abc import Generator, Iterable, Iterator
     from pathlib import Path
 
 DB_NAME = "cookies.sqlite"
@@ -431,11 +432,12 @@ def _octets(text: str) -> int:
 
 
 def _time_ms(text: str) -> int | None:
-    """A date as lenient as NSPR's PR_ParseTimeString is, in UTC unless it names a zone."""
-    # The standard library's lenient HTTP date parser, which typeshed leaves out.
-    http2time = cast("Callable[[str], float | None]", getattr(http.cookiejar, "http2time"))  # noqa: B009
-    seconds = http2time(text)
-    return None if seconds is None else int(seconds * 1000)
+    """A date in milliseconds as GetExpiry reads it, or None when PR_ParseTimeString fails."""
+    microseconds = dates.parse_time(text)
+    if microseconds is None:
+        return None
+    # int64_t division, which truncates toward zero.
+    return -(-microseconds // 1000) if microseconds < 0 else microseconds // 1000
 
 
 def _default_path(path: str) -> str:

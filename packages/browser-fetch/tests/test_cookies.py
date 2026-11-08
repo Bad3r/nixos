@@ -288,6 +288,15 @@ class SetCookieTest(FreshClock):
         """An Expires PR_ParseTimeString cannot read leaves a session cookie."""
         self.assertTrue(parsed("a=1; Expires=soon").session)
 
+    def test_expires_in_any_form_gecko_reads(self) -> None:
+        """An asctime Expires, which RFC 6265 and PR_ParseTimeString both read, is persistent.
+
+        Wed Jun 09 10:18:14 2027 is 1812536294 s after the epoch, in GMT
+        since it names no zone (GetExpiry passes default_to_gmt).
+        """
+        result = parsed("a=1; Expires=Wed Jun 09 10:18:14 2027")
+        self.assertEqual((result.session, result.expiry_ms), (False, 1_812_536_294_000))
+
     def test_attributes(self) -> None:
         """Secure, HttpOnly and SameSite are kept as nsICookie's values."""
         result = parsed("a=1; Max-Age=60; Secure; HttpOnly; SameSite=Strict")
