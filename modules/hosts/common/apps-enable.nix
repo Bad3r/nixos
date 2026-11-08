@@ -221,6 +221,7 @@ let
       imhex.extended.enable = lib.mkOverride 1100 false;
       inetutils.extended.enable = lib.mkOverride 1100 true;
       inkscape.extended.enable = lib.mkOverride 1100 false;
+      "inotify-tools".extended.enable = lib.mkOverride 1100 true;
       intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       iproute2.extended.enable = lib.mkOverride 1100 false;
