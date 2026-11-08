@@ -383,7 +383,7 @@
 ### browser-fetch
 
 - [apps/browser-fetch/README.md](apps/browser-fetch/README.md)
-  - Fetching pages with curl-impersonate and LibreWolf's cookies, the Camoufox fallback and its state, and the Claude Code WebFetch plugin.
+  - Fetching pages with curl-impersonate and the cookie jar it shares with Camoufox, the Camoufox fallback and its state, and the Claude Code WebFetch plugin.
 
 ### Cloudflare
 

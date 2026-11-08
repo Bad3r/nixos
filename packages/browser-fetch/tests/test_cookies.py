@@ -195,7 +195,7 @@ class SiteTest(unittest.TestCase):
     def test_origin_attributes(self) -> None:
         """CreateSuffix: ":" becomes "+", then URLParams percent-encodes the value.
 
-        The first form is a row LibreWolf 159 wrote; the second shows the
+        The first form is a row Gecko 159 wrote; the second shows the
         sanitized colon of an IPv6 site.
         """
         self.assertEqual(
