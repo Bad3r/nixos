@@ -1,18 +1,21 @@
 # Copyright (c) 2026 Bad3r
 """The curl-impersonate call: argv, the private cookie file, failures."""
 
+import os
 import shutil
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from browser_fetch import cookies as jar
-from browser_fetch import curl
+from browser_fetch import curl, urls
 
-from tests.fakes import fake_curl
+from tests.fakes import PUBLIC_ADDRESS, fake_curl
 
 SECRET = "s3cr3t-session-value"  # noqa: S105 - a stand-in cookie value
 COOKIES = [jar.Cookie("session", SECRET, "example.org", "/", 1, secure=True, created=1)]
+PINNED = urls.Pinned("https://example.org/", "example.org", 443, (PUBLIC_ADDRESS,))
 IDENTITY = curl.Identity(
     "Mozilla/5.0 (X11; Linux x86_64; rv:158.0) Gecko/20100101 Firefox/158.0", "en-US,en;q=0.9"
 )
@@ -36,7 +39,7 @@ class RequestTest(unittest.TestCase):
     ) -> curl.Response:
         """Request the test URL with the secret cookie."""
         return curl.request(
-            "https://example.org/",
+            PINNED,
             cookies=COOKIES if cookies is None else cookies,
             identity=identity,
             workdir=self.work,
@@ -105,7 +108,7 @@ class RequestTest(unittest.TestCase):
         self.fake.serve({"https://example.org/": {"status": 200}})
         quoted = [jar.Cookie("q", '"a\\b"', "example.org", "/", 1, secure=True, created=1)]
         curl.request(
-            "https://example.org/",
+            PINNED,
             cookies=quoted,
             identity=None,
             workdir=self.work,
@@ -142,3 +145,41 @@ class RequestTest(unittest.TestCase):
         """Headers come back by lowercase name."""
         self.fake.serve({"https://example.org/": {"status": 301, "headers": {"Location": "/x"}}})
         self.assertEqual(self.run_request().header("location"), "/x")
+
+    def test_connection_is_pinned_to_the_checked_addresses(self) -> None:
+        """Curl resolves nothing itself: the URL's host maps to the checked addresses."""
+        self.fake.serve({"https://example.org:8443/": {"status": 200}})
+        pinned = urls.Pinned(
+            "https://example.org:8443/", "example.org", 8443, (PUBLIC_ADDRESS, "2606:2800::1")
+        )
+        curl.request(
+            pinned,
+            cookies=[],
+            identity=None,
+            workdir=self.work,
+            name="h",
+            curl=self.fake.path,
+            timeout=5,
+        )
+        argv = self.fake.calls()[0]["argv"]
+        self.assertEqual(
+            argv[argv.index("--resolve") + 1], f"example.org:8443:{PUBLIC_ADDRESS},[2606:2800::1]"
+        )
+        self.assertEqual(argv[-1], "https://example.org:8443/")
+
+    def test_a_connection_elsewhere_fails(self) -> None:
+        """A response from an address other than the pinned ones is not used."""
+        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "127.0.0.1"}})
+        with (
+            unittest.mock.patch.dict(os.environ, clear=False) as env,
+            self.assertRaisesRegex(curl.TransportError, "not the address it was checked at"),
+        ):
+            for name in ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
+                env.pop(name, None)
+            self.run_request()
+
+    def test_a_proxy_answers_from_its_own_address(self) -> None:
+        """Through a proxy, curl connects to the proxy, which resolves the name itself."""
+        self.fake.serve({"https://example.org/": {"status": 200, "remote_ip": "203.0.113.9"}})
+        with unittest.mock.patch.dict(os.environ, {"https_proxy": "http://proxy.example:3128"}):
+            self.assertEqual(self.run_request().status, 200)

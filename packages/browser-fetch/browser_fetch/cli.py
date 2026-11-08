@@ -46,7 +46,9 @@ def _parser() -> argparse.ArgumentParser:
         epilog=(
             f"Exit status: {USAGE_EXIT} invalid URL, {COOKIE_EXIT} LibreWolf's cookies "
             f"unreadable, {FETCH_EXIT} fetch failed, {BROWSER_EXIT} browser failed, "
-            f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error."
+            f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error. A host "
+            "that resolves to this machine or a private network is refused with "
+            f"{FETCH_EXIT}."
         ),
     )
     parser.add_argument("url")
@@ -131,7 +133,7 @@ def _terminate(signum: int, frame: FrameType | None) -> NoReturn:  # noqa: ARG00
 
 def _browser(workdir: Path) -> browser.Camoufox:
     return browser.Camoufox(
-        browser.Tools(tools.UNSHARE, tools.SESSION, tools.CAMOUFOX_VERSION),
+        browser.Tools(tools.UNSHARE, tools.SESSION, tools.CAMOUFOX_VERSION, tools.PASTA),
         _state_dir(),
         workdir,
     )
@@ -206,13 +208,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
             use_cookies=not args.no_cookies,
             browser_mode=args.browser,
             deadline=args.deadline,
+            resolve=urls.lookup,
         )
         page = fetch.fetch(args.url, settings)
     except urls.UrlError as error:
         return _fail(str(error), USAGE_EXIT)
     except jar.CookieError as error:
         return _fail(str(error), COOKIE_EXIT)
-    except (fetch.FetchError, curl.TransportError) as error:
+    except (fetch.FetchError, curl.TransportError, urls.AddressError) as error:
         return _fail(str(error), FETCH_EXIT)
     except browser.BrowserError as error:
         return _fail(str(error), BROWSER_EXIT)

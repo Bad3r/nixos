@@ -3,6 +3,10 @@
 
 argv: the request file browser.py wrote. The result goes to result.json in the
 work directory, the page to page.html or page.body beside it.
+
+The namespace has its own network, which browser.py connects with pasta once
+netns.ready appears; network.ready answers it. Routes to this machine and to
+private networks are then refused before anything else starts.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, override
 
-from browser_fetch import challenge, tools, urls
+from browser_fetch import browser, challenge, tools, urls
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page, Response
@@ -53,6 +57,7 @@ _MS_NOSUID = 2
 _MS_NODEV = 4
 _MS_BIND = 4096
 _MS_REC = 16384
+_IPV6 = 6
 _PR_CAP_AMBIENT = 47
 _PR_CAP_AMBIENT_CLEAR_ALL = 4
 _STATE = """
@@ -168,9 +173,7 @@ def _headers_server() -> tuple[http.server.HTTPServer, dict[str, str]]:
 def private_tmp(keep: list[Path]) -> None:
     """Give the namespace its own /tmp, so Xvfb's socket and lock die with it.
 
-    Paths under the old /tmp that the session needs are bound back in. Then
-    the ambient capabilities unshare --keep-caps granted are dropped, so
-    nothing the session starts holds them.
+    Paths under the old /tmp that the session needs are bound back in.
     """
     libc = ctypes.CDLL(None, use_errno=True)
     old = os.open("/tmp", os.O_PATH | os.O_DIRECTORY)  # noqa: S108 - the mount point
@@ -185,6 +188,59 @@ def private_tmp(keep: list[Path]) -> None:
         if libc.mount(source, str(path).encode(), None, _MS_BIND | _MS_REC, None) != 0:
             raise OSError(ctypes.get_errno(), f"binding {path} into the private /tmp failed")
     os.close(old)
+
+
+def await_network(workdir: Path, until: float) -> None:
+    """Report the namespace to browser.py and wait until pasta has connected it."""
+    browser.write_private(workdir / browser.NETNS_READY, b"")
+    give_up = min(until, time.monotonic() + browser.NETWORK_SECONDS)
+    while not (workdir / browser.NETWORK_READY).exists():
+        if time.monotonic() >= give_up:
+            msg = "the namespace's network was never connected"
+            raise SessionError(msg)
+        time.sleep(0.05)
+
+
+def confine_network() -> None:
+    """Refuse routes to this machine and private networks, and bring loopback up.
+
+    Rules ahead of the main table leave the namespace's own addresses, which
+    the local table answers first, and send nothing to a blocked range,
+    whatever address a name resolves to.
+    """
+    _ip(["link", "set", "lo", "up"])
+    families: dict[int, list[str]] = {4: [], _IPV6: []}
+    for network in urls.BLOCKED_NETWORKS:
+        if not network.is_multicast:
+            families[network.version].append(str(network))
+    for version, networks in families.items():
+        if version == _IPV6 and not Path("/proc/net/if_inet6").exists():
+            continue
+        batch = "".join(
+            f"rule add prohibit to {network} pref {100 + index}\n"
+            for index, network in enumerate(networks)
+        )
+        _ip([f"-{version}", "-batch", "-"], batch)
+
+
+def _ip(args: list[str], stdin: str = "") -> None:
+    ran = subprocess.run(
+        [tools.IP, *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env={"PATH": "/var/empty"},
+        timeout=10,
+        check=False,
+    )
+    if ran.returncode != 0:
+        msg = f"ip {' '.join(args)} failed: {ran.stderr.strip()[:200]}"
+        raise SessionError(msg)
+
+
+def drop_capabilities() -> None:
+    """Drop the ambient capabilities unshare --keep-caps granted, so nothing started holds them."""
+    libc = ctypes.CDLL(None, use_errno=True)
     if libc.prctl(_PR_CAP_AMBIENT, _PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0:
         raise OSError(ctypes.get_errno(), "dropping the ambient capabilities failed")
 
@@ -484,6 +540,9 @@ def main(argv: list[str] | None = None) -> int:
     server: subprocess.Popen[bytes] | None = None
     try:
         private_tmp([workdir, state])
+        await_network(workdir, until)
+        confine_network()
+        drop_capabilities()
         server, display = start_xvfb(until)
         home = state / "home"
         home.mkdir(mode=0o700, exist_ok=True)

@@ -56,31 +56,68 @@ class CheckUrlTest(unittest.TestCase):
             urls.check_url("https://1.2.3.999/")
 
 
-class LocalTest(unittest.TestCase):
-    """Hosts on this machine or a non-public network."""
+class PinTest(unittest.TestCase):
+    """Each request's host, resolved once, checked and pinned."""
 
-    def test_local(self) -> None:
-        """Loopback, private, link-local, shared and the localhost names are local."""
-        for host in (
+    def test_private_addresses_are_refused(self) -> None:
+        """Loopback, private, shared, link-local, documentation and mapped addresses."""
+        for address in (
             "127.0.0.1",
             "10.0.0.1",
             "192.168.1.1",
             "172.16.0.1",
             "169.254.169.254",
             "100.96.0.9",
-            "0.0.0.0",  # noqa: S104 - a host under test
-            "localhost.",
-            "app.localhost",
+            "0.0.0.0",  # noqa: S104 - an address under test
+            "192.0.2.10",
+            "198.51.100.7",
+            "203.0.113.5",
+            "::1",
+            "fd00::1",
+            "fe80::1",
+            "2001:db8::1",
             "::ffff:127.0.0.1",
+            "64:ff9b::a00:1",
         ):
-            with self.subTest(host=host):
-                self.assertTrue(urls.is_local(host))
+            with (
+                self.subTest(address=address),
+                self.assertRaisesRegex(urls.PrivateAddressError, "private network"),
+            ):
+                urls.pin("https://rebind.example/", lambda _h, _p, a=address: [a])
 
-    def test_public(self) -> None:
-        """Public addresses and names are not."""
-        for host in ("example.org", "93.184.215.14", "1.1.1.1", "localhost.example.org"):
-            with self.subTest(host=host):
-                self.assertFalse(urls.is_local(host))
+    def test_one_private_answer_refuses_the_host(self) -> None:
+        """A name with a public and a private address is refused, not filtered."""
+        with self.assertRaises(urls.PrivateAddressError):
+            urls.pin("https://mixed.example/", lambda _h, _p: ["93.184.215.14", "10.1.2.3"])
+
+    def test_literal_hosts_are_checked_without_a_lookup(self) -> None:
+        """A numeric host is its own address."""
+
+        def never(_host: str, _port: int) -> list[str]:
+            raise AssertionError
+
+        with self.assertRaises(urls.PrivateAddressError):
+            urls.pin("https://10.1.2.3/", never)
+        self.assertEqual(urls.pin("https://93.184.215.14/x", never).addresses, ("93.184.215.14",))
+
+    def test_public_host_is_pinned_as_spelled_for_curl(self) -> None:
+        """The URL's host is the lowercase A-label form the pin names, port and path kept."""
+        asked: list[tuple[str, int]] = []
+
+        def resolve(host: str, port: int) -> list[str]:
+            asked.append((host, port))
+            return ["93.184.215.14", "2606:2800:21f:cb07:6820:80da:af6b:8b2c"]
+
+        pinned = urls.pin("https://Example.ORG:8443/a?b#c", resolve)
+        self.assertEqual(asked, [("example.org", 8443)])
+        self.assertEqual(pinned.url, "https://example.org:8443/a?b#c")
+        self.assertEqual((pinned.host, pinned.port), ("example.org", 8443))
+        self.assertEqual(len(pinned.addresses), 2)
+
+    def test_unresolved_host(self) -> None:
+        """A name with no address is an error of its own."""
+        with self.assertRaisesRegex(urls.AddressError, "did not resolve"):
+            urls.pin("https://nowhere.example/", lambda _h, _p: [])
 
 
 class PreapprovedTest(unittest.TestCase):

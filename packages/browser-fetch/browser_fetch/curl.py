@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import subprocess
@@ -13,7 +14,10 @@ from browser_fetch import cookies as jar
 from browser_fetch.redact import Redactor
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
+
+    from browser_fetch.urls import Pinned
 
 # curl-impersonate's target: TLS, HTTP/2 and the headers, as upstream ships it.
 IMPERSONATE = "firefox155"
@@ -31,6 +35,8 @@ _REASONS = {
     60: "the server's TLS certificate was not trusted",
     63: f"the response is larger than {MAX_BYTES} bytes",
 }
+# With a proxy, the proxy resolves the name and curl connects to the proxy.
+_PROXY_VARIABLES = ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
 
 
 @dataclass(frozen=True)
@@ -90,8 +96,24 @@ def _header_lines(identity: Identity | None, cookie_header: str) -> str:
     return "".join(f"header = {_quote(line)}\n" for line in headers if not {"\r", "\n"} & set(line))
 
 
+def _resolve_entry(pinned: Pinned) -> str:
+    """Curl's --resolve entry: the URL's host and port to the checked addresses."""
+    listed = ",".join(f"[{a}]" if ":" in a else a for a in pinned.addresses)
+    return f"{pinned.host}:{pinned.port}:{listed}"
+
+
+def _connected_elsewhere(remote: str, pinned: Pinned, environ: Mapping[str, str]) -> bool:
+    if not remote or any(environ.get(name) for name in _PROXY_VARIABLES):
+        return False
+    try:
+        address = ipaddress.ip_address(remote)
+    except ValueError:
+        return True
+    return address not in {ipaddress.ip_address(a.split("%", 1)[0]) for a in pinned.addresses}
+
+
 def request(  # noqa: PLR0913 - keyword-only knobs of one request
-    url: str,
+    pinned: Pinned,
     *,
     cookies: list[jar.Cookie],
     identity: Identity | None,
@@ -100,10 +122,13 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
     curl: str,
     timeout: float,
 ) -> Response:
-    """GET url without following redirects; the body lands in workdir.
+    """GET the pinned URL without following redirects; the body lands in workdir.
 
-    The Cookie header travels in a private config file, never in argv.
+    curl connects only to the pinned addresses, so a second DNS answer
+    cannot move the request. The Cookie header travels in a private config
+    file, never in argv.
     """
+    url = pinned.url
     config = workdir / f"{name}.conf"
     body = workdir / f"{name}.body"
     redactor = Redactor([cookie.value for cookie in cookies])
@@ -124,12 +149,14 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         f"{max(timeout, 1.0):.0f}",
         "--max-filesize",
         str(MAX_BYTES),
+        "--resolve",
+        _resolve_entry(pinned),
         "--config",
         str(config),
         "--output",
         str(body),
         "--write-out",
-        "%{http_code}\n%{header_json}",
+        "%{http_code}\n%{remote_ip}\n%{header_json}",
         "--",
         url,
     ]
@@ -151,7 +178,11 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         reason = _REASONS.get(ran.returncode) or redactor.scrub(ran.stderr.strip())
         msg = f"request to {url} failed: {reason or f'curl exited {ran.returncode}'}"
         raise TransportError(msg)
-    status_line, _, header_json = ran.stdout.partition("\n")
+    status_line, _, rest = ran.stdout.partition("\n")
+    remote, _, header_json = rest.partition("\n")
+    if _connected_elsewhere(remote.strip(), pinned, os.environ):
+        msg = f"request to {url} reached {remote.strip()}, not the address it was checked at"
+        raise TransportError(msg)
     try:
         status = int(status_line)
         raw: dict[str, list[str]] = json.loads(header_json or "{}")

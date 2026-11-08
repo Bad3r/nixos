@@ -39,6 +39,23 @@ _POLL_SECONDS = 0.1
 MAXAGE_CAP_SECONDS = 34_560_000
 _CAP_MARGIN_SECONDS = 3600
 _ENV_KEEP = ("LANG", "LC_ALL", "TZ", "https_proxy", "HTTPS_PROXY", "no_proxy", "NO_PROXY")
+# The session's handshake files in the work directory (session.py).
+NETNS_READY = "netns.ready"
+NETWORK_READY = "network.ready"
+NETWORK_SECONDS = 15
+# pasta gives the namespace the host's outbound connectivity and nothing
+# else: no host loopback or gateway mapping and no port forwarding either way.
+PASTA_ARGS = (
+    "--config-net",
+    "--quiet",
+    "--foreground",
+    "--map-host-loopback", "none",
+    "--map-guest-addr", "none",
+    "--tcp-ports", "none",
+    "--udp-ports", "none",
+    "--tcp-ns", "none",
+    "--udp-ns", "none",
+)  # fmt: skip
 
 
 class BrowserError(Exception):
@@ -47,11 +64,12 @@ class BrowserError(Exception):
 
 @dataclass(frozen=True)
 class Tools:
-    """What the fallback runs: unshare, and the session entry point inside it."""
+    """What the fallback runs: unshare, the session inside it, and pasta for its network."""
 
     unshare: str
     session: str
     camoufox_version: str
+    pasta: str
 
 
 @dataclass(frozen=True)
@@ -80,7 +98,7 @@ def _die_with_parent() -> None:
     libc.prctl(_PR_SET_PDEATHSIG, signal.SIGKILL)
 
 
-def _write_private(path: Path, data: bytes) -> None:
+def write_private(path: Path, data: bytes) -> None:
     """Replace path atomically with a 0600 file holding data."""
     partial = path.with_name(f".{path.name}.partial")
     fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -293,7 +311,7 @@ class Camoufox:
                 for c in cookies
             ]
             journal_path = self.state / JOURNAL
-            _write_private(journal_path, json.dumps(journal).encode())
+            write_private(journal_path, json.dumps(journal).encode())
             try:
                 result = self._session(
                     "render",
@@ -337,11 +355,12 @@ class Camoufox:
         return env
 
     def _session(self, mode: str, request: dict[str, Any], until: float) -> dict[str, Any]:
-        """Run session.py as init of a user, mount and PID namespace and read its result.
+        """Run session.py as init of a user, mount, network and PID namespace.
 
         The namespace's init dies with this process (PR_SET_PDEATHSIG on
         unshare, --kill-child on init), and the kernel then kills everything
-        in it, Xvfb and the browser included, on any exit path.
+        in it, Xvfb and the browser included, on any exit path. pasta, which
+        connects the namespace, dies with this process too.
         """
         seconds = until - self.clock()
         if seconds <= 1:
@@ -349,8 +368,9 @@ class Camoufox:
             raise BrowserError(msg)
         request_path = self.workdir / "session.json"
         result_path = self.workdir / "result.json"
-        result_path.unlink(missing_ok=True)
-        _write_private(
+        for stale in (result_path, self.workdir / NETNS_READY, self.workdir / NETWORK_READY):
+            stale.unlink(missing_ok=True)
+        write_private(
             request_path,
             json.dumps(
                 {
@@ -368,6 +388,7 @@ class Camoufox:
             "--map-current-user",
             "--keep-caps",
             "--mount",
+            "--net",
             "--pid",
             "--fork",
             "--kill-child",
@@ -377,6 +398,7 @@ class Camoufox:
             str(request_path),
         ]
         log = self.workdir / "session.log"
+        pasta: subprocess.Popen[bytes] | None = None
         with log.open("wb") as sink:
             process = subprocess.Popen(
                 argv,
@@ -388,14 +410,17 @@ class Camoufox:
                 preexec_fn=_die_with_parent,  # noqa: PLW1509 - prctl only, before exec
             )
         try:
-            process.wait(timeout=max(seconds, 1.0))
+            pasta = self._connect(process, until)
+            process.wait(timeout=max(until - self.clock(), 1.0))
         except subprocess.TimeoutExpired:
             msg = f"the browser took longer than {seconds:.0f} s"
             raise BrowserError(msg) from None
         finally:
-            if process.poll() is None:
-                process.kill()
-            process.wait()
+            for child in (process, pasta):
+                if child is not None and child.poll() is None:
+                    child.kill()
+                if child is not None:
+                    child.wait()
         try:
             result = cast("dict[str, Any]", json.loads(result_path.read_text()))
         except OSError, ValueError:
@@ -406,3 +431,44 @@ class Camoufox:
             msg = f"the browser failed: {str(result['error'])[:300]}"
             raise BrowserError(msg)
         return result
+
+    def _connect(
+        self, session: subprocess.Popen[bytes], until: float
+    ) -> subprocess.Popen[bytes] | None:
+        """Give the session's network namespace pasta's connectivity, then tell it so.
+
+        None when the session ended before its namespace was ready; its own
+        result says why.
+        """
+        give_up = min(until, self.clock() + NETWORK_SECONDS)
+        while not (self.workdir / NETNS_READY).exists():
+            if session.poll() is not None:
+                return None
+            if self.clock() >= give_up:
+                msg = "the browser's namespace did not start"
+                raise BrowserError(msg)
+            time.sleep(_POLL_SECONDS)
+        pid_file = self.workdir / "pasta.pid"
+        pid_file.unlink(missing_ok=True)
+        pasta_log = self.workdir / "pasta.log"
+        with pasta_log.open("wb") as sink:
+            pasta = subprocess.Popen(
+                [self.tools.pasta, *PASTA_ARGS, "--pid", str(pid_file), str(session.pid)],
+                stdin=subprocess.DEVNULL,
+                stdout=sink,
+                stderr=subprocess.STDOUT,
+                env=self._environment(),
+                cwd=self.workdir,
+                preexec_fn=_die_with_parent,  # noqa: PLW1509 - prctl only, before exec
+            )
+        while not (pid_file.exists() and pid_file.stat().st_size):
+            if pasta.poll() is not None or session.poll() is not None or self.clock() >= give_up:
+                if pasta.poll() is None:
+                    pasta.kill()
+                pasta.wait()
+                tail = pasta_log.read_text(errors="replace").strip().splitlines()[-1:] or [""]
+                msg = f"the browser's network could not be set up: {tail[0][:200]}"
+                raise BrowserError(msg.strip(": "))
+            time.sleep(_POLL_SECONDS)
+        write_private(self.workdir / NETWORK_READY, b"")
+        return pasta

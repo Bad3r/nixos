@@ -9,7 +9,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
 from browser_fetch import browser, challenge, convert, curl, urls
 from browser_fetch import cookies as jar
@@ -114,6 +114,8 @@ class Settings:
     browser_mode: BrowserMode = "auto"
     deadline: float = 240.0
     clock: Callable[[], float] = time.monotonic
+    # The resolver each hop's host is checked and pinned with.
+    resolve: Callable[[str, int], list[str]] = urls.lookup
 
 
 class _Fetch:
@@ -147,7 +149,7 @@ class _Fetch:
         now = jar.now_ms()
         sent = jar.for_request(jar.merge(self.received, stored), url, now)
         response = curl.request(
-            url,
+            urls.pin(url, self.settings.resolve),
             cookies=sent,
             identity=self.identity,
             workdir=self.settings.workdir,
@@ -228,16 +230,15 @@ def _retry_after(response: curl.Response) -> str | None:
 def fetch(url: str, settings: Settings) -> Page:
     """Fetch url as WebFetch would, with curl-impersonate and the browsers' cookies.
 
-    A host on this machine or a private network gets no stored cookies and
-    no browser: its own responses' cookies are all it is sent.
+    Every hop's host is resolved and checked before anything is sent: one on
+    this machine or a private network is refused.
     """
     target = urls.check_url(url)
-    local = urls.is_local(urlsplit(target).hostname or "")
+    urls.pin(target, settings.resolve)
     run = _Fetch(settings)
     run.identity = settings.browser.identity(run.until)
-    if not local:
-        run.load_cookies()
-    if settings.browser_mode == "always" and not local:
+    run.load_cookies()
+    if settings.browser_mode == "always":
         return _via_browser(run, url, target, "the browser was asked for")
     current = target
     for _ in range(urls.MAX_REDIRECTS + 1):
@@ -257,14 +258,12 @@ def fetch(url: str, settings: Settings) -> Page:
                 redirect_from=current,
                 redirect_to=following,
             )
-        return _answer(run, url, current, response, use_browser=not local)
+        return _answer(run, url, current, response)
     msg = f"Too many redirects (exceeded {urls.MAX_REDIRECTS})"
     raise FetchError(msg)
 
 
-def _answer(
-    run: _Fetch, url: str, current: str, response: curl.Response, *, use_browser: bool
-) -> Page:
+def _answer(run: _Fetch, url: str, current: str, response: curl.Response) -> Page:
     body = response.body.read_bytes()
     content_type = response.header("content-type") or ""
     html = convert.decode(body, content_type) if convert.is_html(content_type) else None
@@ -275,7 +274,7 @@ def _answer(
         page.text = convert.html_to_markdown(html, run.left())
         visible = convert.visible_length(page.text)
     reason = challenge.detect(response.status, response.headers, html, visible)
-    if reason is not None and use_browser and run.settings.browser_mode == "auto":
+    if reason is not None and run.settings.browser_mode == "auto":
         try:
             return _via_browser(run, url, current, reason)
         except browser.BrowserError:

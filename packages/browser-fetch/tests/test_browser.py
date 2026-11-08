@@ -19,6 +19,7 @@ from typing import Any
 from browser_fetch import browser, tools
 from browser_fetch import cookies as jar
 
+from tests import namespaces
 from tests.test_cookies import LATER, SCHEMA
 
 VERSION = "158.0.1-beta.41"
@@ -70,7 +71,9 @@ class CamoufoxTest(unittest.TestCase):
 
     def camoufox(self, version: str = VERSION) -> browser.Camoufox:
         """A Camoufox for the release version."""
-        return browser.Camoufox(browser.Tools("unshare", "session", version), self.state, self.work)
+        return browser.Camoufox(
+            browser.Tools("unshare", "session", version, "pasta"), self.state, self.work
+        )
 
     def fake_session(
         self, _camoufox: browser.Camoufox, mode: str, request: dict[str, Any], until: float
@@ -222,6 +225,52 @@ class CamoufoxTest(unittest.TestCase):
         seen = self.run_render([], [])
         self.assertEqual(seen["before"], {"own": "mine"})
 
+    def script(self, name: str, body: str) -> str:
+        """An executable stand-in in the test directory."""
+        path = self.tmp / name
+        path.write_text(f"#!{sys.executable} -I\n{body}")
+        path.chmod(0o700)
+        return str(path)
+
+    def test_unavailable_namespaces_fail_at_once(self) -> None:
+        """Unshare refused by the host is a browser failure naming why, not a wait."""
+        unshare = self.script(
+            "unshare",
+            "import sys\n"
+            "print('unshare: unshare failed: Operation not permitted', flush=True)\n"
+            "sys.exit(1)\n",
+        )
+        camoufox = browser.Camoufox(
+            browser.Tools(unshare, "session", VERSION, "pasta"), self.state, self.work
+        )
+        self.state.mkdir(mode=0o700)
+        started = time.monotonic()
+        with self.assertRaisesRegex(browser.BrowserError, "Operation not permitted"):
+            camoufox._session("render", {}, time.monotonic() + 60)  # noqa: SLF001
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_pasta_failure_fails_the_session(self) -> None:
+        """A namespace pasta cannot connect is a browser failure, and nothing is left running."""
+        unshare = self.script(
+            "unshare",
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            f"Path({str(self.work)!r}, 'netns.ready').write_text('')\n"
+            "time.sleep(600)\n",
+        )
+        pasta = self.script(
+            "pasta", "import sys\nprint('Failed to open() /dev/net/tun', flush=True)\nsys.exit(1)\n"
+        )
+        camoufox = browser.Camoufox(
+            browser.Tools(unshare, "session", VERSION, pasta), self.state, self.work
+        )
+        self.state.mkdir(mode=0o700)
+        started = time.monotonic()
+        with self.assertRaisesRegex(browser.BrowserError, "network could not be set up.*tun"):
+            camoufox._session("render", {}, time.monotonic() + 60)  # noqa: SLF001
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertFalse((self.work / browser.NETWORK_READY).exists())
+
     def test_expiry_is_clamped_to_geckos_cap(self) -> None:
         """A cookie Gecko would refuse as too long-lived is handed over at the cap."""
         far = jar.Cookie("a", "1", "a.example", "/", 4_000_000_000_000, secure=True, created=1)
@@ -268,6 +317,9 @@ from browser_fetch import session
 request = json.loads(Path(sys.argv[1]).read_text())
 workdir = Path(request["workdir"])
 session.private_tmp([workdir, Path(request["state"])])
+session.await_network(workdir, time.monotonic() + 30)
+session.confine_network()
+session.drop_capabilities()
 xvfb, display = session.start_xvfb(time.monotonic() + 30)
 child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
 ready = {{"ns": os.readlink("/proc/self/ns/pid"), "display": display}}
@@ -281,7 +333,7 @@ sys.path.insert(0, {root!r})
 from pathlib import Path
 from browser_fetch import browser
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
-tools = browser.Tools({unshare!r}, {session!r}, "v")
+tools = browser.Tools({unshare!r}, {session!r}, "v", {pasta!r})
 camoufox = browser.Camoufox(tools, Path({state!r}), Path({work!r}))
 try:
     camoufox._session("render", {{}}, time.monotonic() + {seconds})
@@ -299,6 +351,19 @@ def _x_files() -> set[str]:
     return found
 
 
+def _running(path: str) -> list[int]:
+    """The processes whose command line names path."""
+    pids: list[int] = []
+    for entry in Path("/proc").iterdir():
+        if entry.name.isdigit():
+            try:
+                if path.encode() in (entry / "cmdline").read_bytes():
+                    pids.append(int(entry.name))
+            except OSError:
+                continue
+    return pids
+
+
 def _in_namespace(ns: str) -> list[int]:
     pids: list[int] = []
     for entry in Path("/proc").iterdir():
@@ -311,9 +376,13 @@ def _in_namespace(ns: str) -> list[int]:
     return pids
 
 
-@unittest.skipIf(tools.UNSHARE.startswith("@"), "needs the installed package's store paths")
 class CleanupTest(unittest.TestCase):
     """No process, X socket or lock file outlives browser-fetch, however it ends."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Skip, saying why, where the host cannot make the session's namespace."""
+        namespaces.require_namespaces()
 
     def setUp(self) -> None:
         """A state and work directory and the stand-in session executable."""
@@ -325,6 +394,7 @@ class CleanupTest(unittest.TestCase):
         self.session.write_text(f"#!{sys.executable} -I\n" + FAKE_SESSION.format(root=root))
         self.session.chmod(0o700)
         self.root = root
+        self.pasta = namespaces.write_fake_pasta(self.tmp)
         self.x_before = _x_files()
 
     def tearDown(self) -> None:
@@ -337,6 +407,7 @@ class CleanupTest(unittest.TestCase):
             root=self.root,
             unshare=tools.UNSHARE,
             session=str(self.session),
+            pasta=self.pasta,
             state=str(self.tmp / "state"),
             work=str(self.work),
             seconds=seconds,
@@ -354,12 +425,13 @@ class CleanupTest(unittest.TestCase):
         return self.fail("the session never started")
 
     def assert_nothing_left(self, ns: str) -> None:
-        """Every process of the namespace is gone and no X file was left."""
+        """Every process of the namespace and pasta are gone, and no X file was left."""
         for _ in range(100):
-            if not _in_namespace(ns):
+            if not _in_namespace(ns) and not _running(self.pasta):
                 break
             time.sleep(0.1)
         self.assertEqual(_in_namespace(ns), [])
+        self.assertEqual(_running(self.pasta), [])
         self.assertEqual(_x_files(), self.x_before)
 
     def test_sigkill(self) -> None:

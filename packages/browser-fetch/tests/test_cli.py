@@ -19,7 +19,7 @@ from pathlib import Path
 from browser_fetch import cli, fetch
 from browser_fetch import cookies as jar
 
-from tests.fakes import FakeBrowser, fake_curl
+from tests.fakes import FakeBrowser, fake_curl, public
 
 SECRET = "s3cr3t-session-value"  # noqa: S105 - a stand-in cookie value
 
@@ -64,7 +64,8 @@ class MainTest(unittest.TestCase):
         self.addCleanup(env.stop)
         curl_patch = unittest.mock.patch.object(cli.tools, "CURL", self.fake.path)
         browser_patch = unittest.mock.patch.object(cli, "_browser", return_value=FakeBrowser())
-        for patch in (curl_patch, browser_patch):
+        lookup_patch = unittest.mock.patch.object(cli.urls, "lookup", side_effect=public)
+        for patch in (curl_patch, browser_patch, lookup_patch):
             patch.start()
             self.addCleanup(patch.stop)
         cookie = jar.Cookie("session", SECRET, "example.org", "/", 2**62, secure=True, created=1)

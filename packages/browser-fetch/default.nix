@@ -4,6 +4,8 @@
   callPackage,
   python3,
   curl-impersonate,
+  iproute2,
+  passt,
   util-linux,
   xvfb,
 }:
@@ -49,6 +51,8 @@ stdenvNoCC.mkDerivation {
       --replace-fail "@camoufoxVersion@" "${camoufox.version}" \
       --replace-fail "@xvfb@" "${lib.getExe' xvfb "Xvfb"}" \
       --replace-fail "@unshare@" "${lib.getExe' util-linux "unshare"}" \
+      --replace-fail "@pasta@" "${lib.getExe' passt "pasta"}" \
+      --replace-fail "@ip@" "${lib.getExe' iproute2 "ip"}" \
       --replace-fail "@session@" "$out/libexec/browser-fetch-session"
     for entry in bin/browser-fetch:cli libexec/browser-fetch-session:session; do
       cat > $out/''${entry%%:*} <<EOF

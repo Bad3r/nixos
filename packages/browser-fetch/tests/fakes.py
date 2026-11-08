@@ -34,8 +34,16 @@ if route.get("exit"):
 with open(output, "wb") as body:
     body.write(route.get("body", "").encode())
 headers = {k.lower(): [v] for k, v in route.get("headers", {}).items()}
-sys.stdout.write(f"{route['status']}\\n{json.dumps(headers)}")
+pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
+remote = route.get("remote_ip", pinned)
+sys.stdout.write(f"{route['status']}\\n{remote}\\n{json.dumps(headers)}")
 """
+PUBLIC_ADDRESS = "93.184.215.14"
+
+
+def public(host: str, port: int) -> list[str]:  # noqa: ARG001
+    """A resolver that answers every name with one public address."""
+    return [PUBLIC_ADDRESS]
 
 
 @dataclass

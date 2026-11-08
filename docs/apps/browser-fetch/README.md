@@ -28,19 +28,27 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 - LibreWolf's unpartitioned jar, and its CHIPS cookies partitioned to the page's own site.
 - Camoufox's jar; on the same name, host and path, Camoufox's cookie wins.
 - Cookies the site set on an earlier redirect of the same fetch, which win over both.
-- A host on this machine or a private network, such as `127.0.0.1`, `10.0.0.1` or `localhost.`, gets none of the stored cookies.
 
 `--no-cookies` leaves LibreWolf out; Camoufox's jar still goes along.
+
+## Private networks
+
+A host is resolved before each request, including every redirect hop.
+One that resolves to this machine or a private, shared, link-local, ULA or documentation range is refused with exit 4, before any cookie is read or sent.
+curl connects only to the addresses that were checked, so a second DNS answer cannot move the request.
+Behind an `https_proxy`, the proxy resolves the name instead.
 
 ## When Camoufox takes over
 
 A bot challenge or a page its scripts have yet to build goes to [Camoufox](../../../packages/camoufox/default.nix), driven by Playwright.
 The markers for Cloudflare, DataDome, PerimeterX and Akamai, and the threshold for a script-built page, live in [challenge.py](../../../packages/browser-fetch/browser_fetch/challenge.py).
-Camoufox runs headed on a private Xvfb display, in a user, mount and PID namespace that dies with `browser-fetch`, with its own `/tmp`.
+Camoufox runs headed on a private Xvfb display, in a user, mount, network and PID namespace that dies with `browser-fetch`, with its own `/tmp`.
+[pasta](https://passt.top/) gives that namespace internet access, with no mapping of the host's loopback or gateway and no port forwarding.
+Routing rules in the namespace refuse the ranges above, so no page or redirect reaches this machine or a private network, whatever a name resolves to.
+A proxy on this machine is out of the browser's reach.
 It waits for the load and for a challenge to clear, within the bounds in [session.py](../../../packages/browser-fetch/browser_fetch/session.py).
 A challenge that does not clear in time comes back as the page the browser shows, with the status its document got.
 A main-document request that leaves the page's host, scheme or port is cancelled before it is sent and reported as a redirect.
-Hosts on this machine or a private network never reach the browser.
 
 Force or skip the browser:
 

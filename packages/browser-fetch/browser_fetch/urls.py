@@ -5,9 +5,15 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import socket
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import idna
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 MAX_URL_LENGTH = 2000
 MAX_REDIRECTS = 10
@@ -209,22 +215,103 @@ def _ascii_host(host: str) -> str:
     return _whatwg_ipv4(host) or host.lower()
 
 
-def is_local(host: str) -> bool:
-    """Whether the host names this machine or a non-public network.
+# Destinations no fetch reaches, by the address a name resolves to: this
+# machine, private, shared, link-local, documentation, benchmarking, reserved
+# and multicast ranges. The browser's namespace refuses routes to them too.
+BLOCKED_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "0.0.0.0/8",
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.0.0.0/24",
+        "192.0.2.0/24",
+        "192.168.0.0/16",
+        "198.18.0.0/15",
+        "198.51.100.0/24",
+        "203.0.113.0/24",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+        "::/128",
+        "::1/128",
+        "::ffff:0:0/96",
+        "64:ff9b:1::/48",
+        "100::/64",
+        "2001:db8::/32",
+        "fc00::/7",
+        "fe80::/10",
+        "fec0::/10",
+        "ff00::/8",
+    )
+)
+_NAT64 = ipaddress.IPv6Network("64:ff9b::/96")
 
-    Loopback, private, link-local, shared and reserved addresses, and the
-    localhost names, which take no cookies and no browser.
-    """
-    name = host.lower().removesuffix(".")
-    if name == "localhost" or name.endswith(".localhost"):
-        return True
+
+class AddressError(Exception):
+    """The host has no address a fetch may connect to."""
+
+
+class PrivateAddressError(AddressError):
+    """The host resolves to this machine or a non-public network."""
+
+
+def blocked_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Whether a fetch may not connect to the address."""
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return blocked_address(address.ipv4_mapped)
+        if address in _NAT64:
+            return blocked_address(ipaddress.IPv4Address(int(address) & 0xFFFFFFFF))
+    return not address.is_global or any(address in network for network in BLOCKED_NETWORKS)
+
+
+def lookup(host: str, port: int) -> list[str]:
+    """The addresses the system resolver gives for host, in its order."""
     try:
-        address = ipaddress.ip_address(name.strip("[]"))
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError, UnicodeError:
+        return []
+    return list(dict.fromkeys(str(info[4][0]) for info in infos))
+
+
+@dataclass(frozen=True)
+class Pinned:
+    """A request URL and the checked addresses curl must connect to."""
+
+    url: str
+    host: str
+    port: int
+    addresses: tuple[str, ...]
+
+
+def pin(url: str, resolve: Callable[[str, int], list[str]] = lookup) -> Pinned:
+    """Resolve url's host once and refuse it unless every address is public.
+
+    The returned URL spells the host as the pin names it, so curl uses the
+    pinned addresses instead of resolving the name again.
+    """
+    parts = urlsplit(url)
+    host = _ascii_host(parts.hostname or "")
+    port = parts.port or DEFAULT_PORTS.get(parts.scheme, 443)
+    try:
+        literal = ipaddress.ip_address(host)
     except ValueError:
-        return False
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
-        address = address.ipv4_mapped
-    return not address.is_global
+        found = resolve(host, port)
+    else:
+        found = [str(literal)]
+    if not found:
+        msg = f"the host name {host} did not resolve"
+        raise AddressError(msg)
+    for address in found:
+        if blocked_address(ipaddress.ip_address(address.split("%", 1)[0])):
+            msg = f"{host} resolves to {address}, an address on this machine or a private network"
+            raise PrivateAddressError(msg)
+    named = f"[{host}]" if ":" in host else host
+    netloc = named if parts.port is None else f"{named}:{parts.port}"
+    return Pinned(urlunsplit(parts._replace(netloc=netloc)), host, port, tuple(found))
 
 
 def check_url(url: str) -> str:
