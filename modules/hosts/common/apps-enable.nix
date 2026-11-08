@@ -483,6 +483,7 @@ let
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
       thunderbird.extended.enable = lib.mkOverride 1100 true;
+      tigervnc.extended.enable = lib.mkOverride 1100 true;
       "tinfoil-wiper".extended.enable = lib.mkOverride 1100 true;
       tmux.extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 true;
