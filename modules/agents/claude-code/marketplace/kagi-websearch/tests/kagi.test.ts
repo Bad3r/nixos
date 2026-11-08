@@ -207,7 +207,7 @@ test(
 		engine(on, {
 			exitCode: 4,
 			stderr:
-				"kagi-search: Kagi rejected LibreWolf's session (signed out or expired); sign in to kagi.com in LibreWolf again\n",
+				"kagi-search: Kagi rejected the session in browser-fetch's profile (signed out or expired); run `browser-fetch login https://kagi.com` and sign in\n",
 		});
 		const answer = await $.tool.call({
 			tool: "WebSearch",
@@ -216,7 +216,7 @@ test(
 		});
 		expect(answer.deny).toBeUndefined();
 		expect(answer.result).toEqual(SEARCH_ERROR);
-		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|browser-fetch/i);
 	},
 );
 
@@ -232,7 +232,7 @@ test(
 		});
 		expect(answer.deny).toBeUndefined();
 		expect(answer.result).toEqual(SEARCH_ERROR);
-		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|browser-fetch/i);
 	},
 );
 
@@ -248,7 +248,7 @@ test(
 		});
 		expect(answer.deny).toBeUndefined();
 		expect(answer.result).toEqual(SEARCH_ERROR);
-		expect(JSON.stringify(answer)).not.toMatch(/kagi|librewolf/i);
+		expect(JSON.stringify(answer)).not.toMatch(/kagi|browser-fetch/i);
 		expect(seen.argvs).toEqual([]);
 	},
 );

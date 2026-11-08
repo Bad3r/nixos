@@ -33,7 +33,7 @@
     "cloudflare@cloudflare" = false;
     "code-review@claude-plugins-official" = true;
     "frontend-design@claude-plugins-official" = false;
-    # Routes WebSearch to Kagi with LibreWolf's session (marketplace/kagi-websearch).
+    # Routes WebSearch to Kagi with browser-fetch's Kagi session (marketplace/kagi-websearch).
     "kagi-websearch@nixos-local" = true;
     "pr-review-toolkit@claude-plugins-official" = true;
     "superpowers@claude-plugins-official" = false;

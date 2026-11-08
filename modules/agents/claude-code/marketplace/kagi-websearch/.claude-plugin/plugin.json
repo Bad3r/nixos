@@ -1,7 +1,7 @@
 {
 	"name": "kagi-websearch",
 	"version": "0.4.0",
-	"description": "Routes the WebSearch tool to Kagi through the kagi-search command line.",
+	"description": "Routes the WebSearch tool to Kagi through the kagi-search command line, with the session in browser-fetch's cookie jar.",
 	"userConfig": {
 		"searchCommand": {
 			"type": "string",
