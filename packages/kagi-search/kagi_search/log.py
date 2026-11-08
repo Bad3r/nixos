@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import fcntl
 import os
 from pathlib import Path
 
@@ -44,14 +45,27 @@ class FileLog:
             # Opening first makes a log that already existed private before it rotates.
             descriptor = self._open()
             try:
-                if os.fstat(descriptor).st_size > LOG_MAX_BYTES:
-                    self.path.replace(self.path.with_name(f"{self.path.name}.1"))
+                # Concurrent writers rotate one at a time, and only the file still at path:
+                # a writer holding a log another one already rotated reopens instead.
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                held = os.fstat(descriptor)
+                if not self._is_current(held) or held.st_size > LOG_MAX_BYTES:
+                    if self._is_current(held):
+                        self.path.replace(self.path.with_name(f"{self.path.name}.1"))
                     replacement = self._open()
                     os.close(descriptor)
                     descriptor = replacement
                 os.write(descriptor, entry)
             finally:
                 os.close(descriptor)
+
+    def _is_current(self, held: os.stat_result) -> bool:
+        """Tell whether the held file is still the one at path."""
+        try:
+            current = self.path.stat(follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        return (held.st_dev, held.st_ino) == (current.st_dev, current.st_ino)
 
     def _open(self) -> int:
         """Open the log for appending, private whether or not it existed before."""

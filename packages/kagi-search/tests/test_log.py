@@ -59,6 +59,21 @@ class FileLogTest(unittest.TestCase):
                 log.FileLog(path)("entry")
             self.assertEqual(len(closed), 1)
 
+    def test_a_log_rotated_by_another_writer_is_not_rotated_again(self) -> None:
+        """A writer still holding the log another one rotated keeps .1 and writes the new log."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "x.log"
+            path.write_bytes(b"o" * (log.LOG_MAX_BYTES + 1))
+            writer = log.FileLog(path)
+            real_open = writer._open  # noqa: SLF001 - the race needs the first open's descriptor
+            stale = real_open()
+            log.FileLog(path)("first")
+            with unittest.mock.patch.object(writer, "_open", side_effect=[stale, real_open()]):
+                writer("second")
+            self.assertEqual(path.with_name("x.log.1").stat().st_size, log.LOG_MAX_BYTES + 1)
+            lines = path.read_text().splitlines()
+            self.assertEqual([line.split(" ", 1)[1] for line in lines], ["first", "second"])
+
     def test_state_root_follows_an_absolute_xdg_state_home(self) -> None:
         """A relative XDG_STATE_HOME is ignored, as the spec requires."""
         with unittest.mock.patch.dict(os.environ, {"XDG_STATE_HOME": "/s"}):
