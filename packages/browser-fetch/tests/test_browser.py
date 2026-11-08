@@ -147,6 +147,19 @@ class CamoufoxTest(unittest.TestCase):
         finally:
             os.close(holder)
 
+    def test_jar_read_waits_only_briefly_for_a_busy_profile(self) -> None:
+        """A jar read gives up after JAR_LOCK_SECONDS, not the render's LOCK_SECONDS."""
+        gecko_jar(self.state / browser.PROFILE / jar.DB_NAME, [("own", "x", ".a.example")])
+        holder = os.open(self.state / browser.LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        self.addCleanup(os.close, holder)
+        started = time.monotonic()
+        with self.assertRaisesRegex(browser.BrowserError, "busy"):
+            self.camoufox().jar(time.monotonic() + 60)
+        elapsed = time.monotonic() - started
+        self.assertGreaterEqual(elapsed, browser.JAR_LOCK_SECONDS)
+        self.assertLess(elapsed, browser.JAR_LOCK_SECONDS + 3)
+
     def run_render(self, librewolf: list[jar.Cookie], received: list[jar.Cookie]) -> dict[str, Any]:
         """Render with a session that acts as the browser would on the profile's jar.
 

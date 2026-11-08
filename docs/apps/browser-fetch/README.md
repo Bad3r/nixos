@@ -71,7 +71,7 @@ One fetch at a time uses the profile; another waits a bounded time, then fails.
 LibreWolf's cookies for the page's host are added to the profile for the fetch and removed afterwards, unless the site set a new value meanwhile.
 A fetch killed before that removal leaves a journal of hashes.
 Every fetch, curl-only ones included, removes them under the profile lock before it reads the profile's cookies.
-A fetch that cannot take the lock in time goes on without Camoufox's cookies.
+A fetch that cannot take the lock within the short `JAR_LOCK_SECONDS` bound of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) goes on without Camoufox's cookies, so another fetch's render never stalls it.
 The profile keeps no disk cache.
 
 Start over with a new fingerprint and an empty profile:

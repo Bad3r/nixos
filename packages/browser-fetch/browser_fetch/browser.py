@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 # Bounds of one fallback: waiting for another fetch's browser, then the
 # session's own start, load and challenge wait, which session.py splits.
 LOCK_SECONDS = 90
+# A jar read waits this long for a session holding the profile, then goes
+# on without the jar: it never stalls a fetch behind another one's render.
+JAR_LOCK_SECONDS = 2
 GENERATE_SECONDS = 90
 FINGERPRINT = "fingerprint.json"
 JOURNAL = "injected.json"
@@ -245,8 +248,8 @@ class Camoufox:
         self.state.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.state.chmod(0o700)
 
-    def _lock(self, until: float) -> int:
-        """Take the profile lock, waiting at most LOCK_SECONDS and never past until.
+    def _lock(self, until: float, wait: float = LOCK_SECONDS) -> int:
+        """Take the profile lock, waiting at most wait seconds and never past until.
 
         The lock lasts until the returned descriptor is closed.
         """
@@ -256,7 +259,7 @@ class Camoufox:
         except OSError as error:
             msg = f"the browser's state directory {self.state} is unusable: {error.strerror}"
             raise BrowserError(msg) from None
-        give_up = min(until, self.clock() + LOCK_SECONDS)
+        give_up = min(until, self.clock() + wait)
         while True:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -316,7 +319,7 @@ class Camoufox:
         """
         if not (self.profile / jar.DB_NAME).exists():
             return []
-        lock = self._lock(until)
+        lock = self._lock(until, JAR_LOCK_SECONDS)
         try:
             self._recover()
             return self._own_jar()

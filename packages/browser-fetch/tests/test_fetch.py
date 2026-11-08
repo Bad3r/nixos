@@ -495,7 +495,7 @@ class FetchTest(unittest.TestCase):
         self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
         with (
             unittest.mock.patch.object(camoufox, "identity", return_value=None),
-            unittest.mock.patch.object(browser, "LOCK_SECONDS", 0.3),
+            unittest.mock.patch.object(browser, "JAR_LOCK_SECONDS", 0.3),
         ):
             page = fetch.fetch("https://a.example/", settings)
         self.assertEqual(self.cookies_sent(), [""])
