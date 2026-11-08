@@ -252,3 +252,54 @@ test(
 		expect(seen.argvs).toEqual([]);
 	},
 );
+
+function stateFiles(
+	on: Parameters<TestBody>[1],
+	present: string[],
+): (string | undefined)[] {
+	const statuses: (string | undefined)[] = [];
+	on("env.get", (_, e) => ({
+		value: ({ HOME: "/home/u" } as Record<string, string>)[e.name],
+	}));
+	on("fs.exists", (_, e) => ({ value: present.includes(e.path) }));
+	on("session.start", () => ({ cwd: "/w" }));
+	on("ui.status", (_, e) => {
+		statuses.push(e.text);
+		return { value: undefined };
+	});
+	return statuses;
+}
+
+const REPORT = "/home/u/.local/state/kagi-search/claude-code-check.txt";
+
+test(
+	"a check report from activation stays in the status line",
+	OPTIONS,
+	async ($, on) => {
+		const statuses = stateFiles(on, [REPORT]);
+		engine(on, {
+			exitCode: 0,
+			stdout: JSON.stringify({ query: "q", hits: HITS }),
+		});
+		await $.session.start({ cwd: "/w", surface: null, isInteractive: true });
+		await $.tool.call({ tool: "WebSearch", query: "q", mode: "standard" });
+		const notice = `Kagi search: Claude Code changed; see ${REPORT}`;
+		expect(statuses[0]).toBe(notice);
+		expect(statuses.at(-1)).toBe(notice);
+	},
+);
+
+test(
+	"without a check report the status line stays clear",
+	OPTIONS,
+	async ($, on) => {
+		const statuses = stateFiles(on, []);
+		engine(on, {
+			exitCode: 0,
+			stdout: JSON.stringify({ query: "q", hits: HITS }),
+		});
+		await $.session.start({ cwd: "/w", surface: null, isInteractive: true });
+		await $.tool.call({ tool: "WebSearch", query: "q", mode: "standard" });
+		expect(statuses).toEqual([undefined]);
+	},
+);

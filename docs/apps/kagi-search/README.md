@@ -27,6 +27,8 @@ Allowed domains narrow the Kagi query to `site:` (an `OR` group for several) and
 The `mode` argument has no Kagi counterpart and changes nothing.
 A failed search answers with the built-in tool's own error record (`Web search error: unavailable`) and shows the reason in the status line; it never falls back to the built-in search.
 `kagi-search` appends the reason behind every failed search, with a traceback for unexpected errors, to `~/.local/state/kagi-search/kagi-search.log`.
+Each Home Manager activation checks that the installed Claude Code still carries the strings the plugin copies from the built-in search and passes the plugin's tests ([check](../../../modules/agents/claude-code/_websearch-check.nix)).
+A mismatch prints a warning, writes `~/.local/state/kagi-search/claude-code-check.txt`, and keeps a notice in the status line until a later activation passes.
 
 ## Kagi rejected LibreWolf's session
 

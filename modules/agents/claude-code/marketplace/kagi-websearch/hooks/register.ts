@@ -6,6 +6,10 @@ type Hit = { title: string; url: string; snippet: string };
 const SYSTEM =
 	"You run a web search for another Claude model, which is waiting on the result and can search again. Search once, then reply with a brief summary of the results.";
 const ASK = "Perform a web search for the query: ";
+const ERROR_PREFIX = "Web search error: ";
+// Left by Home Manager activation when the installed Claude Code no longer
+// matches the strings above or fails this plugin's tests (_websearch-check.nix).
+const CHECK_REPORT = "kagi-search/claude-code-check.txt";
 const ID_ALPHABET =
 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const ID_LENGTH = 33;
@@ -61,7 +65,7 @@ function searchError(query: string, started: number) {
 	return {
 		result: {
 			query,
-			results: ["Web search error: unavailable"],
+			results: [`${ERROR_PREFIX}unavailable`],
 			durationSeconds: (Date.now() - started) / 1000,
 			searchCount: 1,
 		},
@@ -79,7 +83,29 @@ function failed(
 	return searchError(query, started);
 }
 
+async function checkReport(
+	$: Pick<EngineInterface, "env" | "fs">,
+): Promise<string | undefined> {
+	const state = await $.env.get("XDG_STATE_HOME");
+	const home = await $.env.get("HOME");
+	const root = state?.startsWith("/") ? state : home && `${home}/.local/state`;
+	if (!root) return undefined;
+	const path = `${root}/${CHECK_REPORT}`;
+	return (await $.fs.exists(path)) ? path : undefined;
+}
+
 export const register: Register = (on, options) => {
+	// Shown in place of a cleared status line while the check report stands.
+	let notice: string | undefined;
+
+	on("session.start", async ($, e, next) => {
+		const started = await next(e);
+		const report = await checkReport($).catch(() => undefined);
+		notice = report && `Kagi search: Claude Code changed; see ${report}`;
+		if (notice) $.ui.status(notice);
+		return started;
+	});
+
 	const command =
 		typeof options.searchCommand === "string" ? options.searchCommand : "";
 	const maxResults =
@@ -140,7 +166,7 @@ export const register: Register = (on, options) => {
 			}
 		}
 
-		$.ui.status(undefined);
+		$.ui.status(notice);
 		return {
 			result: {
 				query: e.query,

@@ -91,6 +91,15 @@ _: {
         lib.foldl' (acc: part: acc // part) { } parts;
 
       plugins = import ./_plugins.nix;
+      kagiWebsearch = plugins.enabledPlugins."kagi-websearch@nixos-local" or false;
+      localMarketplace = builtins.path {
+        path = ./marketplace;
+        name = "claude-code-nixos-local-marketplace";
+      };
+      websearchCheck = import ./_websearch-check.nix {
+        inherit lib pkgs;
+        plugin = "${localMarketplace}/kagi-websearch";
+      };
 
       settingsJson = mergeParts [
         (import ./_settings.nix)
@@ -100,13 +109,10 @@ _: {
             # Registered only with the kagi-websearch plugin.
             extraKnownMarketplaces =
               plugins.extraKnownMarketplaces
-              // lib.optionalAttrs (plugins.enabledPlugins."kagi-websearch@nixos-local" or false) {
+              // lib.optionalAttrs kagiWebsearch {
                 nixos-local.source = {
                   source = "directory";
-                  path = "${builtins.path {
-                    path = ./marketplace;
-                    name = "claude-code-nixos-local-marketplace";
-                  }}";
+                  path = "${localMarketplace}";
                 };
               };
           }
@@ -161,7 +167,17 @@ _: {
           claudeJsonConfigFile
           ;
       };
-      inherit (activationResult) activation;
+      activation =
+        activationResult.activation
+        // lib.optionalAttrs kagiWebsearch {
+          claudeCodeWebsearchCheck =
+            lib.hm.dag.entryAfter
+              ([ "writeBoundary" ] ++ lib.optional installMethods.bun.enable "installClaudeCodeViaBun")
+              ''
+                run ${lib.getExe websearchCheck} ${lib.escapeShellArg claudeRuntime.target} \
+                  || echo "warning: kagi-websearch: the Claude Code check did not run" >&2
+              '';
+        };
 
       claudeRuntime = import ./_launcher.nix {
         inherit
