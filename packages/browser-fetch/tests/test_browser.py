@@ -215,6 +215,22 @@ class CamoufoxTest(unittest.TestCase):
         )
         self.assertEqual(cookies.unsaved, {})
 
+    def test_a_blocked_redirect_keeps_the_sessions_warnings(self) -> None:
+        """A redirect the guard stopped still carries what the session could not do.
+
+        A browser that did not close cleanly may have lost the cookies the
+        page set before it left, so the warning goes with the redirect.
+        """
+        warning = "the browser did not close cleanly, so cookies it set may be lost: gone"
+
+        def session(*_args: Any) -> dict[str, Any]:  # noqa: ANN401
+            blocked = {"origin": URL, "target": "https://b.example/", "status": 302}
+            return {"blocked": blocked, "cookies": 0, "warnings": [warning]}
+
+        with unittest.mock.patch.object(browser.Camoufox, "_session", side_effect=session):
+            rendered = self.camoufox().render(URL, jar.Jar(), time.monotonic() + 30)
+        self.assertEqual((rendered.blocked is not None, rendered.warnings), (True, (warning,)))
+
     def test_a_busy_profile_writes_nothing(self) -> None:
         """A render that cannot take the lock leaves the changes unsaved for the fetch to report."""
         self.state.mkdir(mode=0o700)

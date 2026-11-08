@@ -295,6 +295,7 @@ class Camoufox:
         )
 
     def _rendered(self, result: dict[str, Any]) -> Rendered:
+        warnings = tuple(str(w) for w in cast("list[Any]", result.get("warnings") or []))
         blocked = result.get("blocked")
         if isinstance(blocked, dict):
             stop = cast("dict[str, Any]", blocked)
@@ -303,6 +304,7 @@ class Camoufox:
                 status=int(stop["status"]),
                 content_type="",
                 blocked=Blocked(str(stop["origin"]), str(stop["target"]), int(stop["status"])),
+                warnings=warnings,
             )
         html: str | None = None
         body = b""
@@ -316,7 +318,7 @@ class Camoufox:
             content_type=str(result.get("contentType") or "text/html"),
             html=html,
             body=body,
-            warnings=tuple(str(w) for w in cast("list[Any]", result.get("warnings") or [])),
+            warnings=warnings,
         )
 
     def _environment(self) -> dict[str, str]:
