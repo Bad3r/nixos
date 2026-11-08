@@ -198,20 +198,30 @@ class _Fetch:
     def get(self, url: str) -> curl.Response:
         self.hops += 1
         sent = jar.for_request(self.cookies.cookies(), url, jar.now_us() // 1000)
-        response = curl.request(
-            urls.pin(url, self.settings.resolve),
-            cookies=sent,
-            identity=self.identity,
-            workdir=self.settings.workdir,
-            name=f"hop{self.hops}",
-            curl=self.settings.curl,
-            timeout=min(CURL_SECONDS, self.left()),
-        )
+        try:
+            response = curl.request(
+                urls.pin(url, self.settings.resolve),
+                cookies=sent,
+                identity=self.identity,
+                workdir=self.settings.workdir,
+                name=f"hop{self.hops}",
+                curl=self.settings.curl,
+                timeout=min(CURL_SECONDS, self.left()),
+            )
+        except curl.TransportError as error:
+            # A transfer cut short still delivered its headers' cookies.
+            self.receive(url, error.headers)
+            raise
+        self.receive(url, response.headers)
+        return response
+
+    def receive(self, url: str, headers: dict[str, list[str]]) -> None:
+        """Apply a response's Set-Cookie headers to the fetch's jar and write them."""
+        dates = headers.get("date")
         self.cookies.receive(
-            url, response.headers.get("set-cookie", []), jar.now_us(), response.header("date")
+            url, headers.get("set-cookie", []), jar.now_us(), dates[-1] if dates else None
         )
         self.save()
-        return response
 
     def render(self, url: str) -> browser.Rendered:
         self.left()

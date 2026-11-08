@@ -131,6 +131,38 @@ class RequestTest(unittest.TestCase):
             self.run_request()
         self.assertFalse((self.work / "hop1.conf").exists())
 
+    def test_failed_transfer_keeps_the_headers_it_got(self) -> None:
+        """Curl writes the status and headers out when the transfer fails after them.
+
+        A body over --max-filesize (63) or a timeout (28) comes after the
+        headers. With no response (000), or one from an address other than
+        the checked one, there are none to keep.
+        """
+        cookies = ["sid=; Max-Age=0", "new=1; Max-Age=60"]
+        for code, reason in ((63, "larger than"), (28, "timed out")):
+            with self.subTest(code=code):
+                self.fake.serve(
+                    {
+                        "https://example.org/": {
+                            "status": 200,
+                            "exit": code,
+                            "headers": {"Set-Cookie": cookies},
+                        }
+                    }
+                )
+                with self.assertRaisesRegex(curl.TransportError, reason) as caught:
+                    self.run_request()
+                self.assertEqual(caught.exception.headers["set-cookie"], cookies)
+        for route in (
+            {"status": 0, "exit": 7},
+            {"status": 200, "exit": 28, "headers": {"Set-Cookie": cookies}, "remote_ip": "1.1.1.1"},
+        ):
+            with self.subTest(route=route):
+                self.fake.serve({"https://example.org/": route})
+                with self.assertRaises(curl.TransportError) as caught:
+                    self.run_request()
+                self.assertEqual(caught.exception.headers, {})
+
     def test_failure_text_never_carries_the_cookie(self) -> None:
         """Curl's own error text is passed on with cookie values masked."""
         self.fake.serve(

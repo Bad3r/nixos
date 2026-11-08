@@ -28,16 +28,18 @@ route = routes.get(url)
 if route is None:
     sys.stderr.write("curl: (6) Could not resolve host\\n")
     sys.exit(6)
-if route.get("exit"):
-    sys.stderr.write(route.get("stderr", ""))
-    sys.exit(route["exit"])
 with open(output, "wb") as body:
     body.write(route.get("body", "").encode())
 given = route.get("headers", {})
 headers = {k.lower(): v if isinstance(v, list) else [v] for k, v in given.items()}
 pinned = args[args.index("--resolve") + 1].split(":", 2)[2].split(",")[0].strip("[]")
 remote = route.get("remote_ip", pinned)
-sys.stdout.write(f"{route['status']}\\n{remote}\\n{json.dumps(headers)}")
+# As curl does, the --write-out goes out on a failed transfer too, with
+# status 000 when no response came.
+sys.stdout.write(f"{route['status']:03d}\\n{remote}\\n{json.dumps(headers)}")
+if route.get("exit"):
+    sys.stderr.write(route.get("stderr", ""))
+    sys.exit(route["exit"])
 """
 PUBLIC_ADDRESS = "93.184.215.14"
 

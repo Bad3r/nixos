@@ -28,6 +28,7 @@ That is the unpartitioned jar plus the CHIPS cookies partitioned to the page's o
 A cookie the site set on an earlier hop of the same fetch wins over the jar's.
 
 Every `Set-Cookie` curl receives, deletions and expiries included, is written to the jar as its response arrives, so the writes of overlapping fetches follow arrival order.
+That holds for a response whose transfer then fails, such as a body over the size limit or a timeout.
 Parsing, validation and the rows follow the cookie code of the Firefox release Camoufox is built on, so Camoufox loads curl's cookies as its own.
 Rows go in only while no browser runs, under the profile lock, and every connection is closed before Camoufox starts.
 A database at another schema version than Firefox's 17 is never touched, since Firefox drops a table it cannot read.

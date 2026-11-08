@@ -513,6 +513,26 @@ class FetchTest(unittest.TestCase):
             fetch.fetch("https://a.example/login", settings)
         self.assertEqual(jar.read(state / browser.PROFILE / jar.DB_NAME), [])
 
+    def test_cookies_of_a_transfer_cut_short_are_saved(self) -> None:
+        """Set-Cookie headers that came before curl gave up reach the jar, then the fetch fails."""
+        self.fake.serve(
+            {
+                "https://a.example/": {
+                    "status": 200,
+                    "exit": 63,
+                    "headers": {
+                        **HTML,
+                        "Set-Cookie": ["a=; Path=/; Max-Age=0", "fresh=1; Max-Age=60; Secure"],
+                    },
+                },
+            }
+        )
+        with self.assertRaisesRegex(curl.TransportError, "larger than"):
+            fetch.fetch("https://a.example/", self.settings)
+        ((deleted, fresh),) = self.browser.stored
+        self.assertEqual((deleted.name, deleted.expired(jar.now_us() // 1000)), ("a", True))
+        self.assertEqual((fresh.name, fresh.value), ("fresh", "1"))
+
     def test_unsaved_cookies_are_reported(self) -> None:
         """A profile still busy at the write leaves a warning on the page, or on the failure."""
         self.browser.store_error = browser.BrowserError(BUSY)

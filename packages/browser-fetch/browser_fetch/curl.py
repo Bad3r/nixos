@@ -56,7 +56,17 @@ class Identity:
 
 
 class TransportError(Exception):
-    """The request produced no HTTP response."""
+    """The request produced no complete HTTP response.
+
+    headers holds the response's headers, by lowercase name, when curl had
+    received them before the transfer failed, as on a body over the size
+    limit or a timeout; otherwise it is empty.
+    """
+
+    def __init__(self, message: str, headers: dict[str, list[str]] | None = None) -> None:
+        """The failure's message, and the headers that came before it."""
+        super().__init__(message)
+        self.headers = headers or {}
 
 
 @dataclass(frozen=True)
@@ -281,24 +291,30 @@ def request(  # noqa: PLR0913 - keyword-only knobs of one request
         raise TransportError(msg) from None
     finally:
         config.unlink(missing_ok=True)
-    if ran.returncode != 0:
-        reason = _REASONS.get(ran.returncode) or redactor.scrub(ran.stderr.strip())
-        msg = f"request to {url} failed: {reason or f'curl exited {ran.returncode}'}"
-        raise TransportError(msg)
     status_line, _, rest = ran.stdout.partition("\n")
     remote, _, header_json = rest.partition("\n")
-    if _connected_elsewhere(remote.strip(), pinned, os.environ):
-        msg = f"request to {url} reached {remote.strip()}, not the address it was checked at"
-        raise TransportError(msg)
+    elsewhere = _connected_elsewhere(remote.strip(), pinned, os.environ)
     try:
         status = int(status_line)
         raw: dict[str, list[str]] = json.loads(header_json or "{}")
     except ValueError:
+        status, raw = 0, {}
+    # curl writes the status and headers out after a failed transfer too;
+    # status 0 means no response came.
+    headers = {key.lower(): value for key, value in raw.items()} if status else {}
+    if ran.returncode != 0:
+        reason = _REASONS.get(ran.returncode) or redactor.scrub(ran.stderr.strip())
+        msg = f"request to {url} failed: {reason or f'curl exited {ran.returncode}'}"
+        raise TransportError(msg, {} if elsewhere else headers)
+    if elsewhere:
+        msg = f"request to {url} reached {remote.strip()}, not the address it was checked at"
+        raise TransportError(msg)
+    if not status:
         msg = f"request to {url} returned no readable status"
-        raise TransportError(msg) from None
+        raise TransportError(msg)
     if body.exists() and body.stat().st_size > MAX_BYTES:
         msg = f"request to {url} failed: {_REASONS[63]}"
-        raise TransportError(msg)
+        raise TransportError(msg, headers)
     if not body.exists():
         body.write_bytes(b"")
-    return Response(status, {key.lower(): value for key, value in raw.items()}, body)
+    return Response(status, headers, body)
