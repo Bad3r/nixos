@@ -11,7 +11,7 @@
 
   Options:
     --json: Print JSON instead of text.
-    --limit N: Print at most N hits (default 10).
+    --limit N: Print at most N hits (default 10; 0 prints every hit).
     --allow DOMAIN / --block DOMAIN: Keep or drop hits by domain; repeatable.
 */
 _:

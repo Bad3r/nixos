@@ -172,3 +172,15 @@ class CliTest(unittest.TestCase):
         self.assertEqual(done.returncode, cli.FAILURE_EXIT)
         self.assertEqual(done.stderr.decode().count("\n"), 1)
         self.assertIn("BrokenPipeError", self.log.read_text())
+
+    def test_a_zero_limit_asks_for_every_hit(self) -> None:
+        """--limit 0 reaches the search as no limit; a negative one is refused."""
+        target = unittest.mock.Mock(return_value=[])
+        with (
+            unittest.mock.patch.object(cli, "run", target),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            cli.main(["--limit", "0", "x"])
+        target.assert_called_once_with("x", allowed=[], blocked=[], limit=None)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            cli.main(["--limit", "-1", "x"])

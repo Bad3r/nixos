@@ -70,6 +70,8 @@ class SearchTest(unittest.TestCase):
         """At most limit hits come back."""
         hits = client.search("nix", "tok", limit=1, director=FakeDirector(200, RESULTS))
         self.assertEqual([h.title for h in hits], ["NixOS & Nix"])
+        every = client.search("nix", "tok", limit=None, director=FakeDirector(200, RESULTS))
+        self.assertGreater(len(every), 1)
 
     def test_no_results_is_an_empty_list(self) -> None:
         """Kagi's no-results answer is no hits, not an error."""

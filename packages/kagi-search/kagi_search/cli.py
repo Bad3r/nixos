@@ -25,6 +25,14 @@ CHALLENGE_EXIT = 5
 FAILURE_EXIT = 6
 
 
+def _limit(value: str) -> int:
+    limit = int(value)
+    if limit < 0:
+        msg = f"{value} is negative"
+        raise argparse.ArgumentTypeError(msg)
+    return limit
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kagi-search",
@@ -36,7 +44,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("query", nargs="+", help="the search query")
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
-    parser.add_argument("--limit", type=int, default=10, help="at most this many hits")
+    parser.add_argument(
+        "--limit", type=_limit, default=10, help="at most this many hits; 0 for every hit"
+    )
     parser.add_argument("--allow", action="append", default=[], metavar="DOMAIN")
     parser.add_argument("--block", action="append", default=[], metavar="DOMAIN")
     return parser
@@ -47,7 +57,7 @@ def run(
     *,
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
-    limit: int = 10,
+    limit: int | None = 10,
 ) -> list[Hit]:
     """Search with LibreWolf's session; raises SessionError or SearchError."""
     session = cookie.read_session(cookie.default_profile(cookie.librewolf_root()))
@@ -94,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     query = " ".join(args.query)
     try:
-        hits = run(query, allowed=args.allow, blocked=args.block, limit=max(args.limit, 1))
+        hits = run(query, allowed=args.allow, blocked=args.block, limit=args.limit or None)
         if args.json:
             print(json.dumps({"query": query, "hits": [asdict(hit) for hit in hits]}))
         else:

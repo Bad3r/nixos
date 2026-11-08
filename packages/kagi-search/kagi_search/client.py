@@ -107,9 +107,9 @@ def search(  # noqa: PLR0913 - keyword-only options of the public entry point
     *,
     allowed: list[str] | None = None,
     blocked: list[str] | None = None,
-    limit: int = 10,
+    limit: int | None = 10,
     director: urllib.request.OpenerDirector | None = None,
 ) -> list[Hit]:
-    """Return at most limit hits for the query, filtered by allowed and blocked domains."""
+    """Return at most limit hits (every hit without one), filtered by domain."""
     page = fetch_page(kagi_query(query, allowed, blocked), cookie, director or opener())
     return filter_hits(parse_page(page), allowed, blocked)[:limit]

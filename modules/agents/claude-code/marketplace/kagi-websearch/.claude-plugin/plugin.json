@@ -12,7 +12,7 @@
 		"maxResults": {
 			"type": "number",
 			"title": "Results per search",
-			"description": "How many Kagi results each search returns, after domain filtering. Kagi's first page holds about 25 to 35.",
+			"description": "How many Kagi results a standard search returns, after domain filtering; an extended search returns all of Kagi's first page, about 25 to 35.",
 			"default": 10
 		}
 	}

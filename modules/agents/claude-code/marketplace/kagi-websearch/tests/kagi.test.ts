@@ -303,3 +303,45 @@ test(
 		expect(statuses).toEqual([undefined]);
 	},
 );
+
+test(
+	"an extended search asks for every hit on the first page",
+	{ options: { searchCommand: COMMAND, maxResults: 3 } },
+	async ($, on) => {
+		const seen = engine(on, {
+			exitCode: 0,
+			stdout: JSON.stringify({ query: "x", hits: HITS }),
+		});
+		const answer = await $.tool.call({
+			tool: "WebSearch",
+			query: "x",
+			mode: "extended",
+		});
+		expect(seen.argvs).toEqual([
+			[COMMAND, "--json", "--limit", "0", "--", "x"],
+		]);
+		expect(answer.result).toEqual(
+			expect.objectContaining({
+				results: [
+					expect.objectContaining({ content: LINKS }),
+					expect.any(String),
+				],
+			}),
+		);
+	},
+);
+
+test(
+	"a maxResults below one falls back to ten, never to the whole page",
+	{ options: { searchCommand: COMMAND, maxResults: 0.5 } },
+	async ($, on) => {
+		const seen = engine(on, {
+			exitCode: 0,
+			stdout: JSON.stringify({ hits: [] }),
+		});
+		await $.tool.call({ tool: "WebSearch", query: "x", mode: "standard" });
+		expect(seen.argvs).toEqual([
+			[COMMAND, "--json", "--limit", "10", "--", "x"],
+		]);
+	},
+);

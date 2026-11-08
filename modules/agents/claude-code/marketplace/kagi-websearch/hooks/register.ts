@@ -109,7 +109,7 @@ export const register: Register = (on, options) => {
 	const command =
 		typeof options.searchCommand === "string" ? options.searchCommand : "";
 	const maxResults =
-		typeof options.maxResults === "number" && options.maxResults > 0
+		typeof options.maxResults === "number" && options.maxResults >= 1
 			? Math.floor(options.maxResults)
 			: 10;
 
@@ -117,7 +117,9 @@ export const register: Register = (on, options) => {
 		const started = Date.now();
 		const fail = (reason: string) => failed($, e.query, started, reason);
 		if (!command) return fail("the searchCommand option is not set");
-		const argv = [command, "--json", "--limit", String(maxResults)];
+		// Extended asks for a deeper search: every hit on Kagi's first page.
+		const limit = e.mode === "extended" ? 0 : maxResults;
+		const argv = [command, "--json", "--limit", String(limit)];
 		for (const domain of e.allowed_domains ?? []) argv.push("--allow", domain);
 		for (const domain of e.blocked_domains ?? []) argv.push("--block", domain);
 		argv.push("--", e.query);

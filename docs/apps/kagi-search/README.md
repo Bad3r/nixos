@@ -24,7 +24,7 @@ The `kagi-websearch` plugin of the `nixos-local` marketplace answers every `WebS
 Its record matches the built-in tool's: one link list of titles and URLs, then a summary the session's model writes from the hits.
 It runs `/run/current-system/sw/bin/kagi-search`, so each switch moves it to the current build.
 Allowed domains narrow the Kagi query to `site:` (an `OR` group for several) and blocked ones add `-site:`; the hits are filtered by domain again afterwards.
-The `mode` argument has no Kagi counterpart and changes nothing.
+A `standard` search returns the plugin's `maxResults` hits (10 by default); an `extended` one returns every hit on Kagi's first page, about 25 to 35.
 A failed search answers with the built-in tool's own error record (`Web search error: unavailable`) and shows the reason in the status line; it never falls back to the built-in search.
 `kagi-search` appends the reason behind every failed search, with a traceback for unexpected errors, to `~/.local/state/kagi-search/kagi-search.log`.
 Each Home Manager activation checks that the installed Claude Code still carries the strings the plugin copies from the built-in search and passes the plugin's tests ([check](../../../modules/agents/claude-code/_websearch-check.nix)).
