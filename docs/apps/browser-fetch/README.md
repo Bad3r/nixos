@@ -5,6 +5,9 @@ It requests the page through curl-impersonate's Firefox profile, which sets the 
 The User-Agent and Accept-Language are those of its Camoufox fingerprint instead, so cookies Camoufox earned hold for curl too.
 curl, Camoufox and [kagi-search](../kagi-search/README.md) share one cookie jar under the profile lock, the `cookies.sqlite` of Camoufox's profile, so what one earns, the others send.
 
+The standalone `camoufox` command, built with `nix build path:.#camoufox`, is enabled only on Songbird through `programs.camoufox.extended.enable` ([module](../../../modules/browsers/camoufox/apps.nix)).
+Use `browser-fetch login` to sign in to the profile fetches use.
+
 ## Fetch a page
 
 1. Fetch from a shell:

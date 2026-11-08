@@ -72,6 +72,7 @@ let
       bzip2.extended.enable = lib.mkOverride 1100 false;
       bzmenu.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
+      camoufox.extended.enable = lib.mkOverride 1100 false;
       capstone.extended.enable = lib.mkOverride 1100 false;
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
