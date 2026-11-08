@@ -41,6 +41,21 @@ class FileLogTest(unittest.TestCase):
             self.assertEqual(path.with_name("x.log.1").stat().st_mode & 0o777, 0o600)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_a_failed_check_closes_the_log(self) -> None:
+        """A descriptor opened for an entry is closed even when its stat fails."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "x.log"
+            closed: list[int] = []
+            real_close = os.close
+            with (
+                unittest.mock.patch.object(log.os, "fstat", side_effect=OSError(5, "EIO")),
+                unittest.mock.patch.object(
+                    log.os, "close", side_effect=lambda d: (closed.append(d), real_close(d))
+                ),
+            ):
+                log.FileLog(path)("entry")
+            self.assertEqual(len(closed), 1)
+
     def test_state_root_follows_an_absolute_xdg_state_home(self) -> None:
         """A relative XDG_STATE_HOME is ignored, as the spec requires."""
         with unittest.mock.patch.dict(os.environ, {"XDG_STATE_HOME": "/s"}):

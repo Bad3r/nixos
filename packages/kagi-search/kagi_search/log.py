@@ -43,11 +43,12 @@ class FileLog:
             private_directory(self.path.parent)
             # Opening first makes a log that already existed private before it rotates.
             descriptor = self._open()
-            if os.fstat(descriptor).st_size > LOG_MAX_BYTES:
-                os.close(descriptor)
-                self.path.replace(self.path.with_name(f"{self.path.name}.1"))
-                descriptor = self._open()
             try:
+                if os.fstat(descriptor).st_size > LOG_MAX_BYTES:
+                    self.path.replace(self.path.with_name(f"{self.path.name}.1"))
+                    replacement = self._open()
+                    os.close(descriptor)
+                    descriptor = replacement
                 os.write(descriptor, entry)
             finally:
                 os.close(descriptor)

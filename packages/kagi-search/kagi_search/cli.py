@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -73,6 +74,16 @@ EXIT_CODES: tuple[tuple[type[Exception], int], ...] = (
 )
 
 
+def _discard_stdout() -> None:
+    """Point stdout at /dev/null, so nothing buffered is retried against a closed pipe at exit."""
+    with contextlib.suppress(OSError):
+        null = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(null, sys.stdout.fileno())
+        finally:
+            os.close(null)
+
+
 def log_path() -> Path:
     """Return the log file that holds the reasons behind failed searches."""
     return state_root() / "kagi-search.log"
@@ -91,8 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.flush()
     except Exception as error:  # noqa: BLE001 - every failure is reported and logged
         if isinstance(error, BrokenPipeError):
-            # Nothing buffered may be retried against the closed pipe at exit.
-            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+            _discard_stdout()
         known = next((c for kind, c in EXIT_CODES if isinstance(error, kind)), None)
         detail = "" if known else "\n" + "".join(traceback.format_exception(error))
         FileLog(log_path())(f"search {query!r} failed: {type(error).__name__}: {error}{detail}")
