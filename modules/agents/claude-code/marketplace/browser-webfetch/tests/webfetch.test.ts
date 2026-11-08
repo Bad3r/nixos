@@ -459,11 +459,25 @@ test("an HTTP error's warnings follow its report", OPTIONS, async ($, on) => {
 	);
 });
 
-for (const reason of [
-	"Invalid URL",
-	"WebFetch cannot fetch localhost or other hostnames without a dot. To reach a local server, use Bash with curl instead.",
-	"Too many redirects (exceeded 10)",
+for (const url of [
+	"http://localhost:8080/status",
+	"http://router/",
+	"http://192.168.1.10/",
+	"http://[::1]:3000/",
 ]) {
+	test(
+		`a local or dotless URL such as ${url} goes to browser-fetch like any other`,
+		OPTIONS,
+		async ($, on) => {
+			const seen = engine(on, ok(page({})));
+			await $.tool.call(fetch(url, "q"));
+			expect(seen.argvs).toHaveLength(1);
+			expect((seen.argvs[0] as string[]).at(-1)).toBe(url);
+		},
+	);
+}
+
+for (const reason of ["Invalid URL", "Too many redirects (exceeded 10)"]) {
 	test(
 		`the built-in's own "${reason.slice(0, 24)}" reaches the model as written`,
 		OPTIONS,

@@ -18,7 +18,6 @@ const MAX_TOKENS = 64_000;
 // The built-in's own failure texts, which browser-fetch writes for these cases.
 const BUILTIN_REASONS = new Set([
 	"Invalid URL",
-	"WebFetch cannot fetch localhost or other hostnames without a dot. To reach a local server, use Bash with curl instead.",
 	"Too many redirects (exceeded 10)",
 ]);
 // What Claude Code 2.1.319 tells the model when its fetch proxy fails
