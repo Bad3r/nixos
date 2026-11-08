@@ -33,7 +33,7 @@ type Seen = {
 function engine(
 	on: Parameters<TestBody>[1],
 	ran: Ran,
-	summary: string | null = "Summary of the results.",
+	summary: string | null | Error = "Summary of the results.",
 ): Seen {
 	const seen: Seen = { argvs: [], asks: [] };
 	on("process.run", (_, e) => {
@@ -51,6 +51,7 @@ function engine(
 	on("session.model", () => ({ value: "claude-sonnet-5-5" }));
 	on("model.complete", (_, e) => {
 		seen.asks.push({ model: e.model, system: e.system, prompt: e.prompt });
+		if (summary instanceof Error) throw summary;
 		return {
 			value:
 				summary === null
@@ -151,6 +152,28 @@ test("a summary that fails leaves the links", OPTIONS, async ($, on) => {
 		}),
 	);
 });
+
+test(
+	"a summary request that rejects leaves the links",
+	OPTIONS,
+	async ($, on) => {
+		engine(
+			on,
+			{ exitCode: 0, stdout: JSON.stringify({ hits: HITS }) },
+			new Error("refused"),
+		);
+		const answer = await $.tool.call({
+			tool: "WebSearch",
+			query: "x",
+			mode: "standard",
+		});
+		expect(answer.result).toEqual(
+			expect.objectContaining({
+				results: [expect.objectContaining({ content: LINKS })],
+			}),
+		);
+	},
+);
 
 test(
 	"no hits are an empty link list, with no model call",

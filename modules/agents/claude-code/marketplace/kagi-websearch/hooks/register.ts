@@ -1,4 +1,4 @@
-import type { Register } from "claude-code";
+import type { EngineInterface, Register } from "claude-code";
 
 type Hit = { title: string; url: string; snippet: string };
 
@@ -8,6 +8,9 @@ const SYSTEM =
 const ASK = "Perform a web search for the query: ";
 const ID_ALPHABET =
 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const ID_LENGTH = 33;
+// Bytes from here up would favor the alphabet's first characters.
+const UNBIASED_BYTES = 256 - (256 % ID_ALPHABET.length);
 
 function isHit(value: unknown): value is Hit {
 	if (typeof value !== "object" || value === null) return false;
@@ -31,9 +34,14 @@ function hitsOf(stdout: string): Hit[] | undefined {
 
 // Shaped like the server tool ids the built-in tool records.
 function serverToolUseId(): string {
-	const bytes = crypto.getRandomValues(new Uint8Array(22));
 	let id = "srvtoolu_01";
-	for (const byte of bytes) id += ID_ALPHABET[byte % ID_ALPHABET.length];
+	while (id.length < ID_LENGTH) {
+		for (const byte of crypto.getRandomValues(new Uint8Array(32))) {
+			if (byte < UNBIASED_BYTES && id.length < ID_LENGTH) {
+				id += ID_ALPHABET[byte % ID_ALPHABET.length];
+			}
+		}
+	}
 	return id;
 }
 
@@ -60,6 +68,17 @@ function searchError(query: string, started: number) {
 	};
 }
 
+// The person sees the reason; the model gets the built-in error record.
+function failed(
+	$: Pick<EngineInterface, "ui">,
+	query: string,
+	started: number,
+	reason: string,
+) {
+	$.ui.status(`Kagi search failed: ${reason.slice(0, 60)}`);
+	return searchError(query, started);
+}
+
 export const register: Register = (on, options) => {
 	const command =
 		typeof options.searchCommand === "string" ? options.searchCommand : "";
@@ -70,11 +89,7 @@ export const register: Register = (on, options) => {
 
 	on("tool.call", { tool: "WebSearch" }, async ($, e) => {
 		const started = Date.now();
-		// The model gets the built-in tool's own error record.
-		const fail = (reason: string) => {
-			$.ui.status(`Kagi search failed: ${reason.slice(0, 60)}`);
-			return searchError(e.query, started);
-		};
+		const fail = (reason: string) => failed($, e.query, started, reason);
 		if (!command) return fail("the searchCommand option is not set");
 		const argv = [command, "--json", "--limit", String(maxResults)];
 		for (const domain of e.allowed_domains ?? []) argv.push("--allow", domain);
@@ -106,15 +121,21 @@ export const register: Register = (on, options) => {
 			},
 		];
 		if (hits.length > 0) {
-			const summary = await $.model.complete({
-				model: await $.session.model(),
-				system: SYSTEM,
-				prompt: searchResults(e.query, hits),
-				maxTokens: 4096,
-				effort: "low",
-				timeoutMs: 120_000,
-			});
-			if (summary.isAnswered && summary.text.trim()) {
+			// A summary that cannot be had still leaves the links.
+			const summary = await $.session
+				.model()
+				.then((model) =>
+					$.model.complete({
+						model,
+						system: SYSTEM,
+						prompt: searchResults(e.query, hits),
+						maxTokens: 4096,
+						effort: "low",
+						timeoutMs: 120_000,
+					}),
+				)
+				.catch(() => undefined);
+			if (summary?.isAnswered && summary.text.trim()) {
 				results.push(summary.text.trim());
 			}
 		}
@@ -128,5 +149,7 @@ export const register: Register = (on, options) => {
 				searchCount: 1,
 			},
 		};
-	}).catch((_, e) => searchError(e.query, Date.now()));
+	}).catch(($, e, next) =>
+		failed($, e.query, Date.now(), next.error.message ?? next.error.kind),
+	);
 };
