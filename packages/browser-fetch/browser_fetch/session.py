@@ -27,6 +27,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast, override
+from urllib.parse import urlsplit
 
 from browser_fetch import browser, challenge, curl, tools, urls
 
@@ -65,10 +66,20 @@ _MS_REC = 16384
 _IPV6 = 6
 _PR_CAP_AMBIENT = 47
 _PR_CAP_AMBIENT_CLEAR_ALL = 4
-# Playwright's Firefox takes socks5 and socks4 and has the proxy resolve
+# curl's proxy schemes (lib/peer.c, Curl_scheme_to_proxytype) as Playwright's
+# Firefox takes them, with the port curl connects to when the URL names none
+# (the scheme's defport, lib/protocol.c). Firefox has a SOCKS proxy resolve
 # names (Juggler's TRANSPARENT_PROXY_RESOLVES_HOST), as curl's socks5h and
 # socks4a do; the egress is the proxy's either way.
-_PROXY_SCHEMES = {"socks5h": "socks5", "socks4a": "socks4"}
+_PROXY_SCHEMES = {
+    "http": ("http", 80),
+    "https": ("https", 443),
+    "socks": ("socks4", 1080),
+    "socks4": ("socks4", 1080),
+    "socks4a": ("socks4", 1080),
+    "socks5": ("socks5", 1080),
+    "socks5h": ("socks5", 1080),
+}
 _STATE = """
 (markers) => {
   const html = document.documentElement ? document.documentElement.outerHTML : "";
@@ -352,11 +363,26 @@ def proxy_settings(url: str, environ: Mapping[str, str]) -> dict[str, str] | Non
     server = curl.proxy(urls.request_host(url), environ)
     if server is None:
         return None
-    scheme, found, rest = server.partition("://")
-    if not found:
-        scheme, rest = "http", server
-    scheme = scheme.lower()
-    return {"server": f"{_PROXY_SCHEMES.get(scheme, scheme)}://{rest}"}
+    parts = urlsplit(server if "://" in server else f"http://{server}")
+    if parts.scheme not in _PROXY_SCHEMES:
+        msg = f"curl takes no {parts.scheme}:// proxy, so the browser takes none either"
+        raise SessionError(msg)
+    scheme, default_port = _PROXY_SCHEMES[parts.scheme]
+    try:
+        port = default_port if parts.port is None else parts.port
+    except ValueError:
+        msg = "the proxy's port is not a port number"
+        raise SessionError(msg) from None
+    host = parts.hostname or ""
+    if not host:
+        msg = "the proxy names no host"
+        raise SessionError(msg)
+    if ":" in host:
+        # Playwright passes Firefox the host as the URL spells it, in
+        # brackets, and Gecko takes that for an unresolvable name.
+        msg = "the browser cannot use a proxy at an IPv6 address"
+        raise SessionError(msg)
+    return {"server": f"{scheme}://{host}:{port}"}
 
 
 def _generate(state: Path, env: dict[str, str], until: float) -> None:

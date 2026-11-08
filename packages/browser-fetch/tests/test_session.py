@@ -3,6 +3,9 @@
 
 import json
 import os
+import re
+import socket
+import subprocess
 import tempfile
 import time
 import unittest
@@ -11,7 +14,7 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from browser_fetch import session
+from browser_fetch import session, tools
 
 from tests.namespaces import require_namespaces, run_in_namespace
 
@@ -351,19 +354,52 @@ class ProxyTest(unittest.TestCase):
                 self.assertEqual(settings, None if server is None else {"server": server})
 
     def test_schemes_firefox_takes(self) -> None:
-        """A bare host is HTTP, as for curl; socks5h and socks4a are Firefox's socks5 and socks4."""
+        """Each of curl's proxy schemes as Firefox's, with curl's port when the URL has none.
+
+        curl (lib/peer.c): no scheme is http, socks is SOCKS4, socks4a and
+        socks5h are SOCKS4 and SOCKS5, and the port defaults to the scheme's
+        defport (lib/protocol.c): 80 for http, 443 for https, 1080 for SOCKS.
+        Playwright's Firefox takes http, https, socks4 and socks5, and reads
+        an empty SOCKS port as NaN (ffBrowser.ts, toJugglerProxyOptions).
+        """
         for given, server in (
             ("proxy.example:3128", "http://proxy.example:3128"),
+            ("proxy.example", "http://proxy.example:80"),
+            ("http://proxy.example", "http://proxy.example:80"),
+            ("http://proxy.example:3128/path", "http://proxy.example:3128"),
+            ("https://proxy.example", "https://proxy.example:443"),
             ("socks5h://proxy.example:1080", "socks5://proxy.example:1080"),
             ("SOCKS4A://proxy.example:1080", "socks4://proxy.example:1080"),
             ("socks5://proxy.example:1080", "socks5://proxy.example:1080"),
-            ("https://proxy.example:443", "https://proxy.example:443"),
+            ("socks://proxy.example:1080", "socks4://proxy.example:1080"),
+            ("socks5h://proxy.example", "socks5://proxy.example:1080"),
+            ("socks5://proxy.example", "socks5://proxy.example:1080"),
+            ("socks4a://proxy.example", "socks4://proxy.example:1080"),
+            ("socks4://proxy.example", "socks4://proxy.example:1080"),
+            ("socks://proxy.example", "socks4://proxy.example:1080"),
         ):
             with self.subTest(given=given):
                 self.assertEqual(
                     session.proxy_settings(TARGET, {"ALL_PROXY": given, "no_proxy": "b.example"}),
                     {"server": server},
                 )
+
+    def test_a_proxy_firefox_cannot_reach_as_curl_does_fails(self) -> None:
+        """An IPv6 proxy address, or a scheme curl refuses, fails the browser rather than diverge.
+
+        Playwright hands Juggler the URL's hostname, which keeps an IPv6
+        address in brackets; Gecko takes that for a name it cannot resolve.
+        """
+        for given, error in (
+            ("socks5h://[2001:db8::1]:1080", "IPv6"),
+            ("http://[2001:db8::1]:3128", "IPv6"),
+            ("ftp://proxy.example:21", "ftp://"),
+            ("http://proxy.example:99999", "port"),
+        ):
+            with self.subTest(given=given), self.assertRaisesRegex(session.SessionError, error):
+                session.proxy_settings(TARGET, {"ALL_PROXY": given})
+        direct = {"ALL_PROXY": "socks5h://[2001:db8::1]:1080", "no_proxy": "a.example"}
+        self.assertIsNone(session.proxy_settings(TARGET, direct))
 
     def test_a_twin_curl_routes_otherwise_is_not_followed(self) -> None:
         """A redirect to the www. twin curl would reach through another proxy is reported instead.
@@ -381,6 +417,71 @@ class ProxyTest(unittest.TestCase):
         self.assertFalse(split.check("navigate", TARGET, twin, 0))
         alike = session.Policy(target=TARGET, token="t", environ=proxy)  # noqa: S106
         self.assertTrue(alike.check("redirect", TARGET, twin, 302))
+
+
+@unittest.skipIf(
+    tools.CURL.startswith("@"), "the source tree's tools are not store paths; run the package"
+)
+class CurlProxyTest(unittest.TestCase):
+    """curl-impersonate itself, on loopback, against the proxy the browser is given."""
+
+    def curl(self, proxy: str) -> subprocess.Popen[str]:
+        """Start curl on TARGET through proxy; a.example resolves to a documentation address."""
+        return subprocess.Popen(
+            [
+                tools.CURL,
+                "--disable",
+                "--silent",
+                "--verbose",
+                "--max-time",
+                "5",
+                "--resolve",
+                "a.example:443:192.0.2.1",
+                TARGET,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={"PATH": "/var/empty", "ALL_PROXY": proxy},
+        )
+
+    def test_default_port_is_curls(self) -> None:
+        """A proxy URL with no port: the browser's port is the one curl connects to."""
+        for scheme in ("http", "https", "socks", "socks4", "socks4a", "socks5", "socks5h"):
+            with self.subTest(scheme=scheme):
+                proxy = f"{scheme}://127.0.0.1"
+                _, log = self.curl(proxy).communicate(timeout=30)
+                tried = re.search(r"Trying 127\.0\.0\.1:(\d+)", log)
+                settings = session.proxy_settings(TARGET, {"ALL_PROXY": proxy}) or {}
+                self.assertIsNotNone(tried, log)
+                port = settings.get("server", "").rpartition(":")[2]
+                self.assertEqual(port, tried and tried[1])
+
+    def test_protocol_is_curls(self) -> None:
+        """The browser speaks to the proxy in the protocol curl's first bytes show."""
+        for scheme in ("http", "https", "socks", "socks4", "socks4a", "socks5", "socks5h"):
+            with (
+                self.subTest(scheme=scheme),
+                socket.create_server(("127.0.0.1", 0)) as listener,
+            ):
+                listener.settimeout(20)
+                proxy = f"{scheme}://127.0.0.1:{listener.getsockname()[1]}"
+                running = self.curl(proxy)
+                connection, _ = listener.accept()
+                with connection:
+                    connection.settimeout(20)
+                    first = connection.recv(16)
+                running.kill()
+                running.communicate()
+                spoken = {4: "socks4", 5: "socks5", 0x16: "https"}.get(first[0], "http")
+                self.assertEqual(first.startswith(b"CONNECT "), spoken == "http")
+                settings = session.proxy_settings(TARGET, {"ALL_PROXY": proxy})
+                self.assertEqual(scheme_of(settings), spoken)
+
+
+def scheme_of(settings: dict[str, str] | None) -> str:
+    """The scheme of Playwright's proxy server."""
+    return (settings or {}).get("server", "").partition("://")[0]
 
 
 CONFINED = """\
