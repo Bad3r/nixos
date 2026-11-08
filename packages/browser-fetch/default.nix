@@ -5,10 +5,13 @@
   python3,
   curl-impersonate,
   iproute2,
+  libx11,
   nspr,
   passt,
   util-linux,
+  xauth,
   xvfb,
+  xwininfo,
 }:
 let
   camoufox = callPackage ../camoufox { };
@@ -80,8 +83,12 @@ stdenvNoCC.mkDerivation {
     # Against the installed copy, whose tools are store paths.
     mkdir check
     cp -r $out/lib/browser-fetch/browser_fetch tests check/
-    # NSPR, whose PR_ParseTimeString Gecko reads cookie dates with, checks the port.
+    # NSPR, whose PR_ParseTimeString Gecko reads cookie dates with, checks the port;
+    # xauth reads the Xauthority files a login writes, and the X clients find and close its window.
     (cd check && BROWSER_FETCH_TEST_NSPR=${lib.getLib nspr}/lib/libnspr4.so \
+      BROWSER_FETCH_TEST_XAUTH=${lib.getExe xauth} \
+      BROWSER_FETCH_TEST_XWININFO=${lib.getExe xwininfo} \
+      BROWSER_FETCH_TEST_LIBX11=${lib.getLib libx11}/lib/libX11.so.6 \
       ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .)
     $out/bin/browser-fetch --help >/dev/null
     if find $out -name __pycache__ | grep .; then

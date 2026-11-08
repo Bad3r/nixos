@@ -16,11 +16,13 @@ import time
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
+from urllib.parse import urlsplit
 
-from browser_fetch import browser, convert, curl, fetch, tools, urls
+from browser_fetch import browser, convert, curl, display, fetch, tools, urls
 from browser_fetch import cookies as jar
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from types import FrameType
 
 USAGE_EXIT = 2
@@ -34,6 +36,8 @@ WORK_PREFIX = "browser-fetch-"
 OWNER = ".owner"
 # A directory this old without an owner file was left between mkdtemp and the lock.
 ORPHAN_SECONDS = 60
+LOGIN = "login"
+LOGIN_URL = "https://kagi.com/signin"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -48,7 +52,7 @@ def _parser() -> argparse.ArgumentParser:
             f"unusable, {FETCH_EXIT} fetch failed, {BROWSER_EXIT} browser failed, "
             f"{CONVERT_EXIT} document conversion failed, {INTERNAL_EXIT} unexpected error. A host "
             "that resolves to this machine or a private network is refused with "
-            f"{FETCH_EXIT}."
+            f"{FETCH_EXIT}. Run 'browser-fetch {LOGIN} [URL]' to sign in to a site in Camoufox."
         ),
     )
     parser.add_argument("url")
@@ -81,12 +85,14 @@ def _runtime_base() -> Path:
     return Path(runtime) if runtime and Path(runtime).is_dir() else Path(tempfile.gettempdir())
 
 
-def _save_dir() -> Path:
+def save_dir() -> Path:
+    """Where binary bodies are saved, under XDG_CACHE_HOME."""
     cache = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
     return Path(cache) / "browser-fetch"
 
 
-def _state_dir() -> Path:
+def state_dir() -> Path:
+    """Camoufox's profile and fingerprint, under XDG_STATE_HOME."""
     state = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     return Path(state) / "browser-fetch"
 
@@ -137,15 +143,53 @@ def claim(workdir: Path) -> int:
     return fd
 
 
+def _login_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog=f"browser-fetch {LOGIN}",
+        description=(
+            "Open a page in a Camoufox window on this display, with the profile and fingerprint "
+            "fetches use, to sign in by hand; closing the window saves the cookies to the jar."
+        ),
+        epilog=(
+            f"Exit status: {USAGE_EXIT} not an http or https URL, {COOKIE_EXIT} Camoufox's "
+            f"cookie database unusable, {BROWSER_EXIT} browser failed, {INTERNAL_EXIT} unexpected "
+            "error."
+        ),
+    )
+    parser.add_argument("url", nargs="?", default=LOGIN_URL, help=f"default {LOGIN_URL}")
+    return parser
+
+
 def _terminate(signum: int, frame: FrameType | None) -> NoReturn:  # noqa: ARG001
     raise SystemExit(128 + signum)
+
+
+def exit_on_signals() -> None:
+    """Turn SIGTERM, SIGHUP and SIGINT into SystemExit, so cleanup runs on the way out."""
+    for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(signum, _terminate)
+
+
+@contextlib.contextmanager
+def workspace() -> Generator[Path]:
+    """A private work directory for one run, removed with it; one a killed run left is swept."""
+    base = _runtime_base()
+    sweep(base)
+    workdir = Path(tempfile.mkdtemp(prefix=f"{WORK_PREFIX}{os.getpid()}-", dir=base))
+    owner = claim(workdir)
+    try:
+        yield workdir
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            shutil.rmtree(workdir)
+        os.close(owner)
 
 
 def camoufox(workdir: Path) -> browser.Camoufox:
     """The fallback browser with its state under XDG_STATE_HOME."""
     return browser.Camoufox(
         browser.Tools(tools.UNSHARE, tools.SESSION, tools.CAMOUFOX_VERSION, tools.PASTA),
-        _state_dir(),
+        state_dir(),
         workdir,
     )
 
@@ -212,25 +256,24 @@ def _unexpected(error: BaseException) -> int:
 def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per failure class
     """Run the command line and return its exit status."""
     os.umask(0o077)
-    args = _parser().parse_args(argv)
-    for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
-        signal.signal(signum, _terminate)
-    base = _runtime_base()
-    sweep(base)
-    workdir = Path(tempfile.mkdtemp(prefix=f"{WORK_PREFIX}{os.getpid()}-", dir=base))
-    owner = claim(workdir)
+    given = sys.argv[1:] if argv is None else argv
+    if given[:1] == [LOGIN]:
+        return login(given[1:])
+    args = _parser().parse_args(given)
+    exit_on_signals()
     try:
-        settings = fetch.Settings(
-            curl=tools.CURL,
-            browser=camoufox(workdir),
-            workdir=workdir,
-            save_dir=_save_dir(),
-            use_cookies=not args.no_cookies,
-            browser_mode=args.browser,
-            deadline=args.deadline,
-            resolve=urls.lookup,
-        )
-        page = fetch.fetch(args.url, settings)
+        with workspace() as workdir:
+            settings = fetch.Settings(
+                curl=tools.CURL,
+                browser=camoufox(workdir),
+                workdir=workdir,
+                save_dir=save_dir(),
+                use_cookies=not args.no_cookies,
+                browser_mode=args.browser,
+                deadline=args.deadline,
+                resolve=urls.lookup,
+            )
+            page = fetch.fetch(args.url, settings)
     except urls.UrlError as error:
         return _fail(str(error), USAGE_EXIT, error)
     except jar.CookieError as error:
@@ -247,11 +290,43 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - one exit per 
         # A signal: the exit status says so, and the warnings still go out.
         _warn(list(getattr(error, "__notes__", [])))
         raise
-    finally:
-        with contextlib.suppress(FileNotFoundError):
-            shutil.rmtree(workdir)
-        os.close(owner)
     _print(page, args)
+    return 0
+
+
+def login(argv: list[str]) -> int:
+    """Run browser-fetch login: a window on the user's display until they close it."""
+    args = _login_parser().parse_args(argv)
+    exit_on_signals()
+    url = str(args.url)
+    try:
+        host = urlsplit(url).hostname if urlsplit(url).scheme in {"http", "https"} else None
+    except ValueError:
+        host = None
+    if not host:
+        return _fail(f"not an http or https URL: {url}", USAGE_EXIT)
+    try:
+        screen = display.local_display(os.environ)
+        with workspace() as workdir:
+            fallback = camoufox(workdir)
+            print(f"browser-fetch: opening {url}; close the window when done", file=sys.stderr)
+            warnings = fallback.login(url, screen, time.monotonic() + browser.LOGIN_SECONDS)
+            database = fallback.profile / jar.DB_NAME
+            try:
+                stored = fallback.jar(time.monotonic() + browser.JAR_LOCK_SECONDS + 1)
+            except browser.BrowserError as error:
+                warnings.append(f"the jar could not be read back: {error}")
+                stored = None
+    except jar.CookieError as error:
+        return _fail(str(error), COOKIE_EXIT, error)
+    except (browser.BrowserError, display.DisplayError) as error:
+        return _fail(str(error), BROWSER_EXIT, error)
+    except Exception as error:  # noqa: BLE001 - anything else is one line, not a traceback
+        return _unexpected(error)
+    _warn(warnings)
+    if stored is not None:
+        kept = jar.for_request(stored, url, jar.now_us() // 1000)
+        print(f"{len(kept)} cookies for {host} are in {database}")
     return 0
 
 

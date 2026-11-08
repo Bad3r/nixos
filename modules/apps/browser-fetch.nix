@@ -16,6 +16,7 @@
     --browser auto|never|always: When to render in Camoufox (default auto).
     --deadline SECONDS: How long the whole fetch may take (default 240).
     --no-cookies: Neither read nor write Camoufox's cookie jar.
+    login [URL]: Open URL (default https://kagi.com/signin) in a Camoufox window on this display to sign in by hand; closing it saves the cookies to the jar.
 */
 _:
 let

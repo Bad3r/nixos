@@ -2,7 +2,8 @@
 """Camoufox headed on a private Xvfb display, run as init of browser.py's namespace.
 
 argv: the request file browser.py wrote. The result goes to result.json in the
-work directory, the page to page.html or page.body beside it.
+work directory, the page to page.html or page.body beside it. A login opens
+its window on the user's display instead, whose socket alone is bound in.
 
 The namespace has its own network, which browser.py connects with pasta once
 netns.ready appears; network.ready answers it. Routes to this machine and to
@@ -34,7 +35,7 @@ from browser_fetch import browser, challenge, curl, tools, urls
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from playwright.sync_api import BrowserContext, Page, Request, Response
+    from playwright.sync_api import BrowserContext, Page, Playwright, Request, Response
 
 # The identity drawn once per browser release, by Camoufox's own launcher.
 # Linux is the host's OS: on Xvfb's software rendering Camoufox then needs no
@@ -48,6 +49,8 @@ SETTLE_SECONDS = 30
 CLOSE_SECONDS = 10
 # How long Camoufox may take to install the guard addon after launch.
 GUARD_SECONDS = 30
+# How often a login looks for its windows being closed.
+LOGIN_POLL_MS = 1000
 POLL_SECONDS = 0.5
 STABLE_POLLS = 2
 STABLE_POLLS_SPARSE = 6
@@ -233,20 +236,25 @@ def _headers_server() -> tuple[http.server.HTTPServer, dict[str, str]]:
     return server, seen
 
 
-def private_tmp(keep: list[Path]) -> None:
+def private_tmp(keep: list[Path], files: list[Path] | None = None) -> None:
     """Give the namespace its own /tmp, so Xvfb's socket and lock die with it.
 
-    Paths under the old /tmp that the session needs are bound back in.
+    The directories in keep and the files in files, such as an X display's
+    socket, that lie under the old /tmp are bound back in, and nothing else.
     """
     libc = ctypes.CDLL(None, use_errno=True)
     old = os.open("/tmp", os.O_PATH | os.O_DIRECTORY)  # noqa: S108 - the mount point
     if libc.mount(b"tmpfs", b"/tmp", b"tmpfs", _MS_NOSUID | _MS_NODEV, b"mode=1777") != 0:
         raise OSError(ctypes.get_errno(), "mounting a private /tmp failed")
-    for path in keep:
+    for path, is_file in [*((k, False) for k in keep), *((f, True) for f in files or [])]:
         if path.parts[:2] != ("/", "tmp"):
             continue
         relative = Path(*path.parts[2:])
-        path.mkdir(parents=True, exist_ok=True)
+        if is_file:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        else:
+            path.mkdir(parents=True, exist_ok=True)
         source = f"/proc/self/fd/{old}/{relative}".encode()
         if libc.mount(source, str(path).encode(), None, _MS_BIND | _MS_REC, None) != 0:
             raise OSError(ctypes.get_errno(), f"binding {path} into the private /tmp failed")
@@ -525,20 +533,25 @@ def _settle(page: Page, policy: Policy, until: float) -> dict[str, Any]:
     return state
 
 
-def _render(
-    request: dict[str, Any], state: Path, env: dict[str, str], until: float
-) -> dict[str, Any]:
-    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+def _launch(  # noqa: PLR0913 - what one launch of the persistent profile takes
+    playwright: Playwright,
+    request: dict[str, Any],
+    *,
+    state: Path,
+    env: dict[str, str],
+    until: float,
+    addons: list[str],
+) -> BrowserContext:
+    """Start the browser on the request's profile with the fingerprint, as a fetch does.
 
+    addons go after the ones the build bundles; curl's proxy for the
+    request's URL is the browser's.
+    """
     fingerprint = cast("dict[str, Any]", json.loads((state / "fingerprint.json").read_text()))
-    url = str(request["url"])
-    policy = Policy(target=url, token=secrets.token_urlsafe(24), environ=os.environ)
-    server = policy_server(policy)
     config = dict(cast("dict[str, Any]", fingerprint["config"]))
     # The addons the build bundles, from this build: a store path may move.
     bundled = Path(tools.CAMOUFOX).parent / "addons"
-    addons = [str(bundled / Path(a).name) for a in config.get("addons", [])]
-    config["addons"] = [*addons, str(_guard(policy, server.server_port))]
+    config["addons"] = [*(str(bundled / Path(a).name) for a in config.get("addons", [])), *addons]
     # Neither is visible to a page. The JSON viewer off leaves the JSON as the
     # document; no disk cache keeps a page fetched with the profile's cookies.
     prefs = {
@@ -546,22 +559,46 @@ def _render(
         "devtools.jsonview.enabled": False,
         "browser.cache.disk.enable": False,
     }
+    return playwright.firefox.launch_persistent_context(
+        user_data_dir=str(request["profile"]),
+        executable_path=tools.CAMOUFOX,
+        headless=False,
+        env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
+        firefox_user_prefs=prefs,
+        no_viewport=True,
+        color_scheme="null",
+        reduced_motion="null",
+        forced_colors="null",
+        contrast="null",
+        proxy=proxy_settings(str(request["url"]), os.environ),  # type: ignore[arg-type]
+        timeout=_ms(until, START_SECONDS),
+    )
+
+
+def _close(context: BrowserContext) -> list[str]:
+    """Close the browser, which writes the cookies it holds to the profile; warn if it fails."""
+    try:
+        context.close()
+    except Exception as error:  # noqa: BLE001 - what the session did still stands
+        first = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
+        return [f"the browser did not close cleanly, so cookies it set may be lost: {first}"]
+    return []
+
+
+def _render(
+    request: dict[str, Any], state: Path, env: dict[str, str], until: float
+) -> dict[str, Any]:
+    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+
+    url = str(request["url"])
+    policy = Policy(target=url, token=secrets.token_urlsafe(24), environ=os.environ)
+    server = policy_server(policy)
     document: list[Response] = []
     try:
         with sync_playwright() as playwright:
-            context: BrowserContext = playwright.firefox.launch_persistent_context(
-                user_data_dir=str(request["profile"]),
-                executable_path=tools.CAMOUFOX,
-                headless=False,
-                env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
-                firefox_user_prefs=prefs,
-                no_viewport=True,
-                color_scheme="null",
-                reduced_motion="null",
-                forced_colors="null",
-                contrast="null",
-                proxy=proxy_settings(url, os.environ),  # type: ignore[arg-type]
-                timeout=_ms(until, START_SECONDS),
+            guard = str(_guard(policy, server.server_port))
+            context = _launch(
+                playwright, request, state=state, env=env, until=until, addons=[guard]
             )
             try:
                 result = drive(context, request, policy, document, until - CLOSE_SECONDS)
@@ -569,17 +606,61 @@ def _render(
                 with contextlib.suppress(Exception):
                     context.close()
                 raise
-            try:
-                context.close()
-            except Exception as error:  # noqa: BLE001 - the page is still the result
-                first = str(error).splitlines()[0][:200] if str(error) else type(error).__name__
-                result["warnings"] = [
-                    f"the browser did not close cleanly, so cookies it set may be lost: {first}"
-                ]
+            warnings = _close(context)
+            if warnings:
+                result["warnings"] = warnings
             return result
     finally:
         server.shutdown()
         server.server_close()
+
+
+def _login(
+    request: dict[str, Any], state: Path, env: dict[str, str], until: float
+) -> dict[str, Any]:
+    """Open the request's URL in a window and wait until the user closes every one.
+
+    No guard limits where the user goes. At until the browser is closed for
+    them. Either way it closes through Playwright, as a render's does, so
+    the cookies it holds reach the profile.
+    """
+    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+
+    with sync_playwright() as playwright:
+        context = _launch(playwright, request, state=state, env=env, until=until, addons=[])
+        try:
+            page = context.pages[0] if context.pages else context.new_page()
+            with contextlib.suppress(Exception):
+                # A page that fails to load still leaves the window to the user.
+                page.goto(str(request["url"]), wait_until="commit", timeout=_ms(until, 30))
+            closed = await_windows_closed(context, until - CLOSE_SECONDS)
+        except BaseException:
+            with contextlib.suppress(Exception):
+                context.close()
+            raise
+        warnings = _close(context)
+    if not closed:
+        warnings.insert(0, f"the login took longer than {browser.LOGIN_SECONDS // 60} minutes")
+    return {"closed": closed, "warnings": warnings}
+
+
+def await_windows_closed(context: BrowserContext, until: float) -> bool:
+    """Wait until the browser has no page left, or until passes; whether it has none.
+
+    Waiting on a page's close event keeps Playwright's connection serviced,
+    so a window the user closes is seen.
+    """
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError  # noqa: PLC0415
+
+    while context.pages:
+        left = until - time.monotonic()
+        if left <= 0:
+            return False
+        try:
+            context.pages[0].wait_for_event("close", timeout=min(LOGIN_POLL_MS, left * 1000))
+        except PlaywrightTimeoutError:
+            continue
+    return True
 
 
 def drive(
@@ -725,21 +806,29 @@ def main(argv: list[str] | None = None) -> int:
     workdir = Path(str(request["workdir"]))
     state = Path(str(request["state"]))
     until = time.monotonic() + float(request["seconds"])
+    login = request["mode"] == "login"
     server: subprocess.Popen[bytes] | None = None
     try:
-        private_tmp([workdir, state])
+        private_tmp([workdir, state], [Path(str(request["socket"]))] if login else [])
         await_network(workdir, until)
         confine_network()
         drop_capabilities()
-        server, display = start_xvfb(until)
+        if login:
+            display = str(request["display"])
+        else:
+            server, display = start_xvfb(until)
         home = state / "home"
         home.mkdir(mode=0o700, exist_ok=True)
         env = browser_env(home, display)
+        if login:
+            env["XAUTHORITY"] = str(request["xauthority"])
         # Camoufox's launcher writes its fontconfig under its cache directory.
         os.environ.update(HOME=env["HOME"], XDG_CACHE_HOME=env["XDG_CACHE_HOME"], TMPDIR="/tmp")  # noqa: S108
         if request["mode"] == "generate":
             _generate(state, env, until)
             result: dict[str, Any] = {"generated": True}
+        elif login:
+            result = _login(request, state, env, until)
         else:
             result = _render(request, state, env, until)
     except Exception as error:  # noqa: BLE001 - reported to browser.py in one line

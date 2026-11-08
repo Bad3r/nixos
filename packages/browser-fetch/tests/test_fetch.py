@@ -22,7 +22,7 @@ HTML = {"Content-Type": "text/html; charset=utf-8"}
 PAGE = "<h1>Hello</h1><p>" + "words " * 40 + "</p>"
 IDENTITY = curl.Identity("Camoufox/UA", "en-US,en;q=0.9")
 URL = "https://a.example/"
-BUSY = "another fetch kept the browser profile busy; try again"
+BUSY = "another fetch or a login kept the browser profile busy; try again"
 
 
 def profile_cookie(name: str, value: str, host: str, path: str = "/") -> jar.Cookie:

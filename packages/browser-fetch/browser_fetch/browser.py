@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlsplit
 
 from browser_fetch import cookies as jar
-from browser_fetch import curl, urls
+from browser_fetch import curl, display, urls
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -29,6 +29,8 @@ LOCK_SECONDS = 90
 # then goes on without it: it never stalls a fetch behind another one's render.
 JAR_LOCK_SECONDS = 2
 GENERATE_SECONDS = 90
+# How long browser-fetch login keeps the browser, and the profile, before closing it.
+LOGIN_SECONDS = 30 * 60
 FINGERPRINT = "fingerprint.json"
 LOCK = "camoufox.lock"
 PROFILE = "profile"
@@ -39,6 +41,8 @@ _ENV_KEEP = ("LANG", "LC_ALL", "TZ", *curl.PROXY_VARIABLES, *curl.NO_PROXY_VARIA
 # The session's handshake files in the work directory (session.py).
 NETNS_READY = "netns.ready"
 NETWORK_READY = "network.ready"
+# The display's entries of the user's Xauthority, for a login's browser.
+XAUTHORITY = "xauthority"
 NETWORK_SECONDS = 15
 # pasta gives the namespace the host's outbound connectivity and nothing
 # else: no host loopback or gateway mapping and no port forwarding either way.
@@ -179,7 +183,7 @@ class Camoufox:
             except BlockingIOError:
                 if self.clock() >= give_up:
                     os.close(fd)
-                    msg = "another fetch kept the browser profile busy; try again"
+                    msg = "another fetch or a login kept the browser profile busy; try again"
                     raise BrowserError(msg) from None
                 time.sleep(_POLL_SECONDS)
             else:
@@ -285,6 +289,36 @@ class Camoufox:
         finally:
             os.close(lock)
         return self._rendered(result)
+
+    def login(self, url: str, screen: display.Display, until: float) -> list[str]:
+        """Open url in a window on the user's display, on the persistent profile.
+
+        The browser starts as a render's does, in the same namespace and
+        with the same fingerprint, but with no guard on where it navigates,
+        and keeps the profile lock until its windows are closed or until
+        passes. Closing the browser writes its persistent cookies to the jar.
+        Returns the session's warnings.
+        """
+        self.identity(until)
+        authority = self.workdir / XAUTHORITY
+        authority.unlink(missing_ok=True)
+        display.write_authority(authority, screen)
+        lock = self._lock(until)
+        try:
+            result = self._session(
+                "login",
+                {
+                    "url": url,
+                    "profile": str(self.profile),
+                    "display": screen.name,
+                    "socket": str(screen.socket),
+                    "xauthority": str(authority),
+                },
+                until,
+            )
+        finally:
+            os.close(lock)
+        return [str(w) for w in cast("list[Any]", result.get("warnings") or [])]
 
     def _check_proxy(self, url: str) -> None:
         """Fail before the browser starts when curl's proxy for url is out of its reach.
