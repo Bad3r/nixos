@@ -29,7 +29,7 @@ Verify that the record's `via` is `curl` and its `status` is `200`.
 - Camoufox's jar; on the same name, host and path, Camoufox's cookie wins.
 - Cookies the site set on an earlier redirect of the same fetch, which win over both.
 - Expired rows of either jar count for nothing.
-  A cookie a redirect deletes stays deleted for the rest of the fetch, in Camoufox's profile too.
+  A cookie a redirect deletes stays deleted for the rest of the fetch, and a fetch that falls back to Camoufox deletes it from Camoufox's profile too.
 
 `--no-cookies` leaves LibreWolf out; Camoufox's jar still goes along.
 
