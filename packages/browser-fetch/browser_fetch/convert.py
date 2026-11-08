@@ -277,7 +277,9 @@ def html_to_markdown(html: str, seconds: float = CONVERT_SECONDS) -> str:
 
 def visible_length(markdown: str) -> int:
     """Return how many characters of the Markdown a reader sees."""
-    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", markdown)
+    # Each part stops at the next bracket, so a page of unclosed brackets
+    # takes linear time; a target may hold one level of parentheses.
+    text = re.sub(r"!?\[([^\[\]]*)\]\((?:[^()]|\([^()]*\))*\)", r"\1", markdown)
     text = re.sub(r"[#*_`>|\\-]", " ", text)
     return len("".join(text.split()))
 

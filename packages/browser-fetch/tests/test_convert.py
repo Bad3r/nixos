@@ -114,6 +114,20 @@ class HtmlTest(unittest.TestCase):
     def test_visible_length(self) -> None:
         """Link targets and Markdown punctuation do not count as text."""
         self.assertEqual(convert.visible_length("# A [b](https://long.example/path) *c*"), 3)
+        self.assertEqual(convert.visible_length("[w](https://en.example/Foo_(bar))"), 1)
+
+    def test_visible_length_is_linear(self) -> None:
+        """Unclosed brackets, which markitdown passes through, never rescan the page.
+
+        Each case is quadratic under a pattern that scans to the next closing
+        bracket from every opening one: about 20 minutes for 1 MiB.
+        """
+        size = convert.HTML_LIMIT
+        for page in ("[" * size, "[a](" * (size // 4), "[a]" + "(" * size):
+            with self.subTest(page=page[:6]):
+                started = time.monotonic()
+                convert.visible_length(page)
+                self.assertLess(time.monotonic() - started, 5)
 
 
 class Utf16Test(unittest.TestCase):
