@@ -218,6 +218,11 @@ def _content(run: _Fetch, page: Page, body: bytes) -> None:
     page.text = convert.decode(body, content_type)
 
 
+def _successful(status: int) -> bool:
+    """Whether WebFetch reads the body: the 2xx class; any other status is an HTTP error."""
+    return 200 <= status < 300  # noqa: PLR2004 - the 2xx class
+
+
 def _via_browser(run: _Fetch, url: str, page_url: str, reason: str) -> Page:
     rendered = run.render(page_url)
     if rendered.blocked is not None:
@@ -230,6 +235,8 @@ def _via_browser(run: _Fetch, url: str, page_url: str, reason: str) -> Page:
             redirect_from=rendered.blocked.origin,
             redirect_to=rendered.blocked.target,
         )
+    if not _successful(rendered.status):
+        return Page("http_error", url, rendered.status, via="browser", reason=reason)
     page = Page(
         "ok",
         url,
@@ -301,7 +308,7 @@ def _answer(run: _Fetch, url: str, current: str, response: curl.Response) -> Pag
     content_type = response.header("content-type") or ""
     html = convert.decode(body, content_type) if convert.is_html(content_type) else None
     page = Page("ok", url, response.status, content_type=content_type, bytes=len(body))
-    ok = 200 <= response.status < 300  # noqa: PLR2004 - the 2xx class
+    ok = _successful(response.status)
     visible = None
     if html is not None and ok:
         page.text = convert.html_to_markdown(html, run.left())

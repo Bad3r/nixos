@@ -248,8 +248,29 @@ class FetchTest(unittest.TestCase):
         )
         self.assertIn("# Hello", page.text)
 
-    def test_unclearable_challenge_is_a_page(self) -> None:
-        """A challenge still showing is returned as the page, with the browser's status."""
+    def test_browser_error_status_is_an_http_error(self) -> None:
+        """A document the browser ends on outside 2xx is an HTTP error, as from curl.
+
+        WebFetch reads no body of an error status, so nothing is converted or saved.
+        """
+        self.fake.serve(
+            {"https://a.example/": {"status": 403, "headers": {"cf-mitigated": "challenge"}}}
+        )
+        always = dataclasses.replace(self.settings, browser_mode="always")
+        for settings, status in ((self.settings, 403), (self.settings, 503), (always, 404)):
+            with self.subTest(mode=settings.browser_mode, status=status):
+                self.browser.rendered = self.rendered(
+                    status=status, html=None, body=b"\x89PNG-bytes", content_type="image/png"
+                )
+                page = fetch.fetch("https://a.example/", settings)
+                self.assertEqual(
+                    (page.outcome, page.status, page.via, page.text, page.saved_path),
+                    ("http_error", status, "browser", "", None),
+                )
+        self.assertEqual(len(self.fake.calls()), 2)
+
+    def test_unclearable_challenge_is_an_http_error(self) -> None:
+        """A challenge still showing on a 403 is reported as the 403, as curl's would be."""
         self.fake.serve(
             {"https://a.example/": {"status": 403, "headers": {"cf-mitigated": "challenge"}}}
         )
@@ -257,8 +278,10 @@ class FetchTest(unittest.TestCase):
             status=403, html="<h1>Additional Verification Required</h1>"
         )
         page = fetch.fetch("https://a.example/", self.settings)
-        self.assertEqual((page.outcome, page.status, page.status_text), ("ok", 403, "Forbidden"))
-        self.assertIn("Additional Verification Required", page.text)
+        self.assertEqual(
+            (page.outcome, page.status, page.status_text, page.reason),
+            ("http_error", 403, "Forbidden", "a Cloudflare challenge"),
+        )
 
     def test_browser_dom_is_not_decoded_twice(self) -> None:
         """The DOM is text: a meta charset in it no longer applies."""
