@@ -45,6 +45,7 @@ class FileLog:
                 self.path.replace(self.path.with_name(f"{self.path.name}.1"))
             descriptor = os.open(self.path, LOG_FLAGS, FILE_MODE)
             try:
+                os.fchmod(descriptor, FILE_MODE)
                 os.write(descriptor, entry)
             finally:
                 os.close(descriptor)

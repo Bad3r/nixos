@@ -121,3 +121,27 @@ class CliTest(unittest.TestCase):
         code, _, err = call(["x"], client.ChallengeError())
         self.assertEqual(code, cli.CHALLENGE_EXIT)
         self.assertTrue(err.startswith("kagi-search: "))
+
+    def test_a_multiline_reason_prints_one_line(self) -> None:
+        """A reason spanning lines reaches stderr as one line."""
+        _, _, err = call(["x"], cookie.SessionError("profiles.ini:\n\tbad line"))
+        self.assertEqual(err, "kagi-search: profiles.ini: bad line\n")
+
+    def test_an_output_failure_is_reported_and_logged(self) -> None:
+        """A failure while printing the hits exits 6 and is logged."""
+        out = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+        err = io.StringIO()
+        hits = [Hit("\u00e9", "https://x.org/", "")]
+        with (
+            unittest.mock.patch.object(cli, "run", unittest.mock.Mock(return_value=hits)),
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+        ):
+            code = cli.main(["x"])
+        self.assertEqual(code, cli.FAILURE_EXIT)
+        self.assertIn("UnicodeEncodeError", self.log.read_text())
+
+    def test_known_failures_log_no_traceback(self) -> None:
+        """Only unexpected errors carry a traceback in the log."""
+        call(["x"], client.SearchError("Kagi answered HTTP 503"))
+        self.assertNotIn("Traceback", self.log.read_text())

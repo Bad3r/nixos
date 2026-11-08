@@ -83,14 +83,14 @@ def main(argv: list[str] | None = None) -> int:
     query = " ".join(args.query)
     try:
         hits = run(query, allowed=args.allow, blocked=args.block, limit=max(args.limit, 1))
+        if args.json:
+            print(json.dumps({"query": query, "hits": [asdict(hit) for hit in hits]}))
+        else:
+            print(render(hits))
     except Exception as error:  # noqa: BLE001 - every failure is reported and logged
-        code = next((c for kind, c in EXIT_CODES if isinstance(error, kind)), FAILURE_EXIT)
-        detail = "" if code != FAILURE_EXIT else "\n" + "".join(traceback.format_exception(error))
+        known = next((c for kind, c in EXIT_CODES if isinstance(error, kind)), None)
+        detail = "" if known else "\n" + "".join(traceback.format_exception(error))
         FileLog(log_path())(f"search {query!r} failed: {type(error).__name__}: {error}{detail}")
-        print(f"kagi-search: {error}", file=sys.stderr)
-        return code
-    if args.json:
-        print(json.dumps({"query": query, "hits": [asdict(hit) for hit in hits]}))
-    else:
-        print(render(hits))
+        print(f"kagi-search: {' '.join(str(error).split())}", file=sys.stderr)
+        return known or FAILURE_EXIT
     return 0

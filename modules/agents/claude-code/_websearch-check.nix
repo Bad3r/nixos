@@ -38,8 +38,16 @@ pkgs.writeShellApplication {
 
     problems=()
     if binary=$(readlink -e -- "$claude") && [[ -x $binary ]]; then
+      # A launcher script (nixpkgs' makeWrapper) holds no strings of its own;
+      # the executables it names do.
+      scanned=("$binary")
+      if [[ $(head -c 2 -- "$binary") == '#!' ]]; then
+        while IFS= read -r named; do
+          if [[ -f $named && -x $named ]]; then scanned+=("$named"); fi
+        done < <(grep -o '/[^[:space:]"'"'"']*' -- "$binary" | sort -u)
+      fi
       for text in ${lib.escapeShellArgs literals}; do
-        LC_ALL=C grep -qaF -- "$text" "$binary" || problems+=("no longer contains: $text")
+        LC_ALL=C grep -qaF -- "$text" "''${scanned[@]}" || problems+=("no longer contains: $text")
       done
       work=$(mktemp -d)
       trap 'rm -rf "$work"' EXIT
