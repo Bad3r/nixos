@@ -21,7 +21,7 @@ runCommandCC "ddisasm-roundtrip"
     test -s fixture.gtirb
     test -s fixture.s
     cmp original original.saved
-    cc -no-pie fixture.s -o rebuilt
+    cc -nostartfiles -no-pie fixture.s -o rebuilt
     ./original > expected
     ./rebuilt > actual
     cmp expected actual

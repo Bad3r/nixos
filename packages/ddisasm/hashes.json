@@ -1,26 +1,42 @@
 {
-	"ddisasm": {
-		"version": "1.9.6-unstable-2026-11-05",
-		"rev": "61219a946ff67291ae3bf9327734565eeb901499",
-		"hash": "sha256-dA2hAmn0sAFi5cga6400szPI3aYT6XyGQzdc7fGZdI0="
+	"version": "1.9.5",
+	"archives": {
+		"ddisasm": {
+			"version": "1.9.5-focal",
+			"url": "https://download.grammatech.com/gtirb/files/apt-repo/pool/stable/d/ddisasm/ddisasm_1.9.5-focal_amd64.deb",
+			"hash": "sha256-MAFPbA0SWTSmnK1IC8N+KeJAojK1HKTyMqXDBS90/oI="
+		},
+		"libgtirb": {
+			"version": "2.3.2-focal",
+			"url": "https://download.grammatech.com/gtirb/files/apt-repo/pool/stable/libg/libgtirb/libgtirb_2.3.2-focal_amd64.deb",
+			"hash": "sha256-2ZYtuvCv4QthKn0IfskEPJGWu8u0TtNZHVfP9tWBLyo="
+		},
+		"libgtirb-pprinter": {
+			"version": "2.2.5-focal",
+			"url": "https://download.grammatech.com/gtirb/files/apt-repo/pool/stable/libg/libgtirb-pprinter/libgtirb-pprinter_2.2.5-focal_amd64.deb",
+			"hash": "sha256-RcoAvNQXO7bwHSiCnhGnRebssGL9KKhm+eSEChne1G4="
+		},
+		"libcapstone-dev": {
+			"version": "1:5.0.1-gt",
+			"url": "https://download.grammatech.com/gtirb/files/apt-repo/pool/stable/libc/libcapstone-dev/libcapstone-dev_5.0.1_gt_amd64.deb",
+			"hash": "sha256-pvzf7tVbLypaiUK10pfgADcq7DFO3vtb2JS8p7zEHIU="
+		}
 	},
-	"gtirb": {
-		"version": "2.3.2",
-		"rev": "eb6a7af1bb9754de004147f292dc1c7728f62e56",
-		"hash": "sha256-rRmEc4OEfVJFg9hKKSb9waYLMzJkRK4Hf3zavwvvuzA="
-	},
-	"gtirb-pprinter": {
-		"version": "2.2.6-unstable-2026-10-26",
-		"rev": "7c17be239c6a71a46acf81cd9631b741d9e3fa68",
-		"hash": "sha256-NdLa8teYRWIo1C6dui82ww8qTTSfNPYwx6pDxBzQHgE="
-	},
-	"libehp": {
-		"version": "0.1.1-unstable-2022-04-23",
-		"rev": "5e41e26b88d415f3c7d3eb47f9f0d781cc519459",
-		"hash": "sha256-PZaht6gDhrKX+uoFrJjYVzOuDx5qISseT1KQCotFvw0="
-	},
-	"lief": {
-		"version": "0.16.6",
-		"hash": "sha256-SvwFyhIBuG0u5rE7+1OaO7VZu4/X4jVI6oFOm5+yCd8="
+	"runtime": {
+		"libboost-filesystem1.71.0": {
+			"version": "1.71.0-6ubuntu6",
+			"url": "https://archive.ubuntu.com/ubuntu/pool/main/b/boost1.71/libboost-filesystem1.71.0_1.71.0-6ubuntu6_amd64.deb",
+			"hash": "sha256-Z5MYTMK43w2kAf2+ePv1esWYQ4F3pq8WP5n58cFPnrg="
+		},
+		"libboost-program-options1.71.0": {
+			"version": "1.71.0-6ubuntu6",
+			"url": "https://archive.ubuntu.com/ubuntu/pool/main/b/boost1.71/libboost-program-options1.71.0_1.71.0-6ubuntu6_amd64.deb",
+			"hash": "sha256-OJCVxxZyUe5zZnAxpMD0UIOjE0fMlfrdvfW30irEx3Q="
+		},
+		"libprotobuf17": {
+			"version": "3.6.1.3-2ubuntu5.2",
+			"url": "https://archive.ubuntu.com/ubuntu/pool/main/p/protobuf/libprotobuf17_3.6.1.3-2ubuntu5.2_amd64.deb",
+			"hash": "sha256-caNL0M7Pt/Qwj6owPoXmuvXeVssnC9cO0JsNYO5OfDE="
+		}
 	}
 }
