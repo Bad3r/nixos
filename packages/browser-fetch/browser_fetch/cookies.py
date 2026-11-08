@@ -96,6 +96,7 @@ _BLANKS = " \t"
 # Checked with the name's case ignored (CookiePrefixes.cpp), longest first.
 _PREFIXES = ("__host-http-", "__host-", "__http-", "__secure-")
 _SAME_SITE = {"lax": SAME_SITE_LAX, "strict": SAME_SITE_STRICT, "none": SAME_SITE_NONE}
+_LOOPBACK_V4 = ipaddress.IPv4Network("127.0.0.0/8")
 _ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 type Key = tuple[str, str, str, str]
@@ -146,7 +147,7 @@ class Cookie:
         parts = urlsplit(url)
         return (
             not self.expired(now)
-            and (not self.secure or parts.scheme == "https")
+            and (not self.secure or trustworthy(url))
             and domain_match(parts.hostname or "", self.host)
             and path_match(parts.path or "/", self.path)
             and (not self.partition or self.partition == partition_key(url))
@@ -161,6 +162,27 @@ class Cookie:
 @functools.cache
 def _suffixes() -> PublicSuffixList:
     return PublicSuffixList()
+
+
+def trustworthy(url: str) -> bool:
+    """Whether Gecko sends and accepts Secure cookies for url (IsPotentiallyTrustworthyOrigin).
+
+    https, or a loopback host: localhost or a name under it, 127.0.0.0/8,
+    or ::1 without IPv4 mapping.
+    """
+    parts = urlsplit(url)
+    if parts.scheme == "https":
+        return True
+    host = (parts.hostname or "").lower()
+    if host.removesuffix(".") == "localhost" or host.removesuffix(".").endswith(".localhost"):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv4Address):
+        return address in _LOOPBACK_V4
+    return address == ipaddress.IPv6Address("::1")
 
 
 def _is_ip(host: str) -> bool:
@@ -576,7 +598,7 @@ def parse_set_cookie(line: str, url: str, now: int, date: str | None = None) -> 
     parts = urlsplit(url)
     request_host = (parts.hostname or "").lower()
     host = _host(attributes, request_host)
-    secure_origin = parts.scheme == "https"
+    secure_origin = trustworthy(url)
     if host is None or not _valid(name, value, attributes, host, secure_origin=secure_origin):
         return None
     created = CREATION.next(now)
@@ -598,7 +620,7 @@ def parse_set_cookie(line: str, url: str, now: int, date: str | None = None) -> 
         session=expiry is None,
         accessed=now,
         updated=created,
-        scheme_map=SCHEME_HTTPS if secure_origin else SCHEME_HTTP,
+        scheme_map=SCHEME_HTTPS if parts.scheme == "https" else SCHEME_HTTP,
     )
 
 

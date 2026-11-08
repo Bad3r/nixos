@@ -119,12 +119,27 @@ class MatchTest(unittest.TestCase):
         self.assertEqual(jar.for_request(cookies, "https://example.org/a", NOW), [])
 
     def test_secure(self) -> None:
-        """A Secure cookie is never sent over http."""
+        """A Secure cookie is never sent over http to a host other than loopback."""
         cookies = [cookie("s", "example.org", secure=True), cookie("plain", "example.org")]
         self.assertEqual(names(jar.for_request(cookies, "http://example.org/", NOW)), ["plain"])
         self.assertEqual(
             names(jar.for_request(cookies, "https://example.org/", NOW)), ["s", "plain"]
         )
+
+    def test_secure_to_loopback_over_http(self) -> None:
+        """Loopback is potentially trustworthy, so http to it sends Secure cookies as Gecko does."""
+        for host in ("localhost", "app.localhost", "127.0.0.1", "127.8.9.10", "::1"):
+            with self.subTest(host=host):
+                named = f"[{host}]" if ":" in host else host
+                url = f"http://{named}:8080/"
+                self.assertEqual(
+                    names(jar.for_request([cookie("s", host, secure=True)], url, NOW)), ["s"]
+                )
+        for host in ("10.0.0.1", "::ffff:127.0.0.1", "localhost.example"):
+            with self.subTest(host=host):
+                named = f"[{host}]" if ":" in host else host
+                url = f"http://{named}/"
+                self.assertEqual(jar.for_request([cookie("s", host, secure=True)], url, NOW), [])
 
     def test_expiry(self) -> None:
         """A cookie whose expiry, in milliseconds, is not after now is not sent (IsExpired)."""
@@ -324,6 +339,10 @@ class SetCookieTest(FreshClock):
     def test_secure_needs_a_secure_origin(self) -> None:
         """A Secure cookie from http is refused (eRejectedSecureButNonHttps)."""
         self.assertIsNone(jar.parse_set_cookie("a=1; Secure", "http://example.org/", NOW_US))
+        local = parsed("a=1; Secure", "http://localhost:8080/")
+        self.assertTrue(local.secure)
+        self.assertEqual(local.scheme_map, jar.SCHEME_HTTP)
+        self.assertTrue(parsed("__Host-a=1; Secure; Path=/", "http://127.0.0.1/").secure)
         self.assertEqual(parsed("a=1", "http://example.org/").scheme_map, jar.SCHEME_HTTP)
         self.assertEqual(parsed("a=1").scheme_map, jar.SCHEME_HTTPS)
 
