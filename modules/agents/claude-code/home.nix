@@ -34,6 +34,7 @@
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
+        _local-plugins.nix     nixos-local plugins and the app each one runs
         _permissions.nix       permissions and MCP server policy
         _hooks.nix             tool hooks from the shared registry (modules/agents/hooks.nix)
         _env.nix               environment variables
@@ -97,16 +98,19 @@ _: {
       localPluginKeys = lib.filter (lib.hasSuffix "@nixos-local") (lib.attrNames plugins.enabledPlugins);
       kagiWebsearch = plugins.enabledPlugins."kagi-websearch@nixos-local" or false;
       # A nixos-local plugin's app joins pkgs only while the plugin is enabled.
-      localApp =
-        plugin: app:
-        if plugins.enabledPlugins."${plugin}@nixos-local" or false then
-          osConfig.programs.${app}.extended.package
-        else
-          null;
       localMarketplace = import ./_marketplace.nix {
         inherit lib pkgs;
-        kagiSearch = localApp "kagi-websearch" "kagi-search";
-        browserFetch = localApp "browser-webfetch" "browser-fetch";
+        apps =
+          lib.mapAttrs
+            (_: local: {
+              inherit (local) option;
+              package = osConfig.programs.${local.app}.extended.package;
+            })
+            (
+              lib.filterAttrs (plugin: _: plugins.enabledPlugins."${plugin}@nixos-local" or false) (
+                import ./_local-plugins.nix
+              )
+            );
       };
       websearchCheck = import ./_websearch-check.nix {
         inherit lib pkgs;
