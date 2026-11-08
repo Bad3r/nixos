@@ -1,7 +1,7 @@
 # Host onboarding runbook
 
 Procedure for adding a NixOS host to this repository; its composition model is in [Host Composition](../architecture/05-host-composition.md).
-Commands below assume a linked worktree at the repository root, per the branch workflow in `CLAUDE.md`, except on the target machine: the validation ladder's boot step needs a clone made without `--recurse-submodules`, as that step explains.
+Commands below assume a linked worktree at the repository root, per the branch workflow in `AGENTS.md`, except on the target machine: the validation ladder's boot step needs a clone made without `--recurse-submodules`, as that step explains.
 Define `guarded_nix` in every shell used below; each call inventories ignored paths and requires the shared guard from [Troubleshooting](../architecture/07-troubleshooting.md) to pass before Nix starts. Benign inventory output may appear.
 
 ```sh

@@ -30,7 +30,7 @@ The directories fall into layers, from the flake root outward to documentation.
     Local derivations, with pin hashes, fixtures, and docs, and the overlay layer that injects each into nixpkgs.
 08. **Repo tooling, meta, and CI** (`scripts/`, `modules/meta`, `modules/packages`, `.github/`).
     Operational scripts, evaluation logic such as the unfree predicate and the package checks, and CI pipelines.
-09. **Documentation** (`docs/` and the root `README.md`, `CLAUDE.md`, and `AGENTS.md`).
+09. **Documentation** (`docs/` and the root `README.md` and `AGENTS.md`).
     Long-form references and agent prompt guides.
 10. **Project configuration** (`pyproject.toml`, git attributes, and the sops, gitleaks, typos, and rumdl policies).
     Repository-level policy and tooling dotfiles.
