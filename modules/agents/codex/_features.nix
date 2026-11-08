@@ -239,8 +239,9 @@
   # Allow registration of the built-in sleep tool.
   # sleep_tool = true; # Stable; upstream: true
 
-  # Expose the extension-backed standalone web search tool.
-  standalone_web_search = false; # UnderDevelopment; upstream: false
+  # Expose the extension-backed standalone web search tool; kagi-search-webrun
+  # answers it (home.nix).
+  standalone_web_search = true; # UnderDevelopment; upstream: false
 
   # Enable explicitly requested model changes for later step captures.
   # step_model_switching = false; # UnderDevelopment; upstream: false

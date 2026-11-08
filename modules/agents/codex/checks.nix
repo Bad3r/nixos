@@ -93,7 +93,7 @@ in
         "codex/web-run-contract" =
           let
             src = "${codexPkg.src}/codex-rs";
-            hasPatch = lib.any (patch: lib.hasSuffix "web-run-command.patch" (toString patch)) (
+            webRunPatch = lib.findFirst (patch: lib.hasSuffix "web-run-command.patch" (toString patch)) null (
               codexPkg.patches or [ ]
             );
             pinned = {
@@ -112,12 +112,20 @@ in
               echo "FAIL (codex ${codexPkg.version}): $1" >&2
               failed=1
             }
-            ${lib.optionalString (!hasPatch) ''
-              fail "llm-agents' codex lacks web-run-command.patch, so web.run would call OpenAI's alpha/search"
-            ''}
+            ${
+              if webRunPatch == null then
+                ''
+                  fail "llm-agents' codex lacks web-run-command.patch, so web.run would call OpenAI's alpha/search"
+                ''
+              else
+                ''
+                  grep -qF CODEX_WEB_RUN_COMMAND ${webRunPatch} \
+                    || fail "web-run-command.patch no longer reads CODEX_WEB_RUN_COMMAND, which home.nix sets"
+                ''
+            }
             ${lib.concatStrings (
               lib.mapAttrsToList (file: hash: ''
-                got=$(sha256sum ${src}/${file} | cut -d' ' -f1)
+                got=$(sha256sum ${src}/${file} | cut -d' ' -f1) || got=missing
                 [ "$got" = ${hash} ] || fail "${file} changed upstream (sha256 $got); recheck kagi-search-webrun against it, then update the pin"
               '') pinned
             )}

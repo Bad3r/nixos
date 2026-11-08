@@ -32,7 +32,7 @@ A mismatch prints a warning, writes `~/.local/state/kagi-search/claude-code-chec
 
 ## Codex search
 
-Codex runs its own `web.run` tool with the `standalone_web_search` feature, and `kagi-search-webrun` answers it in place of OpenAI's search service ([settings](../../../modules/agents/codex/_settings.nix)).
+Codex runs its own `web.run` tool with the `standalone_web_search` feature, and `kagi-search-webrun` answers it in place of OpenAI's search service ([feature flags](../../../modules/agents/codex/_features.nix)).
 The llm-agents Codex package carries the patch that sends each call to the program named by `CODEX_WEB_RUN_COMMAND`.
 Search uses Kagi; `open`, `click`, and `find` fetch pages locally and refuse loopback and private addresses.
 Codex sees only the service's own wording, failures included; the real reasons go to `~/.local/state/kagi-search/web-run.log`.
