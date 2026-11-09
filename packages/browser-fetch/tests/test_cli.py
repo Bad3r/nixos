@@ -100,6 +100,22 @@ class MainTest(unittest.TestCase):
         self.assertEqual(json.loads(out)["text"], "hi")
         self.assertEqual(list(self.runtime.iterdir()), [])
 
+    def test_text_output_takes_the_window(self) -> None:
+        """Without --json, --offset and --max-chars still choose the code units printed."""
+        self.fake.serve(
+            {
+                "https://example.org/": {
+                    "status": 200,
+                    "headers": {"Content-Type": "text/plain"},
+                    "body": "a😀bcdef",
+                }
+            }
+        )
+        status, out, _ = self.run_main("--offset", "3", "--max-chars", "2", "https://example.org/")
+        self.assertEqual((status, out), (0, "bc\n"))
+        status, out, _ = self.run_main("--offset", "2", "--max-chars", "2", "https://example.org/")
+        self.assertEqual((status, out), (0, "?b\n"))
+
     def test_failure_leaves_no_work_directory_and_no_cookie(self) -> None:
         """A failed fetch exits 4, masks the cookie and removes its work directory."""
         self.fake.serve(

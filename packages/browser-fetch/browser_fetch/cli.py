@@ -193,9 +193,14 @@ def camoufox(workdir: Path) -> browser.Camoufox:
     )
 
 
+def _window(text: str, offset: int, max_chars: int | None) -> str:
+    """The text from UTF-16 code unit offset on, at most max_chars code units."""
+    stop = None if max_chars is None else offset + max(max_chars, 0)
+    return convert.utf16_slice(text, offset, stop)
+
+
 def record(page: fetch.Page, offset: int, max_chars: int | None) -> dict[str, Any]:
     """Return the page as the JSON record the plugin reads."""
-    stop = None if max_chars is None else offset + max(max_chars, 0)
     out: dict[str, Any] = {
         "outcome": page.outcome,
         "url": page.url,
@@ -207,7 +212,7 @@ def record(page: fetch.Page, offset: int, max_chars: int | None) -> dict[str, An
         "binary": convert.is_binary(page.content_type) and not page.converted,
         "length": convert.utf16_length(page.text),
         "offset": offset,
-        "text": convert.utf16_slice(page.text, offset, stop),
+        "text": _window(page.text, offset, max_chars),
         "via": page.via,
     }
     if page.warnings:
@@ -224,12 +229,13 @@ def record(page: fetch.Page, offset: int, max_chars: int | None) -> dict[str, An
     return out
 
 
-def _render_text(page: fetch.Page) -> str:
+def _render_text(page: fetch.Page, offset: int, max_chars: int | None) -> str:
     if page.outcome == "redirect":
         return f"{page.url} redirects ({page.status}) to {page.redirect_to}"
     if page.outcome == "http_error":
         return f"{page.url} answered HTTP {page.status} {page.status_text}"
-    return page.text
+    # A window may split a surrogate pair, which no encoding writes as is.
+    return _window(page.text, offset, max_chars).encode("utf-8", "replace").decode("utf-8")
 
 
 def _warn(warnings: list[str]) -> None:
@@ -336,7 +342,8 @@ def _print(page: fetch.Page, args: argparse.Namespace) -> None:
     if os.environ.get("BROWSER_FETCH_DEBUG"):
         for note in page.notes:
             print(f"browser-fetch: note: {note}", file=sys.stderr)
+    offset = max(args.offset, 0)
     if args.json:
-        print(json.dumps(record(page, max(args.offset, 0), args.max_chars)))
+        print(json.dumps(record(page, offset, args.max_chars)))
     else:
-        print(_render_text(page))
+        print(_render_text(page, offset, args.max_chars))
