@@ -2,7 +2,7 @@
 
 `browser-fetch` fetches a web page the way Firefox does and prints it as Markdown ([module](../../../modules/apps/browser-fetch.nix), [package](../../../packages/browser-fetch/default.nix)).
 It requests the page through curl-impersonate's Firefox profile, which sets the TLS handshake, the HTTP/2 settings and the headers.
-The User-Agent and Accept-Language are those of its Camoufox fingerprint instead, so cookies Camoufox earned hold for curl too.
+Once a render or login has drawn the fingerprint of the current Camoufox release, the User-Agent and Accept-Language are the fingerprint's instead, so cookies Camoufox earned hold for curl too; until then curl sends its profile's own ([Camoufox's state](#camoufoxs-state)).
 curl, Camoufox and [kagi-search](../kagi-search/README.md) share one cookie jar under the profile lock, the `cookies.sqlite` of Camoufox's profile, so what one earns, the others send.
 
 The standalone `camoufox` command, built with `nix build path:.#camoufox`, is enabled only on Songbird through `programs.camoufox.extended.enable` ([module](../../../modules/browsers/camoufox/apps.nix)).
