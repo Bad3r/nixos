@@ -1,12 +1,13 @@
 /*
   Package: kagi-search
-  Description: Search Kagi with the session of LibreWolf's default profile.
+  Description: Search Kagi with the session in browser-fetch's cookie jar.
   Homepage: https://github.com/Bad3r/nixos
   Documentation: https://github.com/Bad3r/nixos/blob/main/docs/apps/kagi-search/README.md
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Reads the kagi_session cookie from a snapshot of LibreWolf's cookie database.
+    * Sends the kagi_session cookie of browser-fetch's Camoufox jar through browser-fetch's curl-impersonate, and writes back what Kagi sets.
+    * Sign in once with `browser-fetch login https://kagi.com`.
     * Prints Kagi's first results page as numbered hits or JSON.
     * kagi-search-webrun answers Codex's web.run tool in place of OpenAI's search service.
 
@@ -40,8 +41,8 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
-        # The session comes from LibreWolf.
-        programs.librewolf.extended.enable = lib.mkOverride 1050 true;
+        # The session comes from browser-fetch's cookie jar, which its login fills.
+        programs.browser-fetch.extended.enable = lib.mkOverride 1050 true;
       };
     };
 in

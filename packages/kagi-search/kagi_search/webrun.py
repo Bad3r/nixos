@@ -103,7 +103,7 @@ class StateError(Exception):
 class Searcher(Protocol):
     """Kagi search as cli.run offers it."""
 
-    def __call__(
+    def __call__(  # noqa: PLR0913 - keyword-only options of the search
         self,
         query: str,
         *,
@@ -111,8 +111,12 @@ class Searcher(Protocol):
         blocked: list[str] | None,
         limit: int,
         since: dt.date | None,
+        until: float,
     ) -> list[Hit]:
-        """Return the hits for the query, from pages Kagi dates since that day if given."""
+        """Return the hits for the query, from pages Kagi dates since that day if given.
+
+        The search ends by until, a monotonic time.
+        """
         ...
 
 
@@ -776,6 +780,7 @@ def _query(call: _Call, request: Request, search: Searcher, query: Query) -> lis
         blocked=request.blocked,
         limit=HITS_PER_LENGTH[request.length],
         since=since,
+        until=call.deadline,
     )
     return filter_hits(hits, allowed, request.blocked)
 
@@ -971,6 +976,8 @@ def main() -> int:
     A whole-call failure prints only what Codex prints for the service's HTTP 503
     and logs the real reason.
     """
+    # Searches write browser-fetch's cookie jar, as kagi-search's own main does.
+    os.umask(0o077)
     log = FileLog(log_path())
     try:
         value: object = json.loads(sys.stdin.buffer.read())

@@ -11,7 +11,7 @@ import unittest.mock
 from pathlib import Path
 from typing import cast, override
 
-from kagi_search import cli, client, cookie, fetch, webrun
+from kagi_search import cli, client, fetch, webrun
 from kagi_search.page import Hit
 
 from tests.captured import CAPTURED
@@ -34,7 +34,7 @@ PAGES = {
 }
 EXAMPLE_REF = webrun.Ref(EXAMPLE, "Example Domain", [])
 ARXIV_REF = webrun.Ref(ARXIV, "", [])
-FORBIDDEN = re.compile(r"kagi|librewolf|backend", re.IGNORECASE)
+FORBIDDEN = re.compile(r"kagi|browser-fetch|camoufox|backend", re.IGNORECASE)
 
 
 class Replay:
@@ -209,15 +209,16 @@ class CaptureTest(ParityTestCase):
         replay = Replay(self.directory, 0, {})
         hits = [Hit("Example Domains", "https://www.iana.org/help/example-domains", "s")]
 
-        def search(
+        def search(  # noqa: PLR0913 - the Searcher's options
             query: str,
             *,
             allowed: list[str] | None,
             blocked: list[str] | None,
             limit: int,
             since: dt.date | None,
+            until: float,
         ) -> list[Hit]:
-            del allowed, blocked, limit, since
+            del allowed, blocked, limit, since, until
             return hits if query == "iana" else []
 
         response = webrun.handle(
@@ -301,7 +302,7 @@ class LeakTest(ParityTestCase):
             {"sports": [{"fn": "standings", "league": "nfl"}]},
         ]
         failures: list[Exception] = [
-            cookie.SessionError("no kagi_session cookie in LibreWolf"),
+            client.SessionError(),
             client.SignedOutError(),
             client.ChallengeError(),
             client.SearchError("Kagi answered HTTP 503"),
@@ -324,5 +325,5 @@ class LeakTest(ParityTestCase):
         for text in seen:
             self.assertIsNone(FORBIDDEN.search(text), text[:200])
         log = (self.root / "kagi-search" / "web-run.log").read_text(encoding="utf-8")
-        self.assertIn("kagi_session", log)
+        self.assertIn("no Kagi session in browser-fetch's profile", log)
         self.assertTrue(all(json.loads(text) for text in seen[0::2] if text))

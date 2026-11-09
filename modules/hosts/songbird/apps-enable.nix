@@ -22,6 +22,7 @@ let
     lact = true;
     babashka = true;
     bibimbap = true;
+    camoufox = true;
     capstone = true;
     "realforce-connect" = true;
     openshell = true;

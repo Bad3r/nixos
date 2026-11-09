@@ -7,8 +7,13 @@
 	},
 	"plugins": [
 		{
+			"name": "browser-webfetch",
+			"description": "Routes the WebFetch tool to curl-impersonate and Camoufox, which share one cookie jar, with Camoufox rendering when a page needs a browser.",
+			"source": "./browser-webfetch"
+		},
+		{
 			"name": "kagi-websearch",
-			"description": "Routes the WebSearch tool to Kagi through the LibreWolf session.",
+			"description": "Routes the WebSearch tool to Kagi with the session in browser-fetch's cookie jar.",
 			"source": "./kagi-websearch"
 		}
 	]
