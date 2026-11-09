@@ -284,6 +284,26 @@ class SearchTest(unittest.TestCase):
         self.assertEqual((status, out), (cli.SESSION_EXIT, ""))
         self.assertIn("schema version 18", err)
 
+    def test_a_failed_jar_write_is_no_missing_session(self) -> None:
+        """A jar that takes no write after Kagi answered exits 6 with the database's reason."""
+        self.jar_rows(self.session("old"))
+        db = sqlite3.connect(self.database)
+        try:
+            db.execute(
+                "create trigger refuse before insert on moz_cookies "
+                "begin select raise(abort, 'disk is full'); end"
+            )
+            db.commit()
+        finally:
+            db.close()
+        renewed = "kagi_session=renewed; Max-Age=86400; Path=/; Secure; HttpOnly"
+        self.answer({"status": 200, "body": RESULTS, "headers": {"Set-Cookie": renewed}})
+        status, out, err = self.run_cli("nix")
+        self.assertEqual((status, out), (cli.FAILURE_EXIT, ""))
+        self.assertIn("disk is full", err)
+        self.assertNotIn(SIGN_IN, err)
+        self.assertEqual(self.stored(), {("kagi.com", "kagi_session"): "old"})
+
     def test_kagis_answers_map_to_exit_codes(self) -> None:
         """Sign-in redirect 4, challenge 5, any other status 6, each with its reason."""
         self.jar_rows(self.session())
