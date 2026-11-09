@@ -228,6 +228,8 @@ let
       iotop.extended.enable = lib.mkOverride 1100 true;
       iproute2.extended.enable = lib.mkOverride 1100 false;
       iptables.extended.enable = lib.mkOverride 1100 true;
+      irccat.extended.enable = lib.mkOverride 1100 false;
+      "ircd-hybrid".extended.enable = lib.mkOverride 1100 false;
       jadx.extended.enable = lib.mkOverride 1100 false;
       "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
       jnv.extended.enable = lib.mkOverride 1100 true;

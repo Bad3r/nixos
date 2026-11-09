@@ -48,6 +48,8 @@ let
     iaito = true;
     ilspycmd = true;
     imhex = true;
+    irccat = true;
+    "ircd-hybrid" = true;
     jadx = true;
     "llama-cpp" = true;
     "qwen-code" = true;
