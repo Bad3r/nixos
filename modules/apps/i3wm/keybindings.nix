@@ -180,8 +180,8 @@ in
               "${mod}+w" =
                 "exec --no-startup-id ${commands.focusOrLaunch} '${config.gui.i3.browserClass}' '${commands.browser}'";
               "${mod}+d" = "exec ${commands.launcher}";
-              "${mod}+b" = "exec ${commands.emoji}";
-              "${mod}+Shift+b" = "exec --no-startup-id ${commands.bluetoothMenu}";
+              "${mod}+bracketright" = "exec ${commands.emoji}";
+              "${mod}+b" = "exec --no-startup-id ${commands.bluetoothMenu}";
               "${mod}+s" = "exec ${commands.screenshot}";
               "${mod}+Shift+o" = "exec --no-startup-id ${commands.ocr}";
 
