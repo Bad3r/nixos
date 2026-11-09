@@ -141,14 +141,13 @@ class _Fetch:
         return remaining
 
     def load_identity(self) -> None:
-        """Take the browser fingerprint's headers for curl, drawing it only if the browser may run.
+        """Take the stored browser fingerprint's headers for curl; render draws a missing one.
 
         Without them curl sends its Firefox profile's own headers: a curl
-        fetch never fails for want of the browser's state.
+        fetch never fails or waits for want of the browser's state.
         """
-        may_render = self.settings.browser_mode != "never"
         try:
-            self.identity = self.settings.browser.identity(self.until, generate=may_render)
+            self.identity = self.settings.browser.identity(self.until, generate=False)
         except (browser.BrowserError, OSError) as error:
             self.notes.append(f"curl sends its profile's own headers: {error}")
             return
@@ -225,6 +224,8 @@ class _Fetch:
 
     def render(self, url: str) -> browser.Rendered:
         self.left()
+        # Camoufox starts with the stored fingerprint, drawn here if none fits its release.
+        self.settings.browser.identity(self.until)
         rendered = self.settings.browser.render(
             url, self.cookies, self.until, keep=self.settings.use_cookies
         )

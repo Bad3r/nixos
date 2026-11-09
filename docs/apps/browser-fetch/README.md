@@ -95,8 +95,8 @@ browser-fetch --browser never https://example.org/
 
 Camoufox keeps one profile and one fingerprint under `$XDG_STATE_HOME/browser-fetch/`, mode 0700, so a challenge it passed stays passed.
 The fingerprint is drawn once per Camoufox release by Camoufox's own launcher, as Linux in `en-US`.
-Drawing it starts Camoufox, so only a login or a fetch that may use the browser draws it.
-Until one exists, or when it cannot be drawn, curl sends its Firefox profile's own User-Agent and Accept-Language; `BROWSER_FETCH_DEBUG=1` prints why.
+Drawing it starts Camoufox, so only a login or a render draws it, and a page curl answers never waits on it.
+Until one exists, or when it cannot be read, curl sends its Firefox profile's own User-Agent and Accept-Language; `BROWSER_FETCH_DEBUG=1` prints why.
 One render or login at a time uses the profile; another waits a bounded time, then fails.
 The render closes the browser before its deadline, which writes the cookies Firefox holds in memory to the jar for the next fetch.
 A jar read or write waits only `JAR_LOCK_SECONDS` of [browser.py](../../../packages/browser-fetch/browser_fetch/browser.py) for a render or login.

@@ -668,8 +668,28 @@ class FetchTest(unittest.TestCase):
         fetch.fetch("https://a.example/", never)
         self.assertEqual(self.browser.generated, [False])
 
+    def test_a_page_curl_answers_draws_no_fingerprint(self) -> None:
+        """A fetch that may use the browser but does not asks for a stored fingerprint only."""
+        self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
+        page = fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual((page.via, self.browser.generated), ("curl", [False]))
+
+    def test_the_browser_draws_the_fingerprint_before_it_renders(self) -> None:
+        """Only the browser path draws one, and a failed draw is the browser's failure."""
+        self.fake.serve(
+            {"https://a.example/": {"status": 403, "headers": {"cf-mitigated": "challenge"}}}
+        )
+        self.browser.rendered = self.rendered()
+        page = fetch.fetch("https://a.example/", self.settings)
+        self.assertEqual((page.via, self.browser.generated), ("browser", [False, True]))
+        self.browser.calls = None
+        self.browser.identity_error = browser.BrowserError("no user namespaces")
+        with self.assertRaisesRegex(browser.BrowserError, "no user namespaces"):
+            fetch.fetch("https://a.example/", self.settings)
+        self.assertIsNone(self.browser.calls)
+
     def test_fingerprint_failure_falls_back_to_the_profile_headers(self) -> None:
-        """A fingerprint that cannot be drawn leaves curl's own headers, and the fetch goes on."""
+        """A fingerprint that cannot be read leaves curl's own headers, and the fetch goes on."""
         self.browser.identity_error = browser.BrowserError("no user namespaces")
         self.fake.serve({"https://a.example/": {"status": 200, "headers": HTML, "body": PAGE}})
         page = fetch.fetch("https://a.example/", self.settings)
