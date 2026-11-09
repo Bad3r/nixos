@@ -54,6 +54,7 @@
 
   flake.homeManagerModules.apps.herdr =
     {
+      config,
       osConfig,
       lib,
       pkgs,
@@ -61,7 +62,31 @@
     }:
     let
       cfg = osConfig.programs.herdr.extended;
-      settings = cfg.settings // {
+      colors = config.lib.stylix.colors.withHashtag;
+      vscode = import ../stylix/_vscode-dark-2026.nix;
+      # VS Code Dark 2026 (2026-dark.json) over every Herdr palette token.
+      theme.custom = {
+        accent = vscode."statusBarItem.prominentBackground";
+        panel_bg = colors.base01; # panel.background, editorGroupHeader.tabsBackground
+        sidebar_bg = colors.base01; # sideBar.background
+        active_row_bg = vscode."list.inactiveSelectionBackground";
+        selection_bg = vscode."list.focusBackground";
+        surface0 = vscode."quickInput.background";
+        surface1 = vscode."input.border";
+        surface_dim = colors.base02; # widget.border
+        overlay0 = colors.base04; # descriptionForeground, tab.inactiveForeground
+        overlay1 = colors.base05; # editorLineNumber.activeForeground
+        text = vscode."list.activeSelectionForeground";
+        subtext0 = vscode.foreground;
+        mauve = vscode."charts.purple";
+        green = vscode."gitDecoration.addedResourceForeground";
+        yellow = vscode."list.warningForeground";
+        red = vscode.errorForeground;
+        blue = vscode."charts.blue";
+        teal = colors.base0C;
+        peach = vscode."charts.orange";
+      };
+      settings = lib.recursiveUpdate { inherit theme; } cfg.settings // {
         update = (cfg.settings.update or { }) // {
           version_check = false;
           manifest_check = false;

@@ -23,6 +23,8 @@
   "menu.background" = "#202122";
   "editorSuggestWidget.selectedBackground" = "#414243"; # over editorSuggestWidget.background
   "activityBar.activeBackground" = "#313233";
+  "list.inactiveSelectionBackground" = "#2c2d2e";
+  "list.focusBackground" = "#383939"; # over sideBar.background (base01)
   "badge.background" = "#307e9f";
   "editor.selectionBackground" = "#245c73";
   "editorLineNumber.foreground" = "#858889";
