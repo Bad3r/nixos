@@ -68,6 +68,11 @@ Sign in as [Sign in](#sign-in) shows, then rerun the search.
 Kagi sends requests without a valid session to its Cloudflare challenge; `kagi-search` exits 5.
 Sign in as [Sign in](#sign-in) shows; a session cookie skips the challenge.
 
+## The jar refused Kagi's cookie change
+
+Kagi answered, but writing its cookie change to browser-fetch's jar failed, for example on a full disk; `kagi-search` exits 6 with the database's error and returns no hits.
+The stored session is unchanged, so no new sign-in is needed: fix the cause, then rerun the search.
+
 ## No search results kagi-search recognizes
 
 Kagi changed the markup of `kagi.com/html/search`.
