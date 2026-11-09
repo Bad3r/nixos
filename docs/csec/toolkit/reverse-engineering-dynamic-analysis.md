@@ -9,11 +9,21 @@
   - Repo.: <https://github.com/AssetRipper/AssetRipper>
   - Docs.: <https://assetripper.github.io/AssetRipper/>
   - Desc.: GUI application for analyzing Unity game files and extracting assets.
+- capstone
+  - run..: `cstool x64 "55 48 89 e5"`
+  - Repo.: <https://github.com/capstone-engine/capstone>
+  - Docs.: <https://github.com/capstone-engine/capstone/blob/5.0.9/cstool/README>
+  - Desc.: Multi-architecture disassembly library with a command-line tool for decoding raw hexadecimal instruction bytes.
 - cutter
   - run..: `cutter $binary`
   - Repo.: <https://github.com/rizinorg/cutter>
   - Docs.: <https://cutter.re/>
   - Desc.: Rizin-powered reverse engineering GUI with decompiler, graph view, and integrated debugger.
+- ddisasm
+  - run..: `nix run path:.#ddisasm -- "$binary" --asm output.s --ir output.gtirb` (from the repository root).
+  - Repo.: <https://github.com/GrammaTech/ddisasm>
+  - Docs.: <https://grammatech.github.io/ddisasm/>
+  - Desc.: Datalog-based disassembler producing reassemblable assembly and GTIRB for binary analysis and rewriting.
 - frida-tools
   - run..: `frida -U $process`
   - Repo.: <https://github.com/frida/frida-tools>
@@ -54,6 +64,12 @@
   - Repo.: <https://github.com/skylot/jadx>
   - Docs.: <https://github.com/skylot/jadx/wiki>
   - Desc.: Dex to Java decompiler for APK and DEX files, with a companion GUI for browsing decompiled sources.
+- lief
+  - run..: `ghidra` for the [Ghidra extension](../../../packages/lief-ghidra/README.md); the library has no standalone CLI.
+  - Repo.: <https://github.com/lief-project/LIEF>
+  - Docs.: <https://lief.re/doc/latest/plugins/ghidra/index.html>
+  - Desc.: Library for inspecting and modifying ELF, PE, and Mach-O binaries, with native bindings and executable-format analyzers for Ghidra.
+    DWARF features require LIEF Extended.
 - ltrace
   - run..: `ltrace $binary`
   - Repo.: <https://gitlab.com/cespedes/ltrace>
@@ -73,7 +89,7 @@
   - run..: `patchelf --print-interpreter --print-rpath --print-needed $binary`
   - Repo.: <https://github.com/NixOS/patchelf>
   - Docs.: <https://github.com/NixOS/patchelf#readme>
-  - Desc.: Rewrites the ELF interpreter, RPATH/RUNPATH, and DT_NEEDED records of prebuilt binaries so foreign or stripped samples load under a chosen loader and library set; nixpkgs pins this attribute to the 0.15.x stdenv series while `patchelfUnstable` carries the newer snapshot.
+  - Desc.: Rewrites the ELF interpreter, RPATH/RUNPATH, and DT_NEEDED records so prebuilt binaries load under a chosen loader and library set.
 - radare2
   - run..: `r2 -A $binary`
   - Repo.: <https://github.com/radareorg/radare2>
