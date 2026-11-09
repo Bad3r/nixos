@@ -976,6 +976,8 @@ def main() -> int:
     A whole-call failure prints only what Codex prints for the service's HTTP 503
     and logs the real reason.
     """
+    # Searches write browser-fetch's cookie jar, as kagi-search's own main does.
+    os.umask(0o077)
     log = FileLog(log_path())
     try:
         value: object = json.loads(sys.stdin.buffer.read())
