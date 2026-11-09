@@ -10,6 +10,12 @@ The managed `[theme.custom]` table sets every Herdr palette token from the Styli
 Herdr has no theme files and applies these overrides over any selected built-in theme, so the theme picker in Settings has no visible effect.
 Run `herdr server reload-config` after switching to apply palette changes to a running server.
 
+## Agent integrations
+
+Claude Code and Codex report sessions to Herdr through `SessionStart` hooks in [the shared hook registry](../../../modules/agents/hooks/herdr-agent-session.nix), which run the integration scripts from the pinned Herdr source.
+The app module links the same scripts where `herdr integration status` looks for them, so `herdr integration install` fails for these agents instead of adding a second hook.
+Integrations for other agents remain unmanaged.
+
 ## Configuration and privacy
 
 Home Manager owns the configuration file, so change settings declaratively instead of using Herdr's configuration editor.

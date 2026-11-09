@@ -86,6 +86,9 @@
         teal = colors.base0C;
         peach = vscode."charts.orange";
       };
+      assets = "${
+        inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.herdr.src
+      }/src/integration/assets";
       settings = lib.recursiveUpdate { inherit theme; } cfg.settings // {
         update = (cfg.settings.update or { }) // {
           version_check = false;
@@ -95,9 +98,16 @@
     in
     {
       config = lib.mkIf cfg.enable {
-        xdg.configFile."herdr/config.toml".source =
-          (pkgs.formats.toml { }).generate "herdr-config.toml"
-            settings;
+        # The shared agent hooks (modules/agents/hooks/herdr-agent-session.nix)
+        # run the integration scripts from the store. Herdr reads integration
+        # status from the version marker at these paths, and `herdr integration
+        # install` fails on the read-only links instead of registering a second
+        # hook.
+        home.file.".claude/hooks/herdr-agent-state.sh".source = "${assets}/claude/herdr-agent-state.sh";
+        xdg.configFile = {
+          "codex/herdr-agent-state.sh".source = "${assets}/codex/herdr-agent-state.sh";
+          "herdr/config.toml".source = (pkgs.formats.toml { }).generate "herdr-config.toml" settings;
+        };
       };
     };
 }
