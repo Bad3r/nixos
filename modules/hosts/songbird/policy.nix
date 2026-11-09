@@ -71,7 +71,7 @@ _: {
       cpus = "8-23";
       ttl = 2;
       maxTtl = 24;
-      disk = 60;
+      disk = 256;
       minFree = 50;
     };
   };
