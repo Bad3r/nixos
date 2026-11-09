@@ -424,7 +424,7 @@ def _generate(state: Path, env: dict[str, str], until: float) -> None:
     server, seen = _headers_server()
     try:
         with sync_playwright() as playwright:
-            browser = playwright.firefox.launch(
+            launched = playwright.firefox.launch(
                 executable_path=tools.CAMOUFOX,
                 headless=False,
                 env=cast("dict[str, str | float | bool]", _launch_env(env, config, prefs)),
@@ -432,10 +432,10 @@ def _generate(state: Path, env: dict[str, str], until: float) -> None:
                 timeout=_ms(until, START_SECONDS),
             )
             try:
-                page = browser.new_page(no_viewport=True)
+                page = launched.new_page(no_viewport=True)
                 page.goto(f"http://127.0.0.1:{server.server_port}/", timeout=_ms(until, 30))
             finally:
-                browser.close()
+                launched.close()
     finally:
         server.shutdown()
         server.server_close()
@@ -453,7 +453,7 @@ def _generate(state: Path, env: dict[str, str], until: float) -> None:
             "accept-language": seen["accept-language"],
         },
     }
-    _write_json(state / "fingerprint.json", fingerprint)
+    _write_json(state / browser.FINGERPRINT, fingerprint)
 
 
 def _launch_env(
@@ -530,7 +530,7 @@ def _launch(  # noqa: PLR0913 - what one launch of the persistent profile takes
     addons go after the ones the build bundles; curl's proxy for the
     request's URL is the browser's.
     """
-    fingerprint = cast("dict[str, Any]", json.loads((state / "fingerprint.json").read_text()))
+    fingerprint = cast("dict[str, Any]", json.loads((state / browser.FINGERPRINT).read_text()))
     config = dict(cast("dict[str, Any]", fingerprint["config"]))
     # The addons the build bundles, from this build: a store path may move.
     bundled = Path(tools.CAMOUFOX).parent / "addons"
@@ -800,7 +800,7 @@ def main(argv: list[str] | None = None) -> int:
             display = str(request["display"])
         else:
             server, display = start_xvfb(until)
-        home = state / "home"
+        home = state / browser.HOME
         home.mkdir(mode=0o700, exist_ok=True)
         env = browser_env(home, display)
         if login:
