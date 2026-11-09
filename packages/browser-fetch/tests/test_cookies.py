@@ -133,13 +133,23 @@ class MatchTest(unittest.TestCase):
                 named = f"[{host}]" if ":" in host else host
                 url = f"http://{named}:8080/"
                 self.assertEqual(
-                    names(jar.for_request([cookie("s", host, secure=True)], url, NOW)), ["s"]
+                    names(jar.for_request([cookie("s", named, secure=True)], url, NOW)), ["s"]
                 )
         for host in ("10.0.0.1", "::ffff:127.0.0.1", "localhost.example"):
             with self.subTest(host=host):
                 named = f"[{host}]" if ":" in host else host
                 url = f"http://{named}/"
-                self.assertEqual(jar.for_request([cookie("s", host, secure=True)], url, NOW), [])
+                self.assertEqual(jar.for_request([cookie("s", named, secure=True)], url, NOW), [])
+
+    def test_ipv6_hosts_are_bracketed(self) -> None:
+        """Gecko names an IPv6 host in brackets, set and sent alike (GetHostOrIPv6WithBrackets)."""
+        url = "http://[::1]:8080/app"
+        received = parsed("a=1; Max-Age=60", url)
+        self.assertEqual(received.host, "[::1]")
+        self.assertEqual(names(jar.for_request([received], url, NOW_US // 1000)), ["a"])
+        self.assertEqual(jar.for_request([cookie("bare", "::1")], url, NOW), [])
+        self.assertEqual(parsed("b=1; Domain=[::1]", url).host, "[::1]")
+        self.assertIsNone(jar.parse_set_cookie("b=1; Domain=::1", url, NOW_US))
 
     def test_expiry(self) -> None:
         """A cookie whose expiry, in milliseconds, is not after now is not sent (IsExpired)."""

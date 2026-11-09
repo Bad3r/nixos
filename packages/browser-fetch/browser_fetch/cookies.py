@@ -148,7 +148,7 @@ class Cookie:
         return (
             not self.expired(now)
             and (not self.secure or trustworthy(url))
-            and domain_match(parts.hostname or "", self.host)
+            and domain_match(cookie_host(parts.hostname or ""), self.host)
             and path_match(parts.path or "/", self.path)
             and (not self.partition or self.partition == partition_key(url))
         )
@@ -191,6 +191,16 @@ def _is_ip(host: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def cookie_host(hostname: str) -> str:
+    """A URL's host as Gecko names it for cookies, an IPv6 address in brackets.
+
+    nsContentUtils::GetHostOrIPv6WithBrackets, which both a Set-Cookie's
+    host and a request's host go through.
+    """
+    host = hostname.lower()
+    return f"[{host}]" if ":" in host else host
 
 
 def base_domain(host: str) -> str | None:
@@ -603,7 +613,7 @@ def parse_set_cookie(line: str, url: str, now: int, date: str | None = None) -> 
             return None
         attributes.take(token, raw)
     parts = urlsplit(url)
-    request_host = (parts.hostname or "").lower()
+    request_host = cookie_host(parts.hostname or "")
     host = _host(attributes, request_host)
     secure_origin = trustworthy(url)
     if host is None or not _valid(name, value, attributes, host, secure_origin=secure_origin):
