@@ -44,6 +44,8 @@
   - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the fact table, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
+- [drafts/sbx-revision-plan.md](drafts/sbx-revision-plan.md)
+  - Staged plan for the `sbx` revision: limits and gc fixes with three removals, declared and saved bases, direct and VPN networks, and persistence, with the decisions still open.
 - [drafts/songbird-local-ai-plan.md](drafts/songbird-local-ai-plan.md)
   - Draft plan for replacing Magnitude with llama.cpp on `songbird` and declaring LACT, with the decisions taken and the ones still open.
 
