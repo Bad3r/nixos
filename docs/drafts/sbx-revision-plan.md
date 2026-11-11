@@ -87,8 +87,14 @@ To verify first:
 - `workload-grantd` gains the tunnel request: it validates the country against a server list kept in the repository, brings the tunnel up with a firewall mark that sends its packets past WARP, and tears it down with the sandbox.
 - With `--port-forward` the helper renews the NAT-PMP mapping, forwards the port to the guest, and `sbx info` reports it.
 - An exhausted pool refuses and names the holders.
+- `sbx capture <name>` records the sandbox's tap on the host with `dumpcap`, and `create --capture` starts the recording before the guest boots.
+  On a VPN slot the tap carries the traffic before it enters the tunnel.
+- `sbx capture --summary` lists the endpoints, DNS names, and TLS server names a recording holds.
+- A declared network may set `inspect`, which sends its guests' web traffic through a proxy on the host that terminates TLS under a CA generated on the host.
+  The declared bases trust that CA, the flow log is copied out as a recording is, and HTTP/3 is refused so clients fall back.
+- A client that pins certificates fails on an `inspect` network; for one that logs its session keys, `capture` keeps the key file beside the recording.
 
-Checks: a VM check with a local WireGuard peer in which the guest reaches the peer only through the tunnel and loses all traffic when the tunnel drops; a subtest per network kind that the LAN and Mesh answer only where the declaration opens them and the host never does.
+Checks: a VM check with a local WireGuard peer in which the guest reaches the peer only through the tunnel and loses all traffic when the tunnel drops; a subtest per network kind that the LAN and Mesh answer only where the declaration opens them and the host never does; a recording started at create that holds the guest's first DNS query; an HTTPS request on an `inspect` network that the flow log shows in clear.
 On `songbird`: the exit address of each network kind.
 
 To verify first:
@@ -96,6 +102,7 @@ To verify first:
 - One Proton key working on every server; the reports are from users, not from Proton.
 - One forwarded port per tunnel, and how Proton counts a manual tunnel against the account's session limit.
 - The priority of WARP's own routing rules against the firewall-mark rule.
+- Which trust stores the browsers and runtimes of each declared base read.
 
 ## Stage 4: persistence
 
