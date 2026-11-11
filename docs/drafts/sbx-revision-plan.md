@@ -61,7 +61,7 @@ The skill, the MCP schema snapshot, and the `workloads` CLI branches for each fe
 - New declared bases: the latest Ubuntu LTS cloud image, `ubuntu-gui` with IceWM, xterm, and xdotool as `nixos-gui` has, and `ubuntu-desktop` with the stock desktop packages as a reference install.
 - An agent session may build any declared base; the owner-only refusal in `packages/sbx/sbx/prepare.py` and the harness ask rules go.
 - `sbx base save <sandbox> <name>` turns a provisioned sandbox into a base.
-  A saved base records its creator and parent, cannot take a declared name, counts against the disk cap, and expires when unused.
+  A saved base records its creator and parent, cannot take a declared name, counts against the disk cap, and expires after 90 days without use.
 - Both GUI bases gain the X inspection tools, `xvfb-run`, an AT-SPI session bus with toolkit accessibility on, Mesa software rendering, and a fuller font set.
 - `key`, `type`, `mouse`, `window`, and `screenshot` take `--display`, so an app on an Xvfb display in any base is driven and captured as one on `:0` is.
 - `sbx view <name>` opens a viewer on the sandbox's SPICE socket on the host desktop.
@@ -82,7 +82,7 @@ To verify first:
 - `modules/workloads/networks.nix` gains the egress kind `direct`, which routes a bridge's traffic through the main table to the uplink and drops the LAN ranges, the host, and Mesh in the forward chain.
 - A declared network opens the LAN with `lanAccess` and Mesh with a new `meshAccess`.
   Guests reach those devices from behind the host's address, and an agent joins such a network as it joins any other.
-- `create --net vpn --country <cc> [--port-forward]` leases one slot of a fixed pool.
+- `create --net vpn --country <cc> [--port-forward]` leases one of six slots.
   A slot is a declared bridge, a network namespace whose only route is a WireGuard tunnel, and one Proton key from sops.
 - `workload-grantd` gains the tunnel request: it validates the country against a server list kept in the repository, brings the tunnel up with a firewall mark that sends its packets past WARP, and tears it down with the sandbox.
 - With `--port-forward` the helper renews the NAT-PMP mapping, forwards the port to the guest, and `sbx info` reports it.
@@ -101,7 +101,7 @@ To verify first:
 
 - `sbx volume create|list|rm` manages named disk images of a fixed size outside every run directory.
   `create --volume <name>` attaches one; the fixed size is the quota.
-- `create --persistent` makes a sandbox with no expiry that `gc` skips and that starts again after a host reboot.
+- `create --persistent` makes a sandbox with no expiry that `gc` skips and that cold-starts from its disk after a host reboot.
 - Sandboxes, saved bases, and volumes carry an owner label, by default the session; `--mine` matches the label, and removing something under another label needs `--force`.
 - `sbx limits` lists persistent sandboxes and volumes with their last use.
 
@@ -110,8 +110,9 @@ Checks: a volume outlives `destroy`, expiry, and `gc`; a persistent sandbox outl
 ## Stage 5: agent workspaces
 
 - A declared `agent` base carries Claude Code and Codex from the flake's own packages.
-- `create` brings in one project directory and nothing else of the owner's home.
-- The harness in the guest signs in with a dedicated, revocable credential from sops, such as the token `claude setup-token` issues, never with the owner's login files.
+- `create` attaches one project directory as a live share; beyond it, only the credential files below leave the owner's home.
+- Each harness in the guest uses the owner's existing sign-in, so the provider sees one login per account.
+  Only the credential files enter the guest, not the harness's history, memory, or settings.
 - Search and fetch stay on the host and the guest calls them through a grant, so browser cookies never enter a guest.
 - Plugins, skills, fonts, and themes arrive through declared read-only shares (`workloads.grants.sandboxShares`).
 - `list` labels a sandbox that holds a credential, and the skill keeps unknown code out of it.
@@ -120,14 +121,5 @@ Checks: a VM check in which a harness in the `agent` base completes a turn again
 
 To verify first:
 
-- Which credential forms Codex accepts on a second machine.
-- Whether a `claude setup-token` token can be revoked alone.
-
-## Open decisions
-
-| Decision                                | Options                                                          |
-| --------------------------------------- | ---------------------------------------------------------------- |
-| Size of the VPN slot pool               | bounded by the Proton session limit and the keys in sops         |
-| Expiry of an unused saved base          | a fixed number of days; or never, with a warning in `sbx limits` |
-| A persistent sandbox across reboot      | cold start from its disk; or managed save as host sleep does     |
-| Project directory in an agent workspace | a live share; or a copy whose changes are copied back            |
+- How each harness refreshes its token when the host and a guest hold the same session, and whether a refresh on one side ends the other's.
+- Whether the credential files can be shared live, so a refresh on either side reaches both.
