@@ -198,11 +198,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794374369,
-        "narHash": "sha256-Wsl+BiOrMmMrfESDdLmKkztsKL07zYIqqoFK7uvKF0A=",
+        "lastModified": 1794390605,
+        "narHash": "sha256-tH94tYT+xiXyKDcIJPI1Gt3u3MgnrUOv7eyw04kKYg4=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "38e7f29a299384c11701a97aefa564757bd2bc6b",
+        "rev": "5152637a01f31ae89cf80e9c0792d1c25651a567",
         "type": "github"
       },
       "original": {
@@ -685,11 +685,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794349814,
-        "narHash": "sha256-rQpM78V4BOJ4YAyfMWAjgYSXuCVVc/j6CfK3qbpddVc=",
+        "lastModified": 1794391368,
+        "narHash": "sha256-viImGbaPCCfeO7cO45OnU0f93ILon8m/wCJCsAPUD9M=",
         "ref": "refs/heads/master",
-        "rev": "aa75ff3239f9cc675b081697deda9e1b112345c6",
-        "revCount": 12282,
+        "rev": "eeb210479454035cad08ff48ae0689e615cb6886",
+        "revCount": 12290,
         "type": "git",
         "url": "https://github.com/ggml-org/llama.cpp"
       },
@@ -711,11 +711,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794374991,
-        "narHash": "sha256-cp6kEFdGVRbTpJnyaIZVnG2AjltovSzX/kjqcC9EUKE=",
+        "lastModified": 1794391347,
+        "narHash": "sha256-WIpXo1KrXagWThblO+RJu81nXFmEhFy6sFmKnWNHPno=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "178fd434fbfd177a80e2923f7e8357168b9719f8",
+        "rev": "61912644f616c1b50416bedf349c477ea0f6f129",
         "type": "github"
       },
       "original": {
@@ -879,11 +879,11 @@
         "opam-repository": "opam-repository"
       },
       "locked": {
-        "lastModified": 1794295481,
-        "narHash": "sha256-dmf+5WtRNrbkSLq+xcqN7+M2+siifkNAamHQstwuruk=",
+        "lastModified": 1794377404,
+        "narHash": "sha256-1tLV8bavQQmSnPir24czev0kEj5Gnoaydp0+TjmcQGc=",
         "owner": "Bad3r",
         "repo": "nix-logseq-git-flake",
-        "rev": "e92aac6865c56dc50992d403da66e7d19fb15fff",
+        "rev": "71d3d5ef2af61e52ccc7509344f9112f06cb7ba6",
         "type": "github"
       },
       "original": {
@@ -1115,11 +1115,11 @@
     "opam-repository": {
       "flake": false,
       "locked": {
-        "lastModified": 1794292090,
-        "narHash": "sha256-KLIyNXE/tOXSo66yvTf3DZguARSY89lGbEj7hOtOExs=",
+        "lastModified": 1794345233,
+        "narHash": "sha256-ppIS9J+0DWilGDWTtluZL7N70Wrtp9v7kqxLZh+77+8=",
         "owner": "ocaml",
         "repo": "opam-repository",
-        "rev": "e8244ad8677a3414ab7344edead65a89936208f6",
+        "rev": "71db03cadcdabc5e83d5e7e099517788be32bce1",
         "type": "github"
       },
       "original": {
