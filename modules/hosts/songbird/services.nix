@@ -76,7 +76,7 @@ in
         "qwen3.8-27b-gsq-mtp" = llamaVision // {
           # The IQ3_XXS file carries the MTP head; the tag names it in full, as `:IQ3_XXS` resolves to it anyway.
           hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";
-          ctx-size = 65536;
+          ctx-size = 49152;
           spec-type = "draft-mtp";
           load-on-startup = true;
         };
