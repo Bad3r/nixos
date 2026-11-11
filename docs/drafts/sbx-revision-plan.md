@@ -2,6 +2,7 @@
 
 `sbx` moves from a disposable detonation box to the agents' own machines with selectable isolation.
 Five stages, each shippable alone: fix what hurt, bases, networks, persistence, agent workspaces.
+The tool is renamed `srv` between the first two.
 The usage evidence behind each item sits in `/data/agents/sbx-usage-review/`.
 
 ## Properties that hold through every stage
@@ -53,6 +54,29 @@ On `songbird`: a ceiling change reaches a running MCP server without a restart.
 
 The per-sandbox vsock namespace in `emulator.py` stays: it is isolation, not grants.
 The skill, the MCP schema snapshot, and the `workloads` CLI branches for each feature go in the same change.
+
+## Rename to `srv`
+
+`srv` is short for serve: the tool serves machines to agents, and a sandbox is one use of them.
+The rename also ends the clash with the `sbx` command that nixpkgs' `docker-sbx` installs.
+It lands as one change with no functional difference, after stage 1 has removed what would otherwise be renamed.
+
+| Renamed            | To                                                                          |
+| ------------------ | --------------------------------------------------------------------------- |
+| Commands           | `srv`, `srv-mcp`, and the MCP tools `mcp__srv__*`                           |
+| Source and options | `packages/srv`, `modules/apps/srv`, `programs.srv.extended`                 |
+| Agent wiring       | the skill, the prompt rule, the harness allow rules, the scratch-guard case |
+| Units              | `srv-libvirt`, `srv-gc`, `srv.slice`                                        |
+| Network            | the `srv` workload network on `vn-srv`, and the `srv-*` grant source        |
+| Guests             | the libvirt domain prefix, the base hostname, and the session user          |
+| State and logs     | `~/.local/share/srv` and the journal identifier                             |
+| Documentation      | `docs/apps/srv`                                                             |
+
+- The switch that installs it runs with no sandbox defined, since the domain prefix, the bridge, and the state directory all change.
+- The bases move with the state directory; nothing else carries over.
+- Stages 2 to 5 land after it, so each `sbx` they name is `srv` by then.
+
+Checks: a word search for the old name over the tree finds nothing, and the unit tests and VM checks pass under the new names.
 
 ## Stage 2: bases
 
