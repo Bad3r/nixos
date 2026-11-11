@@ -157,7 +157,6 @@ let
       findutils.extended.enable = lib.mkOverride 1100 false;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
-      "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 false;
       fonttools.extended.enable = lib.mkOverride 1100 true;
