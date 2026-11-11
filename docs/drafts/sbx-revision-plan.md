@@ -1,13 +1,13 @@
 # sbx revision plan
 
 `sbx` moves from a disposable detonation box to the agents' own machines with selectable isolation.
-Four stages, each shippable alone: fix what hurt, bases, networks, persistence.
+Five stages, each shippable alone: fix what hurt, bases, networks, persistence, agent workspaces.
 The usage evidence behind each item sits in `/data/agents/sbx-usage-review/`.
 
 ## Properties that hold through every stage
 
 - A guest stays untrusted: host files reach it only through the copy roots, a share, a volume, or a closure copy.
-- Every network a sandbox can join is internet-only: no route to the LAN, the host, or Mesh.
+- A sandbox network reaches the internet only, unless its declaration opens the LAN or Mesh; none reaches the host except through a grant.
 - No housekeeping job takes a mount or a network away from a running sandbox.
 - The CLI, the MCP server, and `sbx gc` read one settings file at call time.
 - Nothing an agent does with `sbx` needs sudo or a polkit prompt.
@@ -62,9 +62,12 @@ The skill, the MCP schema snapshot, and the `workloads` CLI branches for each fe
 - An agent session may build any declared base; the owner-only refusal in `packages/sbx/sbx/prepare.py` and the harness ask rules go.
 - `sbx base save <sandbox> <name>` turns a provisioned sandbox into a base.
   A saved base records its creator and parent, cannot take a declared name, counts against the disk cap, and expires when unused.
-- Both GUI bases gain the X inspection tools, an AT-SPI session bus with toolkit accessibility on, Mesa software rendering, and a fuller font set.
+- Both GUI bases gain the X inspection tools, `xvfb-run`, an AT-SPI session bus with toolkit accessibility on, Mesa software rendering, and a fuller font set.
+- `key`, `type`, `mouse`, `window`, and `screenshot` take `--display`, so an app on an Xvfb display in any base is driven and captured as one on `:0` is.
 - `sbx view <name>` opens a viewer on the sandbox's SPICE socket on the host desktop.
 - `sbx cp --closure <store path> <name>:` copies a store path with its closure and registers it in the guest.
+- Screenshots of the owner's own desktop configuration stay on the host, which has its store, fonts, theme, and GPU.
+  A maintained tool wraps the `unshare` and Xvfb recipe with a private `/tmp` and home, and the skill sends that case there.
 
 Checks: one VM check per base kind, with the GUI check also run against `ubuntu-gui`.
 
@@ -77,13 +80,15 @@ To verify first:
 
 - `create --net <name>` selects a declared workload network; `egress` stays as the name of the WARP one.
 - `modules/workloads/networks.nix` gains the egress kind `direct`, which routes a bridge's traffic through the main table to the uplink and drops the LAN ranges, the host, and Mesh in the forward chain.
+- A declared network opens the LAN with `lanAccess` and Mesh with a new `meshAccess`.
+  Guests reach those devices from behind the host's address, and an agent joins such a network as it joins any other.
 - `create --net vpn --country <cc> [--port-forward]` leases one slot of a fixed pool.
   A slot is a declared bridge, a network namespace whose only route is a WireGuard tunnel, and one Proton key from sops.
 - `workload-grantd` gains the tunnel request: it validates the country against a server list kept in the repository, brings the tunnel up with a firewall mark that sends its packets past WARP, and tears it down with the sandbox.
 - With `--port-forward` the helper renews the NAT-PMP mapping, forwards the port to the guest, and `sbx info` reports it.
 - An exhausted pool refuses and names the holders.
 
-Checks: a VM check with a local WireGuard peer in which the guest reaches the peer only through the tunnel and loses all traffic when the tunnel drops; a subtest per network kind that the LAN and the host stay unreachable.
+Checks: a VM check with a local WireGuard peer in which the guest reaches the peer only through the tunnel and loses all traffic when the tunnel drops; a subtest per network kind that the LAN and Mesh answer only where the declaration opens them and the host never does.
 On `songbird`: the exit address of each network kind.
 
 To verify first:
@@ -102,10 +107,27 @@ To verify first:
 
 Checks: a volume outlives `destroy`, expiry, and `gc`; a persistent sandbox outlives `gc` and a reboot of the test host.
 
+## Stage 5: agent workspaces
+
+- A declared `agent` base carries Claude Code and Codex from the flake's own packages.
+- `create` brings in one project directory and nothing else of the owner's home.
+- The harness in the guest signs in with a dedicated, revocable credential from sops, such as the token `claude setup-token` issues, never with the owner's login files.
+- Search and fetch stay on the host and the guest calls them through a grant, so browser cookies never enter a guest.
+- Plugins, skills, fonts, and themes arrive through declared read-only shares (`workloads.grants.sandboxShares`).
+- `list` labels a sandbox that holds a credential, and the skill keeps unknown code out of it.
+
+Checks: a VM check in which a harness in the `agent` base completes a turn against a stub endpoint with a test credential and sees no host path but the project directory.
+
+To verify first:
+
+- Which credential forms Codex accepts on a second machine.
+- Whether a `claude setup-token` token can be revoked alone.
+
 ## Open decisions
 
-| Decision                           | Options                                                          |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| Size of the VPN slot pool          | bounded by the Proton session limit and the keys in sops         |
-| Expiry of an unused saved base     | a fixed number of days; or never, with a warning in `sbx limits` |
-| A persistent sandbox across reboot | cold start from its disk; or managed save as host sleep does     |
+| Decision                                | Options                                                          |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| Size of the VPN slot pool               | bounded by the Proton session limit and the keys in sops         |
+| Expiry of an unused saved base          | a fixed number of days; or never, with a warning in `sbx limits` |
+| A persistent sandbox across reboot      | cold start from its disk; or managed save as host sleep does     |
+| Project directory in an agent workspace | a live share; or a copy whose changes are copied back            |
