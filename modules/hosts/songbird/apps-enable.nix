@@ -53,6 +53,7 @@ let
     jadx = true;
     "llama-cpp" = true;
     "qwen-code" = true;
+    "nextcloud-client" = true;
     paperless = true;
     malimite = true;
     mono = true;
