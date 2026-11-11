@@ -96,7 +96,7 @@ same-named but different derivation no consumer runs. nemo-with-extensions
 is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
-installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
+installs, and its closure omits nemo-preview. For entries built
 through `buildFHSEnv` or wrapper derivations (electron-mail, kiro-fhs, upscayl,
 vscode-fhs, nemo-with-extensions), the outer wrapper sets
 `allowSubstitutes = false` and always rebuilds locally; that is trivial

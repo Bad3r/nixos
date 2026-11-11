@@ -39,7 +39,6 @@ let
         cfg.fileRoller
         cfg.python
         cfg.preview
-        cfg.seahorse
       ];
 
       nemoExtensionPackages = lib.concatMap (
@@ -66,13 +65,6 @@ let
           })
         else
           cfg.package;
-
-      seahorseGSettingsPackages = [
-        cfg.package
-        pkgs.gcr_3
-        pkgs.libcryptui
-        cfg.seahorse.package
-      ];
     in
     {
       options.programs.nemo.extended = {
@@ -93,8 +85,6 @@ let
         python = mkExtensionOptions "nemo-python" "Nemo Python extension loading support";
 
         preview = mkExtensionOptions "nemo-preview" "Nemo quick preview integration";
-
-        seahorse = mkExtensionOptions "nemo-seahorse" "Nemo Seahorse encryption and signing integration";
 
         thumbnailers.enable = lib.mkOption {
           type = lib.types.bool;
@@ -133,18 +123,7 @@ let
           pkgs.xapp-thumbnailers
         ];
 
-        services = {
-          dbus.packages = [
-            cfg.finalPackage
-          ]
-          ++ lib.optionals cfg.seahorse.enable [
-            pkgs.libcryptui
-          ];
-
-          desktopManager.gnome.extraGSettingsOverridePackages = lib.optionals cfg.seahorse.enable seahorseGSettingsPackages;
-
-          xserver.desktopManager.cinnamon.extraGSettingsOverridePackages = lib.optionals cfg.seahorse.enable seahorseGSettingsPackages;
-        };
+        services.dbus.packages = [ cfg.finalPackage ];
       };
     };
 in
