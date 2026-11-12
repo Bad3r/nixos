@@ -1,7 +1,9 @@
 # Local Codex telemetry with content filtering before file export.
 {
   pkgs,
-  enabled ? true,
+  # Off until nixpkgs ships a working otelcol-contrib: 0.155 fails to build on Go 1.27,
+  # 0.164 panics at startup (open-telemetry/opentelemetry-collector-contrib#51868).
+  enabled ? false,
 }:
 let
   # Avoid the default OTLP port used by other local collectors.

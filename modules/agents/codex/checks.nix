@@ -49,10 +49,7 @@ in
           homeDir = "/home/codex-config-check";
           configDir = "/home/codex-config-check/.config/codex";
         };
-      telemetry = import ./_telemetry.nix {
-        inherit pkgs;
-        enabled = true;
-      };
+      telemetry = import ./_telemetry.nix { inherit pkgs; };
       disabledSettings = mkSettings (
         import ./_telemetry.nix {
           inherit pkgs;
@@ -81,6 +78,7 @@ in
               ${lib.getExe codexPkg} ${lib.getExe runtime.codexWrapped}
             touch "$out"
           '';
+      configCheck = mkConfigCheck "codex-config-check" (mkSettings telemetry);
       telemetryCheck = pkgs.replaceVars ./_telemetry-check.py {
         collector = lib.getExe pkgs.opentelemetry-collector-contrib;
         config = telemetry.collectorConfigFile;
@@ -139,15 +137,6 @@ in
             touch "$out"
           '';
 
-        "codex/telemetry-collector" =
-          pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
-            ''
-              STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
-                --config=${telemetry.collectorConfigFile}
-              ${lib.getExe pkgs.python314} ${telemetryCheck}
-              touch "$out"
-            '';
-
         "codex/notify" =
           pkgs.runCommandLocal "codex-notify-check"
             {
@@ -186,7 +175,7 @@ in
               touch "$out"
             '';
 
-        "codex/config" = mkConfigCheck "codex-config-check" (mkSettings telemetry);
+        "codex/config" = configCheck;
 
         "codex/config-telemetry-disabled" =
           let
@@ -205,7 +194,21 @@ in
             "log_agent_responses"
             "log_guardian_assessments"
           ];
-          mkConfigCheck "codex-config-telemetry-disabled-check" disabledSettings;
+          # Same settings as codex/config while capture is off.
+          if telemetry.enabled then
+            mkConfigCheck "codex-config-telemetry-disabled-check" disabledSettings
+          else
+            configCheck;
+      }
+      // lib.optionalAttrs telemetry.enabled {
+        "codex/telemetry-collector" =
+          pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
+            ''
+              STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
+                --config=${telemetry.collectorConfigFile}
+              ${lib.getExe pkgs.python314} ${telemetryCheck}
+              touch "$out"
+            '';
       };
     };
 }
