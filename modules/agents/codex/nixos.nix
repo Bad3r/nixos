@@ -16,6 +16,7 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
+    * `codeMode.enable` and `voice.enable` build the code-mode host (prebuilt V8) and the voice host (GStreamer) into the default package; both default to off.
     * Home Manager installs a wrapper around `package` and manages the configuration (modules/agents/codex/home.nix).
     * Hooks from the shared registry (modules/agents/hooks.nix) go in /etc/codex/hooks.json: the system layer is trusted without the per-hash review that user-layer hooks need, which a store path would reset on every rebuild.
 */
@@ -32,7 +33,8 @@ in
       ...
     }:
     let
-      defaultPackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
+      cfg = config.programs.codex.extended;
+      basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
     in
     {
       options.programs.codex.extended = {
@@ -42,15 +44,27 @@ in
           description = "Whether to enable codex.";
         };
 
+        codeMode.enable = lib.mkEnableOption "JavaScript code mode, run by codex-code-mode-host on a prebuilt V8";
+
+        voice.enable = lib.mkEnableOption "realtime voice through codex-voice-host and GStreamer";
+
         package = lib.mkOption {
           type = lib.types.package;
-          default = defaultPackage;
-          defaultText = lib.literalExpression "defaultPackage";
+          default = basePackage.override {
+            withCodeMode = cfg.codeMode.enable;
+            withVoice = cfg.voice.enable;
+          };
+          defaultText = lib.literalExpression ''
+            inputs.llm-agents.packages.''${system}.codex.override {
+              withCodeMode = config.programs.codex.extended.codeMode.enable;
+              withVoice = config.programs.codex.extended.voice.enable;
+            }
+          '';
           description = "The codex package to use.";
         };
       };
 
-      config = lib.mkIf config.programs.codex.extended.enable {
+      config = lib.mkIf cfg.enable {
         environment.etc."codex/hooks.json".text = builtins.toJSON {
           hooks = agents.hooks.clients.codex pkgs;
         };

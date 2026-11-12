@@ -25,6 +25,15 @@ The [theme producer](../../../modules/agents/codex/_theme.nix) combines Stylix s
 Change the palette sources, rebuild, and restart Codex to apply theme changes.
 Themes without semantic UI scopes retain the packaged defaults.
 
+## Package helpers
+
+`programs.codex.extended.codeMode.enable` and `programs.codex.extended.voice.enable` add optional helpers to the pinned `llm-agents` package.
+Both default to off.
+Code mode adds `codex-code-mode-host`, which runs JavaScript on a prebuilt V8 library.
+Codex starts that host only when the `code_mode` flag in the [feature flags](../../../modules/agents/codex/_features.nix) is also on.
+Voice adds `codex-voice-host` and the GStreamer runtime it loads, on Linux only.
+The [songbird host](../../../modules/hosts/songbird/codex.nix) enables both helpers.
+
 ## Desktop application
 
 The [ChatGPT app module](../../../modules/apps/chatgpt/nixos.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
