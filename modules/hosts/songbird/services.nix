@@ -340,8 +340,8 @@ in
             });
 
         # Speech-to-text runs on the Arrow Lake iGPU, beside the RTX 5080's chat models.
-        transcription.enable = config.programs.llama-cpp.extended.enable;
-        dictation.enable = config.programs.llama-cpp.extended.enable;
+        transcription.enable = true;
+        dictation.enable = true;
 
         client = {
           model = llamaModel;
