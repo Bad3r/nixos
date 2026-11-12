@@ -2,6 +2,8 @@
   lib,
   rustPlatform,
   fetchFromGitHub,
+  pkg-config,
+  sqlite,
 }:
 
 let
@@ -19,6 +21,9 @@ rustPlatform.buildRustPackage rec {
   };
 
   inherit (pin) cargoHash;
+
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ sqlite ];
 
   # These integration tests query live searchfox.org endpoints. Keep the
   # offline unit tests and query-construction integration tests enabled.
