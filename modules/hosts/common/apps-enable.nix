@@ -242,8 +242,8 @@ let
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       keepassxc.extended.enable = lib.mkOverride 1100 false;
-      keybase.extended.enable = lib.mkOverride 1100 true;
-      "keybase-gui".extended.enable = lib.mkOverride 1100 true;
+      keybase.extended.enable = lib.mkOverride 1100 false;
+      "keybase-gui".extended.enable = lib.mkOverride 1100 false;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
       krita.extended.enable = lib.mkOverride 1100 false;

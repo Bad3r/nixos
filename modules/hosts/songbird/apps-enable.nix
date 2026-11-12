@@ -66,6 +66,7 @@ let
     websocat = true;
     nvtop = true;
     "podman-desktop" = true;
+    keybase = true;
     sbx = true;
   };
 
