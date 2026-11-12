@@ -321,6 +321,16 @@ in
             };
           }).overrideAttrs
             (old: {
+              # brand-favicons.ts copies the read-only store favicons twice (light and dark PWA
+              # configs); the second copy fails on the first copy's 0444 mode.
+              webui = old.webui.overrideAttrs (webui: {
+                postPatch = (webui.postPatch or "") + ''
+                  substituteInPlace scripts/brand-favicons.ts \
+                    --replace-fail 'import { copyFileSync,' 'import { chmodSync, copyFileSync,' \
+                    --replace-fail 'copyFileSync(require.resolve(specifier), resolve(outDir, fileName));' \
+                      'copyFileSync(require.resolve(specifier), resolve(outDir, fileName)); chmodSync(resolve(outDir, fileName), 0o644);'
+                '';
+              });
               cmakeFlags = old.cmakeFlags ++ [
                 # The source has no .git, so CMake would report build 0, commit unknown.
                 (lib.cmakeFeature "LLAMA_BUILD_NUMBER" buildNumber)
