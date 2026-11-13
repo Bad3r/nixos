@@ -44,7 +44,7 @@
         settings = lib.mkOption {
           inherit (pkgs.formats.toml { }) type;
           default = { };
-          description = "Herdr configuration. Background release and detection-manifest checks are always disabled in the managed configuration.";
+          description = "Herdr configuration. The managed configuration always skips onboarding and disables background release and detection-manifest checks.";
         };
       };
       config = lib.mkIf cfg.enable {
@@ -89,12 +89,19 @@
       assets = "${
         inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.herdr.src
       }/src/integration/assets";
-      settings = lib.recursiveUpdate { inherit theme; } cfg.settings // {
-        update = (cfg.settings.update or { }) // {
-          version_check = false;
-          manifest_check = false;
+      settings =
+        lib.recursiveUpdate {
+          inherit theme;
+          ui.toast.delivery = "terminal";
+        } cfg.settings
+        // {
+          # Completing onboarding writes this key into the read-only config.
+          onboarding = false;
+          update = (cfg.settings.update or { }) // {
+            version_check = false;
+            manifest_check = false;
+          };
         };
-      };
     in
     {
       config = lib.mkIf cfg.enable {

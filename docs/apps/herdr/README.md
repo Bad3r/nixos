@@ -19,6 +19,7 @@ Integrations for other agents remain unmanaged.
 ## Configuration and privacy
 
 Home Manager owns the configuration file, so change settings declaratively instead of using Herdr's configuration editor.
+The managed configuration sets `onboarding = false`, because the first-run setup saves its choices into that file, and sends background notifications through the outer terminal (`ui.toast.delivery = "terminal"`).
 Preserve an existing unmanaged configuration before activating the module.
 Keep credentials out of module settings because generated files enter the Nix store.
 
