@@ -6,7 +6,8 @@ Set additional TOML fields through `programs.herdr.extended.settings`; its `them
 
 ## Theme
 
-The managed `[theme.custom]` table sets every Herdr palette token from the Stylix scheme and the VS Code Dark 2026 colors in [the shared palette](../../../modules/stylix/_vscode-dark-2026.nix).
+The managed `[theme.custom]` table sets every Herdr palette token from the Stylix scheme and the VS Code Dark 2026 colors in [the shared palette](../../../modules/stylix/_vscode-dark-2026.nix), with the accent, blue, and teal tokens desaturated.
+The sidebar and tab bar use the terminal's default background (`reset`), so they share Kitty's translucency, and the sidebar edge is the faint `surface_dim` separator; popups use the same background inside their accent border.
 Herdr has no theme files and applies these overrides over any selected built-in theme, so the theme picker in Settings has no visible effect.
 Run `herdr server reload-config` after switching to apply palette changes to a running server.
 
