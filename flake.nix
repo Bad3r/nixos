@@ -46,12 +46,12 @@
       };
     };
 
+    # No nixpkgs follows: the fork's CI builds codex on its own nixpkgs pin
+    # and pushes it to bad3r-nixos, and only that pin evaluates the same
+    # store path here.
     llm-agents = {
       url = "github:Bad3r/llm-agents.nix";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        treefmt-nix.follows = "treefmt-nix";
-      };
+      inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     make-shell = {

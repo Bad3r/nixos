@@ -47,6 +47,10 @@ from `./build.sh --update` fires a run. A cache hit requires the exact
 derivation a consumer evaluates, so tracking the pushed lock is what makes the
 cache usable: it holds derivations for the revision hosts evaluate against.
 
+codex is built elsewhere: the `update-codex` workflow of `Bad3r/llm-agents.nix`
+pushes it to `bad3r-nixos`, and the `llm-agents` input keeps its own nixpkgs
+pin (no `follows`), the only pin that evaluates the path that workflow built.
+
 Alternatives were considered and rejected. Attic and Harmonia reintroduce a
 server to operate, which is the dependency this design removed. FlakeHub Cache
 is paid and pairs with Determinate Nix while hosts here run Lix. Cachix is
