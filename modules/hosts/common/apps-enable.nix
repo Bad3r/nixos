@@ -244,7 +244,7 @@ let
       keepassxc.extended.enable = lib.mkOverride 1100 false;
       keybase.extended.enable = lib.mkOverride 1100 false;
       "keybase-gui".extended.enable = lib.mkOverride 1100 false;
-      "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
+      "kiro-fhs".extended.enable = lib.mkOverride 1100 false;
       kitty.extended.enable = lib.mkOverride 1100 true;
       krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 false;
