@@ -61,6 +61,7 @@ let
     radare2 = true;
     rizin = true;
     inkscape = true;
+    krita = true;
     ytubic = true;
     stash = true;
     websocat = true;
