@@ -11,7 +11,8 @@ in
   perSystem =
     { pkgs, system, ... }:
     let
-      codexPkg = inputs.llm-agents.packages.${system}.codex;
+      # The variant the llm-agents fork builds and pushes to bad3r-nixos.
+      codexPkg = inputs.llm-agents.packages.${system}.codex.override { withVoice = true; };
       # Include app-backed MCP entries in parser validation without building their services.
       osConfig.programs.sbx.extended = {
         enable = true;
@@ -91,9 +92,6 @@ in
         "codex/web-run-contract" =
           let
             src = "${codexPkg.src}/codex-rs";
-            webRunPatch = lib.findFirst (patch: lib.hasSuffix "web-run-command.patch" (toString patch)) null (
-              codexPkg.patches or [ ]
-            );
             pinned = {
               "ext/web-search/web_run_description.md" =
                 "1f3879b44690eb7aad9ba97351acda16c4d0c26847bcb4af2964d5989404407e";
@@ -110,17 +108,9 @@ in
               echo "FAIL (codex ${codexPkg.version}): $1" >&2
               failed=1
             }
-            ${
-              if webRunPatch == null then
-                ''
-                  fail "llm-agents' codex lacks web-run-command.patch, so web.run would call OpenAI's alpha/search"
-                ''
-              else
-                ''
-                  grep -qF CODEX_WEB_RUN_COMMAND ${webRunPatch} \
-                    || fail "web-run-command.patch no longer reads CODEX_WEB_RUN_COMMAND, which home.nix sets"
-                ''
-            }
+            # The Bad3r/codex release carries the local-command patch in its source.
+            grep -qF CODEX_WEB_RUN_COMMAND ${src}/ext/web-search/src/tool.rs \
+              || fail "the codex source does not read CODEX_WEB_RUN_COMMAND, which home.nix sets, so web.run would call OpenAI's alpha/search"
             ${lib.concatStrings (
               lib.mapAttrsToList (file: hash: ''
                 got=$(sha256sum ${src}/${file} | cut -d' ' -f1) || got=missing

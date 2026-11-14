@@ -58,7 +58,7 @@
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
-      # web.run answered by the kagi-search emulator (llm-agents' web-run-command.patch)
+      # web.run answered by the kagi-search emulator (the local-command patch in Bad3r/codex releases)
       webRunEnv.CODEX_WEB_RUN_COMMAND = "/run/current-system/sw/bin/kagi-search-webrun";
       telemetry = import ./_telemetry.nix { inherit pkgs; };
 
