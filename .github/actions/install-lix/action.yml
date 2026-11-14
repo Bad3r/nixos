@@ -54,10 +54,11 @@ runs:
         base="${NIX_INSTALLER_EXTRA_CONF%$'\n'}"
         NIX_INSTALLER_EXTRA_CONF="$base"$'\n'"$(cat "$conf")"
         # The installer appends /nix/var/nix/profiles/default/bin to
-        # GITHUB_PATH itself (ConfigureShellProfile); sudo -E keeps the
-        # variable visible to it.
-        sudo -E /tmp/lix-installer install linux --no-confirm \
-          "${extra_args[@]}"
+        # GITHUB_PATH itself (ConfigureShellProfile) and reads the extra
+        # conf from the environment. The variables are named because the
+        # runner's sudo ignores -E.
+        sudo --preserve-env=GITHUB_PATH,NIX_INSTALLER_EXTRA_CONF \
+          /tmp/lix-installer install linux --no-confirm "${extra_args[@]}"
     - name: Verify substituters
       shell: bash
       # The installer rewrites the extra conf from a parsed key map, so the
