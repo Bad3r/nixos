@@ -47,9 +47,9 @@ from `./build.sh --update` fires a run. A cache hit requires the exact
 derivation a consumer evaluates, so tracking the pushed lock is what makes the
 cache usable: it holds derivations for the revision hosts evaluate against.
 
-codex is not a cache root: the `update-codex` workflow of `Bad3r/llm-agents.nix`
-builds it on the head of the nixpkgs fork and pushes it to `bad3r-nixos`, the
-path the `llm-agents` input evaluates through its nixpkgs `follows`.
+codex is not a cache root: each `update-codex` run of `Bad3r/llm-agents.nix`
+builds it on the head of the nixpkgs fork and pushes it to `bad3r-nixos`. A
+lock whose codex output path no run has built compiles codex on the host.
 
 Alternatives were considered and rejected. Attic and Harmonia reintroduce a
 server to operate, which is the dependency this design removed. FlakeHub Cache
