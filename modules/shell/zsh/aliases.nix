@@ -180,7 +180,7 @@
       };
 
       nmap = {
-        nmap = "sudo -E nmap";
+        nmap = "sudo nmap";
         nmap_open_ports = "nmap --open";
         nmap_list_interfaces = "nmap --iflist";
         nmap_slow = "sudo nmap -sS -v -T1";
