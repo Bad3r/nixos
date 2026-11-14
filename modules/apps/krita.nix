@@ -24,6 +24,14 @@ let
     }:
     let
       cfg = config.programs.krita.extended;
+      package = pkgs.symlinkJoin {
+        inherit (cfg.package) name version meta;
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram "$out/bin/krita" --add-flags --nosplash
+        '';
+      };
     in
     {
       options.programs.krita.extended = {
@@ -38,7 +46,7 @@ let
 
       config = lib.mkIf cfg.enable {
         environment = {
-          systemPackages = [ cfg.package ];
+          systemPackages = [ package ];
           # Theme names the [General] Name of a share/color-schemes file.
           etc."xdg/kritarc".text = lib.generators.toINI { } {
             theme.Theme = config.lib.stylix.colors.scheme;
