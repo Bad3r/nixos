@@ -160,11 +160,8 @@
   # Enable the unified mention popup used by default in the TUI.
   mentions_v2 = true; # Stable; upstream: true
 
-  # Enable collab tools.
-  multi_agent = true; # Stable; upstream: true
-
   # Enable task-path-based multi-agent routing.
-  multi_agent_v2 = false; # Stable; upstream: false
+  multi_agent_v2 = true; # Stable; upstream: false
 
   # Start the managed network proxy for sandboxed sessions.
   network_proxy = false; # Experimental; upstream: false
