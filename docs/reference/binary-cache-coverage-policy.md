@@ -85,9 +85,8 @@ fuse-overlayfs, and protonup-rs live inside it. It can differ from `pkgs.steam`,
 so publishing only the bare attribute can leave the installed closure
 unsubstituted.
 
-perSystem-sourced (restringer) and input-sourced (context7-mcp,
-codex) entries are published once, not per host, because no host package set
-shapes them.
+perSystem-sourced (restringer) and input-sourced (context7-mcp) entries are
+published once, not per host, because no host package set shapes them.
 
 context7-mcp is sourced from the `mcp-servers-nix` input, matching the
 consumer in `modules/agents/mcp.nix`, which resolves every server's package
