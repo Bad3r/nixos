@@ -46,12 +46,14 @@
       };
     };
 
-    # No nixpkgs follows: the fork's CI builds codex with voice on its own
-    # nixpkgs pin and pushes it to bad3r-nixos, and only that pin evaluates
-    # the same store path here.
+    # The fork's CI builds codex with voice on the head of the nixpkgs fork
+    # and pushes it to bad3r-nixos; the nixpkgs follows evaluates that path.
     llm-agents = {
       url = "github:Bad3r/llm-agents.nix";
-      inputs.treefmt-nix.follows = "treefmt-nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        treefmt-nix.follows = "treefmt-nix";
+      };
     };
 
     make-shell = {

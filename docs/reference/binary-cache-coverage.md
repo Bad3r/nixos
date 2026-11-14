@@ -48,8 +48,8 @@ derivation a consumer evaluates, so tracking the pushed lock is what makes the
 cache usable: it holds derivations for the revision hosts evaluate against.
 
 codex is not a cache root: the `update-codex` workflow of `Bad3r/llm-agents.nix`
-builds it and pushes it to `bad3r-nixos`. The `llm-agents` input keeps its own
-nixpkgs pin (no `follows`), the only pin that evaluates the path it built.
+builds it on the head of the nixpkgs fork and pushes it to `bad3r-nixos`, the
+path the `llm-agents` input evaluates through its nixpkgs `follows`.
 
 Alternatives were considered and rejected. Attic and Harmonia reintroduce a
 server to operate, which is the dependency this design removed. FlakeHub Cache
