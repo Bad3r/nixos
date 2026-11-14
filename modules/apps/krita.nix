@@ -19,6 +19,14 @@ let
     }:
     let
       cfg = config.programs.krita.extended;
+      package = pkgs.symlinkJoin {
+        inherit (cfg.package) name version meta;
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram "$out/bin/krita" --add-flags --nosplash
+        '';
+      };
     in
     {
       options.programs.krita.extended = {
@@ -32,7 +40,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ package ];
       };
     };
 in
