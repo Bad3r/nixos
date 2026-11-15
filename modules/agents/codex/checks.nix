@@ -12,7 +12,7 @@ in
     { pkgs, system, ... }:
     let
       # The variant the llm-agents fork builds and pushes to bad3r-nixos.
-      codexPkg = inputs.llm-agents.packages.${system}.codex.override { withVoice = true; };
+      codexPkg = inputs.llm-agents.packages.${system}.codex-voice;
       # Include app-backed MCP entries in parser validation without building their services.
       osConfig.programs.sbx.extended = {
         enable = true;

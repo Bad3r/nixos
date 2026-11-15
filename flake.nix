@@ -46,9 +46,9 @@
       };
     };
 
-    # The fork's update-codex workflow pushes codex with voice and code mode
-    # to bad3r-nixos; a host substitutes it while its nixpkgs yields the same
-    # output path.
+    # The fork's update-codex workflow builds codex-voice on the head of the
+    # nixpkgs fork and pushes it to bad3r-nixos; the nixpkgs follows makes a
+    # host on a current lock evaluate that output path.
     llm-agents = {
       url = "github:Bad3r/llm-agents.nix";
       inputs = {
