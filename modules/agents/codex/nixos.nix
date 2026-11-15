@@ -15,7 +15,7 @@
     --sandbox-mode <mode>: Adjust the sandbox level for commands (docker, seatbelt, none).
 
   Notes:
-    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
+    * Package sourced from the llm-agents.nix fork (github:Bad3r/llm-agents.nix), which builds codex from Bad3r/codex releases.
     * `codeMode.enable` and `voice.enable` build the code-mode host (prebuilt V8) and the voice host (GStreamer) into the default package; both default to off.
     * Home Manager installs a wrapper around `package` and manages the configuration (modules/agents/codex/home.nix).
     * Hooks from the shared registry (modules/agents/hooks.nix) go in /etc/codex/hooks.json: the system layer is trusted without the per-hash review that user-layer hooks need, which a store path would reset on every rebuild.
