@@ -284,7 +284,8 @@
   # };
 
   # Run Decisions alongside Guardian V2 for measurement without changing approvals.
-  # guardianv2_decisions_comparison = false; # UnderDevelopment; upstream: false
+  # Sends Guardian evidence to api.openai.com; codex/no-openai-telemetry requires it off.
+  guardianv2_decisions_comparison = false; # UnderDevelopment; upstream: false
 
   # Enable Guardian V3 integrations.
   # guardianv3 = false; # UnderDevelopment; upstream: false

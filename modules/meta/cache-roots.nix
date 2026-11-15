@@ -390,11 +390,6 @@ in
               pkgName = "context7-mcp";
               path = inputs'.mcp-servers-nix.packages.context7-mcp;
             }
-            {
-              key = "codex";
-              pkgName = "codex";
-              path = inputs'.llm-agents.packages.codex;
-            }
           ];
 
       # A glob in scripts/cache-coverage-allowlist.txt accepts a permanent local
