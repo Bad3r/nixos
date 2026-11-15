@@ -47,6 +47,10 @@ from `./build.sh --update` fires a run. A cache hit requires the exact
 derivation a consumer evaluates, so tracking the pushed lock is what makes the
 cache usable: it holds derivations for the revision hosts evaluate against.
 
+codex is not a cache root: `update-codex` in `Bad3r/llm-agents.nix` builds
+`codex-voice`, the variant songbird installs, on the nixpkgs fork head and
+pushes it to `bad3r-nixos`. A host on a codex path no run built compiles it.
+
 Alternatives were considered and rejected. Attic and Harmonia reintroduce a
 server to operate, which is the dependency this design removed. FlakeHub Cache
 is paid and pairs with Determinate Nix while hosts here run Lix. Cachix is
@@ -112,7 +116,7 @@ keyed `<host>/<package>/<output>`.
   `programs.steam.enable` are what actually install them.
 - perSystem-sourced entries (restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
-- Input-sourced entries (context7-mcp, codex)
+- Input-sourced entries (context7-mcp)
   come from the flake input the consuming module resolves them from, because
   host package sets can carry a same-named but different derivation.
 
