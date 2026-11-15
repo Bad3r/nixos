@@ -51,12 +51,17 @@ in
           configDir = "/home/codex-config-check/.config/codex";
         };
       telemetry = import ./_telemetry.nix { inherit pkgs; };
-      disabledSettings = mkSettings (
-        import ./_telemetry.nix {
-          inherit pkgs;
-          enabled = false;
-        }
-      );
+      # Settings for both states of the local telemetry toggle.
+      telemetryStates =
+        map
+          (enabled: {
+            name = if enabled then "local telemetry on" else "local telemetry off";
+            settings = (mkSettings (import ./_telemetry.nix { inherit pkgs enabled; })).baseSettings;
+          })
+          [
+            true
+            false
+          ];
       mkConfigCheck =
         name: settings:
         let
@@ -167,28 +172,95 @@ in
 
         "codex/config" = configCheck;
 
-        "codex/config-telemetry-disabled" =
+        # Fails when the settings would let Codex send telemetry to OpenAI, with
+        # local telemetry on or off. Codex defaults analytics events and Statsig
+        # metrics (ab.chatgpt.com) on and uploads /feedback reports to OpenAI's
+        # Sentry. Not yet covered: with local exporters on, the turn-cost worker
+        # posts thread and turn IDs to OpenAI until the Bad3r/codex gate ships.
+        "codex/no-openai-telemetry" =
           let
-            settings = disabledSettings.baseSettings;
+            isLoopback =
+              exporter:
+              exporter == "none"
+              || (
+                lib.isAttrs exporter
+                && exporter != { }
+                && lib.all (
+                  kind:
+                  lib.elem kind [
+                    "otlp-http"
+                    "otlp-grpc"
+                  ]
+                ) (lib.attrNames exporter)
+                && lib.all (
+                  e: builtins.match "https?://(127\\.0\\.0\\.1|localhost|\\[::1])(:[0-9]+)?(/.*)?" e.endpoint != null
+                ) (lib.attrValues exporter)
+              );
+            leaks =
+              { name, settings }:
+              map (rule: "${name}: ${rule.why}") (
+                lib.filter (rule: rule.leaks) (
+                  [
+                    {
+                      leaks = settings.analytics.enabled or true;
+                      why = "analytics.enabled is not false, so analytics events, and Statsig metrics when metrics_exporter is unset, reach OpenAI";
+                    }
+                    {
+                      leaks = settings.feedback.enabled or true;
+                      why = "feedback.enabled is not false, so /feedback uploads to OpenAI's Sentry";
+                    }
+                    {
+                      leaks = settings.features.guardianv2_decisions_comparison or true;
+                      why = "features.guardianv2_decisions_comparison is not false, so Guardian evidence goes to api.openai.com";
+                    }
+                  ]
+                  # Codex reads an unset metrics_exporter as Statsig.
+                  ++
+                    map
+                      (key: {
+                        leaks = !isLoopback (settings.otel.${key} or null);
+                        why = "otel.${key} is unset or not a loopback collector";
+                      })
+                      [
+                        "exporter"
+                        "trace_exporter"
+                        "metrics_exporter"
+                      ]
+                )
+              );
+            problems = lib.concatMap leaks telemetryStates;
+            src = "${codexPkg.src}/codex-rs";
+            # Every non-test source file that names an OpenAI telemetry endpoint.
+            endpointPattern = "ab\\.chatgpt\\.com|analytics-events|sentry\\.io|turn-costs|thread-estimates|/v1/decisions";
+            endpointFiles = [
+              "analytics/src/client.rs"
+              "app-server/src/turn_cost_worker.rs"
+              "backend-client/src/client/chatgpt_turn_cost.rs"
+              "backend-client/src/client/turn_usage.rs"
+              "ext/guardian-v2/src/async_scorer/decisions.rs"
+              "ext/guardian-v2/src/async_scorer/startup.rs"
+              "feedback/src/lib.rs"
+              "otel/src/config.rs"
+            ];
           in
-          assert lib.all (key: settings.otel.${key} == "none") [
-            "exporter"
-            "trace_exporter"
-            "metrics_exporter"
-          ];
-          assert settings.features.runtime_metrics == false;
-          assert settings.analytics.enabled == false;
-          assert settings.feedback.enabled == false;
-          assert lib.all (key: settings.otel.${key} == false) [
-            "log_user_prompt"
-            "log_agent_responses"
-            "log_guardian_assessments"
-          ];
-          # Same settings as codex/config while capture is off.
-          if telemetry.enabled then
-            mkConfigCheck "codex-config-telemetry-disabled-check" disabledSettings
+          if problems != [ ] then
+            throw "codex/no-openai-telemetry:\n${lib.concatStringsSep "\n" problems}"
           else
-            configCheck;
+            pkgs.runCommandLocal "codex-no-openai-telemetry-check" { passthru.runtimeCheck = true; } ''
+              failed=0
+              fail() {
+                echo "FAIL (codex ${codexPkg.version}): $1" >&2
+                failed=1
+              }
+              grep -qF '(analytics_enabled != Some(false)).then(' ${src}/analytics/src/client.rs \
+                || fail "analytics/src/client.rs no longer gates analytics events on analytics.enabled"
+              found=$(cd ${src} && grep -rlE --include='*.rs' ${lib.escapeShellArg endpointPattern} . \
+                | sed 's|^\./||' | grep -vE '(^|/)tests?(/|\.rs$)|_tests?\.rs$' | LC_ALL=C sort || true)
+              [ "$found" = ${lib.escapeShellArg (lib.concatStringsSep "\n" (lib.sort lib.lessThan endpointFiles))} ] \
+                || fail "the files naming OpenAI telemetry endpoints changed; audit what each sends and which setting stops it, then update endpointFiles. Found: $(tr "\n" " " <<<"$found")"
+              [ "$failed" = 0 ]
+              touch "$out"
+            '';
       }
       // lib.optionalAttrs telemetry.enabled {
         "codex/telemetry-collector" =
