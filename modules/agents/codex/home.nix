@@ -35,6 +35,8 @@
       The nix-managed layer is written to codex/rules/20-managed.rules.
     * ~/.config/Codex (capitalized) is the desktop app's Electron profile
       (modules/apps/chatgpt/nixos.nix), not CODEX_HOME.
+    * CODEX_CLI_PATH points the desktop app at the wrapper, so its app-server
+      runs this build with the merged config instead of the bundled codex.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
         [projects."/path/to/project"]
         trust_level = "trusted"
@@ -216,6 +218,8 @@
             // webRunEnv
             // {
               CODEX_HOME = lib.mkDefault configDir;
+              # The desktop app runs this codex instead of its bundled copy.
+              CODEX_CLI_PATH = lib.getExe codexRuntime.codexWrapped;
             };
         };
 

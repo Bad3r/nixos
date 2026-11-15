@@ -10,6 +10,7 @@
 
   Notes:
     * Shares agent state in `$CODEX_HOME` with the Codex CLI.
+    * Runs the Codex CLI wrapper from `$CODEX_CLI_PATH` (modules/agents/codex/home.nix), not its bundled codex.
     * Draws the tray icon as the OpenAI mark in the bar's status text color.
 */
 { inputs, ... }:
