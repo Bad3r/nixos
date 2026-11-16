@@ -88,8 +88,15 @@ in
         {
           block = "sound";
           driver = "pipewire";
-          format = pad "$icon${thin}{$volume|muted}";
-          format_alt = pad "$icon${thin}$output_description.str(max_w:18) {$volume|muted}";
+          # Muted drops $volume, so the alternative branch shows the mute icon in place of the
+          # device icon; the block would otherwise keep the headphones icon.
+          format = "{${pad "$icon${thin}$volume"}|${pad "^icon_volume_muted"}}";
+          format_alt = "{${pad "$icon${thin}$output_description.str(max_w:18) $volume"}|${pad "^icon_volume_muted${thin}$output_description.str(max_w:18)"}}";
+          # The block sets the warning state when muted, which is the default here.
+          theme_overrides = {
+            warning_bg = stylixColors.base01;
+            warning_fg = stylixColors.base04;
+          };
           step_width = 2;
           max_vol = 100;
           headphones_indicator = true;
