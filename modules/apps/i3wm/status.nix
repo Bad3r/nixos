@@ -109,15 +109,26 @@ in
             }
             {
               name = "pipewire";
+              # Device description ("USB Audio S/PDIF Output") instead of the raw
+              # node name ("alsa_output.usb-...__sink").
+              display = "description";
             }
           ];
-          format = lib.concatMapStrings (source: "{${pad "$icon_${source}"}|}") [
-            "audio"
-            "audio_sink"
-            "video"
-            "webcam"
-            "unknown"
-          ];
+          # Left click toggles icons-only and the source => [ consumers ] detail.
+          format =
+            let
+              kinds = [
+                "audio"
+                "audio_sink"
+                "video"
+                "webcam"
+                "unknown"
+              ];
+            in
+            [
+              (lib.concatMapStrings (kind: "{${pad "$icon_${kind}"}|}") kinds)
+              (lib.concatMapStrings (kind: "{${pad "$icon_${kind}${thin}$info_${kind}"}|}") kinds)
+            ];
         }
         {
           block = "battery";
