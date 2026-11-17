@@ -324,6 +324,9 @@ in
               # brand-favicons.ts copies the read-only store favicons twice (light and dark PWA
               # configs); the second copy fails on the first copy's 0444 mode.
               webui = old.webui.overrideAttrs (webui: {
+                # Upstream versions it with the build number, so every llama.cpp commit rebuilt
+                # it; a fixed version leaves only ui/, its npm lock, and nixpkgs as rebuild causes.
+                version = "0";
                 postPatch = (webui.postPatch or "") + ''
                   substituteInPlace scripts/brand-favicons.ts \
                     --replace-fail 'import { copyFileSync,' 'import { chmodSync, copyFileSync,' \
