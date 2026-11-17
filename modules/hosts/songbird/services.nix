@@ -327,6 +327,7 @@ in
                 # Upstream versions it with the build number, so every llama.cpp commit rebuilt
                 # it; a fixed version leaves only ui/, its npm lock, and nixpkgs as rebuild causes.
                 version = "0";
+                __intentionallyOverridingVersion = true;
                 postPatch = (webui.postPatch or "") + ''
                   substituteInPlace scripts/brand-favicons.ts \
                     --replace-fail 'import { copyFileSync,' 'import { chmodSync, copyFileSync,' \
