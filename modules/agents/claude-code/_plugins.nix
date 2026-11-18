@@ -1,5 +1,5 @@
 # Marketplace and skill settings for ~/.claude/settings.json. Plugin enablement
-# comes from programs.claude-code.extended.plugins.
+# comes from programs.claude-code.extended.plugins, with defaults in ../_plugins.nix.
 {
   # Disable the skills and workflows that ship with Claude Code: bundled skills
   # and workflows are removed entirely; built-in slash commands stay typable but
@@ -25,9 +25,8 @@
     url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
     sparsePaths = [ ".claude-plugin" ];
   };
-  # cloudflare@cloudflare is disabled in enabledPlugins above. Enabling
-  # it needs "skills" added to sparsePaths here, next to .claude-plugin
-  # (docs/agents/claude-code/skill-providers.md), or no sparsePaths for a full clone.
+  # When enabling cloudflare@cloudflare, register its marketplace below. A sparse
+  # clone needs both "skills" and ".claude-plugin" (docs/agents/claude-code/skill-providers.md).
   #   extraKnownMarketplaces."cloudflare".source = {
   #     source = "git";
   #     url = "https://github.com/cloudflare/skills.git";
@@ -51,8 +50,7 @@
   # skill without its description; "user-invocable-only" hides it from the
   # model but keeps /name; "off" hides it from both. Absent = on.
   #
-  # Keys are any installed skill name. Plugin skills follow their
-  # enabledPlugins entry instead.
+  # Plugin-owned skills follow their plugin flag in programs.claude-code.extended.plugins.
   skillOverrides = { };
 
   # Set to false to turn off syncing of plugins enabled on claude.ai; only
