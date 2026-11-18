@@ -100,17 +100,7 @@ _: {
       # A nixos-local plugin's app joins pkgs only while the plugin is enabled.
       localMarketplace = import ./_marketplace.nix {
         inherit lib pkgs;
-        apps =
-          lib.mapAttrs
-            (_: local: {
-              inherit (local) option;
-              package = osConfig.programs.${local.app}.extended.package;
-            })
-            (
-              lib.filterAttrs (plugin: _: plugins.enabledPlugins."${plugin}@nixos-local" or false) (
-                import ./_local-plugins.nix
-              )
-            );
+        inherit osConfig;
       };
       websearchCheck = import ./_websearch-check.nix {
         inherit lib pkgs;

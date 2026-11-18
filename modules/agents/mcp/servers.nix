@@ -208,6 +208,19 @@ _: {
       };
     };
 
+    node_repl = {
+      source = "app";
+      app = "chatgpt";
+      program = cfg: "${cfg.finalPackage.unwrapped}/lib/chatgpt/resources/cua_node/bin/node_repl";
+      timeout = 120;
+      clients = [ "codex" ];
+      docs = {
+        primaryUse = "Run JavaScript in the ChatGPT browser runtime.";
+        accessNotes = "Requires the ChatGPT desktop package. Browser access uses the desktop session connection.";
+        example = "Use `/mcp` to inspect the available `node_repl` tools.";
+      };
+    };
+
     playwright = {
       source = "npx";
       package = "@playwright/mcp@latest";

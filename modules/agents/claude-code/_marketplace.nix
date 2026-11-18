@@ -6,8 +6,22 @@
 {
   lib,
   pkgs,
-  apps,
+  osConfig,
 }:
+let
+  plugins = import ./_plugins.nix;
+  apps =
+    lib.mapAttrs
+      (_: local: {
+        inherit (local) option;
+        package = osConfig.programs.${local.app}.extended.package;
+      })
+      (
+        lib.filterAttrs (plugin: _: plugins.enabledPlugins."${plugin}@nixos-local" or false) (
+          import ./_local-plugins.nix
+        )
+      );
+in
 pkgs.runCommand "claude-code-nixos-local-marketplace" { nativeBuildInputs = [ pkgs.jq ]; } ''
   cp -r ${./marketplace} "$out"
   chmod -R u+w "$out"

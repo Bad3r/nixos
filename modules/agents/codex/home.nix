@@ -81,6 +81,10 @@
       };
 
       codexSettings = import ./_settings.nix {
+        inherit configDir;
+        inherit (config.xdg) cacheHome;
+        inherit (config.home) profileDirectory;
+        localMarketplace = import ../claude-code/_marketplace.nix { inherit lib pkgs osConfig; };
         inherit
           agents
           codexNotify
