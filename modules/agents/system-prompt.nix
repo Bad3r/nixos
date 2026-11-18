@@ -107,6 +107,7 @@ let
 
       - Let failures surface; when suppression is intended, log the cause and make it
         explicit.
+      - If anything blocked you, say so first.
       - Fix problems at their source; when that is out of reach for the task,
         surface the constraint and get approval before any downstream workaround.
     '';
