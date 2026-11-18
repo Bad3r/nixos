@@ -360,6 +360,8 @@ let
       openvpn.extended.enable = lib.mkOverride 1100 true;
       orca.extended.enable = lib.mkOverride 1100 false;
       overskride.extended.enable = lib.mkOverride 1100 true;
+      oxfmt.extended.enable = lib.mkOverride 1100 true;
+      oxlint.extended.enable = lib.mkOverride 1100 true;
       ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 false;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
