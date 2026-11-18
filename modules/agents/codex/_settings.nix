@@ -42,7 +42,7 @@ let
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-6.1-sol";
+    model = "gpt-6.2-astra";
     review_model = "gpt-6.1-sol";
     approval_policy.granular = {
       sandbox_approval = true;
