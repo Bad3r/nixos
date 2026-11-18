@@ -13,6 +13,9 @@ in
     let
       # The variant the llm-agents fork builds and pushes to bad3r-nixos.
       codexPkg = inputs.llm-agents.packages.${system}.codex-voice;
+      osConfig.programs.codex.extended.plugins = lib.mapAttrs (_: plugin: plugin.codex) (
+        lib.filterAttrs (_: plugin: plugin ? codex) (import ../_plugins.nix)
+      );
       # Include app-backed MCP entries in parser validation without building their services.
       osConfig.programs.sbx.extended = {
         enable = true;

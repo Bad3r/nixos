@@ -28,7 +28,7 @@ skillOverrides.sbx = "off";
 
 A skill's `disable-model-invocation` frontmatter is a separate control that `skillOverrides` does not override.
 
-Plugin-owned skill bundles follow their `enabledPlugins` entry in the same file.
+Plugin-owned skill bundles follow `programs.claude-code.extended.plugins`, which defaults to the Claude Code selections in the [shared plugin catalog](../../../modules/agents/_plugins.nix).
 `skillOverrides` does not affect plugin-provided skills.
 
 The `cloudflare` marketplace's `extraKnownMarketplaces` entry in `modules/agents/claude-code/_plugins.nix` is left as a commented template while `cloudflare@cloudflare` stays disabled, since a disabled plugin gains nothing from a registered marketplace.

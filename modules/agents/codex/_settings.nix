@@ -44,6 +44,7 @@ let
   codexDefaultSettings = import ./_default-settings.nix;
 
   pluginSettings = import ./_plugins.nix {
+    enabledPlugins = osConfig.programs.codex.extended.plugins;
     inherit
       lib
       configDir

@@ -1,7 +1,5 @@
-# Plugin, marketplace, and skill keys for ~/.claude/settings.json. Uncomment
-# a key and set its value to enable it. Every key set here replaces Claude's
-# copy on each switch, and commenting it out again removes it, so /plugin and
-# `claude plugin` changes to enabledPlugins last only until the next switch.
+# Marketplace and skill settings for ~/.claude/settings.json. Plugin enablement
+# comes from programs.claude-code.extended.plugins.
 {
   # Disable the skills and workflows that ship with Claude Code: bundled skills
   # and workflows are removed entirely; built-in slash commands stay typable but
@@ -11,47 +9,6 @@
   # Unset: /code-review, and /review as its alias, are bundled skills that this
   # removes too; skillOverrides hides a bundled skill by name instead.
   # disableBundledSkills = true; # [boolean]
-
-  # Enabled plugins using plugin-id@marketplace-id format. Example: {
-  # "formatter@anthropic-tools": true }. Also supports extended format with
-  # version constraints. Settings precedence is user < project < local < flag
-  # < policy, so to disable a plugin that project settings enable, set it to
-  # false in .claude/settings.local.json - setting false in
-  # ~/.claude/settings.json is overridden by the project.
-  #
-  # false keeps a plugin installed but disabled. The marketplace after `@` must
-  # be registered: extraKnownMarketplaces below, or out of band.
-  enabledPlugins = {
-    # Routes WebFetch to curl-impersonate and Camoufox (marketplace/browser-webfetch).
-    "browser-webfetch@nixos-local" = true;
-    "cc-plugin-you-should-know@builtin" = true;
-    # The shared MCP registry supplies DevTools with enforced privacy flags.
-    "chrome-devtools-mcp@chrome-devtools-plugins" = false;
-    "claude-code-setup@claude-plugins-official" = true;
-    # CF bundled MCP server would duplicate the per-endpoint servers in
-    # modules/agents/mcp/servers.nix.
-    "cloudflare@cloudflare" = false;
-    "code-review@claude-plugins-official" = true;
-    "frontend-design@claude-plugins-official" = false;
-    # Routes WebSearch to Kagi with browser-fetch's Kagi session (marketplace/kagi-websearch).
-    "kagi-websearch@nixos-local" = true;
-    "pr-review-toolkit@claude-plugins-official" = true;
-    "superpowers@claude-plugins-official" = false;
-    "telemetry@builtin" = false;
-
-    # Each enabled *-lsp entry also installs its language server
-    # (pluginProgramMap in modules/agents/claude-code/nixos.nix).
-    "clangd-lsp@claude-plugins-official" = true;
-    "csharp-lsp@claude-plugins-official" = true;
-    "gopls-lsp@claude-plugins-official" = true;
-    "jdtls-lsp@claude-plugins-official" = true;
-    "lua-lsp@claude-plugins-official" = true;
-    "php-lsp@claude-plugins-official" = true;
-    "pyright-lsp@claude-plugins-official" = true;
-    "rust-analyzer-lsp@claude-plugins-official" = true;
-    "swift-lsp@claude-plugins-official" = false;
-    "typescript-lsp@claude-plugins-official" = true;
-  };
 
   # Additional marketplaces to make available for this repository. Typically
   # used in repository .claude/settings.json to ensure team members have
