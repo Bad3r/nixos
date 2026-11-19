@@ -310,17 +310,20 @@ in
             llamaPackages = pkgs.callPackage "${src}/.devops/nix/scope.nix" {
               llamaVersion = buildNumber;
             };
-          in
-          (llamaPackages.llama-cpp.override {
-            useCuda = true;
-            useVulkan = true;
             cudaPackages = pkgs.cudaPackages.override {
               config = pkgs.config // {
                 cudaCapabilities = [ "12.0" ];
               };
             };
+          in
+          (llamaPackages.llama-cpp.override {
+            useCuda = true;
+            useVulkan = true;
+            inherit cudaPackages;
           }).overrideAttrs
             (old: {
+              # ggml-cuda.cu includes nvml.h and dlopens NVML; upstream's package.nix lacks the header.
+              buildInputs = old.buildInputs ++ [ cudaPackages.cuda_nvml_dev ];
               # brand-favicons.ts copies the read-only store favicons twice (light and dark PWA
               # configs); the second copy fails on the first copy's 0444 mode.
               webui = old.webui.overrideAttrs (webui: {
