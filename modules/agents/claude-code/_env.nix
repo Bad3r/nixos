@@ -593,6 +593,7 @@
     # CLAUDE_CODE_EXIT_AFTER_STOP_DELAY = "";
     # Set to 1 to enable agent teams. [1 or unset]
     # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+    CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "true";
     # JSON object to merge into the top level of every API request body.
     # CLAUDE_CODE_EXTRA_BODY = "";
     # Set to 1 to force transcript persistence, prompt history, and claude agents
