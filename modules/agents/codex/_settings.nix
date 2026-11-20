@@ -1,6 +1,10 @@
 {
   agents,
   codexNotify,
+  configDir,
+  cacheHome,
+  profileDirectory,
+  localMarketplace,
   homeDir,
   lib,
   osConfig,
@@ -39,10 +43,22 @@ let
   # Commented entries in the catalog leave the upstream default in effect.
   codexDefaultSettings = import ./_default-settings.nix;
 
+  pluginSettings = import ./_plugins.nix {
+    enabledPlugins = osConfig.programs.codex.extended.plugins;
+    inherit
+      lib
+      configDir
+      cacheHome
+      localMarketplace
+      ;
+  };
+
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
+    inherit (pluginSettings) marketplaces plugins;
+
     # Core settings
-    model = "gpt-6.1-sol";
+    model = "gpt-6.2-astra";
     review_model = "gpt-6.1-sol";
     approval_policy.granular = {
       sandbox_approval = true;
@@ -148,6 +164,23 @@ let
     shell_environment_policy = {
       "inherit" = "all";
       ignore_default_excludes = true;
+      set = {
+        inherit ((import ../claude-code/_env.nix).vars)
+          BASH_DEFAULT_TIMEOUT_MS
+          BASH_MAX_TIMEOUT_MS
+          CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR
+          CLAUDE_CODE_ENABLE_TELEMETRY
+          CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL
+          DISABLE_AUTOUPDATER
+          DISABLE_BUG_COMMAND
+          DISABLE_ERROR_REPORTING
+          DISABLE_INSTALLATION_CHECKS
+          DISABLE_UPDATES
+          OTEL_METRICS_INCLUDE_ACCOUNT_UUID
+          OTEL_METRICS_INCLUDE_SESSION_ID
+          USE_BUILTIN_RIPGREP
+          ;
+      };
       filters = {
         "AWS_*" = "exclude";
         "AZURE_*" = "exclude";
@@ -159,6 +192,7 @@ let
     # TUI settings
     tui = {
       notifications = true;
+      screen_reader_detection_done = true;
       theme = "base16-stylix";
       vim_mode_default = true;
       status_line = [
@@ -191,7 +225,17 @@ let
     };
 
     # MCP servers
-    mcp_servers = codexMcpServers;
+    mcp_servers =
+      codexMcpServers
+      // lib.optionalAttrs (codexMcpServers ? node_repl) {
+        node_repl =
+          codexMcpServers.node_repl
+          // (import ./_node-repl.nix {
+            inherit configDir profileDirectory;
+            inherit (codexMcpServers.node_repl) command;
+            inherit (osConfig.programs.chatgpt.extended.finalPackage) version;
+          });
+      };
   };
 
   # Base settings (everything except projects - those are merged at runtime)

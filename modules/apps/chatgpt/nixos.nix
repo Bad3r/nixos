@@ -61,6 +61,12 @@
           description = "Whether to enable the ChatGPT desktop application.";
         };
 
+        finalPackage = lib.mkOption {
+          type = lib.types.package;
+          readOnly = true;
+          description = "The ChatGPT package with the configured tray icon.";
+        };
+
         package = lib.mkOption {
           type = lib.types.package;
           default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.chatgpt;
@@ -70,7 +76,8 @@
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ themedPackage ];
+        programs.chatgpt.extended.finalPackage = themedPackage;
+        environment.systemPackages = [ cfg.finalPackage ];
       };
     };
 }

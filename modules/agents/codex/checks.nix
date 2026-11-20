@@ -13,11 +13,21 @@ in
     let
       # The variant the llm-agents fork builds and pushes to bad3r-nixos.
       codexPkg = inputs.llm-agents.packages.${system}.codex-voice;
+      osConfig.programs.codex.extended.plugins = lib.mapAttrs (_: plugin: plugin.codex) (
+        lib.filterAttrs (_: plugin: plugin ? codex) (import ../_plugins.nix)
+      );
       # Include app-backed MCP entries in parser validation without building their services.
       osConfig.programs.sbx.extended = {
         enable = true;
         finalPackage = pkgs.emptyDirectory;
         limits.maxTtl = 1;
+      };
+      osConfig.programs.chatgpt.extended = {
+        enable = true;
+        finalPackage = {
+          unwrapped = pkgs.emptyDirectory;
+          version = "1";
+        };
       };
       codexNotify = import ./_notify.nix {
         inherit pkgs;
@@ -27,6 +37,10 @@ in
         telemetry:
         import ./_settings.nix {
           inherit telemetry;
+          configDir = "/home/codex-config-check/.config/codex";
+          cacheHome = "/home/codex-config-check/.cache";
+          profileDirectory = "/etc/profiles/per-user/codex-config-check";
+          localMarketplace = pkgs.emptyDirectory;
           inherit
             agents
             lib

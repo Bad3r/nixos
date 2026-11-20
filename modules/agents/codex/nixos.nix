@@ -37,6 +37,8 @@ in
       basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
     in
     {
+      imports = [ (import ../_plugin-options.nix "codex") ];
+
       options.programs.codex.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;

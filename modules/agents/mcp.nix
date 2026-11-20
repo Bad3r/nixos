@@ -277,7 +277,11 @@ let
             toolTimeout = if lib.isFunction meta.toolTimeout then meta.toolTimeout cfg else meta.toolTimeout;
           in
           {
-            command = lib.getExe' (cfg.finalPackage or cfg.package) meta.program;
+            command =
+              if lib.isFunction meta.program then
+                meta.program cfg
+              else
+                lib.getExe' (cfg.finalPackage or cfg.package) meta.program;
             args = [ ];
             type = "stdio";
           }
