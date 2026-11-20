@@ -307,10 +307,9 @@ let
                     message = f"rustdesk-{label}:{host}".encode()
                     return hmac.new(key, message, hashlib.sha256).digest()
 
-                rid = 100_000_000 + int.from_bytes(derive("id")[:8], "big") % 900_000_000
                 salt = derive("salt").hex()[:32]
                 h1 = hashlib.sha256(password + salt.encode()).digest()
-                return {"id": str(rid), "salt": salt, "h1": base64.b64encode(h1).decode()}
+                return {"id": host, "salt": salt, "h1": base64.b64encode(h1).decode()}
 
             logins = {host: login(host) for host in hosts}
             info = {"username": user, "platform": "Linux"}
@@ -462,6 +461,12 @@ let
         })
 
         (lib.mkIf clientActive {
+          # Each host registers under its name, so the name must pass hbb_common::is_valid_custom_id.
+          assertions = map (host: {
+            assertion = builtins.match "[a-zA-Z][a-zA-Z0-9_-]{5,15}" host != null;
+            message = "RustDesk uses the host name ${host} as its ID, which must start with a letter and hold 6 to 16 letters, digits, '_', or '-'.";
+          }) ([ hostName ] ++ clientHosts);
+
           environment.systemPackages = [ cfg.package ];
           environment.etc."xdg/rustdesk/palette.json".text = builtins.toJSON palette;
 
