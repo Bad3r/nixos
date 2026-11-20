@@ -16,7 +16,7 @@ from pathlib import Path
 LINUX_TRAY = re.compile(
     rb'(?P<head>if\("linux"===process\.platform\)\{let [\w$]+=)'
     rb"`\$\{[\w$]+\([\w$]+\)\}\.png`"
-    rb"(?P<load>,(?P<img>[\w$]+)=[\w$]+\.nativeImage\.createFromPath\([^;]*\);"
+    rb"(?P<load>,[\w$]+=[^;]*?,(?P<img>[\w$]+)=[\w$]+\.nativeImage\.createFromBuffer\([^;]*\);"
     rb'if\((?P=img)\.isEmpty\(\)\)throw Error\("Linux tray application icon is unavailable"\);'
     rb"return\{defaultIcon:)"
     rb'(?P=img)\.resize\(\{width:16,height:16,quality:"best"\}\)\}'
