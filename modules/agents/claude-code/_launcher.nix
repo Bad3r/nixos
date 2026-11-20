@@ -21,9 +21,16 @@ let
   # _env.nix vars minus launchOnly, rendered as shell exports.
   claudeEnv = import ./_env.nix;
   envExports = lib.concatStringsSep "\n" (
-    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") (
-      builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
-    )
+    lib.mapAttrsToList (
+      name: value:
+      let
+        assignment = "export ${name}=${lib.escapeShellArg value}";
+      in
+      if lib.elem name claudeEnv.callerOverridable then
+        ''if [ -z "''${${name}+x}" ]; then ${assignment}; fi''
+      else
+        assignment
+    ) (builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly)
   );
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the

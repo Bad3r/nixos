@@ -18,6 +18,10 @@
   ];
   # Read only by this repo's launchers; Claude Code never looks at it.
   launchOnlyEscape = "CLAUDE_CODE_ALLOW_FEATURE_FLAGS";
+  # Exported by the launchers only when the caller left them unset, so a
+  # per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 is how the
+  # binary says to start a session with Chrome or computer use.
+  callerOverridable = [ "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE" ];
 
   vars = {
     # Authentication and providers

@@ -60,9 +60,13 @@ in
       # still gets every _env.nix var.
       claudeEnv = import ./_env.nix;
       setFlags = lib.concatStringsSep " " (
-        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") (
-          builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
-        )
+        lib.mapAttrsToList (
+          name: value:
+          let
+            flag = if lib.elem name claudeEnv.callerOverridable then "--set-default" else "--set";
+          in
+          "${flag} ${name} ${lib.escapeShellArg value}"
+        ) (builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly)
       );
       # Guarded, not --set: claude-rc lifts these for one launch, and a plain
       # --set here would be applied in-process where no outer wrapper reaches.
