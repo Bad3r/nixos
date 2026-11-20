@@ -124,6 +124,36 @@ let
   ] false osConfig;
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
+
+  # Code Mode stops a REPL script turn after this long; upstream hardcodes 30000.
+  replWallClockMs = 60000;
+  replWallClockPatch = pkgs.writeShellApplication {
+    name = "claude-code-repl-wall-clock";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      bin=$(readlink -f "$1")
+      shopt -s nullglob
+      native=(${osConfig.programs.tweakcc.extended.package}/lib/tweakcc/dist/nativeInstallation-*.mjs)
+      if [ "''${#native[@]}" -ne 1 ]; then
+        echo "claude-code-repl-wall-clock: expected one tweakcc nativeInstallation module, found ''${#native[@]}" >&2
+        exit 1
+      fi
+
+      # A new file renamed over the binary leaves bun's hardlinked cache copy intact.
+      tmp=$(mktemp "$bin.repl-wall-clock-XXXXXX")
+      trap 'rm -f -- "$tmp"' EXIT
+      status=0
+      ${lib.getExe pkgs.nodejs_22} ${./repl-wall-clock.mjs} "''${native[0]}" "$bin" "$tmp" ${toString replWallClockMs} || status=$?
+      case $status in
+        0)
+          chmod --reference="$bin" -- "$tmp"
+          mv -f -- "$tmp" "$bin"
+          ;;
+        3) ;;
+        *) exit "$status" ;;
+      esac
+    '';
+  };
 in
 {
   inherit applyConfig;
@@ -150,6 +180,12 @@ in
         echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above), keeping existing install at $BUN_INSTALL/bin/claude" >&2
       else
         echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above) and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch once the registry is reachable" >&2
+      fi
+    '';
+    patchClaudeCodeReplWallClock = lib.hm.dag.entryAfter [ "installClaudeCodeViaBun" ] ''
+      if [ -x "${bunInstallDir}/bin/claude" ]; then
+        run ${lib.getExe replWallClockPatch} "${bunInstallDir}/bin/claude" \
+          || echo "warning: patchClaudeCodeReplWallClock: Claude Code keeps its stock REPL wall clock (see error above)" >&2
       fi
     '';
   };

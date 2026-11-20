@@ -41,7 +41,8 @@
         _claude-json.nix       ~/.claude.json preferences
         _keybindings.nix       ~/.claude/keybindings.json
         _theme.nix             ~/.claude/themes/<slug>.json, the `theme` in _settings.nix
-      Plumbing: _activation.nix (jq merge and optional bun install) and
+      Plumbing: _activation.nix (jq merge, optional bun install, and the
+      bun binary's REPL wall clock patch through repl-wall-clock.mjs) and
       _launcher.nix (launcher environment and binary selection).
 */
 
