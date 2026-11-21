@@ -352,6 +352,7 @@ let
       "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
+      "open-code-review".extended.enable = lib.mkOverride 1100 true;
       opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openshell.extended.enable = lib.mkOverride 1100 false;

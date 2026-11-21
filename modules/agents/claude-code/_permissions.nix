@@ -41,6 +41,7 @@ let
     "nix"
     "npm run"
     "nvim"
+    "ocr delegate"
     "patch"
     "pkill"
     "pwd"
