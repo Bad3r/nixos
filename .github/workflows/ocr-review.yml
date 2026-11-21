@@ -177,7 +177,7 @@ jobs:
             jq -r '[.[] | select(.type == "result")] | last
               | "::error::Claude Code returned no summary"
                 + " (subtype=\(.subtype // "none"),"
-                + " is_error=\(.is_error // "none"))"' \
+                + " is_error=\(.is_error | tostring))"' \
               "$EXECUTION_FILE"
             exit 1
           fi
