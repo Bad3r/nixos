@@ -31,6 +31,7 @@
     }:
     let
       cfg = config.programs."open-code-review".extended;
+      codexModel = lib.attrByPath [ "programs" "codex" "extended" "model" ] null config;
       jsonFormat = pkgs.formats.json { };
 
       wrapped = pkgs.symlinkJoin {
@@ -64,7 +65,8 @@
           description = ''
             Contents of ~/.opencodereview/config.json, merged over this
             module's defaults: ChatGPT plan usage through Sign in with ChatGPT,
-            one review round, and low model reasoning.
+            the codex module's model, the medium review effort preset, and
+            medium model reasoning.
           '';
         };
       };
@@ -72,8 +74,11 @@
       config = lib.mkIf cfg.enable {
         programs."open-code-review".extended.settings = {
           provider = lib.mkDefault "chatgpt";
-          providers.chatgpt.extra_body.reasoning.effort = lib.mkDefault "low";
-          effort = lib.mkDefault "low";
+          providers.chatgpt = {
+            extra_body.reasoning.effort = lib.mkDefault "medium";
+          }
+          // lib.optionalAttrs (codexModel != null) { model = lib.mkDefault codexModel; };
+          effort = lib.mkDefault "medium";
           telemetry.enabled = lib.mkDefault false;
         };
 

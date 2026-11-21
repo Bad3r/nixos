@@ -50,6 +50,12 @@ in
 
         voice.enable = lib.mkEnableOption "realtime voice through codex-voice-host and GStreamer";
 
+        model = lib.mkOption {
+          type = lib.types.str;
+          default = "gpt-6.2-astra";
+          description = "Default model for codex and for open-code-review's chatgpt provider.";
+        };
+
         package = lib.mkOption {
           type = lib.types.package;
           default = basePackage.override {

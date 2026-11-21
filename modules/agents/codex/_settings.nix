@@ -58,7 +58,7 @@ let
     inherit (pluginSettings) marketplaces plugins;
 
     # Core settings
-    model = "gpt-6.2-astra";
+    inherit (osConfig.programs.codex.extended) model;
     review_model = "gpt-6.1-sol";
     approval_policy.granular = {
       sandbox_approval = true;

@@ -23,7 +23,7 @@ ocr auth login
 
 The browser flow stores its tokens under `~/.opencodereview/auth/chatgpt/`.
 Verify with `ocr auth status`, then `ocr llm test`.
-`ocr llm models` lists the models the account offers; the provider takes the first one unless `settings.providers.chatgpt.model` names another.
+`ocr llm models` lists the models the account offers; the provider uses `programs.codex.extended.model`, so ocr and codex share one default model, unless `settings.providers.chatgpt.model` names another.
 
 ## Review a change
 
@@ -37,7 +37,7 @@ Without range flags both commands review the staged, unstaged, and untracked cha
 `ocr review` saves each session under `~/.opencodereview/sessions/`, and `ocr viewer` browses them.
 
 `ocr review` prints progress and a report for a person; the skills pass `--audience agent`, which leaves only the summary for the agent to relay.
-The settings trade depth for speed and plan usage: `--effort medium` or `--effort high` adds review rounds to one run.
+The settings default to `--effort medium`, which runs two review rounds; `--effort low` runs one and `--effort high` adds more.
 `--concurrency` and `--max-tokens-budget` bound a run and exist only as flags.
 
 ## Configuration
