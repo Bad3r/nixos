@@ -4,11 +4,9 @@
 		"branch": "main",
 		"path": "shortcut.user.js",
 		"sourceFile": "_gecko-nixpkgs-review-gha.user.js",
-		"rev": "49eb906bd8207a0a80613f963fbd9cc908518754",
-		"hash": "sha256-GUpI1R4cXCZ+1xzNeZCukmt0dn958US0ePI6wTknmwQ=",
 		"id": 1,
 		"uuid": "cb37dedd-9092-44f6-8073-8ab7c9431918",
-		"updatedAt": 1791903720000,
+		"updatedAt": 1795256804000,
 		"installUrl": "https://github.com/Bad3r/nixpkgs-review-gha/raw/refs/heads/main/shortcut.user.js",
 		"meta": {
 			"include": [],
