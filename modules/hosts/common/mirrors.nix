@@ -64,6 +64,7 @@ let
             "github/docs"
             "i3/i3.github.io"
             "mozilla-firefox/firefox"
+            "chromium/chromium" # GitHub mirror of the Chromium src tree; DEPS-pinned dependencies are not included
             "mdn/content" # https://developer.mozilla.org
             "mozilla/policy-templates"
             "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
