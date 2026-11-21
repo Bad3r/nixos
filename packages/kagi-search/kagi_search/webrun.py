@@ -56,9 +56,10 @@ FIND_CONTEXT_LINES = 2
 # Codex kills the program after 180 s; the response must be out well before.
 CALL_DEADLINE_SECONDS = 150.0
 PAGE_START_MARGIN_SECONDS = 10.0
-# Codex sets this for the program when it passes the response's content items,
-# and so its images, to the model.
+# Set to 0, this turns page images off: a screenshot then fails as one the
+# service could not take.
 IMAGES_ENV = "CODEX_WEB_RUN_IMAGES"
+IMAGES_OFF = "0"
 # What one call holds in memory and hands to Codex, however many pages it names.
 MAX_KEPT_PDF_BYTES = 2 * MAX_PDF_BYTES
 MAX_CALL_IMAGE_BYTES = 24 * 1024 * 1024
@@ -775,9 +776,9 @@ class _Call:
             del self.kept_pdfs[oldest], self.pages[oldest]
 
     def shoot(self, page: Page, pageno: int) -> Image:
-        """Render the PDF's page, within the call's deadline, when Codex takes images."""
+        """Render the PDF's page, within the call's deadline, unless images are turned off."""
         if not self.images:
-            msg = f"this Codex gives its model no images ({IMAGES_ENV} is not 1)"
+            msg = f"images are turned off ({IMAGES_ENV}={IMAGES_OFF})"
             raise RenderError(msg)
         if page.data is None:
             msg = "the PDF's bytes were not kept"
@@ -984,7 +985,7 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
     """Answer one SearchRequest with a SearchResponse; real reasons go to log.
 
     A response with page images carries them in content, beside the output they
-    belong to; images tells whether Codex passes that content to its model.
+    belong to; images tells whether screenshots return them at all.
 
     Raises for a request that does not parse, a session whose turn cannot be
     claimed, or a failed Kagi search: the service answers those with HTTP 503.
@@ -1070,7 +1071,7 @@ def main() -> int:
             search=cli.run,
             fetch=fetch_page,
             render=render_page,
-            images=os.environ.get(IMAGES_ENV) == "1",
+            images=os.environ.get(IMAGES_ENV) != IMAGES_OFF,
             directory=state_directory(),
             now=lambda: dt.datetime.now(dt.UTC),
             log=log,

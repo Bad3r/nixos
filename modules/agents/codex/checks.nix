@@ -130,6 +130,9 @@ in
             # The Bad3r/codex release carries the local-command patch in its source.
             grep -qF CODEX_WEB_RUN_COMMAND ${src}/ext/web-search/src/tool.rs \
               || fail "the codex source does not read CODEX_WEB_RUN_COMMAND, which home.nix sets, so web.run would call OpenAI's alpha/search"
+            # Without the image part, a PDF screenshot would answer as taken and carry no image.
+            grep -qsF ImageSearchOutput ${src}/ext/web-search/src/image_output.rs \
+              || fail "the codex source does not pass a web.run answer's images to the model, which kagi-search-webrun's PDF screenshots rely on"
             ${lib.concatStrings (
               lib.mapAttrsToList (file: hash: ''
                 got=$(sha256sum ${src}/${file} | cut -d' ' -f1) || got=missing

@@ -681,8 +681,8 @@ class ScreenshotTest(WebRunTestCase):
         self.assertEqual(len(emulator.logged), 1)
         self.assertIn(f"no image of {PDF_URL}: page 3 is past the last page", emulator.logged[0])
 
-    def test_no_image_is_claimed_when_codex_takes_none(self) -> None:
-        """Without Codex's image support a screenshot fails; nothing is rendered."""
+    def test_no_image_is_claimed_when_images_are_off(self) -> None:
+        """With images turned off a screenshot fails; nothing is rendered."""
         emulator = self.pdf_emulator()
         emulator.images = False
         response = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 0}]})
@@ -690,7 +690,7 @@ class ScreenshotTest(WebRunTestCase):
         self.assertEqual(ref_ids(response), ["turn0view0"])
         self.assertNotIn("content", response)
         self.assertEqual(emulator.render.calls, [])
-        self.assertIn("CODEX_WEB_RUN_IMAGES is not 1", emulator.logged[0])
+        self.assertIn("images are turned off (CODEX_WEB_RUN_IMAGES=0)", emulator.logged[0])
 
     def test_an_image_cut_by_the_budget_is_left_out(self) -> None:
         """A screenshot block past the output budget takes its image with it."""
@@ -1151,8 +1151,8 @@ class MainTest(WebRunTestCase):
         self.assertEqual(len(response["results"]), 2)
         self.assertTrue(any(self.directory.glob("*.json")))
 
-    def test_a_screenshot_reaches_stdout_as_an_image_when_codex_takes_images(self) -> None:
-        """With Codex's CODEX_WEB_RUN_IMAGES=1 the real renderer's page is in content."""
+    def test_a_screenshot_reaches_stdout_as_an_image_unless_images_are_off(self) -> None:
+        """The real renderer's page is in content, except under CODEX_WEB_RUN_IMAGES=0."""
         sandbox.require()
         document = pdfs.document([pdfs.rectangle((1, 0, 0), (0, 0, *pdfs.LETTER))])
         broken = "https://x.org/broken.pdf"
@@ -1162,12 +1162,15 @@ class MainTest(WebRunTestCase):
         }
         shots = [{"ref_id": broken, "pageno": 0}, {"ref_id": PDF_URL, "pageno": 0}]
         request = {"id": SESSION, "commands": {"screenshot": shots}}
-        for value, expected in (("1", True), ("", False), ("0", False)):
+        for value, expected in ((None, True), ("1", True), ("", True), ("0", False)):
+            environment = {} if value is None else {webrun.IMAGES_ENV: value}
             with (
                 self.subTest(value=value),
                 unittest.mock.patch.object(webrun, "fetch_page", FakeFetch(pages)),
-                unittest.mock.patch.dict(os.environ, {webrun.IMAGES_ENV: value}),
+                unittest.mock.patch.dict(os.environ, environment),
             ):
+                if value is None:
+                    os.environ.pop(webrun.IMAGES_ENV, None)
                 code, out, err = run_main(request, state_home=self.root)
                 self.assertEqual((code, err), (0, ""))
                 response = json.loads(out)
