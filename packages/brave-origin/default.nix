@@ -67,16 +67,16 @@
 
 let
   pname = "brave-origin";
-  version = "1.99.57";
+  version = "1.100.58";
 
   sources = {
     x86_64-linux = fetchurl {
       url = "https://github.com/brave/brave-browser/releases/download/v${version}/brave-origin_${version}_amd64.deb";
-      hash = "sha256-TLGtTqDl+lK0/d1ZNi56nZQnZlf+FqYgPQwdJb2Pcw4=";
+      hash = "sha256-TM7BTRt8Nkh+HYShyrQkq5TpO5S0F2IG5MEaMiE9xh0=";
     };
     aarch64-linux = fetchurl {
       url = "https://github.com/brave/brave-browser/releases/download/v${version}/brave-origin_${version}_arm64.deb";
-      hash = "sha256-MYzlsQCi0o1jjAN0JLxzImnTD4Ug3t8A9DIkeyMvzBk=";
+      hash = "sha256-SIi0/06IYTq3/Lhe5AfqoYWBsvbqrdnBdaQ7jOJ7pvE=";
     };
   };
 
