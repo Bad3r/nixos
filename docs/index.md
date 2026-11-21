@@ -380,6 +380,11 @@
 - [apps/herdr/README.md](apps/herdr/README.md)
   - Herdr configuration ownership and privacy boundaries.
 
+### ActivityWatch
+
+- [apps/activitywatch/README.md](apps/activitywatch/README.md)
+  - The `activitywatch.internal` web UI, the user services, how the name resolves, and what the watchers record.
+
 ### browser-fetch
 
 - [apps/browser-fetch/README.md](apps/browser-fetch/README.md)
