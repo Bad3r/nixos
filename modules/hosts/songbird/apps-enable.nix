@@ -49,6 +49,7 @@ let
     ilspycmd = true;
     imhex = true;
     irccat = true;
+    "ungoogled-chromium" = true;
     "ircd-hybrid" = true;
     jadx = true;
     "llama-cpp" = true;
