@@ -2,7 +2,8 @@
 """Codex's web.run search service, answered from Kagi and locally fetched pages.
 
 The output reproduces the service's own wording, failures included; the real
-reasons behind a failure go only to the log file.
+reasons behind a failure go only to the log file. A screenshot adds what the
+service's response does not carry: the page's image, as a content item.
 """
 
 from __future__ import annotations
@@ -24,9 +25,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 from kagi_search import cli
-from kagi_search.fetch import PDF_TYPE, FetchError, Page, fetch_page
+from kagi_search.fetch import MAX_PDF_BYTES, PDF_TYPE, FetchError, Page, fetch_page
 from kagi_search.log import FILE_MODE, FileLog, private_directory, state_root
 from kagi_search.page import filter_hits, matches_domain, normalize_domain
+from kagi_search.pdf import Image, RenderError, render_page
 from kagi_search.render import Rendered, render
 from kagi_search.run_schema import RUN_SCHEMA
 
@@ -54,6 +56,12 @@ FIND_CONTEXT_LINES = 2
 # Codex kills the program after 180 s; the response must be out well before.
 CALL_DEADLINE_SECONDS = 150.0
 PAGE_START_MARGIN_SECONDS = 10.0
+# Codex sets this for the program when it passes the response's content items,
+# and so its images, to the model.
+IMAGES_ENV = "CODEX_WEB_RUN_IMAGES"
+# What one call holds in memory and hands to Codex, however many pages it names.
+MAX_KEPT_PDF_BYTES = 2 * MAX_PDF_BYTES
+MAX_CALL_IMAGE_BYTES = 24 * 1024 * 1024
 SEARCH_START_MARGIN_SECONDS = 30.0
 
 STATE_VERSION = 1
@@ -636,8 +644,8 @@ def _trim(block: str, room: int) -> str:
     return block[: cut + 1] if cut > 0 else ""
 
 
-def fit_blocks(blocks: list[str], budget: int) -> str:
-    """Join the blocks within budget characters, in order.
+def kept_blocks(blocks: list[str], budget: int) -> list[str]:
+    """Return the leading blocks that join within budget characters.
 
     The first block that does not fit is cut to whole lines and the blocks after
     it are left out, silently, as the service truncates.
@@ -651,7 +659,32 @@ def fit_blocks(blocks: list[str], budget: int) -> str:
         if trimmed:
             kept.append(trimmed)
         break
-    return join_blocks(kept)[:budget]
+    return kept
+
+
+def fit_blocks(blocks: list[str], budget: int) -> str:
+    """Join the blocks within budget characters, in order."""
+    return join_blocks(kept_blocks(blocks, budget))[:budget]
+
+
+def content_items(kept: list[str], shots: dict[int, str]) -> list[dict[str, object]]:
+    """Return the kept blocks' text with each image right after its block.
+
+    The items are Codex's function-output content: the text items join to the
+    blocks' joined text, and shots maps a block's index to its image's data: URL.
+    """
+    items: list[dict[str, object]] = []
+    text = ""
+    for index, block in enumerate(kept):
+        text += (BLOCK_SEPARATOR if index else "") + block
+        shot = shots.get(index)
+        if shot is not None:
+            items.append({"type": "input_text", "text": text})
+            items.append({"type": "input_image", "image_url": shot})
+            text = ""
+    if text:
+        items.append({"type": "input_text", "text": text})
+    return items
 
 
 def utc_offset(text: str) -> dt.timedelta | None:
@@ -689,14 +722,19 @@ class _Call:
     turn: int
     refs: dict[str, Ref]
     fetch: Callable[[str, float], Page]
+    render: Callable[[bytes, int, float], Image]
+    images: bool
     today: dt.date
     log: Callable[[str], None]
     deadline: float
     blocks: list[str] = field(default_factory=list[str])
+    shots: dict[int, str] = field(default_factory=dict[int, str])
     results: list[dict[str, object]] = field(default_factory=list[dict[str, object]])
     new_refs: dict[str, Ref] = field(default_factory=dict[str, Ref])
     pages: dict[str, Page | FetchError] = field(default_factory=dict[str, Page | FetchError])
     counts: dict[str, int] = field(default_factory=dict[str, int])
+    kept_pdfs: dict[str, int] = field(default_factory=dict[str, int])
+    image_bytes: int = 0
 
     def next_id(self, kind: str) -> str:
         """Return the next ref_id of the kind (search, view, time) in this turn."""
@@ -716,6 +754,8 @@ class _Call:
                 cached = FetchError(f"unexpected {type(error).__name__}: {error}")
                 self.log(f"fetching {url} failed\n{''.join(traceback.format_exception(error))}")
             self.pages[url] = cached
+            if isinstance(cached, Page) and cached.data is not None:
+                self._keep_pdf(url, len(cached.data))
         if isinstance(cached, FetchError):
             raise cached
         return cached
@@ -725,6 +765,28 @@ class _Call:
             msg = f"not started: the call's {CALL_DEADLINE_SECONDS:g} s deadline is near"
             raise FetchError(msg)
         return self.fetch(url, self.deadline - PAGE_START_MARGIN_SECONDS)
+
+    def _keep_pdf(self, url: str, size: int) -> None:
+        """Forget the oldest PDFs past MAX_KEPT_PDF_BYTES; one asked for again is fetched again."""
+        self.kept_pdfs[url] = size
+        while len(self.kept_pdfs) > 1 and sum(self.kept_pdfs.values()) > MAX_KEPT_PDF_BYTES:
+            oldest = next(iter(self.kept_pdfs))
+            del self.kept_pdfs[oldest], self.pages[oldest]
+
+    def shoot(self, page: Page, pageno: int) -> Image:
+        """Render the PDF's page, within the call's deadline, when Codex takes images."""
+        if not self.images:
+            msg = f"this Codex gives its model no images ({IMAGES_ENV} is not 1)"
+            raise RenderError(msg)
+        if page.data is None:
+            msg = "the PDF's bytes were not kept"
+            raise RenderError(msg)
+        image = self.render(page.data, pageno, self.deadline - PAGE_START_MARGIN_SECONDS)
+        if self.image_bytes + len(image.data) > MAX_CALL_IMAGE_BYTES:
+            msg = f"the call's images would pass {MAX_CALL_IMAGE_BYTES} bytes"
+            raise RenderError(msg)
+        self.image_bytes += len(image.data)
+        return image
 
     def lookup(self, ref_id: str) -> Ref | None:
         """Return what the ref_id points at, from this call or earlier ones."""
@@ -874,12 +936,14 @@ def _screenshot(call: _Call, operation: Operation, page: Page, ref_id: str) -> N
         call.blocks.append(invalid_call_block(ref_id, SCREENSHOT_NOT_PDF))
         call.results.append(error_result(ref_id, SCREENSHOT_NOT_PDF))
         return
-    if page.pdf_pages is not None and operation.pageno >= page.pdf_pages:
-        call.log(f"{source}: {page.url} has {page.pdf_pages} pages")
+    try:
+        image = call.shoot(page, operation.pageno)
+    except RenderError as error:
+        call.log(f"{source}: no image of {page.url}: {error}")
         call.blocks.append(failed_fetch_block(ref_id, source, page.url))
         call.results.append(error_result(ref_id))
         return
-    call.log(f"{source}: PDF pages cannot be rendered to images; answered without one")
+    call.shots[len(call.blocks)] = image.data_url()
     call.blocks.append(f" ({page.url})\n{cite(ref_id)} ")
 
 
@@ -910,11 +974,16 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
     *,
     search: Searcher,
     fetch: Callable[[str, float], Page],
+    render: Callable[[bytes, int, float], Image],
+    images: bool,
     directory: Path,
     now: Callable[[], dt.datetime],
     log: Callable[[str], None],
 ) -> dict[str, object]:
     """Answer one SearchRequest with a SearchResponse; real reasons go to log.
+
+    A response with page images carries them in content, beside the output they
+    belong to; images tells whether Codex passes that content to its model.
 
     Raises for a request that does not parse, a session whose turn cannot be
     claimed, or a failed Kagi search: the service answers those with HTTP 503.
@@ -923,7 +992,7 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
     request = parse_request(value)
     session = Session(directory, request.session)
     turn, refs = session.begin()
-    call = _Call(turn, refs, fetch, now().date(), log, deadline)
+    call = _Call(turn, refs, fetch, render, images, now().date(), log, deadline)
     _housekeep(call, "remove stale sessions", lambda: session.prune(now()))
     if schema_violation(request.commands):
         log("sports without tool 'sports': answered with the service's schema error")
@@ -946,8 +1015,25 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
         else:
             log(f"{group.key}: not served; left out as the service leaves out invalid items")
     _housekeep(call, "save this call's refs", lambda: session.record(call.new_refs))
-    output = fit_blocks(call.blocks, budget) if call.blocks else NO_TOOL_RESPONSE
-    return _response(output, call.results)
+    if not call.blocks:
+        return _response(NO_TOOL_RESPONSE, call.results)
+    response = _response(fit_blocks(call.blocks, budget), call.results)
+    content = _content(call, budget)
+    if content:
+        response["content"] = content
+    return response
+
+
+def _content(call: _Call, budget: int) -> list[dict[str, object]]:
+    """Return the output as content items when it keeps a block with an image whole."""
+    kept = kept_blocks(call.blocks, budget)
+    shots: dict[int, str] = {}
+    for index, shot in call.shots.items():
+        if index < len(kept) and kept[index] == call.blocks[index]:
+            shots[index] = shot
+        else:
+            call.log(f"an image is left out: the output budget cut its block ({index})")
+    return content_items(kept, shots) if shots else []
 
 
 def _response(output: str, results: list[dict[str, object]]) -> dict[str, object]:
@@ -985,6 +1071,8 @@ def main() -> int:
             value,
             search=cli.run,
             fetch=fetch_page,
+            render=render_page,
+            images=os.environ.get(IMAGES_ENV) == "1",
             directory=state_directory(),
             now=lambda: dt.datetime.now(dt.UTC),
             log=log,

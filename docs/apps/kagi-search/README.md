@@ -50,8 +50,20 @@ Codex runs its own `web.run` tool with the `standalone_web_search` feature, and 
 The Codex source, a Bad3r/codex release, carries the patch that sends each call to the program named by `CODEX_WEB_RUN_COMMAND`, `/run/current-system/sw/bin/kagi-search-webrun`.
 Search uses Kagi; `open`, `click`, and `find` fetch pages directly, loopback and private addresses included.
 Codex sees only the service's own wording, failures included; the real reasons go to `~/.local/state/kagi-search/web-run.log`.
+`screenshot` adds the PDF page as an image after the service's text, rendered by PDFium in a child process under memory and time limits ([renderer](../../../packages/kagi-search/kagi_search/pdf.py)).
+The image travels in the response's `content` items, which the patch passes to the model; Codex sets `CODEX_WEB_RUN_IMAGES=1` for the program when it does.
 Reference ids such as `turn0search0` persist per Codex session under `~/.local/state/kagi-search/web-run/`.
 The `codex/web-run-contract` flake check fails a Codex update that drops the patch, renames the feature, or changes the tool's description or search schema ([checks](../../../modules/agents/codex/checks.nix)).
+
+## A PDF screenshot answers Failed to fetch
+
+The log names why no image was returned, such as a page number past the last page, a PDF that needs a password, or a Codex that did not set `CODEX_WEB_RUN_IMAGES`:
+
+```sh
+grep -E 'no image of|is not accessible' ~/.local/state/kagi-search/web-run.log | tail
+```
+
+A Codex that does not set the variable lacks the image part of the patch; update the `llm-agents` input to a Bad3r/codex release that carries it.
 
 ## No Kagi session in browser-fetch's profile
 

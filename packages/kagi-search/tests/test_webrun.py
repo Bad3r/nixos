@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """web.run requests answered from fake Kagi hits and fake pages."""
 
+import base64
 import contextlib
 import datetime as dt
 import fcntl
@@ -16,8 +17,10 @@ import unittest.mock
 from pathlib import Path
 from typing import cast, override
 
-from kagi_search import cli, client, fetch, webrun
+from kagi_search import cli, client, fetch, pdf, webrun
 from kagi_search.page import Hit
+
+from tests import pdfs
 
 SEPARATOR = "-" * 80 + "\n"
 SMALL_TOKENS = 2000
@@ -180,8 +183,33 @@ class FakeFetch:
         return page
 
 
+class FakeRender:
+    """Render every PDF as one of a fixed number of pages and record the calls."""
+
+    def __init__(self, pages: int = 1) -> None:
+        """Keep the page count every document has."""
+        self.pages = pages
+        self.calls: list[tuple[bytes, int]] = []
+        self.until: list[float] = []
+
+    def __call__(self, data: bytes, pageno: int, until: float) -> pdf.Image:
+        """Return a stand-in image naming the page, or fail past the last page."""
+        self.calls.append((data, pageno))
+        self.until.append(until)
+        if pageno >= self.pages:
+            msg = f"page {pageno} is past the last page; the PDF has {self.pages} pages"
+            raise pdf.RenderError(msg)
+        return pdf.Image("image/png", b"page %d of %b" % (pageno, data))
+
+
+def shot(data: bytes, pageno: int) -> dict[str, object]:
+    """Return the content item FakeRender's image of the page becomes."""
+    image = pdf.Image("image/png", b"page %d of %b" % (pageno, data))
+    return {"type": "input_image", "image_url": image.data_url()}
+
+
 class Emulator:
-    """A state directory with a fake search and fetcher."""
+    """A state directory with a fake search, fetcher, and PDF renderer."""
 
     def __init__(
         self, directory: Path, hits: list[Hit] | Exception, pages: dict[str, fetch.Page]
@@ -190,6 +218,8 @@ class Emulator:
         self.directory = directory
         self.search = FakeSearch(hits)
         self.fetch = FakeFetch(pages)
+        self.render = FakeRender()
+        self.images = True
         self.logged: list[str] = []
 
     def seed(self, turn: int, refs: dict[str, webrun.Ref]) -> None:
@@ -206,6 +236,8 @@ class Emulator:
             request | extra,
             search=self.search,
             fetch=self.fetch,
+            render=self.render,
+            images=self.images,
             directory=self.directory,
             now=lambda: NOW,
             log=self.logged.append,
@@ -569,6 +601,160 @@ class ViewTest(WebRunTestCase):
         self.assertEqual(ref_ids(response), ["turn0view0", "turn0view1"])
 
 
+PDF_URL = "https://x.org/paper.pdf"
+PDF_BYTES = b"%PDF-1.4 stand-in"
+CITE_VIEW = "\ue200cite\ue202turn0view{}\ue201"
+
+
+class ScreenshotTest(WebRunTestCase):
+    """PDF pages returned as images beside the service's own screenshot block."""
+
+    def pdf_emulator(self, pages: int = 3) -> Emulator:
+        """Return an emulator serving one PDF of that many pages and an HTML page."""
+        emulator = self.emulator(
+            pages={
+                PDF_URL: fetch.Page(
+                    PDF_URL, "application/pdf", None, redirected=False, data=PDF_BYTES
+                ),
+                "https://x.org/": html("https://x.org/", "<title>X</title><p>hello</p>"),
+            }
+        )
+        emulator.render = FakeRender(pages)
+        return emulator
+
+    def test_a_page_image_follows_its_block(self) -> None:
+        """The block reads as the service's, and content carries its text and the image."""
+        emulator = self.pdf_emulator()
+        response = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 2}]})
+        block = f" ({PDF_URL})\n{CITE_VIEW.format(0)} "
+        self.assertEqual(output(response), block)
+        self.assertEqual(response["results"], [])
+        self.assertEqual(
+            response["content"], [{"type": "input_text", "text": block}, shot(PDF_BYTES, 2)]
+        )
+        self.assertEqual(emulator.render.calls, [(PDF_BYTES, 2)])
+        self.assertEqual(emulator.logged, [])
+
+    def test_images_sit_between_the_blocks_they_belong_to(self) -> None:
+        """Each image comes right after its block's text, and the text items join to the output."""
+        emulator = self.pdf_emulator()
+        response = emulator.call(
+            {
+                "open": [{"ref_id": "https://x.org/"}],
+                "screenshot": [
+                    {"ref_id": PDF_URL, "pageno": 0},
+                    {"ref_id": PDF_URL, "pageno": 9},
+                    {"ref_id": PDF_URL, "pageno": 1},
+                ],
+                "time": [{"utc_offset": "+00:00"}],
+            }
+        )
+        content = cast("list[dict[str, str]]", response["content"])
+        self.assertEqual(
+            [item["type"] for item in content],
+            ["input_text", "input_image", "input_text", "input_image", "input_text"],
+        )
+        self.assertEqual([content[1], content[3]], [shot(PDF_BYTES, 0), shot(PDF_BYTES, 1)])
+        texts = [item["text"] for item in content if item["type"] == "input_text"]
+        self.assertEqual("".join(texts), output(response))
+        self.assertTrue(texts[0].endswith(f" ({PDF_URL})\n{CITE_VIEW.format(1)} "))
+        self.assertTrue(texts[1].endswith(f" ({PDF_URL})\n{CITE_VIEW.format(3)} "))
+        self.assertIn(f"Failed to fetch {PDF_URL}: Internal Error", texts[1])
+        self.assertTrue(texts[2].startswith(SEPARATOR + "\ue200cite\ue202turn0time0\ue201"))
+        self.assertEqual(emulator.fetch.urls, ["https://x.org/", PDF_URL])
+
+    def test_a_page_that_cannot_be_rendered_fails_as_the_service_does(self) -> None:
+        """A page past the last one answers with the service's failure; the log has the reason."""
+        emulator = self.pdf_emulator(pages=3)
+        response = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 3}]})
+        self.assertEqual(
+            output(response),
+            f"Internal Error ()\n{CITE_VIEW.format(0)} [wordlim: 200] Source: "
+            f'screenshot({{"ref_id":"{PDF_URL}","pageno":3,"height":null,"offset":null}}); \n'
+            f"Failed to fetch {PDF_URL}: Internal Error",
+        )
+        self.assertEqual(
+            response["results"],
+            [{"type": "text_result", "ref_id": "turn0view0", "title": "Internal Error"}],
+        )
+        self.assertNotIn("content", response)
+        self.assertEqual(len(emulator.logged), 1)
+        self.assertIn(f"no image of {PDF_URL}: page 3 is past the last page", emulator.logged[0])
+
+    def test_no_image_is_claimed_when_codex_takes_none(self) -> None:
+        """Without Codex's image support a screenshot fails; nothing is rendered."""
+        emulator = self.pdf_emulator()
+        emulator.images = False
+        response = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 0}]})
+        self.assertTrue(output(response).endswith(f"Failed to fetch {PDF_URL}: Internal Error"))
+        self.assertEqual(ref_ids(response), ["turn0view0"])
+        self.assertNotIn("content", response)
+        self.assertEqual(emulator.render.calls, [])
+        self.assertIn("CODEX_WEB_RUN_IMAGES is not 1", emulator.logged[0])
+
+    def test_an_image_cut_by_the_budget_is_left_out(self) -> None:
+        """A screenshot block past the output budget takes its image with it."""
+        emulator = self.pdf_emulator()
+        response = emulator.call(
+            {
+                "open": [{"ref_id": "https://x.org/"}],
+                "screenshot": [{"ref_id": PDF_URL, "pageno": 0}],
+            },
+            max_output_tokens=60,
+        )
+        self.assertIn("L0: hello", output(response))
+        self.assertNotIn(PDF_URL, output(response))
+        self.assertNotIn("content", response)
+        self.assertTrue(any("an image is left out" in line for line in emulator.logged))
+        emulator.logged.clear()
+        cut = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 0}]}, max_output_tokens=8)
+        self.assertEqual(output(cut), f" ({PDF_URL})\n")
+        self.assertNotIn("content", cut)
+        self.assertTrue(any("an image is left out" in line for line in emulator.logged))
+
+    def test_a_call_stops_adding_images_at_its_byte_limit(self) -> None:
+        """Past the call's image budget a screenshot fails; the images before it stay."""
+        emulator = self.pdf_emulator()
+        one = len(pdf.Image("image/png", b"page 0 of " + PDF_BYTES).data)
+        with unittest.mock.patch.object(webrun, "MAX_CALL_IMAGE_BYTES", 2 * one):
+            response = emulator.call(
+                {"screenshot": [{"ref_id": PDF_URL, "pageno": page} for page in (0, 1, 2)]}
+            )
+        content = cast("list[dict[str, str]]", response["content"])
+        images = [item for item in content if item["type"] == "input_image"]
+        self.assertEqual(images, [shot(PDF_BYTES, 0), shot(PDF_BYTES, 1)])
+        self.assertTrue(output(response).endswith(f"Failed to fetch {PDF_URL}: Internal Error"))
+        self.assertIn("the call's images would pass", emulator.logged[0])
+
+    def test_only_recent_pdfs_stay_in_memory(self) -> None:
+        """PDFs past the kept-bytes limit are forgotten and fetched again when asked for."""
+        emulator = self.pdf_emulator()
+        other = "https://x.org/other.pdf"
+        emulator.fetch.pages[other] = fetch.Page(
+            other, "application/pdf", None, redirected=False, data=PDF_BYTES
+        )
+        shots = [{"ref_id": url, "pageno": 0} for url in (PDF_URL, PDF_URL, other, PDF_URL)]
+        with unittest.mock.patch.object(webrun, "MAX_KEPT_PDF_BYTES", len(PDF_BYTES)):
+            response = emulator.call({"screenshot": shots})
+        self.assertEqual(emulator.fetch.urls, [PDF_URL, other, PDF_URL])
+        content = cast("list[dict[str, str]]", response["content"])
+        self.assertEqual(sum(item["type"] == "input_image" for item in content), len(shots))
+
+    def test_rendering_ends_before_the_call_deadline(self) -> None:
+        """The renderer is given the call's deadline less the margin that leaves time to answer."""
+        emulator = self.pdf_emulator()
+        started = time.monotonic()
+        emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 0}]})
+        limit = webrun.CALL_DEADLINE_SECONDS - webrun.PAGE_START_MARGIN_SECONDS
+        self.assertLessEqual(emulator.render.until[0], time.monotonic() + limit)
+        self.assertGreaterEqual(emulator.render.until[0], started + limit)
+
+    def test_a_response_without_images_has_no_content(self) -> None:
+        """Only a response with an image carries content items."""
+        response = self.pdf_emulator().call({"open": [{"ref_id": "https://x.org/"}]})
+        self.assertNotIn("content", response)
+
+
 class WindowTest(WebRunTestCase):
     """lineno positioning and truncation to the output budget."""
 
@@ -760,6 +946,8 @@ class StateTest(WebRunTestCase):
                 request,
                 search=emulator.search,
                 fetch=emulator.fetch,
+                render=emulator.render,
+                images=emulator.images,
                 directory=self.directory,
                 now=lambda: NOW,
                 log=emulator.logged.append,
@@ -962,6 +1150,40 @@ class MainTest(WebRunTestCase):
         self.assertIsNone(response["encrypted_output"])
         self.assertEqual(len(response["results"]), 2)
         self.assertTrue(any(self.directory.glob("*.json")))
+
+    def test_a_screenshot_reaches_stdout_as_an_image_when_codex_takes_images(self) -> None:
+        """With Codex's CODEX_WEB_RUN_IMAGES=1 the real renderer's page is in content."""
+        document = pdfs.document([pdfs.rectangle((1, 0, 0), (0, 0, *pdfs.LETTER))])
+        broken = "https://x.org/broken.pdf"
+        pages = {
+            PDF_URL: fetch.Page(PDF_URL, "application/pdf", None, redirected=False, data=document),
+            broken: fetch.Page(broken, "application/pdf", None, redirected=False, data=b"junk"),
+        }
+        shots = [{"ref_id": broken, "pageno": 0}, {"ref_id": PDF_URL, "pageno": 0}]
+        request = {"id": SESSION, "commands": {"screenshot": shots}}
+        for value, expected in (("1", True), ("", False), ("0", False)):
+            with (
+                self.subTest(value=value),
+                unittest.mock.patch.object(webrun, "fetch_page", FakeFetch(pages)),
+                unittest.mock.patch.dict(os.environ, {webrun.IMAGES_ENV: value}),
+            ):
+                code, out, err = run_main(request, state_home=self.root)
+                self.assertEqual((code, err), (0, ""))
+                response = json.loads(out)
+                self.assertEqual("content" in response, expected)
+                if not expected:
+                    self.assertIn("Failed to fetch", response["output"])
+                    continue
+                text, image = response["content"]
+                self.assertEqual(text, {"type": "input_text", "text": response["output"]})
+                self.assertIn(f"Failed to fetch {broken}: Internal Error", text["text"])
+                self.assertIn("not a PDF the renderer can read", self.log_text())
+                prefix = "data:image/png;base64,"
+                self.assertEqual(sorted(image), ["image_url", "type"])
+                self.assertEqual(image["type"], "input_image")
+                self.assertTrue(image["image_url"].startswith(prefix))
+                png = base64.b64decode(image["image_url"].removeprefix(prefix))
+                self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
 
     def test_kagi_failures_answer_as_the_service_503(self) -> None:
         """Any Kagi failure fails the call with Codex's 503 text; the reason goes to the log."""
