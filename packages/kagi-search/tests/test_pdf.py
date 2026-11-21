@@ -58,7 +58,7 @@ PROBE_PROGRAM = """\
 import json, os, pathlib, socket
 seen = {{"env": sorted(os.environ)}}
 try:
-    seen["file"] = pathlib.Path({secret!r}).read_text()
+    seen["file"] = pathlib.Path({outside!r}).read_text()
 except OSError as error:
     seen["file"] = type(error).__name__
 try:
@@ -309,18 +309,18 @@ class ChildFailureTest(ChildTestCase):
 
     def test_the_child_reaches_nothing_but_its_input(self) -> None:
         """The child reads no file of the user's, opens no connection, and inherits no variable."""
-        secret = self.work / "secret"
-        secret.write_text("private")
+        outside = self.work / "outside.txt"
+        outside.write_text("outside the sandbox")
         with socket.create_server(("127.0.0.1", 0)) as server:
             server.settimeout(0)
-            program = PROBE_PROGRAM.format(secret=str(secret), port=server.getsockname()[1])
-            with unittest.mock.patch.dict(os.environ, {"KAGI_SEARCH_TEST_TOKEN": "private"}):
+            program = PROBE_PROGRAM.format(outside=str(outside), port=server.getsockname()[1])
+            with unittest.mock.patch.dict(os.environ, {"KAGI_SEARCH_TEST_MARK": "set"}):
                 seen = json.loads(self.failure(program))
             with self.assertRaises(BlockingIOError):
                 server.accept()
         self.assertEqual(seen["file"], "FileNotFoundError")
         self.assertNotEqual(seen["net"], "connected")
-        self.assertNotIn("KAGI_SEARCH_TEST_TOKEN", seen["env"])
+        self.assertNotIn("KAGI_SEARCH_TEST_MARK", seen["env"])
         self.assertNotIn("HOME", seen["env"])
         self.assertEqual(seen["home"], "missing")
 
