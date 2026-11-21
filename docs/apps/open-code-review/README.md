@@ -54,3 +54,9 @@ OCR's only telemetry is an OpenTelemetry export that `telemetry.enabled` or `OCR
 The settings keep it off, and the wrapper unsets the variable because it overrides the settings.
 The Nix package is the Go binary without the npm launcher, which is the part that checks the registry for updates.
 Sign in with ChatGPT sends OpenAI a stable identifier for the installation, kept in `~/.opencodereview/auth/chatgpt/host.json`.
+
+## Pull request reviews
+
+[ocr-review.yml](../../../.github/workflows/ocr-review.yml) runs the delegation mode in CI: Claude Code reviews the pull request on the `CLAUDE_CODE_OAUTH_TOKEN` subscription token.
+A trusted author comments `/ocr-review` on a pull request to run it again.
+The ChatGPT sign-in stays off CI: its refresh token rotates on use, and OpenAI's terms limit it to one person's local use.

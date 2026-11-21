@@ -511,7 +511,7 @@
 ### Open Code Review
 
 - [apps/open-code-review/README.md](apps/open-code-review/README.md)
-  - Reviewing on ChatGPT or Claude subscription usage, the ChatGPT sign-in, the read-only configuration, and telemetry.
+  - Reviewing on ChatGPT or Claude subscription usage, the ChatGPT sign-in, the read-only configuration, telemetry, and the delegated pull request review in CI.
 
 ### OpenShell
 
