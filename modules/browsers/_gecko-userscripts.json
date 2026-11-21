@@ -1,15 +1,15 @@
 {
 	"nixpkgs-review-gha": {
 		"repo": "Bad3r/nixpkgs-review-gha",
-		"branch": "main",
+		"branch": "fix/github-pr-title-selector",
 		"path": "shortcut.user.js",
 		"sourceFile": "_gecko-nixpkgs-review-gha.user.js",
-		"rev": "49eb906bd8207a0a80613f963fbd9cc908518754",
-		"hash": "sha256-GUpI1R4cXCZ+1xzNeZCukmt0dn958US0ePI6wTknmwQ=",
+		"rev": "5c75f2d3a3d6e5b560d610dde6716a122175bd04",
+		"hash": "sha256-HuLJzvuzIEfDTj7dTpYvFsP78QhL0DGvR/t9BXsYJVk=",
 		"id": 1,
 		"uuid": "cb37dedd-9092-44f6-8073-8ab7c9431918",
-		"updatedAt": 1791903720000,
-		"installUrl": "https://github.com/Bad3r/nixpkgs-review-gha/raw/refs/heads/main/shortcut.user.js",
+		"updatedAt": 1795252938000,
+		"installUrl": "https://github.com/Bad3r/nixpkgs-review-gha/raw/refs/heads/fix/github-pr-title-selector/shortcut.user.js",
 		"meta": {
 			"include": [],
 			"exclude": [],
