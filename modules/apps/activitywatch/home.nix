@@ -61,6 +61,7 @@ _: {
                   "(?i)bitwarden"
                   "(?i)keepassxc"
                   "(?i)tor.?browser"
+                  "(?i)^mpv$"
                 ];
                 exclude_titles = [
                   "(?i)private browsing"

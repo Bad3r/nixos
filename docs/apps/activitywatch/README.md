@@ -29,6 +29,6 @@ getent hosts activitywatch.internal
 ## Privacy
 
 Window titles and application names land in a local database under `~/.local/share/activitywatch`.
-The window watcher drops password managers and Tor Browser by window class, drops windows whose title names Stash, and blanks private-browsing titles; the patterns sit in the Home Manager module.
+The window watcher drops password managers, Tor Browser, and mpv by window class, drops windows whose title names Stash, and blanks private-browsing titles; the patterns sit in the Home Manager module.
 A title rule also matches any other window with that word in its title.
 Tracking browser tabs needs the `aw-watcher-web` extension, which the modules do not install.
