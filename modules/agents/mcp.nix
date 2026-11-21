@@ -394,7 +394,12 @@ let
             let
               cfg = osConfig.programs.${meta.app}.extended;
               browser = lib.getExe' (cfg.finalPackage or cfg.package) "camoufox";
-              driver = osConfig.programs.geckodriver.extended.package;
+              geckodriver = osConfig.programs.geckodriver.extended;
+              driver =
+                if geckodriver.enable then
+                  geckodriver.finalPackage or geckodriver.package
+                else
+                  throw "Agent MCP server '${name}' needs the geckodriver app row on";
               wrapper = pkgs.writeShellScriptBin "firefox-mcp-wrapper" ''
                 set -euo pipefail
 
