@@ -202,35 +202,6 @@ _: {
       };
     };
 
-    chromium-code-mcp = {
-      source = "app";
-      app = "chromium-code-mcp";
-      program = "chromium-code-mcp";
-      network.allowedDomains = [
-        "api.github.com"
-        "chromium-review.googlesource.com"
-        "chromium.googlesource.com"
-        "cr-buildbucket.appspot.com"
-        "grimoireoss-pa.clients6.google.com"
-        "issues.chromium.org"
-        "luci-change-verifier.appspot.com"
-        "pdfium-review.googlesource.com"
-        "raw.githubusercontent.com"
-        "results.api.cr.dev"
-        "source.chromium.org"
-        "webrtc.googlesource.com"
-      ];
-      clients = [
-        "claude"
-        "codex"
-      ];
-      docs = {
-        primaryUse = "Search and read Chromium source, Gerrit CLs, LUCI results, and issues.";
-        accessNotes = "Local stdio server of the `chromium-code-mcp` app, present only where its row is on. Sends no telemetry; requests go to Chromium, Google, and GitHub (V8 files) hosts. Gerrit CL listing takes an auth cookie as a tool argument.";
-        example = "`search_chromium_code` with `{\"query\": \"TabStripModel::AddWebContents\", \"search_type\": \"function\"}`";
-      };
-    };
-
     firefox = {
       source = "npx";
       package = "@mozilla/firefox-mcp-moz@latest";

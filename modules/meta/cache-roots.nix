@@ -46,7 +46,6 @@ let
   hostPackageNames = [
     "burpsuite"
     "charles"
-    "chromium-code-mcp"
     "czkawka-cli"
     "dropbox"
     "electron-mail"
