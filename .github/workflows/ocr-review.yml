@@ -171,9 +171,14 @@ jobs:
             | "denied: \(.tool_name) \(.tool_input | tostring | .[0:300])"' \
             "$EXECUTION_FILE"
           summary=$(jq -r '[.[] | select(.type == "result")] | last
+            | select(.subtype == "success" and (.is_error | not))
             | .result // empty' "$EXECUTION_FILE")
           if [ -z "$summary" ]; then
-            echo "::error::Claude Code returned no summary"
+            jq -r '[.[] | select(.type == "result")] | last
+              | "::error::Claude Code returned no summary"
+                + " (subtype=\(.subtype // "none"),"
+                + " is_error=\(.is_error // "none"))"' \
+              "$EXECUTION_FILE"
             exit 1
           fi
           {
