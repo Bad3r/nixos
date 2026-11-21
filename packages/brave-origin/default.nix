@@ -63,6 +63,7 @@
   enableVideoAcceleration ? libvaSupport,
   # Vulkan breaks VA-API, so it stays off by default
   enableVulkan ? false,
+  gbm-zygote-preload,
 }:
 
 let
@@ -231,6 +232,7 @@ stdenv.mkDerivation {
         ]
       }
       --set CHROME_WRAPPER ${pname}
+      --prefix LD_PRELOAD : ${gbm-zygote-preload}/lib/gbm-zygote-preload.so --set GBM_ZYGOTE_PRELOAD_EXE $out/${optDir}/brave
       ${lib.optionalString (enableFeatures != [ ]) ''
         --add-flags "--enable-features=${lib.concatStringsSep "," enableFeatures}\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+,WaylandWindowDecorations --enable-wayland-ime=true}}"
       ''}
