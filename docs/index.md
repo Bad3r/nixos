@@ -508,6 +508,11 @@
 - [apps/mpv/6-troubleshooting.md](apps/mpv/6-troubleshooting.md)
   - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
+### Open Code Review
+
+- [apps/open-code-review/README.md](apps/open-code-review/README.md)
+  - Reviewing on ChatGPT or Claude subscription usage, the ChatGPT sign-in, the read-only configuration, and telemetry.
+
 ### OpenShell
 
 - [apps/openshell/README.md](apps/openshell/README.md)
