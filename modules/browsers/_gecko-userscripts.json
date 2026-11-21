@@ -4,7 +4,7 @@
 		"branch": "fix/github-pr-title-selector",
 		"path": "shortcut.user.js",
 		"sourceFile": "_gecko-nixpkgs-review-gha.user.js",
-		"rev": "5c75f2d3a3d6e5b560d610dde6716a122175bd04",
+		"rev": "f250f29334863cf8ee4abe5cb115cf5934a2c752",
 		"hash": "sha256-HuLJzvuzIEfDTj7dTpYvFsP78QhL0DGvR/t9BXsYJVk=",
 		"id": 1,
 		"uuid": "cb37dedd-9092-44f6-8073-8ab7c9431918",
