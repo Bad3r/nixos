@@ -32,7 +32,7 @@ programs.claude-code.extended.plugins."typescript-lsp@claude-plugins-official" =
 
 An enabled client requests the host program when its plugin flag is `true`.
 A `false` flag writes an explicit disable to that client's config, and `null` omits the entry.
-The local browser and Kagi plugins default to disabled in Codex because their hooks require Claude Code.
+Codex does not register the `nixos-local` marketplace, because the hooks of its browser and Kagi plugins require Claude Code.
 
 ## Terminal appearance
 

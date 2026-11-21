@@ -4,7 +4,6 @@
   configDir,
   cacheHome,
   profileDirectory,
-  localMarketplace,
   homeDir,
   lib,
   osConfig,
@@ -49,7 +48,6 @@ let
       lib
       configDir
       cacheHome
-      localMarketplace
       ;
   };
 

@@ -2,7 +2,6 @@
   lib,
   configDir,
   cacheHome,
-  localMarketplace,
   enabledPlugins,
 }:
 {
@@ -14,10 +13,6 @@
     openai-primary-runtime = {
       source_type = "local";
       source = "${cacheHome}/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime";
-    };
-    nixos-local = {
-      source_type = "local";
-      source = toString localMarketplace;
     };
     claude-plugins-official = {
       source_type = "git";

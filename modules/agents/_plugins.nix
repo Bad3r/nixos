@@ -81,16 +81,15 @@
   "cloudflare@cloudflare" = {
     claude-code = false;
   };
-  # Both local plugins use the Claude Code TypeScript hook API.
+  # Both local plugins use the Claude Code TypeScript hook API, so Codex has no
+  # nixos-local marketplace.
   "browser-webfetch@nixos-local" = {
     claude-code = true;
-    codex = false;
     program = "browser-fetch";
     commandOption = "fetchCommand";
   };
   "kagi-websearch@nixos-local" = {
     claude-code = true;
-    codex = false;
     program = "kagi-search";
     commandOption = "searchCommand";
   };

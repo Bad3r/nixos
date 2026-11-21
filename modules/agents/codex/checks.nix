@@ -40,7 +40,6 @@ in
           configDir = "/home/codex-config-check/.config/codex";
           cacheHome = "/home/codex-config-check/.cache";
           profileDirectory = "/etc/profiles/per-user/codex-config-check";
-          localMarketplace = pkgs.emptyDirectory;
           inherit
             agents
             lib

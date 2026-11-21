@@ -10,20 +10,7 @@
 }:
 let
   localPlugins = lib.filterAttrs (_: plugin: plugin ? commandOption) (import ../_plugins.nix);
-  needsCommand =
-    key:
-    lib.any
-      (
-        client:
-        let
-          cfg = osConfig.programs.${client}.extended;
-        in
-        cfg.enable && (cfg.plugins.${key} or false)
-      )
-      [
-        "claude-code"
-        "codex"
-      ];
+  needsCommand = key: osConfig.programs.claude-code.extended.plugins.${key} or false;
   apps = lib.mapAttrs' (
     key: plugin:
     lib.nameValuePair (lib.removeSuffix "@nixos-local" key) {
