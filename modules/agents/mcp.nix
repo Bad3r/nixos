@@ -394,6 +394,7 @@ let
             let
               cfg = osConfig.programs.${meta.app}.extended;
               browser = lib.getExe' (cfg.finalPackage or cfg.package) "camoufox";
+              driver = osConfig.programs.geckodriver.extended.package;
               wrapper = pkgs.writeShellScriptBin "firefox-mcp-wrapper" ''
                 set -euo pipefail
 
@@ -405,7 +406,7 @@ let
                 export NPM_CONFIG_UPDATE_NOTIFIER=false
 
                 # The server searches PATH for geckodriver before it downloads a binary.
-                export PATH=${lib.makeBinPath [ pkgs.geckodriver ]}:"$PATH"
+                export PATH=${lib.makeBinPath [ driver ]}:"$PATH"
 
                 exec ${lib.getExe' pkgs.nodejs "npx"} \
                   -y \

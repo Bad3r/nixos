@@ -240,7 +240,7 @@ _: {
       ];
       docs = {
         primaryUse = "Control and inspect a live Camoufox (Firefox) session, including privileged contexts.";
-        accessNotes = "Runs the Mozilla build of the server with every tool module, driving the camoufox app's browser, so it is present only where that app's row is on. Camoufox does not replace geckodriver, which still translates the server's WebDriver calls; the wrapper puts it on PATH. The wrapper sets MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 for the privileged modules and turns off Selenium Manager statistics and the Firefox crash reporter; Firefox telemetry prefs are off. Each session uses a fresh temporary profile. The privileged modules give the agent browser-privileged access with no web-content sandbox, so it can act outside the page.";
+        accessNotes = "Runs the Mozilla build of the server with every tool module, driving the camoufox app's browser, so it is present only where that app's row is on. Camoufox does not replace geckodriver, which still translates the server's WebDriver calls; the geckodriver app supplies it and the wrapper puts it on PATH. The wrapper sets MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 for the privileged modules and turns off Selenium Manager statistics and the Firefox crash reporter; Firefox telemetry prefs are off. Each session uses a fresh temporary profile. The privileged modules give the agent browser-privileged access with no web-content sandbox, so it can act outside the page.";
         example = "`npx -y @mozilla/firefox-mcp-moz@latest --tool-preset all --firefox-path \"$(command -v camoufox)\"`";
       };
     };
