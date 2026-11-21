@@ -31,6 +31,28 @@ NOISE_SIDE = 1024
 STALL_SLACK_SECONDS = 10
 FLOOD_LIMIT_BYTES = 256 * 1024
 LOWER_CPU_SECONDS = 10
+# A parent that lowers its own CPU limit, soft only or hard too, renders a page, and
+# then has a stand-in child report the limit it runs under.
+LIMIT_PROGRAM = """\
+import pathlib, resource, sys, tempfile, time
+sys.path[:0] = {path!r}
+from kagi_search import pdf
+hard = resource.getrlimit(resource.RLIMIT_CPU)[1]
+resource.setrlimit(resource.RLIMIT_CPU, ({lower}, hard if sys.argv[1] == "soft" else {lower}))
+data = sys.stdin.buffer.read()
+print(pdf.render_page(data, 0, time.monotonic() + 30).mime)
+with tempfile.TemporaryDirectory() as work:
+    pdf.SCRIPT = str(pathlib.Path(work, "child.py"))
+    pathlib.Path(pdf.SCRIPT).write_text({child!r})
+    try:
+        pdf.render_page(data, 0, time.monotonic() + 30)
+    except pdf.RenderError as error:
+        print(error)
+"""
+REPORT_CPU_LIMIT = (
+    "import json, resource\n"
+    'print(json.dumps({"error": str(resource.getrlimit(resource.RLIMIT_CPU)[0])}))\n'
+)
 
 
 def soon() -> float:
@@ -207,23 +229,21 @@ class ChildFailureTest(ChildTestCase):
             pdf.render_page(TWO_PAGES, 0, soon())
 
     def test_a_lower_limit_already_in_force_stays(self) -> None:
-        """Under a CPU limit below the renderer's own, a page still renders."""
-        program = (
-            "import resource, sys, time\n"
-            f"sys.path[:0] = {sys.path!r}\n"
-            "from kagi_search import pdf\n"
-            f"resource.setrlimit(resource.RLIMIT_CPU, ({LOWER_CPU_SECONDS}, {LOWER_CPU_SECONDS}))\n"
-            "image = pdf.render_page(sys.stdin.buffer.read(), 0, time.monotonic() + 30)\n"
-            "print(image.mime)\n"
+        """Under a CPU limit below the renderer's own, hard or only soft, the child keeps it."""
+        program = LIMIT_PROGRAM.format(
+            path=sys.path, lower=LOWER_CPU_SECONDS, child=REPORT_CPU_LIMIT
         )
-        ran = subprocess.run(
-            [sys.executable, "-IB", "-c", program],
-            input=TWO_PAGES,
-            capture_output=True,
-            timeout=60,
-            check=False,
-        )
-        self.assertEqual((ran.returncode, ran.stdout, ran.stderr), (0, b"image/png\n", b""))
+        for which in ("soft", "hard"):
+            with self.subTest(which=which):
+                ran = subprocess.run(
+                    [sys.executable, "-IB", "-c", program, which],
+                    input=TWO_PAGES,
+                    capture_output=True,
+                    timeout=60,
+                    check=False,
+                )
+                expected = f"image/png\n{LOWER_CPU_SECONDS}\n".encode()
+                self.assertEqual((ran.returncode, ran.stdout, ran.stderr), (0, expected, b""))
 
 
 class ScaleTest(unittest.TestCase):

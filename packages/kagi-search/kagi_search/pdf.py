@@ -159,8 +159,8 @@ def _limit() -> None:
         (resource.RLIMIT_CORE, 0),
     )
     for kind, limit in limits:
-        _, hard = resource.getrlimit(kind)
-        bound = limit if hard == resource.RLIM_INFINITY else min(limit, hard)
+        soft, _ = resource.getrlimit(kind)
+        bound = limit if soft == resource.RLIM_INFINITY else min(limit, soft)
         resource.setrlimit(kind, (bound, bound))
 
 
