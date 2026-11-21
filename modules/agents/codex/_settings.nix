@@ -57,7 +57,7 @@ let
 
     # Core settings
     inherit (osConfig.programs.codex.extended) model;
-    review_model = "gpt-6.1-sol";
+    review_model = "gpt-6.2-sol";
     approval_policy.granular = {
       sandbox_approval = true;
       rules = true;
