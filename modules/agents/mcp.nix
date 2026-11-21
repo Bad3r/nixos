@@ -52,6 +52,7 @@ let
     npx = [
       "timeout"
       "args"
+      "app"
     ];
     app = [
       "timeout"
@@ -169,8 +170,14 @@ let
       throw "Agent MCP server '${serverName}' has invalid source '${source}'. Valid: ${toString validSources}"
     else if missingFields != [ ] then
       throw "Agent MCP server '${serverName}' (${source}) missing required fields: ${toString missingFields}"
-    else if validatedServer ? app && !(config.flake.lib.nixos.hasApp validatedServer.app) then
-      throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps entry"
+    else if
+      validatedServer ? app
+      && !(
+        config.flake.lib.nixos.hasApp validatedServer.app
+        || config.flake.lib.nixos.hasBrowser validatedServer.app
+      )
+    then
+      throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps or browsers entry"
     else
       validatedServer
       // {
@@ -385,6 +392,8 @@ let
             // timeouts
           else if name == "firefox" then
             let
+              cfg = osConfig.programs.${meta.app}.extended;
+              browser = lib.getExe' (cfg.finalPackage or cfg.package) "camoufox";
               wrapper = pkgs.writeShellScriptBin "firefox-mcp-wrapper" ''
                 set -euo pipefail
 
@@ -398,16 +407,10 @@ let
                 # The server searches PATH for geckodriver before it downloads a binary.
                 export PATH=${lib.makeBinPath [ pkgs.geckodriver ]}:"$PATH"
 
-                firefox_executable="$(command -v firefox || true)"
-                if [ -z "$firefox_executable" ]; then
-                  echo "firefox MCP: no firefox in PATH; enable the firefox app." >&2
-                  exit 1
-                fi
-
                 exec ${lib.getExe' pkgs.nodejs "npx"} \
                   -y \
                   ${meta.package} \
-                  "--firefox-path=$firefox_executable" \
+                  "--firefox-path=${browser}" \
                   "$@"
               '';
             in
