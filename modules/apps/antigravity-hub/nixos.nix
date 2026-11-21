@@ -8,9 +8,12 @@
   Summary:
     * Provides the `antigravity` desktop app for running Google Antigravity agents across separate projects.
     * Ships the Electron app from the llm-agents.nix package, patched for NixOS.
+    * Serves the Hub on a fixed port that Mesh peers reach through the firewall.
 */
-{ inputs, ... }:
+{ config, inputs, ... }:
 let
+  meshInterface = config.flake.lib.nixos._firewallMeshInterface;
+
   AntigravityHubModule =
     {
       config,
@@ -29,16 +32,40 @@ let
           description = "Whether to enable antigravity-hub.";
         };
 
+        finalPackage = lib.mkOption {
+          type = lib.types.package;
+          readOnly = true;
+          description = "The antigravity-hub package with the configured language server flags.";
+        };
+
         package = lib.mkOption {
           type = lib.types.package;
           default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-hub;
           defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.antigravity-hub";
           description = "The antigravity-hub package to use.";
         };
+
+        port = lib.mkOption {
+          type = lib.types.port;
+          default = 7777;
+          description = "HTTPS port the Hub's language server serves local and Mesh clients on.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        programs."antigravity-hub".extended.finalPackage = cfg.package.override {
+          # The language server binds either localhost or 0.0.0.0; the firewall
+          # limits the wildcard to loopback and Mesh.
+          languageServerFlags = [
+            "--https_server_port=${toString cfg.port}"
+            "--remote_accessible"
+          ];
+        };
+
+        environment.systemPackages = [ cfg.finalPackage ];
+
+        # The CSRF token and the window's bootstrap token gate every request.
+        networking.firewall.interfaces.${meshInterface}.allowedTCPPorts = [ cfg.port ];
       };
     };
 in
