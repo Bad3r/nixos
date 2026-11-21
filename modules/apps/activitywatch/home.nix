@@ -13,6 +13,7 @@
   Config Options:
     exclude_apps: Window classes the window watcher drops entirely (regular expressions).
     exclude_titles: Window titles the window watcher blanks (regular expressions).
+    privacy_filter: Title patterns whose windows the window watcher drops entirely, whatever the window class.
     cors: Origins besides 127.0.0.1 and localhost that the server accepts API calls from.
 */
 
@@ -59,10 +60,18 @@ _: {
                   "(?i)1password"
                   "(?i)bitwarden"
                   "(?i)keepassxc"
+                  "(?i)tor.?browser"
                 ];
                 exclude_titles = [
                   "(?i)private browsing"
                   "(?i)incognito"
+                ];
+                # Stash runs in a browser tab, so no window class identifies it; only its title does.
+                privacy_filter = [
+                  {
+                    pattern = "(?i)\\bstash\\b";
+                    action = "drop";
+                  }
                 ];
               };
             };
