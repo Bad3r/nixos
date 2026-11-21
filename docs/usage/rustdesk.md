@@ -19,7 +19,7 @@ No host contacts RustDesk's public servers.
   Their fallback to a public server or any other call home fails in the kernel.
 - The GUI runs in the user's session without that kernel limit, so only its settings keep its traffic on Mesh.
 - The client's heartbeat, sysinfo, and audit uploads, its update check, and LAN discovery are off, and the hbbs build has no update check.
-- Each host's ID derives from the server key, where RustDesk's default ID encodes part of the MAC address.
+- Each host's ID is its host name, where RustDesk's default ID encodes part of the MAC address.
 
 Some traffic stays visible:
 
@@ -38,11 +38,7 @@ A GUI change to one of them lasts until the next restart.
 Change those settings in `rustdesk.nix` instead.
 A RustDesk window open across a restart writes back the favorites and GUI settings it loaded, so close RustDesk windows before restarting the service.
 
-Print a host's ID on that host:
-
-```sh
-rustdesk --get-id
-```
+Each host's ID is its host name, such as `songbird`.
 
 [i3 floating window rules](i3-window-rules.md#rustdesk-connection-manager) covers the incoming connection popup.
 
@@ -66,11 +62,9 @@ On Windows, [RustDesk on Windows](rustdesk-windows.md) installs the app from Pow
 
 2. In the RustDesk app, open Settings, ID/Relay server, enter the address as the ID server and the public key as the Key, and leave the API server empty.
 
-3. Connect to each host's ID, enter the password with Remember password checked, and check that the session's shield shows an encrypted connection.
+3. Connect to each host by its name as the ID, enter the password with Remember password checked, and check that the session's shield shows an encrypted connection.
 
 Repeat step 2 after the server host's Mesh address changes or the key pair is replaced, and step 3 after the password or the key pair is replaced.
-A new key pair also gives every host a new ID.
-Delete the entries with the old IDs under Recent sessions on each device, which also clears them from Favorites.
 
 ## Troubleshooting
 
@@ -96,15 +90,15 @@ sudo systemctl restart rustdesk
 ### A reinstalled host comes up under a random ID
 
 Cause: hbbs ties each ID to the machine ID that first registered it, and a reinstall brings a new machine ID.
-Fix: on the server host, drop the old registration, where `<id>` is the ID the other hosts list for the reinstalled host, not the random one:
+Fix: on the server host, drop the old registration, where `<host>` is the reinstalled host's name:
 
 ```sh
 sudo systemctl stop rustdesk-signal
-sudo sqlite3 /var/lib/rustdesk/db_v2.sqlite3 "delete from peer where id = '<id>'"
+sudo sqlite3 /var/lib/rustdesk/db_v2.sqlite3 "delete from peer where id = '<host>'"
 sudo systemctl start rustdesk-signal
 ```
 
-Then, on the reinstalled host, restart the service, which writes the derived ID again:
+Then, on the reinstalled host, restart the service, which registers its name as the ID again:
 
 ```sh
 sudo systemctl restart rustdesk

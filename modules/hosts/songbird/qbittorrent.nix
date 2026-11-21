@@ -38,6 +38,7 @@ let
   # Also the proxy's host port: qBittorrent rejects a Host header naming another.
   webuiPort = 8989;
   webuiUrl = "http://127.0.0.1:${toString webuiPort}";
+  ssSocket = "/run/${netns}-ss.sock";
   inherit (config.flake.lib.nixos) _firewallLocalNetworkCidrs _firewallMeshInterface;
 in
 {
@@ -363,6 +364,19 @@ in
                 };
               };
 
+              # Read-only `ss -tni` dump of the namespace's TCP sockets per connection
+              services."${netns}-ss@" = {
+                description = "TCP socket dump of the ${netns} namespace";
+                serviceConfig = hardening // {
+                  ExecStart = "${pkgs.iproute2}/bin/ss -tni";
+                  StandardInput = "socket";
+                  StandardOutput = "socket";
+                  StandardError = "journal";
+                  RestrictAddressFamilies = [ "AF_NETLINK" ];
+                  IPAddressDeny = "any";
+                };
+              };
+
               # tmpfiles, not `-`-prefixed BindPaths, owns creating the save
               # path: xdg-user-dirs only creates ~/Downloads at the owner's
               # first graphical login, which has no ordering against this unit.
@@ -390,6 +404,18 @@ in
                   metaOwner.username
                 ];
               });
+
+              sockets."${netns}-ss" = {
+                description = "TCP socket dump of the ${netns} namespace";
+                wantedBy = [ "sockets.target" ];
+                listenStreams = [ ssSocket ];
+                socketConfig = {
+                  Accept = true;
+                  SocketUser = metaOwner.username;
+                  SocketMode = "0600";
+                  MaxConnections = 4;
+                };
+              };
 
               sockets.qbittorrent-webui = {
                 description = "qBittorrent Web UI proxy socket";

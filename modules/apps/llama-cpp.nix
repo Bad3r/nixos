@@ -23,6 +23,7 @@ in
     "cuda_crt"
     "cuda_cudart"
     "cuda_nvcc"
+    "cuda_nvml_dev"
     "cuda_nvrtc"
     "libcublas"
     "libnvvm"

@@ -88,8 +88,15 @@ in
         {
           block = "sound";
           driver = "pipewire";
-          format = pad "$icon${thin}{$volume|muted}";
-          format_alt = pad "$icon${thin}$output_description.str(max_w:18) {$volume|muted}";
+          # Muted drops $volume, so the alternative branch shows the mute icon in place of the
+          # device icon; the block would otherwise keep the headphones icon.
+          format = "{${pad "$icon${thin}$volume"}|${pad "^icon_volume_muted"}}";
+          format_alt = "{${pad "$icon${thin}$output_description.str(max_w:18) $volume"}|${pad "^icon_volume_muted${thin}$output_description.str(max_w:18)"}}";
+          # The block sets the warning state when muted, which is the default here.
+          theme_overrides = {
+            warning_bg = stylixColors.base01;
+            warning_fg = stylixColors.base04;
+          };
           step_width = 2;
           max_vol = 100;
           headphones_indicator = true;
@@ -109,15 +116,26 @@ in
             }
             {
               name = "pipewire";
+              # Device description ("USB Audio S/PDIF Output") instead of the raw
+              # node name ("alsa_output.usb-...__sink").
+              display = "description";
             }
           ];
-          format = lib.concatMapStrings (source: "{${pad "$icon_${source}"}|}") [
-            "audio"
-            "audio_sink"
-            "video"
-            "webcam"
-            "unknown"
-          ];
+          # Left click toggles icons-only and the source => [ consumers ] detail.
+          format =
+            let
+              kinds = [
+                "audio"
+                "audio_sink"
+                "video"
+                "webcam"
+                "unknown"
+              ];
+            in
+            [
+              (lib.concatMapStrings (kind: "{${pad "$icon_${kind}"}|}") kinds)
+              (lib.concatMapStrings (kind: "{${pad "$icon_${kind}${thin}$info_${kind}"}|}") kinds)
+            ];
         }
         {
           block = "battery";

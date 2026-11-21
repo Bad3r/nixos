@@ -8,6 +8,7 @@ Edits made directly to that output can disappear on the next merge.
 
 - [Settings catalog](../../../modules/agents/codex/_default-settings.nix): optional settings and their types.
 - [Site policy](../../../modules/agents/codex/_settings.nix): model selection, permissions, memory, terminal preferences, and MCP composition.
+- [Plugin settings](../../../modules/agents/codex/_plugins.nix): marketplace sources. Codex and the desktop app populate the plugin caches.
 - [Feature flags](../../../modules/agents/codex/_features.nix): active flags and commented alternatives from the Rust feature registry.
 - [Process environment](../../../modules/agents/codex/_env.nix): environment values exported by login sessions and the Codex launcher.
 - [Shared MCP registry](../../../modules/agents/mcp/servers.nix): server endpoints, commands, and client membership.
@@ -18,12 +19,36 @@ Uncomment an optional setting and supply its value to configure it.
 Site policy overrides catalog values.
 Keep credentials in runtime secrets or Codex's login store because Nix configuration becomes readable in the store.
 
+## Plugin selection
+
+The [shared plugin catalog](../../../modules/agents/_plugins.nix) lists the defaults for Codex and Claude Code and the host program each plugin needs.
+Set either client's flag in a host module to override its default.
+For example, these settings enable the TypeScript plugin only in Codex.
+
+```nix
+programs.codex.extended.plugins."typescript-lsp@claude-plugins-official" = true;
+programs.claude-code.extended.plugins."typescript-lsp@claude-plugins-official" = false;
+```
+
+An enabled client requests the host program when its plugin flag is `true`.
+A `false` flag writes an explicit disable to that client's config, and `null` omits the entry.
+The local browser and Kagi plugins default to disabled in Codex because their hooks require Claude Code.
+
 ## Terminal appearance
 
 `tui.theme` selects syntax highlighting and semantic UI colors through a renderer patch in the pinned `llm-agents` package.
 The [theme producer](../../../modules/agents/codex/_theme.nix) combines Stylix syntax colors with VS Code Dark 2026 surfaces, selections, status colors, and diff backgrounds.
 Change the palette sources, rebuild, and restart Codex to apply theme changes.
 Themes without semantic UI scopes retain the packaged defaults.
+
+## Package helpers
+
+`programs.codex.extended.codeMode.enable` and `programs.codex.extended.voice.enable` add optional helpers to the pinned `llm-agents` package.
+Both default to off.
+Code mode adds `codex-code-mode-host`, which runs JavaScript on a prebuilt V8 library.
+Codex starts that host only when the `code_mode` flag in the [feature flags](../../../modules/agents/codex/_features.nix) is also on.
+Voice adds `codex-voice-host` and the GStreamer runtime it loads, on Linux only.
+The [songbird host](../../../modules/hosts/songbird/codex.nix) enables both helpers.
 
 ## Desktop application
 
@@ -38,6 +63,10 @@ The application is an Electron build named `Codex`, so its Chromium profile live
 That directory holds window state, cookies, caches, and the built-in browser profile.
 Its agent sessions, history, and memories go to `$CODEX_HOME`, shared with the terminal agent.
 Configure both through `$CODEX_HOME`; the capitalized directory carries no Codex settings.
+
+Codex uses the desktop package's `node_repl` when the ChatGPT app is enabled.
+The [browser environment](../../../modules/agents/codex/_node-repl.nix) selects the matching Node runtime and browser service.
+The desktop session supplies its connection and identity when it starts Codex.
 
 ## Runtime files
 

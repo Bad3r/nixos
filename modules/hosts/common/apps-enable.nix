@@ -36,6 +36,7 @@ let
       audiness.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-cli".extended.enable = lib.mkOverride 1100 true;
+      "antigravity-hub".extended.enable = lib.mkOverride 1100 true;
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
@@ -157,7 +158,6 @@ let
       findutils.extended.enable = lib.mkOverride 1100 false;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
-      "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 false;
       fonttools.extended.enable = lib.mkOverride 1100 true;
@@ -243,9 +243,9 @@ let
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       keepassxc.extended.enable = lib.mkOverride 1100 false;
-      keybase.extended.enable = lib.mkOverride 1100 true;
-      "keybase-gui".extended.enable = lib.mkOverride 1100 true;
-      "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
+      keybase.extended.enable = lib.mkOverride 1100 false;
+      "keybase-gui".extended.enable = lib.mkOverride 1100 false;
+      "kiro-fhs".extended.enable = lib.mkOverride 1100 false;
       kitty.extended.enable = lib.mkOverride 1100 true;
       krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 false;
@@ -352,6 +352,7 @@ let
       "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
+      "open-code-review".extended.enable = lib.mkOverride 1100 true;
       opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openshell.extended.enable = lib.mkOverride 1100 false;
@@ -360,6 +361,8 @@ let
       openvpn.extended.enable = lib.mkOverride 1100 true;
       orca.extended.enable = lib.mkOverride 1100 false;
       overskride.extended.enable = lib.mkOverride 1100 true;
+      oxfmt.extended.enable = lib.mkOverride 1100 true;
+      oxlint.extended.enable = lib.mkOverride 1100 true;
       ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 false;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Bad3r
 
-"""Update Gecko Violentmonkey userscript pins."""
+"""Update the vendored Gecko Violentmonkey userscripts from their branches."""
 
 import re
 import sys
@@ -24,7 +24,6 @@ FLAKE_ROOT = _flake_root(Path(__file__).resolve().parent)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
-    calculate_url_hash,
     fetch_json,
     fetch_text,
     load_hashes,
@@ -115,7 +114,7 @@ def github_path_commit(repo: str, branch: str, path: str) -> dict[str, Any]:
 
 
 def raw_github_url(repo: str, rev: str, path: str) -> str:
-    """Build an immutable raw.githubusercontent.com URL."""
+    """Build a raw.githubusercontent.com URL that the branch cache cannot stale."""
     return f"https://raw.githubusercontent.com/{repo}/{rev}/{path}"
 
 
@@ -134,30 +133,27 @@ def save_script_source(path: Path, code: str) -> bool:
 
 
 def update_pin(name: str, pin: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-    """Refresh one userscript pin."""
+    """Refresh one userscript from the head of its branch.
+
+    The commit is not recorded: a rebased fork branch gets new commit ids for
+    the same content, and the vendored source file is what Nix reads.
+    """
     repo = cast("str", pin["repo"])
     branch = cast("str", pin["branch"])
     path = cast("str", pin["path"])
     source_file = cast("str", pin["sourceFile"])
-    current_rev = cast("str", pin["rev"])
 
     commit = github_path_commit(repo, branch, path)
     latest_rev = cast("str", commit["sha"])
     commit_date = cast("str", commit["commit"]["author"]["date"])
-    url = raw_github_url(repo, latest_rev, path)
-    code = fetch_text(url)
-    latest_hash = calculate_url_hash(url)
+    code = fetch_text(raw_github_url(repo, latest_rev, path))
     latest_meta = parse_userscript_meta(code)
 
-    print(f"{name}:")
-    print(f"  Current: {current_rev[:12]} {pin['hash']}")
-    print(f"  Latest:  {latest_rev[:12]} {latest_hash}")
+    print(f"{name}: {repo} {branch} at {latest_rev[:12]} ({commit_date})")
 
     source_changed = save_script_source(PINS_FILE.parent / source_file, code)
     new_pin = {
         **pin,
-        "rev": latest_rev,
-        "hash": latest_hash,
         "updatedAt": date_to_epoch_ms(commit_date),
         "meta": latest_meta,
     }
@@ -167,7 +163,7 @@ def update_pin(name: str, pin: dict[str, Any]) -> tuple[dict[str, Any], bool]:
 
 
 def main() -> None:
-    """Update all Gecko userscript pins."""
+    """Update all Gecko userscripts."""
     pins = load_hashes(PINS_FILE)
     changed = False
 

@@ -19,30 +19,7 @@
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
     * Configuration managed by Home Manager module (modules/agents/claude-code/home.nix).
 */
-{ inputs, lib, ... }:
-let
-  # Program each plugin runs: a language server, or the app of a nixos-local
-  # plugin (_local-plugins.nix). An enabledPlugins entry set to true in
-  # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
-  # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
-  pluginProgramMap = {
-    "clangd-lsp@claude-plugins-official" = "clangd";
-    "csharp-lsp@claude-plugins-official" = "csharp-ls";
-    "gopls-lsp@claude-plugins-official" = "gopls";
-    "jdtls-lsp@claude-plugins-official" = "jdt-language-server";
-    "lua-lsp@claude-plugins-official" = "lua-language-server";
-    "php-lsp@claude-plugins-official" = "intelephense";
-    "pyright-lsp@claude-plugins-official" = "pyright";
-    "rust-analyzer-lsp@claude-plugins-official" = "rust-analyzer";
-    "swift-lsp@claude-plugins-official" = "sourcekit-lsp";
-    "typescript-lsp@claude-plugins-official" = "typescript-language-server";
-  }
-  // lib.mapAttrs' (plugin: local: lib.nameValuePair "${plugin}@nixos-local" local.app) (
-    import ./_local-plugins.nix
-  );
-
-  inherit (import ./_plugins.nix) enabledPlugins;
-in
+{ inputs, ... }:
 {
   flake.nixosModules.apps.claude-code =
     {
@@ -60,9 +37,13 @@ in
       # still gets every _env.nix var.
       claudeEnv = import ./_env.nix;
       setFlags = lib.concatStringsSep " " (
-        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") (
-          builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
-        )
+        lib.mapAttrsToList (
+          name: value:
+          let
+            flag = if lib.elem name claudeEnv.callerOverridable then "--set-default" else "--set";
+          in
+          "${flag} ${name} ${lib.escapeShellArg value}"
+        ) (builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly)
       );
       # Guarded, not --set: claude-rc lifts these for one launch, and a plain
       # --set here would be applied in-process where no outer wrapper reaches.
@@ -106,6 +87,8 @@ in
       });
     in
     {
+      imports = [ (import ../_plugin-options.nix "claude-code") ];
+
       options.programs.claude-code.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -165,72 +148,44 @@ in
         };
       };
 
-      config = lib.mkIf cfg.enable (
-        lib.mkMerge (
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
+
+        assertions =
+          let
+            delegatesToBunGlobal =
+              (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
+          in
           [
             {
-              environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
-
-              assertions =
-                let
-                  pluginKeys = lib.attrNames enabledPlugins;
-                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) pluginKeys;
-                  delegatesToBunGlobal =
-                    (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
-                in
-                [
-                  {
-                    assertion = cfg.externalBinary == null || lib.hasPrefix "/" cfg.externalBinary;
-                    message = ''
-                      programs.claude-code.extended.externalBinary must be an absolute path.
-                      The Home Manager wrapper and tweakcc shell-wrapper resolver require
-                      a leading "/" for the selected target.
-                    '';
-                  }
-                  {
-                    assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
-                    message = ''
-                      programs.claude-code.extended.installMethods.bun.enable requires
-                      programs.bun.extended.enable = true. Enable bun via the shared
-                      baseline (modules/hosts/common/apps-enable.nix) or your host's
-                      apps-enable.nix override before enabling the bun install method
-                      for claude-code.
-                    '';
-                  }
-                  {
-                    assertion = (!delegatesToBunGlobal) || config.programs.bun.extended.enable;
-                    message = ''
-                      programs.claude-code.extended.externalBinary = null with both
-                      claude-code install methods disabled delegates to the Home Manager
-                      bun global path. Enable programs.bun.extended.enable, set
-                      programs.claude-code.extended.externalBinary to an absolute path,
-                      or enable one of the claude-code install methods.
-                    '';
-                  }
-                  {
-                    assertion = malformedKeys == [ ];
-                    message = ''
-                      enabledPlugins keys in modules/agents/claude-code/_plugins.nix must follow the
-                      "<plugin>@<marketplace>" form (matching the suffix used in
-                      ~/.claude/settings.json's enabledPlugins and the marketplace name
-                      registered via extraKnownMarketplaces in
-                      modules/agents/claude-code/_plugins.nix or
-                      ~/.claude/plugins/known_marketplaces.json).
-                      A key without an "@" suffix is silently ignored by Claude Code at
-                      runtime.
-                      Invalid keys: ${toString malformedKeys}
-                    '';
-                  }
-                ];
+              assertion = cfg.externalBinary == null || lib.hasPrefix "/" cfg.externalBinary;
+              message = ''
+                programs.claude-code.extended.externalBinary must be an absolute path.
+                The Home Manager wrapper and tweakcc shell-wrapper resolver require
+                a leading "/" for the selected target.
+              '';
             }
-          ]
-          ++ lib.mapAttrsToList (
-            pluginKey: programName:
-            lib.mkIf (enabledPlugins.${pluginKey} or false) {
-              programs.${programName}.extended.enable = lib.mkOverride 1050 true;
+            {
+              assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
+              message = ''
+                programs.claude-code.extended.installMethods.bun.enable requires
+                programs.bun.extended.enable = true. Enable bun via the shared
+                baseline (modules/hosts/common/apps-enable.nix) or your host's
+                apps-enable.nix override before enabling the bun install method
+                for claude-code.
+              '';
             }
-          ) pluginProgramMap
-        )
-      );
+            {
+              assertion = (!delegatesToBunGlobal) || config.programs.bun.extended.enable;
+              message = ''
+                programs.claude-code.extended.externalBinary = null with both
+                claude-code install methods disabled delegates to the Home Manager
+                bun global path. Enable programs.bun.extended.enable, set
+                programs.claude-code.extended.externalBinary to an absolute path,
+                or enable one of the claude-code install methods.
+              '';
+            }
+          ];
+      };
     };
 }

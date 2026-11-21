@@ -11,9 +11,8 @@
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * Plugins, LSP plugins included, are enabledPlugins in _plugins.nix; an
-      enabled *-lsp entry also installs its language server
-      (modules/agents/claude-code/nixos.nix). skillOverrides sits in the same file.
+    * The shared plugin catalog supplies the per-client defaults and language servers.
+      Host overrides live under programs.claude-code.extended.plugins.
     * Blocked MCP servers, mainly the claude.ai account connectors that local
       config cannot otherwise remove, are deniedMcpServers in _permissions.nix.
     * `enabledPlugins` keys end with `@<marketplace>`. The marketplace must be
@@ -33,15 +32,15 @@
       path.
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
-        _plugins.nix           plugins, marketplaces, and skill settings
-        _local-plugins.nix     nixos-local plugins and the app each one runs
+        _plugins.nix           marketplaces and skill settings
         _permissions.nix       permissions and MCP server policy
         _hooks.nix             tool hooks from the shared registry (modules/agents/hooks.nix)
         _env.nix               environment variables
         _claude-json.nix       ~/.claude.json preferences
         _keybindings.nix       ~/.claude/keybindings.json
         _theme.nix             ~/.claude/themes/<slug>.json, the `theme` in _settings.nix
-      Plumbing: _activation.nix (jq merge and optional bun install) and
+      Plumbing: _activation.nix (jq merge, optional bun install, and the
+      bun binary's REPL wall clock patch through repl-wall-clock.mjs) and
       _launcher.nix (launcher environment and binary selection).
 */
 
@@ -95,22 +94,13 @@ _: {
         lib.foldl' (acc: part: acc // part) { } parts;
 
       plugins = import ./_plugins.nix;
-      localPluginKeys = lib.filter (lib.hasSuffix "@nixos-local") (lib.attrNames plugins.enabledPlugins);
-      kagiWebsearch = plugins.enabledPlugins."kagi-websearch@nixos-local" or false;
+      enabledPlugins = osConfig.programs.claude-code.extended.plugins;
+      localPluginKeys = lib.filter (lib.hasSuffix "@nixos-local") (lib.attrNames enabledPlugins);
+      kagiWebsearch = enabledPlugins."kagi-websearch@nixos-local" or false;
       # A nixos-local plugin's app joins pkgs only while the plugin is enabled.
       localMarketplace = import ./_marketplace.nix {
         inherit lib pkgs;
-        apps =
-          lib.mapAttrs
-            (_: local: {
-              inherit (local) option;
-              package = osConfig.programs.${local.app}.extended.package;
-            })
-            (
-              lib.filterAttrs (plugin: _: plugins.enabledPlugins."${plugin}@nixos-local" or false) (
-                import ./_local-plugins.nix
-              )
-            );
+        inherit osConfig;
       };
       websearchCheck = import ./_websearch-check.nix {
         inherit lib pkgs;
@@ -125,10 +115,11 @@ _: {
         (
           plugins
           // {
+            inherit enabledPlugins;
             # Registered while any of its plugins is enabled.
             extraKnownMarketplaces =
               plugins.extraKnownMarketplaces
-              // lib.optionalAttrs (lib.any (key: plugins.enabledPlugins.${key}) localPluginKeys) {
+              // lib.optionalAttrs (lib.any (key: enabledPlugins.${key}) localPluginKeys) {
                 nixos-local.source = {
                   source = "directory";
                   path = "${localMarketplace}";

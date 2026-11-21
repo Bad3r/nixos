@@ -7,6 +7,11 @@
 
   Summary:
     * Digital painting and illustration with brushes, layers, and advanced color management.
+
+  Notes:
+    * Krita keeps only the Fusion or Breeze widget style, so Kvantum never applies; it
+      colors Fusion from the KDE color scheme set in /etc/xdg/kritarc, and a theme picked
+      under Settings > Themes overrides it in ~/.config/kritarc.
 */
 _:
 let
@@ -19,6 +24,14 @@ let
     }:
     let
       cfg = config.programs.krita.extended;
+      package = pkgs.symlinkJoin {
+        inherit (cfg.package) name version meta;
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram "$out/bin/krita" --add-flags --nosplash
+        '';
+      };
     in
     {
       options.programs.krita.extended = {
@@ -32,7 +45,13 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment = {
+          systemPackages = [ package ];
+          # Theme names the [General] Name of a share/color-schemes file.
+          etc."xdg/kritarc".text = lib.generators.toINI { } {
+            theme.Theme = config.lib.stylix.colors.scheme;
+          };
+        };
       };
     };
 in

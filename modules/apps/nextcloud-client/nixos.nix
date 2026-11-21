@@ -18,6 +18,8 @@
 
   Notes:
     * Stores account credentials in the Secret Service.
+    * Runs on demand only: no user unit and no autostart entry, so the client starts when launched and stops with `nextcloud --quit` or its tray menu.
+    * Sync folders and the account are set up interactively on first launch and live in ~/.config/Nextcloud, which this module does not manage.
 */
 _:
 let

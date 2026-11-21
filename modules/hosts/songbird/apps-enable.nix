@@ -53,6 +53,7 @@ let
     jadx = true;
     "llama-cpp" = true;
     "qwen-code" = true;
+    "nextcloud-client" = true;
     paperless = true;
     malimite = true;
     mono = true;
@@ -60,11 +61,13 @@ let
     radare2 = true;
     rizin = true;
     inkscape = true;
+    krita = true;
     ytubic = true;
     stash = true;
     websocat = true;
     nvtop = true;
     "podman-desktop" = true;
+    keybase = true;
     sbx = true;
   };
 

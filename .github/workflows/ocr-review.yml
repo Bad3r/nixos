@@ -1,0 +1,201 @@
+---
+# Claude Code reviews the pull request under Open Code Review delegation:
+# `ocr delegate` selects the files and their rule checklists without an LLM
+# call, and the model usage is Claude Code's.
+name: OCR Delegated Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened]
+  issue_comment:
+    types: [created]
+
+# Every comment on a pull request starts a run, so a comment that requests no
+# review gets a group of its own instead of cancelling a running review.
+# yamllint disable rule:line-length
+concurrency:
+  group: >-
+    ocr-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{
+    (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (
+    startsWith(github.event.comment.body, '/ocr-review') &&
+    contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    ) }}
+  # yamllint enable rule:line-length
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # yamllint disable rule:line-length
+    if: >-
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      ) || (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/ocr-review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    # yamllint enable rule:line-length
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # A comment event carries no head. A head outside this repository stops
+      # here, before Claude Code runs in its checkout.
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # yamllint disable-line rule:line-length
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          head_repo=$(jq -r '.head.repo.full_name' <<<"$pr")
+          if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::pull request head is in $head_repo"
+            exit 1
+          fi
+          {
+            echo "number=$PR_NUMBER"
+            echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
+            echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
+          } >>"$GITHUB_OUTPUT"
+
+      # The installer, the ocr pin, and Claude Code's working directory come
+      # from the default branch.
+      # yamllint disable rule:line-length
+      - name: Checkout default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        # yamllint enable rule:line-length
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The delegation skill ships in the ocr package.
+      - name: Install Open Code Review
+        id: ocr
+        run: |
+          ocr=$(nix build --no-link --print-out-paths --inputs-from path:. \
+            'llm-agents#open-code-review')
+          echo "$ocr/bin" >>"$GITHUB_PATH"
+          skill="$ocr/share/skills/open-code-review/open-code-review-delegate/SKILL.md"
+          delimiter="ocr_skill_$(openssl rand -hex 16)"
+          {
+            echo "skill<<$delimiter"
+            awk 'seen >= 2 { print } /^---$/ { seen++ }' "$skill"
+            echo "$delimiter"
+          } >>"$GITHUB_OUTPUT"
+
+      # yamllint disable rule:line-length
+      - name: Checkout pull request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr-head
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The agent evaluates the pull request's flake through flake-eval and gets
+      # no other Nix command.
+      - name: Install flake-eval
+        id: flake-eval
+        uses: ./.github/actions/flake-eval
+        with:
+          flake: pr-head
+
+      - name: Review under OCR delegation
+        id: claude
+        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de  # v1.0.231
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          settings: |
+            {
+              "env": {
+                "DISABLE_TELEMETRY": "1",
+                "DISABLE_ERROR_REPORTING": "1"
+              }
+            }
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ steps.pr.outputs.number }}
+            BASE: origin/${{ steps.pr.outputs.base_ref }}
+            HEAD COMMIT: ${{ steps.pr.outputs.head_sha }}
+
+            Review this pull request in Open Code Review (OCR) delegation mode: the `ocr` CLI selects the files and their rule checklists, and you perform the review. The pull request head is checked out in `pr-head/`; the working directory holds the default branch and is not under review.
+
+            Follow the delegation workflow at the end of this prompt with these bindings:
+            - Use range mode against the base: `ocr delegate preview --repo pr-head --from origin/${{ steps.pr.outputs.base_ref }} --format json`, then `ocr delegate rule --repo pr-head --from origin/${{ steps.pr.outputs.base_ref }} --format json <path>...`.
+            - Run every Git command as `git -C pr-head --no-pager ...`, and read files under `pr-head/`. Paths in `ocr` output and in your comments are relative to `pr-head/`.
+            - Review every `reviewable_files` entry. Mark a file `skipped` only with a concrete reason.
+            - Do not modify files, skip the optional fix step, and install nothing.
+            - ${{ steps.flake-eval.outputs.instructions }}
+            - Do not pass `--output` to git; read a large diff one file at a time.
+            - If an `ocr` command fails, stop and make your final message quote the error.
+
+            Reporting:
+            - Before posting, read this PR's existing inline comments via `gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate` and its top-level comments via `gh pr view ${{ steps.pr.outputs.number }} --comments`. Skip a finding that one of them already raises, whether or not it was later resolved.
+            - Post each line-specific finding as an inline comment with `commit_id` set to the head commit above, prefixed `[OCR][<severity>][<category>]` with the severity and category from the workflow's output format. Report critical, high, and medium findings, and a low one only when it is clearly valuable.
+            - No speculative concerns. Comment only on problems that are concretely identifiable in the code as it stands, and propose a concrete fix in every comment.
+            - Post no top-level comment. End with a final message that holds only the summary, in Markdown: `total_files`, `reviewed_files`, `skipped_files` with each reason, `coverage_rate`, the number of findings per severity, and any finding that has no line. When there are no findings it says "No issues found." The workflow posts that message on the pull request.
+            - Be terse.
+
+            <delegation-workflow>
+            ${{ steps.ocr.outputs.skill }}
+            </delegation-workflow>
+
+          claude_args: |
+            --model opus
+            --effort high
+            --add-dir pr-head
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(ocr delegate preview:*),Bash(ocr delegate rule:*),Bash(git -C pr-head --no-pager diff:*),Bash(git -C pr-head --no-pager show:*),Bash(git -C pr-head --no-pager log:*),Bash(git -C pr-head --no-pager blame:*),Bash(flake-eval:*),Bash(gh pr view ${{ steps.pr.outputs.number }}:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate),Read,Grep,Glob"
+        # yamllint enable rule:line-length
+
+      # Claude Code's final message is the summary. Posting it here keeps the
+      # model from quoting Markdown into a shell command.
+      - name: Post summary
+        if: ${{ !cancelled() && steps.claude.outputs.execution_file != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          jq -r '[.[] | select(.type == "result")] | last
+            | .permission_denials // [] | .[]
+            | "denied: \(.tool_name) \(.tool_input | tostring | .[0:300])"' \
+            "$EXECUTION_FILE"
+          summary=$(jq -r '[.[] | select(.type == "result")] | last
+            | select(.subtype == "success" and (.is_error | not))
+            | .result // empty' "$EXECUTION_FILE")
+          if [ -z "$summary" ]; then
+            jq -r '[.[] | select(.type == "result")] | last
+              | "::error::Claude Code returned no summary"
+                + " (subtype=\(.subtype // "none"),"
+                + " is_error=\(.is_error | tostring))"' \
+              "$EXECUTION_FILE"
+            exit 1
+          fi
+          {
+            echo "### Open Code Review (delegated)"
+            echo
+            echo "Head commit: $HEAD_SHA"
+            echo
+            printf '%s\n' "$summary"
+          } >"$RUNNER_TEMP/ocr-summary.md"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --body-file "$RUNNER_TEMP/ocr-summary.md"

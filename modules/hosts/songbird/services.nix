@@ -76,7 +76,7 @@ in
         "qwen3.8-27b-gsq-mtp" = llamaVision // {
           # The IQ3_XXS file carries the MTP head; the tag names it in full, as `:IQ3_XXS` resolves to it anyway.
           hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";
-          ctx-size = 65536;
+          ctx-size = 49152;
           spec-type = "draft-mtp";
           load-on-startup = true;
         };
@@ -310,17 +310,34 @@ in
             llamaPackages = pkgs.callPackage "${src}/.devops/nix/scope.nix" {
               llamaVersion = buildNumber;
             };
-          in
-          (llamaPackages.llama-cpp.override {
-            useCuda = true;
-            useVulkan = true;
             cudaPackages = pkgs.cudaPackages.override {
               config = pkgs.config // {
                 cudaCapabilities = [ "12.0" ];
               };
             };
+          in
+          (llamaPackages.llama-cpp.override {
+            useCuda = true;
+            useVulkan = true;
+            inherit cudaPackages;
           }).overrideAttrs
             (old: {
+              # ggml-cuda.cu includes nvml.h and dlopens NVML; upstream's package.nix lacks the header.
+              buildInputs = old.buildInputs ++ [ cudaPackages.cuda_nvml_dev ];
+              # brand-favicons.ts copies the read-only store favicons twice (light and dark PWA
+              # configs); the second copy fails on the first copy's 0444 mode.
+              webui = old.webui.overrideAttrs (webui: {
+                # Upstream versions it with the build number, so every llama.cpp commit rebuilt
+                # it; a fixed version leaves only ui/, its npm lock, and nixpkgs as rebuild causes.
+                version = "0";
+                __intentionallyOverridingVersion = true;
+                postPatch = (webui.postPatch or "") + ''
+                  substituteInPlace scripts/brand-favicons.ts \
+                    --replace-fail 'import { copyFileSync,' 'import { chmodSync, copyFileSync,' \
+                    --replace-fail 'copyFileSync(require.resolve(specifier), resolve(outDir, fileName));' \
+                      'copyFileSync(require.resolve(specifier), resolve(outDir, fileName)); chmodSync(resolve(outDir, fileName), 0o644);'
+                '';
+              });
               cmakeFlags = old.cmakeFlags ++ [
                 # The source has no .git, so CMake would report build 0, commit unknown.
                 (lib.cmakeFeature "LLAMA_BUILD_NUMBER" buildNumber)

@@ -11,12 +11,23 @@ in
   perSystem =
     { pkgs, system, ... }:
     let
-      codexPkg = inputs.llm-agents.packages.${system}.codex;
+      # The variant the llm-agents fork builds and pushes to bad3r-nixos.
+      codexPkg = inputs.llm-agents.packages.${system}.codex-voice;
+      osConfig.programs.codex.extended.plugins = lib.mapAttrs (_: plugin: plugin.codex) (
+        lib.filterAttrs (_: plugin: plugin ? codex) (import ../_plugins.nix)
+      );
       # Include app-backed MCP entries in parser validation without building their services.
       osConfig.programs.sbx.extended = {
         enable = true;
         finalPackage = pkgs.emptyDirectory;
         limits.maxTtl = 1;
+      };
+      osConfig.programs.chatgpt.extended = {
+        enable = true;
+        finalPackage = {
+          unwrapped = pkgs.emptyDirectory;
+          version = "1";
+        };
       };
       codexNotify = import ./_notify.nix {
         inherit pkgs;
@@ -26,6 +37,10 @@ in
         telemetry:
         import ./_settings.nix {
           inherit telemetry;
+          configDir = "/home/codex-config-check/.config/codex";
+          cacheHome = "/home/codex-config-check/.cache";
+          profileDirectory = "/etc/profiles/per-user/codex-config-check";
+          localMarketplace = pkgs.emptyDirectory;
           inherit
             agents
             lib
@@ -49,16 +64,18 @@ in
           homeDir = "/home/codex-config-check";
           configDir = "/home/codex-config-check/.config/codex";
         };
-      telemetry = import ./_telemetry.nix {
-        inherit pkgs;
-        enabled = true;
-      };
-      disabledSettings = mkSettings (
-        import ./_telemetry.nix {
-          inherit pkgs;
-          enabled = false;
-        }
-      );
+      telemetry = import ./_telemetry.nix { inherit pkgs; };
+      # Settings for both states of the local telemetry toggle.
+      telemetryStates =
+        map
+          (enabled: {
+            name = if enabled then "local telemetry on" else "local telemetry off";
+            settings = (mkSettings (import ./_telemetry.nix { inherit pkgs enabled; })).baseSettings;
+          })
+          [
+            true
+            false
+          ];
       mkConfigCheck =
         name: settings:
         let
@@ -81,6 +98,7 @@ in
               ${lib.getExe codexPkg} ${lib.getExe runtime.codexWrapped}
             touch "$out"
           '';
+      configCheck = mkConfigCheck "codex-config-check" (mkSettings telemetry);
       telemetryCheck = pkgs.replaceVars ./_telemetry-check.py {
         collector = lib.getExe pkgs.opentelemetry-collector-contrib;
         config = telemetry.collectorConfigFile;
@@ -93,9 +111,6 @@ in
         "codex/web-run-contract" =
           let
             src = "${codexPkg.src}/codex-rs";
-            webRunPatch = lib.findFirst (patch: lib.hasSuffix "web-run-command.patch" (toString patch)) null (
-              codexPkg.patches or [ ]
-            );
             pinned = {
               "ext/web-search/web_run_description.md" =
                 "1f3879b44690eb7aad9ba97351acda16c4d0c26847bcb4af2964d5989404407e";
@@ -112,17 +127,9 @@ in
               echo "FAIL (codex ${codexPkg.version}): $1" >&2
               failed=1
             }
-            ${
-              if webRunPatch == null then
-                ''
-                  fail "llm-agents' codex lacks web-run-command.patch, so web.run would call OpenAI's alpha/search"
-                ''
-              else
-                ''
-                  grep -qF CODEX_WEB_RUN_COMMAND ${webRunPatch} \
-                    || fail "web-run-command.patch no longer reads CODEX_WEB_RUN_COMMAND, which home.nix sets"
-                ''
-            }
+            # The Bad3r/codex release carries the local-command patch in its source.
+            grep -qF CODEX_WEB_RUN_COMMAND ${src}/ext/web-search/src/tool.rs \
+              || fail "the codex source does not read CODEX_WEB_RUN_COMMAND, which home.nix sets, so web.run would call OpenAI's alpha/search"
             ${lib.concatStrings (
               lib.mapAttrsToList (file: hash: ''
                 got=$(sha256sum ${src}/${file} | cut -d' ' -f1) || got=missing
@@ -138,15 +145,6 @@ in
             [ "$failed" = 0 ]
             touch "$out"
           '';
-
-        "codex/telemetry-collector" =
-          pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
-            ''
-              STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
-                --config=${telemetry.collectorConfigFile}
-              ${lib.getExe pkgs.python314} ${telemetryCheck}
-              touch "$out"
-            '';
 
         "codex/notify" =
           pkgs.runCommandLocal "codex-notify-check"
@@ -186,26 +184,107 @@ in
               touch "$out"
             '';
 
-        "codex/config" = mkConfigCheck "codex-config-check" (mkSettings telemetry);
+        "codex/config" = configCheck;
 
-        "codex/config-telemetry-disabled" =
+        # Fails when the settings would let Codex send telemetry to OpenAI, with
+        # local telemetry on or off. Codex defaults analytics events and Statsig
+        # metrics (ab.chatgpt.com) on and uploads /feedback reports to OpenAI's
+        # Sentry. Not yet covered: with local exporters on, the turn-cost worker
+        # posts thread and turn IDs to OpenAI until the Bad3r/codex gate ships.
+        "codex/no-openai-telemetry" =
           let
-            settings = disabledSettings.baseSettings;
+            isLoopback =
+              exporter:
+              exporter == "none"
+              || (
+                lib.isAttrs exporter
+                && exporter != { }
+                && lib.all (
+                  kind:
+                  lib.elem kind [
+                    "otlp-http"
+                    "otlp-grpc"
+                  ]
+                ) (lib.attrNames exporter)
+                && lib.all (
+                  e: builtins.match "https?://(127\\.0\\.0\\.1|localhost|\\[::1])(:[0-9]+)?(/.*)?" e.endpoint != null
+                ) (lib.attrValues exporter)
+              );
+            leaks =
+              { name, settings }:
+              map (rule: "${name}: ${rule.why}") (
+                lib.filter (rule: rule.leaks) (
+                  [
+                    {
+                      leaks = settings.analytics.enabled or true;
+                      why = "analytics.enabled is not false, so analytics events, and Statsig metrics when metrics_exporter is unset, reach OpenAI";
+                    }
+                    {
+                      leaks = settings.feedback.enabled or true;
+                      why = "feedback.enabled is not false, so /feedback uploads to OpenAI's Sentry";
+                    }
+                    {
+                      leaks = settings.features.guardianv2_decisions_comparison or true;
+                      why = "features.guardianv2_decisions_comparison is not false, so Guardian evidence goes to api.openai.com";
+                    }
+                  ]
+                  # Codex reads an unset metrics_exporter as Statsig.
+                  ++
+                    map
+                      (key: {
+                        leaks = !isLoopback (settings.otel.${key} or null);
+                        why = "otel.${key} is unset or not a loopback collector";
+                      })
+                      [
+                        "exporter"
+                        "trace_exporter"
+                        "metrics_exporter"
+                      ]
+                )
+              );
+            problems = lib.concatMap leaks telemetryStates;
+            src = "${codexPkg.src}/codex-rs";
+            # Every non-test source file that names an OpenAI telemetry endpoint.
+            endpointPattern = "ab\\.chatgpt\\.com|analytics-events|sentry\\.io|turn-costs|thread-estimates|/v1/decisions";
+            endpointFiles = [
+              "analytics/src/client.rs"
+              "app-server/src/turn_cost_worker.rs"
+              "backend-client/src/client/chatgpt_turn_cost.rs"
+              "backend-client/src/client/turn_usage.rs"
+              "ext/guardian-v2/src/async_scorer/decisions.rs"
+              "ext/guardian-v2/src/async_scorer/startup.rs"
+              "feedback/src/lib.rs"
+              "otel/src/config.rs"
+            ];
           in
-          assert lib.all (key: settings.otel.${key} == "none") [
-            "exporter"
-            "trace_exporter"
-            "metrics_exporter"
-          ];
-          assert settings.features.runtime_metrics == false;
-          assert settings.analytics.enabled == false;
-          assert settings.feedback.enabled == false;
-          assert lib.all (key: settings.otel.${key} == false) [
-            "log_user_prompt"
-            "log_agent_responses"
-            "log_guardian_assessments"
-          ];
-          mkConfigCheck "codex-config-telemetry-disabled-check" disabledSettings;
+          if problems != [ ] then
+            throw "codex/no-openai-telemetry:\n${lib.concatStringsSep "\n" problems}"
+          else
+            pkgs.runCommandLocal "codex-no-openai-telemetry-check" { passthru.runtimeCheck = true; } ''
+              failed=0
+              fail() {
+                echo "FAIL (codex ${codexPkg.version}): $1" >&2
+                failed=1
+              }
+              grep -qF '(analytics_enabled != Some(false)).then(' ${src}/analytics/src/client.rs \
+                || fail "analytics/src/client.rs no longer gates analytics events on analytics.enabled"
+              found=$(cd ${src} && grep -rlE --include='*.rs' ${lib.escapeShellArg endpointPattern} . \
+                | sed 's|^\./||' | grep -vE '(^|/)tests?(/|\.rs$)|_tests?\.rs$' | LC_ALL=C sort || true)
+              [ "$found" = ${lib.escapeShellArg (lib.concatStringsSep "\n" (lib.sort lib.lessThan endpointFiles))} ] \
+                || fail "the files naming OpenAI telemetry endpoints changed; audit what each sends and which setting stops it, then update endpointFiles. Found: $(tr "\n" " " <<<"$found")"
+              [ "$failed" = 0 ]
+              touch "$out"
+            '';
+      }
+      // lib.optionalAttrs telemetry.enabled {
+        "codex/telemetry-collector" =
+          pkgs.runCommandLocal "codex-telemetry-collector-check" { passthru.runtimeCheck = true; }
+            ''
+              STATE_DIRECTORY="$TMPDIR" ${lib.getExe pkgs.opentelemetry-collector-contrib} validate \
+                --config=${telemetry.collectorConfigFile}
+              ${lib.getExe pkgs.python314} ${telemetryCheck}
+              touch "$out"
+            '';
       };
     };
 }

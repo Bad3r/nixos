@@ -1,0 +1,41 @@
+name: Install flake-eval
+description: >-
+  Install flake-eval, a pure flake evaluation for a review agent, after Lix.
+inputs:
+  flake:
+    description: Directory of the flake that flake-eval evaluates.
+    default: .
+outputs:
+  instructions:
+    description: Prompt rule that tells the agent how to call flake-eval.
+    # yamllint disable rule:line-length
+    value: >-
+      When a finding depends on what the flake evaluates to, confirm it with `flake-eval [--json | --raw] <attribute> [<apply-expression>]`, a pure `nix eval` of that attribute of the pull request's flake. List the hosts with `flake-eval --json nixosConfigurations builtins.attrNames`, read an option with `flake-eval --json nixosConfigurations.<host>.config.<option>`, and shrink a large value with an apply expression such as `'map (p: p.name)'`. Give a host attribute a timeout of up to 600000 ms. An evaluation error that the pull request introduces is a finding. No other Nix command is available.
+    # yamllint enable rule:line-length
+runs:
+  using: composite
+  steps:
+    - name: Install flake-eval
+      shell: bash
+      env:
+        FLAKE: ${{ inputs.flake }}
+      # Root-owned and outside the workspace: the git commands the agents are
+      # allowed can write files as the runner user through --output. The
+      # launcher fixes the flake, so the agent cannot point the evaluation at
+      # another directory.
+      run: |-
+        flake=$(realpath -e "$FLAKE")
+        sudo install -D -m 0755 "$GITHUB_ACTION_PATH/flake-eval.sh" \
+          /usr/local/libexec/flake-eval
+        printf '#!/bin/bash\nexec /usr/local/libexec/flake-eval %q "$@"\n' \
+          "$flake" | sudo tee /usr/local/bin/flake-eval >/dev/null
+        sudo chmod 0755 /usr/local/bin/flake-eval
+    - name: Fetch flake inputs
+      shell: bash
+      # Before the session, so the agent's first evaluation fits the Bash
+      # tool's default timeout. A flake the pull request breaks still gets its
+      # review, and the agent meets the same error through flake-eval.
+      run: |-
+        if ! flake-eval --json nixosConfigurations builtins.attrNames; then
+          echo "::warning::flake-eval failed on the pull request's flake"
+        fi

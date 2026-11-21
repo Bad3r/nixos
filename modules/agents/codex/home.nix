@@ -35,6 +35,8 @@
       The nix-managed layer is written to codex/rules/20-managed.rules.
     * ~/.config/Codex (capitalized) is the desktop app's Electron profile
       (modules/apps/chatgpt/nixos.nix), not CODEX_HOME.
+    * CODEX_CLI_PATH points the desktop app at the wrapper, so its app-server
+      runs this build with the merged config instead of the bundled codex.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
         [projects."/path/to/project"]
         trust_level = "trusted"
@@ -58,7 +60,7 @@
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
-      # web.run answered by the kagi-search emulator (llm-agents' web-run-command.patch)
+      # web.run answered by the kagi-search emulator (the local-command patch in Bad3r/codex releases)
       webRunEnv.CODEX_WEB_RUN_COMMAND = "/run/current-system/sw/bin/kagi-search-webrun";
       telemetry = import ./_telemetry.nix { inherit pkgs; };
 
@@ -79,6 +81,10 @@
       };
 
       codexSettings = import ./_settings.nix {
+        inherit configDir;
+        inherit (config.xdg) cacheHome;
+        inherit (config.home) profileDirectory;
+        localMarketplace = import ../claude-code/_marketplace.nix { inherit lib pkgs osConfig; };
         inherit
           agents
           codexNotify
@@ -216,6 +222,8 @@
             // webRunEnv
             // {
               CODEX_HOME = lib.mkDefault configDir;
+              # The desktop app runs this codex instead of its bundled copy.
+              CODEX_CLI_PATH = lib.getExe codexRuntime.codexWrapped;
             };
         };
 

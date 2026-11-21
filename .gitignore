@@ -64,6 +64,7 @@ tmp_*
 node_modules/
 .cache/
 .wrangler/
+.playwright-mcp/
 ########################################
 # Secrets safety (defense-in-depth)
 # Do not commit private keys or local env files

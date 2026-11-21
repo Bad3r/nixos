@@ -85,9 +85,8 @@ fuse-overlayfs, and protonup-rs live inside it. It can differ from `pkgs.steam`,
 so publishing only the bare attribute can leave the installed closure
 unsubstituted.
 
-perSystem-sourced (restringer) and input-sourced (context7-mcp,
-codex) entries are published once, not per host, because no host package set
-shapes them.
+perSystem-sourced (restringer) and input-sourced (context7-mcp) entries are
+published once, not per host, because no host package set shapes them.
 
 context7-mcp is sourced from the `mcp-servers-nix` input, matching the
 consumer in `modules/agents/mcp.nix`, which resolves every server's package
@@ -96,8 +95,8 @@ same-named but different derivation no consumer runs. nemo-with-extensions
 is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
-installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
-through `buildFHSEnv` or wrapper derivations (electron-mail, kiro-fhs, upscayl,
+installs, and its closure omits nemo-preview. For entries built
+through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
 vscode-fhs, nemo-with-extensions), the outer wrapper sets
 `allowSubstitutes = false` and always rebuilds locally; that is trivial
 assembly work, and the heavy dependency closure underneath substitutes

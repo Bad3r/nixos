@@ -44,7 +44,7 @@
         settings = lib.mkOption {
           inherit (pkgs.formats.toml { }) type;
           default = { };
-          description = "Herdr configuration. Background release and detection-manifest checks are always disabled in the managed configuration.";
+          description = "Herdr configuration. The managed configuration always skips onboarding and disables background release and detection-manifest checks.";
         };
       };
       config = lib.mkIf cfg.enable {
@@ -64,11 +64,13 @@
       cfg = osConfig.programs.herdr.extended;
       colors = config.lib.stylix.colors.withHashtag;
       vscode = import ../stylix/_vscode-dark-2026.nix;
-      # VS Code Dark 2026 (2026-dark.json) over every Herdr palette token.
+      # VS Code Dark 2026 (2026-dark.json) over every Herdr palette token, with
+      # desaturated blues. Kitty applies background_opacity only to cells
+      # with the default background, so "reset" keeps the chrome translucent.
       theme.custom = {
-        accent = vscode."statusBarItem.prominentBackground";
-        panel_bg = colors.base01; # panel.background, editorGroupHeader.tabsBackground
-        sidebar_bg = colors.base01; # sideBar.background
+        accent = "#7b9aac"; # statusBarItem.prominentBackground at 23% saturation
+        panel_bg = "reset";
+        sidebar_bg = "reset";
         active_row_bg = vscode."list.inactiveSelectionBackground";
         selection_bg = vscode."list.focusBackground";
         surface0 = vscode."quickInput.background";
@@ -82,19 +84,26 @@
         green = vscode."gitDecoration.addedResourceForeground";
         yellow = vscode."list.warningForeground";
         red = vscode.errorForeground;
-        blue = vscode."charts.blue";
-        teal = colors.base0C;
+        blue = "#8aa6c4"; # charts.blue at 33% saturation
+        teal = "#7fa9b2"; # base0C at 25% saturation
         peach = vscode."charts.orange";
       };
       assets = "${
         inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.herdr.src
       }/src/integration/assets";
-      settings = lib.recursiveUpdate { inherit theme; } cfg.settings // {
-        update = (cfg.settings.update or { }) // {
-          version_check = false;
-          manifest_check = false;
+      settings =
+        lib.recursiveUpdate {
+          inherit theme;
+          ui.toast.delivery = "terminal";
+        } cfg.settings
+        // {
+          # Completing onboarding writes this key into the read-only config.
+          onboarding = false;
+          update = (cfg.settings.update or { }) // {
+            version_check = false;
+            manifest_check = false;
+          };
         };
-      };
     in
     {
       config = lib.mkIf cfg.enable {

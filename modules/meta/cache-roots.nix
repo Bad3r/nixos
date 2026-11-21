@@ -35,9 +35,9 @@ let
   # tor-browser and mullvad-browser stay out: nixpkgs sets
   # allowSubstitutes = false on the derivation that carries the build, so
   # hosts rebuild them whatever the cache holds. Entries whose outer wrapper
-  # sets the same flag over a substitutable closure (electron-mail, kiro-fhs,
-  # upscayl, vscode-fhs) belong here, because the closure underneath is the
-  # expensive half.
+  # sets the same flag over a substitutable closure (electron-mail, upscayl,
+  # vscode-fhs) belong here, because the closure underneath is the expensive
+  # half.
   #
   # Names are the attributes hosts install, which is not always the attribute
   # that shares the app's common name: vscode-fhs and ventoy-full are what
@@ -52,7 +52,6 @@ let
     "firefoxpwa"
     "google-chrome"
     "john"
-    "kiro-fhs"
     "obsidian"
     "p7zip-rar"
     "planify"
@@ -390,11 +389,6 @@ in
               key = "context7-mcp";
               pkgName = "context7-mcp";
               path = inputs'.mcp-servers-nix.packages.context7-mcp;
-            }
-            {
-              key = "codex";
-              pkgName = "codex";
-              path = inputs'.llm-agents.packages.codex;
             }
           ];
 

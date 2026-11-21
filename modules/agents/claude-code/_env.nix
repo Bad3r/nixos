@@ -18,6 +18,10 @@
   ];
   # Read only by this repo's launchers; Claude Code never looks at it.
   launchOnlyEscape = "CLAUDE_CODE_ALLOW_FEATURE_FLAGS";
+  # Exported by the launchers only when the caller left them unset, so a
+  # per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 is how the
+  # binary says to start a session with Chrome or computer use.
+  callerOverridable = [ "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE" ];
 
   vars = {
     # Authentication and providers
@@ -593,6 +597,7 @@
     # CLAUDE_CODE_EXIT_AFTER_STOP_DELAY = "";
     # Set to 1 to enable agent teams. [1 or unset]
     # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+    CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "true";
     # JSON object to merge into the top level of every API request body.
     # CLAUDE_CODE_EXTRA_BODY = "";
     # Set to 1 to force transcript persistence, prompt history, and claude agents
