@@ -22,6 +22,8 @@ in
     BROWSER_USE_TINYSKY_ENABLED = "1";
     CODEX_CLI_PATH = "${profileDirectory}/bin/codex";
     CODEX_HOME = configDir;
+    # The desktop app's lazyTrustedWorker feature flag, off by default.
+    NODE_REPL_LAZY_TRUSTED_WORKER = "0";
     NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "";
     NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "";
     NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000";

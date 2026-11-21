@@ -248,6 +248,8 @@ let
       "${homeDir}/trees".trust_level = "trusted";
       "/data".trust_level = "trusted";
       "/data/dev/azure".trust_level = "trusted";
+      "/data/agents/cloudflare-watch-party".trust_level = "trusted";
+      "/data/Projects/igit/nixpkgs-review-gha".trust_level = "trusted";
     };
   };
 in
