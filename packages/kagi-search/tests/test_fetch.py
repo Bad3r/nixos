@@ -98,6 +98,10 @@ class AddressTest(unittest.TestCase):
 
 TRICKLE_BYTES = 80
 TRICKLE_STEP = 0.05
+# Longer than one read, so the size limit is met across chunks.
+PDF_BODY = b"%PDF-1.4\n" + b"x" * (3 * fetch.READ_CHUNK)
+MISSING_BYTES = 100
+DRIP_BODY = b"%PDF-1.4 " + bytes(range(256)) * 8
 TEST_DEADLINE_SECONDS = 1
 DEADLINE_SLACK_SECONDS = 1
 
@@ -127,6 +131,23 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if self.path == "/doc.pdf":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/pdf")
+            self.end_headers()
+            self.wfile.write(PDF_BODY)
+            return
+        if self.path in {"/short.pdf", "/short.txt"}:
+            self.send_response(200)
+            kind = "application/pdf" if self.path.endswith(".pdf") else "text/plain"
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(PDF_BODY) + MISSING_BYTES))
+            self.end_headers()
+            self.wfile.write(PDF_BODY)
+            return
+        if self.path == "/drip.pdf":
+            self.drip()
+            return
         body = b"<title>Local</title><p>hello</p>"
         charset = "base64" if self.path == "/b64" else "utf-8"
         self.send_response(200)
@@ -134,6 +155,14 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def drip(self) -> None:
+        """Send DRIP_BODY as a chunked body of one-byte chunks."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/pdf")
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
+        self.wfile.write(b"".join(b"1\r\n%c\r\n" % byte for byte in DRIP_BODY) + b"0\r\n\r\n")
 
     def trickle(self) -> None:
         """Send TRICKLE_BYTES of body one byte per TRICKLE_STEP seconds."""
@@ -225,6 +254,38 @@ class RedirectTest(unittest.TestCase):
             fetch.fetch_page(f"http://127.0.0.1:{self.port}/trickle")
         elapsed = time.monotonic() - started
         self.assertLess(elapsed, TEST_DEADLINE_SECONDS + DEADLINE_SLACK_SECONDS)
+
+    def test_a_pdf_keeps_its_bytes(self) -> None:
+        """A PDF up to the size limit comes back whole, as bytes and without text."""
+        with unittest.mock.patch.object(fetch, "MAX_PDF_BYTES", len(PDF_BODY)):
+            page = fetch.fetch_page(f"http://127.0.0.1:{self.port}/doc.pdf")
+        self.assertEqual(page.content_type, fetch.PDF_TYPE)
+        self.assertEqual(page.data, PDF_BODY)
+        self.assertIsNone(page.body)
+
+    def test_a_pdf_past_the_size_limit_is_refused(self) -> None:
+        """A PDF one byte past the limit fails instead of coming back cut off."""
+        with (
+            unittest.mock.patch.object(fetch, "MAX_PDF_BYTES", len(PDF_BODY) - 1),
+            self.assertRaisesRegex(fetch.FetchError, "the PDF is larger than"),
+        ):
+            fetch.fetch_page(f"http://127.0.0.1:{self.port}/doc.pdf")
+
+    def test_a_body_cut_short_is_refused(self) -> None:
+        """A PDF or page that ends before its declared length fails, naming what is missing."""
+        for path in ("/short.pdf", "/short.txt"):
+            with (
+                self.subTest(path=path),
+                self.assertRaisesRegex(
+                    fetch.FetchError, f"closed with {MISSING_BYTES} bytes of the body missing"
+                ),
+            ):
+                fetch.fetch_page(f"http://127.0.0.1:{self.port}{path}")
+
+    def test_a_body_sent_in_small_chunks_is_whole(self) -> None:
+        """A chunked body of one-byte chunks comes back as the bytes sent."""
+        page = fetch.fetch_page(f"http://127.0.0.1:{self.port}/drip.pdf")
+        self.assertEqual(page.data, DRIP_BODY)
 
     def test_a_non_text_charset_falls_back_to_utf_8(self) -> None:
         """charset=base64 names a codec that cannot decode text; the page decodes as UTF-8."""
