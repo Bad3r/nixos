@@ -33,7 +33,7 @@ from kagi_search.render import Rendered, render
 from kagi_search.run_schema import RUN_SCHEMA
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable, Collection, Generator
 
     from kagi_search.page import Hit
 
@@ -644,27 +644,28 @@ def _trim(block: str, room: int) -> str:
     return block[: cut + 1] if cut > 0 else ""
 
 
-def kept_blocks(blocks: list[str], budget: int) -> list[str]:
+def kept_blocks(blocks: list[str], budget: int, whole: Collection[int] = ()) -> list[str]:
     """Return the leading blocks that join within budget characters.
 
     The first block that does not fit is cut to whole lines and the blocks after
-    it are left out, silently, as the service truncates.
+    it are left out, silently, as the service truncates. A block whose index is
+    in whole is left out instead of cut: part of it would claim what it lost.
     """
     kept: list[str] = []
-    for block in blocks:
+    for index, block in enumerate(blocks):
         if len(join_blocks([*kept, block])) <= budget:
             kept.append(block)
             continue
         trimmed = _trim(block, budget - len(join_blocks([*kept, ""])))
-        if trimmed:
+        if trimmed and index not in whole:
             kept.append(trimmed)
         break
     return kept
 
 
-def fit_blocks(blocks: list[str], budget: int) -> str:
+def fit_blocks(blocks: list[str], budget: int, whole: Collection[int] = ()) -> str:
     """Join the blocks within budget characters, in order."""
-    return join_blocks(kept_blocks(blocks, budget))[:budget]
+    return join_blocks(kept_blocks(blocks, budget, whole))[:budget]
 
 
 def content_items(kept: list[str], shots: dict[int, str]) -> list[dict[str, object]]:
@@ -1017,7 +1018,7 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
     _housekeep(call, "save this call's refs", lambda: session.record(call.new_refs))
     if not call.blocks:
         return _response(NO_TOOL_RESPONSE, call.results)
-    response = _response(fit_blocks(call.blocks, budget), call.results)
+    response = _response(fit_blocks(call.blocks, budget, call.shots), call.results)
     content = _content(call, budget)
     if content:
         response["content"] = content
@@ -1025,14 +1026,11 @@ def handle(  # noqa: PLR0913 - the call's collaborators, injected for tests
 
 
 def _content(call: _Call, budget: int) -> list[dict[str, object]]:
-    """Return the output as content items when it keeps a block with an image whole."""
-    kept = kept_blocks(call.blocks, budget)
-    shots: dict[int, str] = {}
-    for index, shot in call.shots.items():
-        if index < len(kept) and kept[index] == call.blocks[index]:
-            shots[index] = shot
-        else:
-            call.log(f"an image is left out: the output budget cut its block ({index})")
+    """Return the output as content items when it keeps a block with an image."""
+    kept = kept_blocks(call.blocks, budget, call.shots)
+    shots = {index: shot for index, shot in call.shots.items() if index < len(kept)}
+    for index in call.shots.keys() - shots.keys():
+        call.log(f"an image is left out: the output budget has no room for its block ({index})")
     return content_items(kept, shots) if shots else []
 
 

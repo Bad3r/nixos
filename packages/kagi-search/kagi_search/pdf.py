@@ -11,6 +11,7 @@ a script, this file is that child: it imports nothing of kagi_search.
 from __future__ import annotations
 
 import base64
+import contextlib
 import importlib
 import io
 import json
@@ -48,6 +49,10 @@ MEMORY_LIMIT_BYTES = 4 * 1024**3
 # several times the largest image the limits above allow.
 MAX_OUTPUT_BYTES = 32 * 1024 * 1024
 STDERR_TAIL_BYTES = 4096
+# The child's answer starts with one short JSON line; the image formats it may
+# name, with the bytes each starts with.
+MAX_HEADER_BYTES = 512
+IMAGE_SIGNATURES = {"image/png": b"\x89PNG\r\n\x1a\n", "image/jpeg": b"\xff\xd8\xff"}
 STDERR_TAIL_CHARS = 300
 # The program the child runs: this file.
 SCRIPT = __file__
@@ -200,12 +205,17 @@ def _crash(code: int, complaints: IO[bytes]) -> str:
 
 
 def _parse(stdout: bytes) -> Image:
-    """Return the image of a child's answer: a JSON line, then the image bytes."""
+    """Return the image of a child's answer: a JSON line, then the image bytes.
+
+    The child may be under a hostile document's control, so nothing of its answer
+    is taken on trust: the line is short, and the image is a PNG or JPEG that
+    starts as one.
+    """
     head, _, body = stdout.partition(b"\n")
-    try:
-        answer: object = json.loads(head)
-    except ValueError:
-        answer = None
+    answer: object = None
+    if len(head) <= MAX_HEADER_BYTES:
+        with contextlib.suppress(ValueError, RecursionError):
+            answer = json.loads(head)
     if not isinstance(answer, dict):
         msg = "the renderer's answer is not understood"
         raise RenderError(msg)
@@ -213,7 +223,8 @@ def _parse(stdout: bytes) -> Image:
     error, mime = fields.get("error"), fields.get("mime")
     if isinstance(error, str):
         raise RenderError(error)
-    if not isinstance(mime, str) or not body:
+    signature = IMAGE_SIGNATURES.get(mime) if isinstance(mime, str) else None
+    if not isinstance(mime, str) or signature is None or not body.startswith(signature):
         msg = "the renderer's answer has no image"
         raise RenderError(msg)
     return Image(mime, body)
@@ -267,12 +278,22 @@ def _render(data: bytes, pageno: int) -> Image:
     return Image("image/png", png.getvalue())
 
 
+def _seal() -> None:
+    """Keep this process from starting another, before it reads the document.
+
+    The memory and CPU limits count per process, so a renderer that could fork
+    would multiply them.
+    """
+    resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
+
+
 def main() -> int:
     """Render the page numbered by argv[1] of the PDF on stdin.
 
     Prints a JSON line, {"mime": ...} followed by the image bytes or
     {"error": ...}; any other end is a crash the parent reports.
     """
+    _seal()
     pageno = int(sys.argv[1])
     data = sys.stdin.buffer.read()
     try:

@@ -69,6 +69,18 @@ except OSError as error:
 seen["home"] = "present" if pathlib.Path("/home").exists() else "missing"
 print(json.dumps({{"error": json.dumps(seen)}}))
 """
+# Stands in for the child's entry point: seals as the child does, then tries to fork.
+FORK_PROGRAM = """\
+import os
+_seal()
+try:
+    if os.fork() == 0:
+        os._exit(0)
+    outcome = "forked"
+except OSError as error:
+    outcome = type(error).__name__
+print(json.dumps({"error": "fork: " + outcome}))
+"""
 REPORT_CPU_LIMIT = (
     "import json, resource\n"
     'print(json.dumps({"error": str(resource.getrlimit(resource.RLIMIT_CPU)[0])}))\n'
@@ -253,11 +265,32 @@ class ChildFailureTest(ChildTestCase):
         self.assertLess(len(reason), 2 * pdf.STDERR_TAIL_CHARS)
 
     def test_an_answer_without_an_image_is_refused(self) -> None:
-        """Output that is no JSON line with an image after it is not taken for an image."""
-        for answer in (b"", b"garbage", b'{"mime": "image/png"}\n', b"[]\nxx", b'{"mime": 1}\nxx'):
-            with self.subTest(answer=answer):
+        """Only a short JSON line with a PNG or JPEG after it is taken for an image."""
+        png = pdf.IMAGE_SIGNATURES["image/png"]
+        answers = (
+            b"",
+            b"garbage",
+            b'{"mime": "image/png"}\n',
+            b"[]\n" + png,
+            b'{"mime": 1}\n' + png,
+            b'{"mime": "image/png"}\nnot a png',
+            b'{"mime": "image/jpeg"}\n' + png,
+            b'{"mime": "image/svg+xml"}\n<svg/>',
+            b'{"mime": "image/png", "pad": "' + b"x" * pdf.MAX_HEADER_BYTES + b'"}\n' + png,
+            b"[" * 100_000 + b"\n" + png,
+        )
+        for answer in answers:
+            with self.subTest(answer=answer[:40]):
                 program = f"import sys\nsys.stdout.buffer.write({answer!r})\n"
                 self.assertIn("the renderer's answer", self.failure(program))
+
+    def test_the_renderer_cannot_start_another_process(self) -> None:
+        """The real child's seal, run in the sandbox, leaves it unable to fork."""
+        source = Path(pdf.SCRIPT).read_text(encoding="utf-8")
+        entry = 'if __name__ == "__main__":\n    sys.exit(main())\n'
+        self.assertIn(entry, source)
+        reason = self.failure(source.replace(entry, FORK_PROGRAM))
+        self.assertEqual(reason, "fork: BlockingIOError")
 
     def test_a_sandbox_that_cannot_start_is_reported(self) -> None:
         """A missing bubblewrap, or no room for the child's output, is a render failure."""

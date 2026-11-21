@@ -708,7 +708,7 @@ class ScreenshotTest(WebRunTestCase):
         self.assertTrue(any("an image is left out" in line for line in emulator.logged))
         emulator.logged.clear()
         cut = emulator.call({"screenshot": [{"ref_id": PDF_URL, "pageno": 0}]}, max_output_tokens=8)
-        self.assertEqual(output(cut), f" ({PDF_URL})\n")
+        self.assertEqual(output(cut), "")
         self.assertNotIn("content", cut)
         self.assertTrue(any("an image is left out" in line for line in emulator.logged))
 
