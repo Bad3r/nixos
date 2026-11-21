@@ -383,6 +383,40 @@ let
               type = "stdio";
             }
             // timeouts
+          else if name == "firefox" then
+            let
+              wrapper = pkgs.writeShellScriptBin "firefox-mcp-wrapper" ''
+                set -euo pipefail
+
+                # The privileged, prefs, and bidi modules need this in Firefox's own environment.
+                export MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1
+                export MOZ_CRASHREPORTER_DISABLE=1
+                export SE_AVOID_STATS=true
+                export DO_NOT_TRACK=1
+                export NPM_CONFIG_UPDATE_NOTIFIER=false
+
+                # The server searches PATH for geckodriver before it downloads a binary.
+                export PATH=${lib.makeBinPath [ pkgs.geckodriver ]}:"$PATH"
+
+                firefox_executable="$(command -v firefox || true)"
+                if [ -z "$firefox_executable" ]; then
+                  echo "firefox MCP: no firefox in PATH; enable the firefox app." >&2
+                  exit 1
+                fi
+
+                exec ${lib.getExe' pkgs.nodejs "npx"} \
+                  -y \
+                  ${meta.package} \
+                  "--firefox-path=$firefox_executable" \
+                  "$@"
+              '';
+            in
+            {
+              command = "${wrapper}/bin/firefox-mcp-wrapper";
+              args = meta.args or [ ];
+              type = "stdio";
+            }
+            // timeouts
           else
             {
               command = "${lib.getExe' pkgs.nodejs "npx"}";
