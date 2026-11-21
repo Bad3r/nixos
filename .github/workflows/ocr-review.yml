@@ -70,9 +70,8 @@ jobs:
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
           } >>"$GITHUB_OUTPUT"
 
-      # The default branch supplies the installer, the ocr pin, and the
-      # workspace root Claude Code starts in, so a pull request cannot change
-      # the code this job runs.
+      # The installer, the ocr pin, and Claude Code's working directory come
+      # from the default branch.
       # yamllint disable rule:line-length
       - name: Checkout default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

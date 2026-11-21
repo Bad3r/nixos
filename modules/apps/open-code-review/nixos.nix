@@ -38,9 +38,7 @@
         paths = [ cfg.package ];
         nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
         postBuild = ''
-          wrapProgram $out/bin/ocr \
-            --unset OCR_ENABLE_TELEMETRY \
-            --unset OCR_CONTENT_LOGGING
+          wrapProgram $out/bin/ocr --unset OCR_ENABLE_TELEMETRY
         '';
         inherit (cfg.package) meta;
       };
