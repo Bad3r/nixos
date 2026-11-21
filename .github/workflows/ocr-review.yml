@@ -70,8 +70,9 @@ jobs:
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
           } >>"$GITHUB_OUTPUT"
 
-      # The default branch supplies the installer and the ocr pin, so a pull
-      # request cannot change the code this job runs.
+      # The default branch supplies the installer, the ocr pin, and the
+      # workspace root Claude Code starts in, so a pull request cannot change
+      # the code this job runs.
       # yamllint disable rule:line-length
       - name: Checkout default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -105,6 +106,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
+          path: pr-head
           fetch-depth: 0
           persist-credentials: false
 
@@ -126,10 +128,11 @@ jobs:
             BASE: origin/${{ steps.pr.outputs.base_ref }}
             HEAD COMMIT: ${{ steps.pr.outputs.head_sha }}
 
-            Review this pull request in Open Code Review (OCR) delegation mode: the `ocr` CLI selects the files and their rule checklists, and you perform the review. The working tree is the pull request head.
+            Review this pull request in Open Code Review (OCR) delegation mode: the `ocr` CLI selects the files and their rule checklists, and you perform the review. The pull request head is checked out in `pr-head/`; the working directory holds the default branch and is not under review.
 
             Follow the delegation workflow at the end of this prompt with these bindings:
-            - Use range mode against the base: `ocr delegate preview --from origin/${{ steps.pr.outputs.base_ref }} --format json`, then `ocr delegate rule --from origin/${{ steps.pr.outputs.base_ref }} --format json <path>...`.
+            - Use range mode against the base: `ocr delegate preview --repo pr-head --from origin/${{ steps.pr.outputs.base_ref }} --format json`, then `ocr delegate rule --repo pr-head --from origin/${{ steps.pr.outputs.base_ref }} --format json <path>...`.
+            - Run every Git command as `git -C pr-head --no-pager ...`, and read files under `pr-head/`. Paths in `ocr` output and in your comments are relative to `pr-head/`.
             - Review every `reviewable_files` entry. Mark a file `skipped` only with a concrete reason.
             - Do not modify files, skip the optional fix step, and install nothing.
             - Do not pass `--output` to git; read a large diff one file at a time.
@@ -149,5 +152,6 @@ jobs:
           claude_args: |
             --model opus
             --effort high
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(ocr delegate preview:*),Bash(ocr delegate rule:*),Bash(git --no-pager diff:*),Bash(git --no-pager show:*),Bash(git --no-pager log:*),Bash(git --no-pager blame:*),Bash(gh pr comment ${{ steps.pr.outputs.number }}:*),Bash(gh pr view ${{ steps.pr.outputs.number }}:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate),Read,Grep,Glob"
+            --add-dir pr-head
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(ocr delegate preview:*),Bash(ocr delegate rule:*),Bash(git -C pr-head --no-pager diff:*),Bash(git -C pr-head --no-pager show:*),Bash(git -C pr-head --no-pager log:*),Bash(git -C pr-head --no-pager blame:*),Bash(gh pr comment ${{ steps.pr.outputs.number }}:*),Bash(gh pr view ${{ steps.pr.outputs.number }}:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate),Read,Grep,Glob"
         # yamllint enable rule:line-length
