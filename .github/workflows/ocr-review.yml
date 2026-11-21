@@ -109,6 +109,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The agent evaluates the pull request's flake through flake-eval and gets
+      # no other Nix command.
+      - name: Install flake-eval
+        id: flake-eval
+        uses: ./.github/actions/flake-eval
+        with:
+          flake: pr-head
+
       - name: Review under OCR delegation
         id: claude
         uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de  # v1.0.231
@@ -135,6 +143,7 @@ jobs:
             - Run every Git command as `git -C pr-head --no-pager ...`, and read files under `pr-head/`. Paths in `ocr` output and in your comments are relative to `pr-head/`.
             - Review every `reviewable_files` entry. Mark a file `skipped` only with a concrete reason.
             - Do not modify files, skip the optional fix step, and install nothing.
+            - ${{ steps.flake-eval.outputs.instructions }}
             - Do not pass `--output` to git; read a large diff one file at a time.
             - If an `ocr` command fails, stop and make your final message quote the error.
 
@@ -153,7 +162,7 @@ jobs:
             --model opus
             --effort high
             --add-dir pr-head
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(ocr delegate preview:*),Bash(ocr delegate rule:*),Bash(git -C pr-head --no-pager diff:*),Bash(git -C pr-head --no-pager show:*),Bash(git -C pr-head --no-pager log:*),Bash(git -C pr-head --no-pager blame:*),Bash(gh pr view ${{ steps.pr.outputs.number }}:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate),Read,Grep,Glob"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(ocr delegate preview:*),Bash(ocr delegate rule:*),Bash(git -C pr-head --no-pager diff:*),Bash(git -C pr-head --no-pager show:*),Bash(git -C pr-head --no-pager log:*),Bash(git -C pr-head --no-pager blame:*),Bash(flake-eval:*),Bash(gh pr view ${{ steps.pr.outputs.number }}:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments --paginate),Read,Grep,Glob"
         # yamllint enable rule:line-length
 
       # Claude Code's final message is the summary. Posting it here keeps the

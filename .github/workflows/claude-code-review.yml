@@ -14,7 +14,8 @@ concurrency:
 jobs:
   review-with-tracking:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Local addition: the Lix install and the input fetch precede the review.
+    timeout-minutes: 30
     # yamllint disable rule:line-length
     # Local policy (not from the upstream mirror): trusted authors and dependabot.
     if: >-
@@ -36,6 +37,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      # Local addition (not from the upstream mirror): the agent evaluates the
+      # flake through flake-eval and gets no other Nix command.
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install flake-eval
+        id: flake-eval
+        uses: ./.github/actions/flake-eval
 
       - name: PR Review with Progress Tracking
         uses: anthropics/claude-code-action@v1
@@ -62,6 +74,7 @@ jobs:
 
             Rules:
             - Before drafting findings, read this PR's existing inline comments via `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate` and its top-level comments via `gh pr view ${{ github.event.pull_request.number }} --comments`. Skip a finding that one of them already raises, whether or not it was later resolved.
+            - ${{ steps.flake-eval.outputs.instructions }}
             - No speculative concerns ("this might break if X happens later"). Comment only on problems that are concretely identifiable in the code as it stands.
             - Do not flag issues that depend on unstated assumptions about the codebase or the author's intent.
             - Every comment must propose a concrete fix or specific change. Vague "consider X" is not allowed; state what to change and why.
@@ -74,5 +87,5 @@ jobs:
           claude_args: |
             --model opus
             --effort high
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*),mcp__github__get_file_contents,Read,Grep,Glob"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*),Bash(flake-eval:*),mcp__github__get_file_contents,Read,Grep,Glob"
           # yamllint enable rule:line-length
