@@ -11,9 +11,9 @@ Standalone skills and plugin skills use different controls.
   The plugin enablement entry controls the skills and any MCP servers bundled by that plugin.
 - MCP servers in `modules/agents/mcp/servers.nix` remain independent unless a plugin manifest bundles the same provider.
 
-The Cloudflare plugin is declared as `cloudflare@cloudflare` from the Cloudflare Skills marketplace, which is not registered by default (see below).
+The Cloudflare plugin is declared as `cloudflare@claude-plugins-official`, whose marketplace entry clones the whole `cloudflare/skills` repository.
 It bundles Cloudflare skills and its API MCP server, so the individual upstream skills are not copied into the Nix skill registry.
-Its plugin entry is disabled by default.
+Its plugin entry is enabled in Claude Code and Codex.
 
 ## Default Availability
 
@@ -32,9 +32,6 @@ A skill's `disable-model-invocation` frontmatter is a separate control that `ski
 Plugin-owned skill bundles follow `programs.claude-code.extended.plugins`, which defaults to the Claude Code selections in the [shared plugin catalog](../../../modules/agents/_plugins.nix).
 `skillOverrides` does not affect plugin-provided skills.
 
-The `cloudflare` marketplace's `extraKnownMarketplaces` entry in `modules/agents/claude-code/_plugins.nix` is left as a commented template while `cloudflare@cloudflare` stays disabled, since a disabled plugin gains nothing from a registered marketplace.
-Enabling `cloudflare@cloudflare` means uncommenting that entry with `sparsePaths` covering `skills` as well as `.claude-plugin`, or no `sparsePaths` at all for a full clone.
-The `cloudflare/skills` repository keeps its skill bundle in a top-level `skills/` directory that a `.claude-plugin`-only sparse clone would exclude; only its MCP server manifest, a root-level file, would register.
 `chrome-devtools-plugins` stays sparse to `.claude-plugin` because its plugin provides only an MCP server.
 Use the shared MCP registry's wrapper to keep DevTools privacy options consistent across clients.
 

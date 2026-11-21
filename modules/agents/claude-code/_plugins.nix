@@ -25,12 +25,6 @@
     url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
     sparsePaths = [ ".claude-plugin" ];
   };
-  # When enabling cloudflare@cloudflare, register its marketplace below. A sparse
-  # clone needs both "skills" and ".claude-plugin" (docs/agents/claude-code/skill-providers.md).
-  #   extraKnownMarketplaces."cloudflare".source = {
-  #     source = "git";
-  #     url = "https://github.com/cloudflare/skills.git";
-  #   };
 
   # User configuration values for MCP servers keyed by server name
   # pluginConfigs = { }; # [record]

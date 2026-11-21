@@ -19,6 +19,10 @@
     claude-code = true;
     codex = true;
   };
+  "cloudflare@claude-plugins-official" = {
+    claude-code = true;
+    codex = true;
+  };
   "code-review@claude-plugins-official" = {
     claude-code = true;
     codex = true;
@@ -76,10 +80,6 @@
     claude-code = true;
     codex = true;
     program = "typescript-language-server";
-  };
-  # The shared MCP registry already supplies the per-endpoint Cloudflare servers.
-  "cloudflare@cloudflare" = {
-    claude-code = false;
   };
   # Both local plugins use the Claude Code TypeScript hook API, so Codex has no
   # nixos-local marketplace.
