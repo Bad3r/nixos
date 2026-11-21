@@ -1,10 +1,13 @@
 # Copyright (c) 2026 Bad3r
 """PDF pages rendered by the real renderer, and how its failures are reported."""
 
+import contextlib
 import io
+import json
 import math
 import os
 import random
+import socket
 import subprocess
 import sys
 import tempfile
@@ -17,7 +20,7 @@ from typing import override
 from kagi_search import pdf
 from PIL import Image
 
-from tests import pdfs
+from tests import pdfs, sandbox
 
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
@@ -49,6 +52,23 @@ with tempfile.TemporaryDirectory() as work:
     except pdf.RenderError as error:
         print(error)
 """
+# A stand-in child that reports what it can reach: a file of the test's, a listening
+# port of the test's, the user's home, and its environment.
+PROBE_PROGRAM = """\
+import json, os, pathlib, socket
+seen = {{"env": sorted(os.environ)}}
+try:
+    seen["file"] = pathlib.Path({secret!r}).read_text()
+except OSError as error:
+    seen["file"] = type(error).__name__
+try:
+    socket.create_connection(("127.0.0.1", {port}), 2).close()
+    seen["net"] = "connected"
+except OSError as error:
+    seen["net"] = type(error).__name__
+seen["home"] = "present" if pathlib.Path("/home").exists() else "missing"
+print(json.dumps({{"error": json.dumps(seen)}}))
+"""
 REPORT_CPU_LIMIT = (
     "import json, resource\n"
     'print(json.dumps({"error": str(resource.getrlimit(resource.RLIMIT_CPU)[0])}))\n'
@@ -75,6 +95,11 @@ def noise() -> bytes:
 
 class RenderTest(unittest.TestCase):
     """Pages of real documents, rendered in the child process."""
+
+    @classmethod
+    @override
+    def setUpClass(cls) -> None:
+        sandbox.require()
 
     def test_a_page_is_rendered_where_its_content_is(self) -> None:
         """The box is red at its place and the page white beside it, at the limits' size."""
@@ -154,11 +179,26 @@ class RenderTest(unittest.TestCase):
 class ChildTestCase(unittest.TestCase):
     """render_page run on a stand-in for the child: a real process under the real limits."""
 
+    @classmethod
+    @override
+    def setUpClass(cls) -> None:
+        sandbox.require()
+
     @override
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.work = Path(tmp.name)
+
+    def running(self) -> bool:
+        """Tell whether a process still runs this test's stand-in child."""
+        script = str(self.work / "child.py").encode()
+        for entry in Path("/proc").iterdir():
+            if entry.name.isdigit():
+                with contextlib.suppress(OSError):
+                    if script in (entry / "cmdline").read_bytes():
+                        return True
+        return False
 
     def failure(self, program: str, *, seconds: float = pdf.RENDER_TIMEOUT_SECONDS) -> str:
         """Return the reason render_page gives when the child runs the program instead."""
@@ -178,15 +218,14 @@ class ChildFailureTest(ChildTestCase):
 
     def test_a_stalled_child_is_killed(self) -> None:
         """A child past the timeout is reported and no longer runs."""
-        mark = self.work / "pid"
-        program = (
-            f"import os, time\nopen({str(mark)!r}, 'w').write(str(os.getpid()))\ntime.sleep(60)\n"
-        )
         started = time.monotonic()
-        self.assertEqual(self.failure(program, seconds=1), "the renderer took longer than 1 s")
+        reason = self.failure("import time\ntime.sleep(60)\n", seconds=1)
+        self.assertEqual(reason, "the renderer took longer than 1 s")
         self.assertLess(time.monotonic() - started, STALL_SLACK_SECONDS)
-        with self.assertRaises(ProcessLookupError):
-            os.kill(int(mark.read_text()), 0)
+        until = time.monotonic() + STALL_SLACK_SECONDS
+        while self.running() and time.monotonic() < until:
+            time.sleep(0.05)
+        self.assertFalse(self.running())
 
     def test_a_crashed_child_names_its_signal(self) -> None:
         """A child killed by a signal is reported by the signal's name."""
@@ -220,13 +259,37 @@ class ChildFailureTest(ChildTestCase):
                 program = f"import sys\nsys.stdout.buffer.write({answer!r})\n"
                 self.assertIn("the renderer's answer", self.failure(program))
 
-    def test_a_child_that_cannot_start_is_reported(self) -> None:
-        """An interpreter that cannot be run is a render failure."""
+    def test_a_sandbox_that_cannot_start_is_reported(self) -> None:
+        """A missing bubblewrap, or no room for the child's output, is a render failure."""
         with (
-            unittest.mock.patch.object(pdf.sys, "executable", str(self.work / "missing")),
-            self.assertRaisesRegex(pdf.RenderError, "did not start"),
+            unittest.mock.patch.object(pdf, "BWRAP", str(self.work / "missing")),
+            self.assertRaisesRegex(pdf.RenderError, "could not run"),
         ):
             pdf.render_page(TWO_PAGES, 0, soon())
+        with (
+            unittest.mock.patch.object(
+                pdf.tempfile, "TemporaryFile", side_effect=OSError(28, "full")
+            ),
+            self.assertRaisesRegex(pdf.RenderError, "could not run"),
+        ):
+            pdf.render_page(TWO_PAGES, 0, soon())
+
+    def test_the_child_reaches_nothing_but_its_input(self) -> None:
+        """The child reads no file of the user's, opens no connection, and inherits no variable."""
+        secret = self.work / "secret"
+        secret.write_text("private")
+        with socket.create_server(("127.0.0.1", 0)) as server:
+            server.settimeout(0)
+            program = PROBE_PROGRAM.format(secret=str(secret), port=server.getsockname()[1])
+            with unittest.mock.patch.dict(os.environ, {"KAGI_SEARCH_TEST_TOKEN": "private"}):
+                seen = json.loads(self.failure(program))
+            with self.assertRaises(BlockingIOError):
+                server.accept()
+        self.assertEqual(seen["file"], "FileNotFoundError")
+        self.assertNotEqual(seen["net"], "connected")
+        self.assertNotIn("KAGI_SEARCH_TEST_TOKEN", seen["env"])
+        self.assertNotIn("HOME", seen["env"])
+        self.assertEqual(seen["home"], "missing")
 
     def test_a_lower_limit_already_in_force_stays(self) -> None:
         """Under a CPU limit below the renderer's own, hard or only soft, the child keeps it."""

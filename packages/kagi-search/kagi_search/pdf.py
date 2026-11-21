@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Bad3r
 """PDF pages rendered to images for web.run's screenshot.
 
-PDFium parses the fetched document in a child process under resource limits,
-so a document that crashes, stalls, or bloats the renderer costs one
-screenshot and not the call. The limits bound what the child uses; they do
-not confine what it may read or which files it may create. Run as a script,
-this file is that child: it imports nothing of kagi_search.
+PDFium parses the fetched document in a child process that bubblewrap
+confines and resource limits bound, so a document that crashes, stalls,
+bloats, or takes over the renderer costs one screenshot and not the call: the
+child has no network, no environment, and no files but the Nix store. Run as
+a script, this file is that child: it imports nothing of kagi_search.
 """
 
 from __future__ import annotations
@@ -51,6 +51,11 @@ STDERR_TAIL_BYTES = 4096
 STDERR_TAIL_CHARS = 300
 # The program the child runs: this file.
 SCRIPT = __file__
+BWRAP = "@bwrap@"
+# All the child may read: the interpreter, its libraries, and PDFium live here.
+STORE = "/nix/store"
+# A shell's exit status for a command a signal killed, which bubblewrap passes on.
+SIGNAL_EXIT_BASE = 128
 # PDFium's FPDF_GetLastError codes for a document that needs a password and
 # for one protected by a scheme PDFium does not implement.
 PDFIUM_PASSWORD = 4
@@ -124,10 +129,10 @@ def render_page(data: bytes, pageno: int, until: float) -> Image:
     if timeout <= 0:
         msg = "not started: the call's deadline is near"
         raise RenderError(msg)
-    with tempfile.TemporaryFile() as answer, tempfile.TemporaryFile() as complaints:
-        try:
+    try:
+        with tempfile.TemporaryFile() as answer, tempfile.TemporaryFile() as complaints:
             ran = subprocess.run(
-                [sys.executable, "-IB", SCRIPT, str(pageno)],
+                _command(pageno),
                 input=data,
                 stdout=answer,
                 stderr=complaints,
@@ -135,16 +140,32 @@ def render_page(data: bytes, pageno: int, until: float) -> Image:
                 check=False,
                 preexec_fn=_limit,
             )
-        except subprocess.TimeoutExpired:
-            msg = f"the renderer took longer than {timeout:.0f} s"
-            raise RenderError(msg) from None
-        except (OSError, subprocess.SubprocessError) as error:
-            msg = f"the renderer did not start: {error}"
-            raise RenderError(msg) from None
-        if ran.returncode != 0:
-            raise RenderError(_crash(ran.returncode, complaints))
-        answer.seek(0)
-        return _parse(answer.read(MAX_OUTPUT_BYTES))
+            if ran.returncode != 0:
+                raise RenderError(_crash(ran.returncode, complaints))
+            answer.seek(0)
+            return _parse(answer.read(MAX_OUTPUT_BYTES))
+    except subprocess.TimeoutExpired:
+        msg = f"the renderer took longer than {timeout:.0f} s"
+        raise RenderError(msg) from None
+    except (OSError, subprocess.SubprocessError) as error:
+        msg = f"the renderer could not run: {error}"
+        raise RenderError(msg) from None
+
+
+def _command(pageno: int) -> list[str]:
+    """Return the child's command line: this file, run where it can reach nothing else."""
+    return [
+        BWRAP,
+        "--unshare-all",
+        "--die-with-parent",
+        "--new-session",
+        "--clearenv",
+        *("--ro-bind", STORE, STORE),
+        *("--ro-bind", SCRIPT, SCRIPT),
+        *("--dev", "/dev"),
+        "--",
+        *(sys.executable, "-IB", SCRIPT, str(pageno)),
+    ]
 
 
 def _limit() -> None:
@@ -165,11 +186,12 @@ def _limit() -> None:
 
 
 def _crash(code: int, complaints: IO[bytes]) -> str:
-    if code < 0:
+    number = -code if code < 0 else code - SIGNAL_EXIT_BASE
+    if number > 0:
         try:
-            how = f"was killed by {signal.Signals(-code).name}"
+            how = f"was killed by {signal.Signals(number).name}"
         except ValueError:
-            how = f"was killed by signal {-code}"
+            how = f"was killed by signal {number}"
     else:
         how = f"exited {code}"
     complaints.seek(max(complaints.seek(0, 2) - STDERR_TAIL_BYTES, 0))

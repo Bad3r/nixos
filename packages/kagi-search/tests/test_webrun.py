@@ -20,7 +20,7 @@ from typing import cast, override
 from kagi_search import cli, client, fetch, pdf, webrun
 from kagi_search.page import Hit
 
-from tests import pdfs
+from tests import pdfs, sandbox
 
 SEPARATOR = "-" * 80 + "\n"
 SMALL_TOKENS = 2000
@@ -1153,6 +1153,7 @@ class MainTest(WebRunTestCase):
 
     def test_a_screenshot_reaches_stdout_as_an_image_when_codex_takes_images(self) -> None:
         """With Codex's CODEX_WEB_RUN_IMAGES=1 the real renderer's page is in content."""
+        sandbox.require()
         document = pdfs.document([pdfs.rectangle((1, 0, 0), (0, 0, *pdfs.LETTER))])
         broken = "https://x.org/broken.pdf"
         pages = {
