@@ -15,7 +15,7 @@ from kagi_search import cli, client, fetch, webrun
 from kagi_search.page import Hit
 
 from tests.captured import CAPTURED
-from tests.test_webrun import FakeFetch, FakeSearch, run_main
+from tests.test_webrun import FakeFetch, FakeRender, FakeSearch, run_main
 
 SESSION = "parity-session"
 EXAMPLE = "https://example.com/"
@@ -26,10 +26,11 @@ EXAMPLE_HTML = (
 )
 INVALID = "https://does-not-exist-zq7x.invalid/"
 ARXIV = "https://arxiv.org/pdf/1706.03762"
+ARXIV_PAGES = 15
 PNG = "https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png"
 PAGES = {
     EXAMPLE: fetch.Page(EXAMPLE, "text/html", EXAMPLE_HTML, redirected=False),
-    ARXIV: fetch.Page(ARXIV, "application/pdf", None, redirected=False, pdf_pages=15),
+    ARXIV: fetch.Page(ARXIV, "application/pdf", None, redirected=False, data=b"%PDF-1.5"),
     PNG: fetch.Page(PNG, "image/png", None, redirected=False),
 }
 EXAMPLE_REF = webrun.Ref(EXAMPLE, "Example Domain", [])
@@ -45,6 +46,7 @@ class Replay:
         self.directory = directory
         self.search = FakeSearch([])
         self.fetch = FakeFetch(PAGES)
+        self.render = FakeRender(ARXIV_PAGES)
         self.logged: list[str] = []
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{webrun.state_name(SESSION)}.json"
@@ -59,6 +61,8 @@ class Replay:
             {"id": SESSION, "model": "gpt", "commands": commands},
             search=self.search,
             fetch=self.fetch,
+            render=self.render,
+            images=True,
             directory=self.directory,
             now=lambda: stamp,
             log=self.logged.append,
@@ -225,6 +229,8 @@ class CaptureTest(ParityTestCase):
             {"id": SESSION, "commands": {"search_query": [{"q": "iana"}, {"q": "nothing"}]}},
             search=search,
             fetch=replay.fetch,
+            render=replay.render,
+            images=True,
             directory=self.directory,
             now=lambda: at(22, 0, 0),
             log=replay.logged.append,

@@ -24,6 +24,9 @@ let
       # The Public Suffix List, as Gecko's cookie code reads it.
       ps.publicsuffixlist
       camoufox.python
+      # kagi-search, which runs on this interpreter, renders PDF pages with PDFium.
+      ps.pypdfium2
+      ps.pillow
     ]
     # Document converters only; no audio, YouTube, Outlook or Azure extras.
     ++ ps.markitdown.optional-dependencies.pdf

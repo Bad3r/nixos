@@ -26,10 +26,10 @@ FETCH_TIMEOUT = 20
 FETCH_DEADLINE_SECONDS = 40
 DEADLINE_SLACK_SECONDS = 0.05
 MAX_PAGE_BYTES = 5 * 1024 * 1024
+MAX_PDF_BYTES = 32 * 1024 * 1024
 READ_CHUNK = 64 * 1024
 CHARSET_SNIFF_BYTES = 4096
 PDF_TYPE = "application/pdf"
-PDF_PAGE = re.compile(rb"/Type\s*/Page(?![a-zA-Z])")
 HTML_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 TEXT_TYPES = frozenset({"application/json", "application/xml", "application/javascript"})
 LAST_CONTROL_CODE_POINT = 0x20
@@ -46,13 +46,16 @@ class InvalidURLError(FetchError):
 
 @dataclass(frozen=True)
 class Page:
-    """A fetched page: final URL, media type, decoded body (None when not text)."""
+    """A fetched page: final URL, media type, decoded body (None when not text).
+
+    A PDF keeps its bytes in data, for its pages to be rendered from.
+    """
 
     url: str
     content_type: str
     body: str | None
     redirected: bool
-    pdf_pages: int | None = None
+    data: bytes | None = None
 
 
 def resolve(host: str, port: int) -> list[str]:
@@ -297,18 +300,31 @@ def normalize_url(url: str) -> str:
     )
 
 
-def _read(response: http.client.HTTPResponse, deadline: float) -> bytes:
-    chunks: list[bytes] = []
-    size = 0
-    while size < MAX_PAGE_BYTES:
+def _read(
+    response: http.client.HTTPResponse, deadline: float, limit: int = MAX_PAGE_BYTES
+) -> bytes:
+    """Return the body's first limit bytes; a body that ends short of its declared length fails."""
+    body = bytearray()
+    while len(body) < limit:
         if time.monotonic() >= deadline:
             raise FetchError(_deadline_message())
         chunk = response.read1(READ_CHUNK)
         if not chunk:
+            if response.length:
+                msg = f"the connection closed with {response.length} bytes of the body missing"
+                raise FetchError(msg)
             break
-        chunks.append(chunk)
-        size += len(chunk)
-    return b"".join(chunks)[:MAX_PAGE_BYTES]
+        body += chunk
+    return bytes(body[:limit])
+
+
+def _read_pdf(response: http.client.HTTPResponse, deadline: float) -> bytes:
+    """Return the whole PDF; a cut-off PDF has lost its page index, so a larger one fails."""
+    data = _read(response, deadline, MAX_PDF_BYTES + 1)
+    if len(data) > MAX_PDF_BYTES:
+        msg = f"the PDF is larger than {MAX_PDF_BYTES} bytes"
+        raise FetchError(msg)
+    return data
 
 
 def _text_codec(name: str) -> str | None:
@@ -351,12 +367,6 @@ def _failure(reason: object, deadline: float) -> FetchError:
     return FetchError(f"request failed: {reason}")
 
 
-def pdf_page_count(data: bytes) -> int | None:
-    """Return the page count of a PDF whose page objects are uncompressed, else None."""
-    count = len(PDF_PAGE.findall(data))
-    return count or None
-
-
 def fetch_page(url: str, deadline: float | None = None) -> Page:
     """Fetch an http(s) page, following redirects to other http(s) URLs.
 
@@ -383,7 +393,7 @@ def fetch_page(url: str, deadline: float | None = None) -> Page:
             content_type = response.headers.get_content_type()
             declared = response.headers.get_content_charset()
             body = _read(response, deadline) if is_text(content_type) else None
-            pages = pdf_page_count(_read(response, deadline)) if content_type == PDF_TYPE else None
+            data = _read_pdf(response, deadline) if content_type == PDF_TYPE else None
     except urllib.error.HTTPError as error:
         error.close()
         msg = f"HTTP {error.code} {error.reason}".rstrip()
@@ -397,4 +407,4 @@ def fetch_page(url: str, deadline: float | None = None) -> Page:
     except (LookupError, UnicodeError, ValueError) as error:
         msg = f"cannot decode the page: {error}"
         raise FetchError(msg) from None
-    return Page(final, content_type, text, redirected=final != target, pdf_pages=pages)
+    return Page(final, content_type, text, redirected=final != target, data=data)
