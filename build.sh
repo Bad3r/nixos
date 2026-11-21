@@ -55,7 +55,7 @@ readonly NC='\033[0m'
 
 # Function to display help
 show_help() {
-  printf "Usage: %s [OPTIONS]
+	printf "Usage: %s [OPTIONS]
 
 NixOS system build and deployment script
 
@@ -92,29 +92,29 @@ Logs:
 
 # Status messages with printf
 status_msg() {
-  local color="$1"
-  local msg="$2"
-  printf "%b==> %b%s%b\n" "${color}" "${NC}" "${msg}" "${NC}"
+	local color="$1"
+	local msg="$2"
+	printf "%b==> %b%s%b\n" "${color}" "${NC}" "${msg}" "${NC}"
 }
 
 error_msg() {
-  printf "%bError:%b %s\n" "${RED}" "${NC}" "$1" >&2
+	printf "%bError:%b %s\n" "${RED}" "${NC}" "$1" >&2
 }
 
 trap_error() {
-  local exit_code=$?
-  local failed_command=${BASH_COMMAND}
-  local line_number=${BASH_LINENO[0]}
-  local func_name=${FUNCNAME[1]:-main}
-  error_msg "Command '${failed_command}' failed with exit code ${exit_code}."
-  printf "  at %s() line %s\n" "${func_name}" "${line_number}" >&2
-  if [[ ${#FUNCNAME[@]} -gt 2 ]]; then
-    printf "  Call stack:\n" >&2
-    for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
-      printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i - 1]}" >&2
-    done
-  fi
-  exit "${exit_code}"
+	local exit_code=$?
+	local failed_command=${BASH_COMMAND}
+	local line_number=${BASH_LINENO[0]}
+	local func_name=${FUNCNAME[1]:-main}
+	error_msg "Command '${failed_command}' failed with exit code ${exit_code}."
+	printf "  at %s() line %s\n" "${func_name}" "${line_number}" >&2
+	if [[ ${#FUNCNAME[@]} -gt 2 ]]; then
+		printf "  Call stack:\n" >&2
+		for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
+			printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i - 1]}" >&2
+		done
+	fi
+	exit "${exit_code}"
 }
 
 trap trap_error ERR
@@ -122,150 +122,150 @@ trap trap_error ERR
 trap 'exec >&- 2>&-; wait' EXIT
 
 setup_logging() {
-  LOG_FILE="${LOG_DIR}/build-$(date +%Y%m%d-%H%M%S)-$$.log"
-  mkdir -p "${LOG_DIR}"
-  # Merge stderr into stdout before the tee so a single sed process
-  # appends to the log. POSIX guarantees atomic O_APPEND only up to
-  # PIPE_BUF (4096 bytes on Linux); separate stdout/stderr appenders
-  # would interleave at byte boundaries when verbose nix output emits
-  # long single lines (store-path arrays, dumped derivations). The
-  # outer tee preserves ANSI on the terminal; sed strips the file copy.
-  exec > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}")) 2>&1
-  status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
+	LOG_FILE="${LOG_DIR}/build-$(date +%Y%m%d-%H%M%S)-$$.log"
+	mkdir -p "${LOG_DIR}"
+	# Merge stderr into stdout before the tee so a single sed process
+	# appends to the log. POSIX guarantees atomic O_APPEND only up to
+	# PIPE_BUF (4096 bytes on Linux); separate stdout/stderr appenders
+	# would interleave at byte boundaries when verbose nix output emits
+	# long single lines (store-path arrays, dumped derivations). The
+	# outer tee preserves ANSI on the terminal; sed strips the file copy.
+	exec > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}")) 2>&1
+	status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
 }
 
 announce_path_ref() {
-  if [[ -n ${PATH_REF_REASON} ]]; then
-    status_msg "${YELLOW}" \
-      "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
-    status_msg "${YELLOW}" \
-      "path: also dumps the tree unfiltered, so every untracked path is copied into the store whether .gitignore'd (.direnv/, tmp/, *.log) or not, which under --allow-dirty is whatever is uncommitted, plus the whole .git directory in a primary checkout. Untracked paths matching the secrets block abort the build instead, as does a nested repository the scan cannot open, in this tree and in submodule working trees alike; see --allow-secret-copy."
-  fi
+	if [[ -n ${PATH_REF_REASON} ]]; then
+		status_msg "${YELLOW}" \
+			"Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
+		status_msg "${YELLOW}" \
+			"path: also dumps the tree unfiltered, so every untracked path is copied into the store whether .gitignore'd (.direnv/, tmp/, *.log) or not, which under --allow-dirty is whatever is uncommitted, plus the whole .git directory in a primary checkout. Untracked paths matching the secrets block abort the build instead, as does a nested repository the scan cannot open, in this tree and in submodule working trees alike; see --allow-secret-copy."
+	fi
 }
 
 ensure_no_ignored_secrets() {
-  # scripts/cache-coverage.sh takes the reference resolve_installable would, so
-  # --cache-coverage no longer reaches a path: ref of its own and this gate is
-  # the only one either route needs.
-  if [[ -z ${PATH_REF_REASON} ]]; then
-    return 0
-  fi
-  local rc=0
-  secrets_guard_enforce "${FLAKE_DIR}" "path:${FLAKE_DIR}" || rc=$?
-  if [[ ${rc} -eq 2 ]]; then
-    printf "Refusing to build with the secrets guard inoperative.\n" >&2
-    exit 1
-  fi
-  if [[ ${rc} -ne 0 ]]; then
-    exit 1
-  fi
+	# scripts/cache-coverage.sh takes the reference resolve_installable would, so
+	# --cache-coverage no longer reaches a path: ref of its own and this gate is
+	# the only one either route needs.
+	if [[ -z ${PATH_REF_REASON} ]]; then
+		return 0
+	fi
+	local rc=0
+	secrets_guard_enforce "${FLAKE_DIR}" "path:${FLAKE_DIR}" || rc=$?
+	if [[ ${rc} -eq 2 ]]; then
+		printf "Refusing to build with the secrets guard inoperative.\n" >&2
+		exit 1
+	fi
+	if [[ ${rc} -ne 0 ]]; then
+		exit 1
+	fi
 }
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-  -p | --flake-dir)
-    if [[ -z ${2:-} ]]; then
-      error_msg "Option $1 requires an argument"
-      exit 1
-    fi
-    FLAKE_DIR="$2"
-    shift 2
-    ;;
-  -t | --host)
-    if [[ -z ${2:-} ]]; then
-      error_msg "Option $1 requires an argument"
-      exit 1
-    fi
-    TARGET_HOST="$2"
-    shift 2
-    ;;
-  -o | --offline)
-    OFFLINE=true
-    shift
-    ;;
-  -v | --verbose)
-    VERBOSE=true
-    shift
-    ;;
-  --boot)
-    ACTION="boot"
-    shift
-    ;;
-  --allow-dirty)
-    ALLOW_DIRTY=true
-    shift
-    ;;
-  --allow-secret-copy)
-    ALLOW_SECRET_COPY=true
-    shift
-    ;;
-  --update)
-    AUTO_UPDATE=true
-    shift
-    ;;
-  --skip-hooks)
-    SKIP_HOOKS=true
-    shift
-    ;;
-  --skip-check)
-    SKIP_CHECK=true
-    shift
-    ;;
-  --skip-all)
-    SKIP_HOOKS=true
-    SKIP_CHECK=true
-    shift
-    ;;
-  --skip-firmware)
-    SKIP_FIRMWARE=true
-    shift
-    ;;
-  --keep-going)
-    KEEP_GOING=true
-    shift
-    ;;
-  --fallback)
-    FALLBACK=true
-    shift
-    ;;
-  --bootstrap)
-    BOOTSTRAP_CACHES=true
-    shift
-    ;;
-  --cache-coverage)
-    CACHE_COVERAGE=true
-    shift
-    ;;
-  -h | --help)
-    show_help
-    exit 0
-    ;;
-  --)
-    shift
-    break
-    ;;
-  *)
-    error_msg "Unknown option: ${1}"
-    show_help
-    exit 1
-    ;;
-  esac
+	case "$1" in
+	-p | --flake-dir)
+		if [[ -z ${2:-} ]]; then
+			error_msg "Option $1 requires an argument"
+			exit 1
+		fi
+		FLAKE_DIR="$2"
+		shift 2
+		;;
+	-t | --host)
+		if [[ -z ${2:-} ]]; then
+			error_msg "Option $1 requires an argument"
+			exit 1
+		fi
+		TARGET_HOST="$2"
+		shift 2
+		;;
+	-o | --offline)
+		OFFLINE=true
+		shift
+		;;
+	-v | --verbose)
+		VERBOSE=true
+		shift
+		;;
+	--boot)
+		ACTION="boot"
+		shift
+		;;
+	--allow-dirty)
+		ALLOW_DIRTY=true
+		shift
+		;;
+	--allow-secret-copy)
+		ALLOW_SECRET_COPY=true
+		shift
+		;;
+	--update)
+		AUTO_UPDATE=true
+		shift
+		;;
+	--skip-hooks)
+		SKIP_HOOKS=true
+		shift
+		;;
+	--skip-check)
+		SKIP_CHECK=true
+		shift
+		;;
+	--skip-all)
+		SKIP_HOOKS=true
+		SKIP_CHECK=true
+		shift
+		;;
+	--skip-firmware)
+		SKIP_FIRMWARE=true
+		shift
+		;;
+	--keep-going)
+		KEEP_GOING=true
+		shift
+		;;
+	--fallback)
+		FALLBACK=true
+		shift
+		;;
+	--bootstrap)
+		BOOTSTRAP_CACHES=true
+		shift
+		;;
+	--cache-coverage)
+		CACHE_COVERAGE=true
+		shift
+		;;
+	-h | --help)
+		show_help
+		exit 0
+		;;
+	--)
+		shift
+		break
+		;;
+	*)
+		error_msg "Unknown option: ${1}"
+		show_help
+		exit 1
+		;;
+	esac
 done
 
 # Validate ACTION is a known value
 case "${ACTION}" in
 switch | boot) ;;
 *)
-  error_msg "Invalid ACTION: ${ACTION} (must be 'switch' or 'boot')"
-  exit 1
-  ;;
+	error_msg "Invalid ACTION: ${ACTION} (must be 'switch' or 'boot')"
+	exit 1
+	;;
 esac
 
 # Validate configuration directory
 if [[ ! -d ${FLAKE_DIR} ]]; then
-  error_msg "Configuration directory not found: ${FLAKE_DIR}"
-  exit 1
+	error_msg "Configuration directory not found: ${FLAKE_DIR}"
+	exit 1
 fi
 
 # Absolute from here on. A relative -p argument would reach Lix as
@@ -280,14 +280,14 @@ fi
 # failing command substitution has already emptied the variable it assigns, so
 # the message named a blank path.
 RESOLVED_FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)" || {
-  error_msg "cannot enter configuration directory to resolve it: ${FLAKE_DIR}"
-  exit 1
+	error_msg "cannot enter configuration directory to resolve it: ${FLAKE_DIR}"
+	exit 1
 }
 FLAKE_DIR="${RESOLVED_FLAKE_DIR}"
 
 if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
-  error_msg "flake.nix not found in ${FLAKE_DIR}"
-  exit 1
+	error_msg "flake.nix not found in ${FLAKE_DIR}"
+	exit 1
 fi
 
 # Resolved here, where FLAKE_DIR and ALLOW_DIRTY are final, but announced from
@@ -304,206 +304,206 @@ readonly PATH_REF_REASON
 # Bootstrap substituters for first builds, before the host substituter
 # configuration from modules/hosts/common/nix-substituters.nix is active.
 BOOTSTRAP_SUBSTITUTERS=(
-  "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
-  #"https://mirror.sjtu.edu.cn/nix-channels/store"
-  # "https://mirrors.ustc.edu.cn/nix-channels/store"
-  "https://cache.nixos.org"
-  "https://cache.numtide.com"
-  "https://nixpkgs-unfree.cachix.org"
-  "https://cache.nixos-cuda.org"
-  # CI-built custom derivations (cache-roots); this list replaces rather than
-  # extends nix.conf, so omitting it makes a bootstrap build rebuild them.
-  "https://bad3r-nixos.cachix.org"
-  "https://nix-logseq-git-flake.cachix.org"
-  "https://nix-community.cachix.org"
-  "https://doom-emacs-unstraightened.cachix.org"
+	"https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+	#"https://mirror.sjtu.edu.cn/nix-channels/store"
+	# "https://mirrors.ustc.edu.cn/nix-channels/store"
+	"https://cache.nixos.org"
+	"https://cache.numtide.com"
+	"https://nixpkgs-unfree.cachix.org"
+	"https://cache.nixos-cuda.org"
+	# CI-built custom derivations (cache-roots); this list replaces rather than
+	# extends nix.conf, so omitting it makes a bootstrap build rebuild them.
+	"https://bad3r-nixos.cachix.org"
+	"https://nix-logseq-git-flake.cachix.org"
+	"https://nix-community.cachix.org"
+	"https://doom-emacs-unstraightened.cachix.org"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
-  "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-  "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-  "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
-  "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
-  "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE="
-  "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo="
-  "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-  "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
+	"cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+	"niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+	"nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
+	"cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
+	"bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE="
+	"nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo="
+	"nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+	"doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
 )
 
 configure_build_flags() {
-  local build_cores="0" # 0 = all cores per build job
-  # Half the cores: a low fixed cap serializes the many small derivations in a
-  # system closure behind long compiles, while cores=0 with one job per core
-  # lets peak RAM stack with every concurrent source build.
-  local build_max_jobs
-  build_max_jobs="$((($(nproc) + 1) / 2))"
+	local build_cores="0" # 0 = all cores per build job
+	# Half the cores: a low fixed cap serializes the many small derivations in a
+	# system closure behind long compiles, while cores=0 with one job per core
+	# lets peak RAM stack with every concurrent source build.
+	local build_max_jobs
+	build_max_jobs="$((($(nproc) + 1) / 2))"
 
-  BUILD_FLAGS=(
-    "--cores" "${build_cores}"
-    "--max-jobs" "${build_max_jobs}"
-    "--accept-flake-config"
-    "--extra-experimental-features" "${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
-  )
+	BUILD_FLAGS=(
+		"--cores" "${build_cores}"
+		"--max-jobs" "${build_max_jobs}"
+		"--accept-flake-config"
+		"--extra-experimental-features" "${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
+	)
 
-  # Offline mode
-  if [[ ${OFFLINE} == "true" ]]; then
-    BUILD_FLAGS+=("--offline")
-  fi
+	# Offline mode
+	if [[ ${OFFLINE} == "true" ]]; then
+		BUILD_FLAGS+=("--offline")
+	fi
 
-  # Verbose mode
-  if [[ ${VERBOSE} == "true" ]]; then
-    BUILD_FLAGS+=("--verbose")
-    set -x
-  fi
+	# Verbose mode
+	if [[ ${VERBOSE} == "true" ]]; then
+		BUILD_FLAGS+=("--verbose")
+		set -x
+	fi
 
-  # Keep going despite failures
-  if [[ ${KEEP_GOING} == "true" ]]; then
-    BUILD_FLAGS+=("--keep-going")
-  fi
+	# Keep going despite failures
+	if [[ ${KEEP_GOING} == "true" ]]; then
+		BUILD_FLAGS+=("--keep-going")
+	fi
 
-  # Fall back to local builds when substituters cannot provide a path
-  if [[ ${FALLBACK} == "true" ]]; then
-    BUILD_FLAGS+=("--fallback")
-  fi
+	# Fall back to local builds when substituters cannot provide a path
+	if [[ ${FALLBACK} == "true" ]]; then
+		BUILD_FLAGS+=("--fallback")
+	fi
 }
 
 configure_nix_config() {
-  append_nix_config_line() {
-    printf -v NIX_CONFIG '%s%s\n' "${NIX_CONFIG}" "$1"
-  }
+	append_nix_config_line() {
+		printf -v NIX_CONFIG '%s%s\n' "${NIX_CONFIG}" "$1"
+	}
 
-  NIX_CONFIG=""
-  # Client-side settings for the Nix commands launched by this script. The
-  # daemon takes its own from nix.settings and ignores restricted ones from
-  # any client but root.
-  append_nix_config_line "experimental-features = ${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
-  append_nix_config_line "accept-flake-config = true"
-  # IFD required by `nix-doom-emacs-unstraightened` (see flake.nix#nixConfig).
-  append_nix_config_line "allow-import-from-derivation = true"
-  append_nix_config_line "abort-on-warn = false"
+	NIX_CONFIG=""
+	# Client-side settings for the Nix commands launched by this script. The
+	# daemon takes its own from nix.settings and ignores restricted ones from
+	# any client but root.
+	append_nix_config_line "experimental-features = ${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
+	append_nix_config_line "accept-flake-config = true"
+	# IFD required by `nix-doom-emacs-unstraightened` (see flake.nix#nixConfig).
+	append_nix_config_line "allow-import-from-derivation = true"
+	append_nix_config_line "abort-on-warn = false"
 
-  # Append the token line only when a non-empty token is obtained. An empty
-  # value still sends an Authorization header that GitHub rejects with 401,
-  # so anonymous access must mean no access-tokens line at all.
-  local github_token=""
-  if command -v gh >/dev/null 2>&1; then
-    github_token="$(gh auth token 2>/dev/null)" || github_token=""
-  fi
-  if [[ -n ${github_token} ]]; then
-    append_nix_config_line "access-tokens = github.com=${github_token}"
-  else
-    status_msg "${YELLOW}" "No GitHub token from 'gh auth token'; github: inputs fetch anonymously."
-  fi
+	# Append the token line only when a non-empty token is obtained. An empty
+	# value still sends an Authorization header that GitHub rejects with 401,
+	# so anonymous access must mean no access-tokens line at all.
+	local github_token=""
+	if command -v gh >/dev/null 2>&1; then
+		github_token="$(gh auth token 2>/dev/null)" || github_token=""
+	fi
+	if [[ -n ${github_token} ]]; then
+		append_nix_config_line "access-tokens = github.com=${github_token}"
+	else
+		status_msg "${YELLOW}" "No GitHub token from 'gh auth token'; github: inputs fetch anonymously."
+	fi
 
-  append_nix_config_line "warn-dirty = false"
+	append_nix_config_line "warn-dirty = false"
 
-  # Daemon settings that modules/hosts/common/nix-substituters.nix gives a
-  # configured host, for a root-run first build on a stock daemon.
-  if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
-    append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
-    append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
-    append_nix_config_line "download-attempts = 3"
-    append_nix_config_line "stalled-download-timeout = 300"
-    # Parallel substitutions: nproc - 1, floored at 1. Both Lix and CppNix
-    # clamp values below 1 to 1, so 0 would serialize every download rather
-    # than lift the limit; http-connections = 0 is the genuine "no limit" value.
-    local substitution_jobs
-    substitution_jobs="$(($(nproc) - 1))"
-    if [[ ${substitution_jobs} -lt 1 ]]; then
-      substitution_jobs=1
-    fi
-    append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
-    append_nix_config_line "http-connections = 0"
-    append_nix_config_line "connect-timeout = 30"
-    append_nix_config_line "http2 = true"
-    append_nix_config_line "narinfo-cache-negative-ttl = 60"
-  fi
+	# Daemon settings that modules/hosts/common/nix-substituters.nix gives a
+	# configured host, for a root-run first build on a stock daemon.
+	if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
+		append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
+		append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
+		append_nix_config_line "download-attempts = 3"
+		append_nix_config_line "stalled-download-timeout = 300"
+		# Parallel substitutions: nproc - 1, floored at 1. Both Lix and CppNix
+		# clamp values below 1 to 1, so 0 would serialize every download rather
+		# than lift the limit; http-connections = 0 is the genuine "no limit" value.
+		local substitution_jobs
+		substitution_jobs="$(($(nproc) - 1))"
+		if [[ ${substitution_jobs} -lt 1 ]]; then
+			substitution_jobs=1
+		fi
+		append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
+		append_nix_config_line "http-connections = 0"
+		append_nix_config_line "connect-timeout = 30"
+		append_nix_config_line "http2 = true"
+		append_nix_config_line "narinfo-cache-negative-ttl = 60"
+	fi
 
-  export NIX_CONFIG
+	export NIX_CONFIG
 }
 
 resolve_installable() {
-  # PATH_REF_REASON is non-empty for exactly the cases that need a path:
-  # reference rather than the git+file one Lix infers from a bare directory;
-  # scripts/lib/flake-ref.sh carries which ones and why. Reading it rather than
-  # repeating the test is what keeps this in step with ensure_no_ignored_secrets,
-  # which skips the guard on the same value: a reference that took path: while
-  # that gate read empty would copy unguarded.
-  if [[ -n ${PATH_REF_REASON} ]]; then
-    printf "path:%s" "${FLAKE_DIR}"
-  else
-    printf "%s" "${FLAKE_DIR}"
-  fi
+	# PATH_REF_REASON is non-empty for exactly the cases that need a path:
+	# reference rather than the git+file one Lix infers from a bare directory;
+	# scripts/lib/flake-ref.sh carries which ones and why. Reading it rather than
+	# repeating the test is what keeps this in step with ensure_no_ignored_secrets,
+	# which skips the guard on the same value: a reference that took path: while
+	# that gate read empty would copy unguarded.
+	if [[ -n ${PATH_REF_REASON} ]]; then
+		printf "path:%s" "${FLAKE_DIR}"
+	else
+		printf "%s" "${FLAKE_DIR}"
+	fi
 }
 
 # nh activates whatever -H names on this machine, a guest configuration included.
 ensure_fleet_host() {
-  local hosts_json
-  hosts_json="$(nix eval --json "$(resolve_installable)#lib.nixos.hosts" "${BUILD_FLAGS[@]}" \
-    --apply 'builtins.mapAttrs (_: host: host.shareCommon or false)')"
-  if [[ "$(jq -r --arg host "${TARGET_HOST}" '.[$host] // false' <<<"${hosts_json}")" != "true" ]]; then
-    error_msg "'${TARGET_HOST}' is not a shareCommon host in modules/hosts/common/registry.nix; deploy a guest with nixos-rebuild --target-host."
-    exit 1
-  fi
+	local hosts_json
+	hosts_json="$(nix eval --json "$(resolve_installable)#lib.nixos.hosts" "${BUILD_FLAGS[@]}" \
+		--apply 'builtins.mapAttrs (_: host: host.shareCommon or false)')"
+	if [[ "$(jq -r --arg host "${TARGET_HOST}" '.[$host] // false' <<<"${hosts_json}")" != "true" ]]; then
+		error_msg "'${TARGET_HOST}' is not a shareCommon host in modules/hosts/common/registry.nix; deploy a guest with nixos-rebuild --target-host."
+		exit 1
+	fi
 }
 
 ensure_clean_git_tree() {
-  # Respect explicit override via flag or env var
-  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
-    return 0
-  fi
-  # Scope every git call to FLAKE_DIR: the guard protects the flake being
-  # built, not whatever repository the current directory happens to be in.
-  if command -v git >/dev/null 2>&1 && git -C "${FLAKE_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    # Refresh the index and detect any changes (staged, unstaged, untracked)
-    git -C "${FLAKE_DIR}" update-index -q --refresh || true
-    if ! git -C "${FLAKE_DIR}" diff --quiet --ignore-submodules=dirty -- .; then
-      error_msg "Git worktree has unstaged changes. Commit or stash before building."
-      git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
-      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
-      exit 2
-    fi
-    if ! git -C "${FLAKE_DIR}" diff --cached --quiet --ignore-submodules=dirty -- .; then
-      error_msg "Git index has staged but uncommitted changes. Commit or stash before building."
-      git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
-      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
-      exit 2
-    fi
-    # Consider untracked files as dirty to ensure reproducibility
-    if [[ -n "$(git -C "${FLAKE_DIR}" ls-files --others --exclude-standard)" ]]; then
-      error_msg "Untracked files present in the worktree. Commit, .gitignore, or remove them before building."
-      git -C "${FLAKE_DIR}" ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
-      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
-      exit 2
-    fi
-  fi
+	# Respect explicit override via flag or env var
+	if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+		return 0
+	fi
+	# Scope every git call to FLAKE_DIR: the guard protects the flake being
+	# built, not whatever repository the current directory happens to be in.
+	if command -v git >/dev/null 2>&1 && git -C "${FLAKE_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+		# Refresh the index and detect any changes (staged, unstaged, untracked)
+		git -C "${FLAKE_DIR}" update-index -q --refresh || true
+		if ! git -C "${FLAKE_DIR}" diff --quiet --ignore-submodules=dirty -- .; then
+			error_msg "Git worktree has unstaged changes. Commit or stash before building."
+			git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
+			printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+			exit 2
+		fi
+		if ! git -C "${FLAKE_DIR}" diff --cached --quiet --ignore-submodules=dirty -- .; then
+			error_msg "Git index has staged but uncommitted changes. Commit or stash before building."
+			git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
+			printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+			exit 2
+		fi
+		# Consider untracked files as dirty to ensure reproducibility
+		if [[ -n "$(git -C "${FLAKE_DIR}" ls-files --others --exclude-standard)" ]]; then
+			error_msg "Untracked files present in the worktree. Commit, .gitignore, or remove them before building."
+			git -C "${FLAKE_DIR}" ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
+			printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+			exit 2
+		fi
+	fi
 }
 
 sync_pre_commit_hooks() {
-  local sync_script="${FLAKE_DIR}/scripts/hooks/sync-pre-commit-hooks.sh"
-  if [[ ! -x ${sync_script} ]]; then
-    error_msg "Hook sync script not found or not executable: ${sync_script}"
-    exit 1
-  fi
+	local sync_script="${FLAKE_DIR}/scripts/hooks/sync-pre-commit-hooks.sh"
+	if [[ ! -x ${sync_script} ]]; then
+		error_msg "Hook sync script not found or not executable: ${sync_script}"
+		exit 1
+	fi
 
-  status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
-  (
-    cd "${FLAKE_DIR}"
-    nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
-  )
+	status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
+	(
+		cd "${FLAKE_DIR}"
+		nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
+	)
 }
 
 # Renders the JSON report from scripts/check-kernel-reboot-required.sh. Reading
 # fields by name is what the JSON default buys over scraping the --text form;
 # jq reaches every host through modules/development/json-tools.nix.
 print_kernel_report_details() {
-  local report="$1"
-  local rendered=""
+	local report="$1"
+	local rendered=""
 
-  # In the `if !` condition rather than a process substitution: an unparsable
-  # report fails jq, and from a substitution that reaches the inherited ERR
-  # trap, which prints a stack trace for a case handled two lines below. jq's
-  # own diagnostic still reaches stderr either way.
-  if ! rendered="$(jq -r '
+	# In the `if !` condition rather than a process substitution: an unparsable
+	# report fails jq, and from a substitution that reaches the inherited ERR
+	# trap, which prints a stack trace for a case handled two lines below. jq's
+	# own diagnostic still reaches stderr either way.
+	if ! rendered="$(jq -r '
     if .reboot_required == null then
       "Reason: " + (.error // "the kernel state could not be read")
     else
@@ -511,218 +511,218 @@ print_kernel_report_details() {
       "Booted:    " + .booted.kernel,
       "Activated: " + .activated.kernel
     end' <<<"${report}")" || [[ -z ${rendered} ]]; then
-    # jq is absent, or the report is not the shape this expects. Print what the
-    # script produced rather than nothing, so a broken contract stays visible
-    # instead of reading as a report that simply carried no details.
-    printf "    - report could not be parsed; raw output follows\n"
-    printf '%s\n' "${report}" | sed 's/^/      /'
-    return 0
-  fi
+		# jq is absent, or the report is not the shape this expects. Print what the
+		# script produced rather than nothing, so a broken contract stays visible
+		# instead of reading as a report that simply carried no details.
+		printf "    - report could not be parsed; raw output follows\n"
+		printf '%s\n' "${report}" | sed 's/^/      /'
+		return 0
+	fi
 
-  local line
-  while IFS= read -r line; do
-    printf "    - %s\n" "${line}"
-  done <<<"${rendered}"
+	local line
+	while IFS= read -r line; do
+		printf "    - %s\n" "${line}"
+	done <<<"${rendered}"
 }
 
 check_kernel_reboot_required() {
-  # Resolved against this script rather than FLAKE_DIR, the way the libraries
-  # sourced above and scripts/cache-coverage.sh are: -p can point the build at
-  # another flake, while the kernel state reported here is always this host's.
-  local check_script
-  check_script="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/check-kernel-reboot-required.sh"
+	# Resolved against this script rather than FLAKE_DIR, the way the libraries
+	# sourced above and scripts/cache-coverage.sh are: -p can point the build at
+	# another flake, while the kernel state reported here is always this host's.
+	local check_script
+	check_script="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/check-kernel-reboot-required.sh"
 
-  if [[ ! -x ${check_script} ]]; then
-    status_msg "${YELLOW}" "Kernel reboot check skipped: ${check_script} is missing or not executable."
-    return 0
-  fi
+	if [[ ! -x ${check_script} ]]; then
+		status_msg "${YELLOW}" "Kernel reboot check skipped: ${check_script} is missing or not executable."
+		return 0
+	fi
 
-  # Captured through || so the ERR trap stays out of it: exit 1 is the script's
-  # "reboot required" verdict and exit 2 its "cannot tell", both outcomes of a
-  # switch that already succeeded rather than failures of one. Its stderr is
-  # left attached so an exit 2 names its own cause.
-  local report="" rc=0
-  report="$("${check_script}" --json)" || rc=$?
+	# Captured through || so the ERR trap stays out of it: exit 1 is the script's
+	# "reboot required" verdict and exit 2 its "cannot tell", both outcomes of a
+	# switch that already succeeded rather than failures of one. Its stderr is
+	# left attached so an exit 2 names its own cause.
+	local report="" rc=0
+	report="$("${check_script}" --json)" || rc=$?
 
-  printf "\n"
-  case "${rc}" in
-  0)
-    status_msg "${GREEN}" "Kernel reboot required: no"
-    ;;
-  1)
-    status_msg "${RED}" "Kernel reboot required: yes"
-    ;;
-  *)
-    status_msg "${YELLOW}" "Kernel reboot required: unknown"
-    ;;
-  esac
-  print_kernel_report_details "${report}"
+	printf "\n"
+	case "${rc}" in
+	0)
+		status_msg "${GREEN}" "Kernel reboot required: no"
+		;;
+	1)
+		status_msg "${RED}" "Kernel reboot required: yes"
+		;;
+	*)
+		status_msg "${YELLOW}" "Kernel reboot required: unknown"
+		;;
+	esac
+	print_kernel_report_details "${report}"
 
-  if [[ ${rc} -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
-    notify-send \
-      --urgency=normal \
-      --app-name="NixOS Build" \
-      --icon=system-reboot \
-      --category=system \
-      "Reboot Required" \
-      "The activated kernel differs from the booted kernel." 2>/dev/null || true
-  fi
+	if [[ ${rc} -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
+		notify-send \
+			--urgency=normal \
+			--app-name="NixOS Build" \
+			--icon=system-reboot \
+			--category=system \
+			"Reboot Required" \
+			"The activated kernel differs from the booted kernel." 2>/dev/null || true
+	fi
 }
 
 run_flake_update() {
-  local installable
-  installable="$(resolve_installable)"
-  status_msg "${YELLOW}" "Refreshing flake metadata..."
-  nix flake metadata "${installable}" --refresh "${BUILD_FLAGS[@]}"
-  status_msg "${YELLOW}" "Updating flake inputs..."
-  # The flake goes in --flake: positional arguments here are input names.
-  nix flake update --flake "${installable}" "${BUILD_FLAGS[@]}"
+	local installable
+	installable="$(resolve_installable)"
+	status_msg "${YELLOW}" "Refreshing flake metadata..."
+	nix flake metadata "${installable}" --refresh "${BUILD_FLAGS[@]}"
+	status_msg "${YELLOW}" "Updating flake inputs..."
+	# The flake goes in --flake: positional arguments here are input names.
+	nix flake update --flake "${installable}" "${BUILD_FLAGS[@]}"
 }
 
 resolve_nh_command() {
-  if command -v nh >/dev/null 2>&1; then
-    NH_CMD=(nh)
-    return 0
-  fi
+	if command -v nh >/dev/null 2>&1; then
+		NH_CMD=(nh)
+		return 0
+	fi
 
-  if [[ ${OFFLINE} == "true" ]]; then
-    error_msg "nh not found in PATH and offline mode is enabled; cannot bootstrap nh."
-    exit 1
-  fi
+	if [[ ${OFFLINE} == "true" ]]; then
+		error_msg "nh not found in PATH and offline mode is enabled; cannot bootstrap nh."
+		exit 1
+	fi
 
-  status_msg "${YELLOW}" "nh not found in PATH; bootstrapping via nixpkgs#nh for this run."
-  NH_CMD=(nix run nixpkgs#nh --)
+	status_msg "${YELLOW}" "nh not found in PATH; bootstrapping via nixpkgs#nh for this run."
+	NH_CMD=(nix run nixpkgs#nh --)
 }
 
 run_firmware_updates() {
-  if ! command -v fwupdmgr >/dev/null 2>&1; then
-    status_msg "${YELLOW}" "fwupdmgr not found; skipping firmware updates."
-    status_msg "${YELLOW}" "Install/enable fwupd tooling to manage LVFS firmware updates on switch."
-    return 0
-  fi
+	if ! command -v fwupdmgr >/dev/null 2>&1; then
+		status_msg "${YELLOW}" "fwupdmgr not found; skipping firmware updates."
+		status_msg "${YELLOW}" "Install/enable fwupd tooling to manage LVFS firmware updates on switch."
+		return 0
+	fi
 
-  status_msg "${YELLOW}" "Checking/applying firmware updates via fwupdmgr..."
-  local firmware_failed=false
+	status_msg "${YELLOW}" "Checking/applying firmware updates via fwupdmgr..."
+	local firmware_failed=false
 
-  if ! /run/wrappers/bin/sudo fwupdmgr refresh --force; then
-    firmware_failed=true
-    status_msg "${YELLOW}" "Firmware metadata refresh failed (manual retry: sudo fwupdmgr refresh --force)."
-  fi
+	if ! /run/wrappers/bin/sudo fwupdmgr refresh --force; then
+		firmware_failed=true
+		status_msg "${YELLOW}" "Firmware metadata refresh failed (manual retry: sudo fwupdmgr refresh --force)."
+	fi
 
-  if ! /run/wrappers/bin/sudo fwupdmgr get-updates; then
-    firmware_failed=true
-    status_msg "${YELLOW}" "Firmware update query failed (manual retry: sudo fwupdmgr get-updates)."
-  fi
+	if ! /run/wrappers/bin/sudo fwupdmgr get-updates; then
+		firmware_failed=true
+		status_msg "${YELLOW}" "Firmware update query failed (manual retry: sudo fwupdmgr get-updates)."
+	fi
 
-  if ! /run/wrappers/bin/sudo fwupdmgr update; then
-    firmware_failed=true
-    status_msg "${YELLOW}" "Firmware update apply step reported an error (manual retry: sudo fwupdmgr update)."
-  fi
+	if ! /run/wrappers/bin/sudo fwupdmgr update; then
+		firmware_failed=true
+		status_msg "${YELLOW}" "Firmware update apply step reported an error (manual retry: sudo fwupdmgr update)."
+	fi
 
-  if [[ ${firmware_failed} == "true" ]]; then
-    status_msg "${YELLOW}" "Firmware update step completed with warnings; system switch remains successful."
-  else
-    status_msg "${GREEN}" "Firmware update step completed."
-  fi
+	if [[ ${firmware_failed} == "true" ]]; then
+		status_msg "${YELLOW}" "Firmware update step completed with warnings; system switch remains successful."
+	else
+		status_msg "${GREEN}" "Firmware update step completed."
+	fi
 }
 
 main() {
-  setup_logging
-  announce_path_ref
-  # Outside the AUTO_UPDATE branch below, unlike ensure_clean_git_tree: an
-  # update run reaches the same store copy through the same path: ref.
-  ensure_no_ignored_secrets
-  configure_nix_config
-  configure_build_flags
-  ensure_fleet_host
+	setup_logging
+	announce_path_ref
+	# Outside the AUTO_UPDATE branch below, unlike ensure_clean_git_tree: an
+	# update run reaches the same store copy through the same path: ref.
+	ensure_no_ignored_secrets
+	configure_nix_config
+	configure_build_flags
+	ensure_fleet_host
 
-  if [[ ${AUTO_UPDATE} == "true" ]]; then
-    run_flake_update
-  else
-    # Fail fast on dirty git trees to ensure reproducible builds
-    ensure_clean_git_tree
-  fi
+	if [[ ${AUTO_UPDATE} == "true" ]]; then
+		run_flake_update
+	else
+		# Fail fast on dirty git trees to ensure reproducible builds
+		ensure_clean_git_tree
+	fi
 
-  if [[ ${SKIP_HOOKS} == "false" ]]; then
-    sync_pre_commit_hooks
-    status_msg "${YELLOW}" "Running pre-commit hooks..."
-    (
-      cd "${FLAKE_DIR}"
-      nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
-    )
-  else
-    status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
-  fi
+	if [[ ${SKIP_HOOKS} == "false" ]]; then
+		sync_pre_commit_hooks
+		status_msg "${YELLOW}" "Running pre-commit hooks..."
+		(
+			cd "${FLAKE_DIR}"
+			nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+		)
+	else
+		status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
+	fi
 
-  if [[ ${SKIP_CHECK} == "false" ]]; then
-    status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
-    nix flake check "$(resolve_installable)" --no-build "${BUILD_FLAGS[@]}"
-  else
-    status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
-  fi
+	if [[ ${SKIP_CHECK} == "false" ]]; then
+		status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
+		nix flake check "$(resolve_installable)" --no-build "${BUILD_FLAGS[@]}"
+	else
+		status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
+	fi
 
-  if [[ ${CACHE_COVERAGE} == "true" ]]; then
-    status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
-    # Both flags have to travel with the invocation. Neither variable is
-    # exported: the environment spelling is inherited, the flag spelling would
-    # not be, and the two documented forms of one override would then behave
-    # differently. --allow-dirty additionally decides which reference the child
-    # resolves, so without it the report would measure a different tree than
-    # the build.
-    local -a coverage_args=(--flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}")
-    if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
-      coverage_args+=(--allow-dirty)
-    fi
-    if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
-      coverage_args+=(--allow-secret-copy)
-    fi
-    # Resolved against this script for the reason the library sources are, and
-    # now that it has to be: the child is only interchangeable with its
-    # siblings, and -p at a worktree parked on a revision without these two
-    # flags reaches "unknown option" and exit 2, after every validation step has
-    # passed and immediately before deploy. Which tree the report measures is
-    # carried by --flake-dir below, not by where the script is read from, and
-    # the child's allowlist default is derived from that argument too.
-    "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/cache-coverage.sh" "${coverage_args[@]}"
-  fi
+	if [[ ${CACHE_COVERAGE} == "true" ]]; then
+		status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
+		# Both flags have to travel with the invocation. Neither variable is
+		# exported: the environment spelling is inherited, the flag spelling would
+		# not be, and the two documented forms of one override would then behave
+		# differently. --allow-dirty additionally decides which reference the child
+		# resolves, so without it the report would measure a different tree than
+		# the build.
+		local -a coverage_args=(--flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}")
+		if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+			coverage_args+=(--allow-dirty)
+		fi
+		if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
+			coverage_args+=(--allow-secret-copy)
+		fi
+		# Resolved against this script for the reason the library sources are, and
+		# now that it has to be: the child is only interchangeable with its
+		# siblings, and -p at a worktree parked on a revision without these two
+		# flags reaches "unknown option" and exit 2, after every validation step has
+		# passed and immediately before deploy. Which tree the report measures is
+		# carried by --flake-dir below, not by where the script is read from, and
+		# the child's allowlist default is derived from that argument too.
+		"$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/cache-coverage.sh" "${coverage_args[@]}"
+	fi
 
-  status_msg "${GREEN}" "Validation completed successfully!"
+	status_msg "${GREEN}" "Validation completed successfully!"
 
-  resolve_nh_command
+	resolve_nh_command
 
-  # Deploy using nh os which handles build + activation with native elevation
-  status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
-  local installable
-  installable="$(resolve_installable)"
-  case "${ACTION}" in
-  switch | boot)
-    nh_os_args=(
-      os
-      "${ACTION}"
-      -H "${TARGET_HOST}"
-      "${installable}"
-    )
-    if [[ ${#BUILD_FLAGS[@]} -gt 0 ]]; then
-      nh_os_args+=(-- "${BUILD_FLAGS[@]}")
-    fi
-    "${NH_CMD[@]}" "${nh_os_args[@]}"
-    if [[ ${ACTION} == "switch" ]]; then
-      status_msg "${GREEN}" "System switched successfully!"
-      if [[ ${SKIP_FIRMWARE} == "false" ]]; then
-        run_firmware_updates
-      else
-        status_msg "${YELLOW}" "Skipping firmware updates (--skip-firmware flag used)..."
-      fi
-      check_kernel_reboot_required
-    else
-      status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
-    fi
-    ;;
-  *)
-    error_msg "Unknown ACTION: ${ACTION}"
-    exit 1
-    ;;
-  esac
+	# Deploy using nh os which handles build + activation with native elevation
+	status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
+	local installable
+	installable="$(resolve_installable)"
+	case "${ACTION}" in
+	switch | boot)
+		nh_os_args=(
+			os
+			"${ACTION}"
+			-H "${TARGET_HOST}"
+			"${installable}"
+		)
+		if [[ ${#BUILD_FLAGS[@]} -gt 0 ]]; then
+			nh_os_args+=(-- "${BUILD_FLAGS[@]}")
+		fi
+		"${NH_CMD[@]}" "${nh_os_args[@]}"
+		if [[ ${ACTION} == "switch" ]]; then
+			status_msg "${GREEN}" "System switched successfully!"
+			if [[ ${SKIP_FIRMWARE} == "false" ]]; then
+				run_firmware_updates
+			else
+				status_msg "${YELLOW}" "Skipping firmware updates (--skip-firmware flag used)..."
+			fi
+			check_kernel_reboot_required
+		else
+			status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
+		fi
+		;;
+	*)
+		error_msg "Unknown ACTION: ${ACTION}"
+		exit 1
+		;;
+	esac
 }
 
 main

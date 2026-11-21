@@ -5,7 +5,7 @@ export LC_ALL=C
 prog_name="${0##*/}"
 
 usage() {
-  cat <<EOF
+	cat <<EOF
 usage: ${prog_name} <fork-clone-path>
 
 Install the canonical sync-upstream GitHub workflow into a fork clone and
@@ -21,27 +21,27 @@ EOF
 }
 
 error_msg() {
-  printf '%s: %s\n' "${prog_name}" "$1" >&2
+	printf '%s: %s\n' "${prog_name}" "$1" >&2
 }
 
 die() {
-  error_msg "$1"
-  exit 1
+	error_msg "$1"
+	exit 1
 }
 
 workflow_rel_path=".github/workflows/sync-upstream.yml"
 workflow_file_name="sync-upstream.yml"
 
 if [[ $# -ne 1 ]]; then
-  usage >&2
-  exit 2
+	usage >&2
+	exit 2
 fi
 
 case "$1" in
 -h | --help)
-  usage
-  exit 0
-  ;;
+	usage
+	exit 0
+	;;
 esac
 
 clone_path="$1"
@@ -49,18 +49,18 @@ clone_path="$1"
 command -v gh >/dev/null 2>&1 || die 'gh is required'
 
 git -C "${clone_path}" rev-parse --show-toplevel >/dev/null 2>&1 ||
-  die "not a git worktree: ${clone_path}"
+	die "not a git worktree: ${clone_path}"
 branch="$(git -C "${clone_path}" symbolic-ref --quiet --short HEAD)" ||
-  die 'not on a branch'
+	die 'not on a branch'
 origin_url="$(git -C "${clone_path}" remote get-url origin 2>/dev/null)" ||
-  die 'no origin remote found'
+	die 'no origin remote found'
 
 repo="${origin_url%.git}"
 repo="${repo#https://github.com/}"
 repo="${repo#ssh://git@github.com/}"
 repo="${repo#git@github.com:}"
 if [[ ${repo} == *://* || ${repo} == *@* || ${repo} != */* ]]; then
-  die "origin is not a GitHub repository: ${origin_url}"
+	die "origin is not a GitHub repository: ${origin_url}"
 fi
 
 parent="$(gh api "repos/${repo}" --jq '.parent.full_name // empty')"
@@ -68,13 +68,13 @@ parent="$(gh api "repos/${repo}" --jq '.parent.full_name // empty')"
 
 default_branch="$(gh api "repos/${repo}" --jq .default_branch)"
 if [[ ${branch} != "${default_branch}" ]]; then
-  die "current branch ${branch} is not the default branch ${default_branch}; scheduled workflows fire only from the default branch"
+	die "current branch ${branch} is not the default branch ${default_branch}; scheduled workflows fire only from the default branch"
 fi
 
 if [[ "$(gh api "repos/${repo}/actions/permissions" --jq .enabled)" != "true" ]]; then
-  gh api --method PUT "repos/${repo}/actions/permissions" \
-    -F enabled=true -f allowed_actions=all >/dev/null
-  printf 'Enabled GitHub Actions on %s\n' "${repo}"
+	gh api --method PUT "repos/${repo}/actions/permissions" \
+		-F enabled=true -f allowed_actions=all >/dev/null
+	printf 'Enabled GitHub Actions on %s\n' "${repo}"
 fi
 
 git -C "${clone_path}" pull --ff-only origin "${branch}"
@@ -124,16 +124,16 @@ EOF
 
 tracked=false
 if git -C "${clone_path}" ls-files --error-unmatch "${workflow_rel_path}" >/dev/null 2>&1; then
-  tracked=true
+	tracked=true
 fi
 
 if [[ ${tracked} == true ]] && git -C "${clone_path}" diff --quiet HEAD -- "${workflow_rel_path}"; then
-  printf '%s already current on %s:%s\n' "${workflow_rel_path}" "${repo}" "${branch}"
+	printf '%s already current on %s:%s\n' "${workflow_rel_path}" "${repo}" "${branch}"
 else
-  git -C "${clone_path}" add "${workflow_rel_path}"
-  git -C "${clone_path}" commit \
-    -m 'ci: add scheduled upstream sync workflow' \
-    -m 'Replaces the manual git-fork-sync cadence for this fork. The job calls
+	git -C "${clone_path}" add "${workflow_rel_path}"
+	git -C "${clone_path}" commit \
+		-m 'ci: add scheduled upstream sync workflow' \
+		-m 'Replaces the manual git-fork-sync cadence for this fork. The job calls
 POST /repos/{owner}/{repo}/merge-upstream every 8 hours to merge the
 same-named upstream branch server side. A merge conflict fails the run with
 HTTP 409 instead of rewriting history, so recovery stays manual via
@@ -141,7 +141,7 @@ git-fork-sync. The target branch is the fork default branch because
 scheduled workflows fire only from the default branch.
 
 Validation: nix run nixpkgs#actionlint -- .github/workflows/sync-upstream.yml'
-  git -C "${clone_path}" push origin "${branch}"
+	git -C "${clone_path}" push origin "${branch}"
 fi
 
 # Inherited upstream workflows only fail on a fork (Pages deploys hit 403
@@ -151,23 +151,23 @@ fi
 # only active workflow. Re-enable a workflow later with:
 # gh workflow enable <id> -R <owner>/<repo>
 gh workflow list --all -R "${repo}" --json id,name,state,path \
-  --jq '.[] | select(.state == "active")
+	--jq '.[] | select(.state == "active")
     | select(.path | startswith(".github/workflows/"))
     | select(.path != ".github/workflows/sync-upstream.yml")
     | "\(.id)\t\(.name)"' |
-  while IFS=$'\t' read -r workflow_id workflow_name; do
-    gh workflow disable "${workflow_id}" -R "${repo}"
-    printf 'Disabled inherited workflow: %s\n' "${workflow_name}"
-  done
+	while IFS=$'\t' read -r workflow_id workflow_name; do
+		gh workflow disable "${workflow_id}" -R "${repo}"
+		printf 'Disabled inherited workflow: %s\n' "${workflow_name}"
+	done
 gh api --method DELETE "repos/${repo}/automated-security-fixes" >/dev/null
 printf 'Disabled Dependabot security updates on %s\n' "${repo}"
 
 for _ in 1 2 3 4 5; do
-  if gh workflow run "${workflow_file_name}" -R "${repo}" --ref "${branch}" 2>/dev/null; then
-    printf 'Dispatched verification run. Watch with: gh run list --workflow=%s -R %s\n' \
-      "${workflow_file_name}" "${repo}"
-    exit 0
-  fi
-  sleep 3
+	if gh workflow run "${workflow_file_name}" -R "${repo}" --ref "${branch}" 2>/dev/null; then
+		printf 'Dispatched verification run. Watch with: gh run list --workflow=%s -R %s\n' \
+			"${workflow_file_name}" "${repo}"
+		exit 0
+	fi
+	sleep 3
 done
 die "workflow ${workflow_file_name} was pushed but could not be dispatched; check: gh workflow list --all -R ${repo}"

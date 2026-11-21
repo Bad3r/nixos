@@ -5,12 +5,12 @@ export LC_ALL=C
 prog_name="${0##*/}"
 
 usage() {
-  printf 'usage: %s [--force] <worktree-path>\n' "${prog_name}"
+	printf 'usage: %s [--force] <worktree-path>\n' "${prog_name}"
 }
 
 help() {
-  usage
-  cat <<'EOF_HELP'
+	usage
+	cat <<'EOF_HELP'
 
 Remove a linked git worktree after checking that it holds no local state.
 
@@ -28,7 +28,7 @@ EOF_HELP
 }
 
 error_msg() {
-  printf '%s: %s\n' "${prog_name}" "$1" >&2
+	printf '%s: %s\n' "${prog_name}" "$1" >&2
 }
 
 # Keep untracked state, ignored secrets, and local config visible; drop only ignored cleanup noise.
@@ -45,26 +45,26 @@ readonly disposable_status_sed_script='\#^!! (scripts/hooks/pre-commit-config\.y
 export disposable_status_sed_script
 
 filter_disposable_status() {
-  sed -E "${disposable_status_sed_script}"
+	sed -E "${disposable_status_sed_script}"
 }
 
 primary_worktree_root() {
-  local entry
-  entry="$(git -C "$1" worktree list --porcelain | head -n 1)"
-  readlink -f "${entry#worktree }"
+	local entry
+	entry="$(git -C "$1" worktree list --porcelain | head -n 1)"
+	readlink -f "${entry#worktree }"
 }
 
 # Porcelain status of the worktree and its submodules, submodule paths prefixed.
 # Lines matching sed script $2 are dropped; an empty script keeps everything.
 worktree_state() {
-  local sed_script
-  sed_script="$2"
-  export sed_script
+	local sed_script
+	sed_script="$2"
+	export sed_script
 
-  git -C "$1" status --porcelain=v1 --untracked-files=all --ignored=matching |
-    sed -E "${sed_script}"
-  # shellcheck disable=SC2016 # This body runs inside git-submodule foreach.
-  git -C "$1" submodule foreach --quiet --recursive '
+	git -C "$1" status --porcelain=v1 --untracked-files=all --ignored=matching |
+		sed -E "${sed_script}"
+	# shellcheck disable=SC2016 # This body runs inside git-submodule foreach.
+	git -C "$1" submodule foreach --quiet --recursive '
     git status --porcelain=v1 --untracked-files=all --ignored=matching |
       sed -E "${sed_script}" |
       sed "s#^\(...\)#\1${displaypath}/#"
@@ -72,78 +72,78 @@ worktree_state() {
 }
 
 require_clean_worktree() {
-  local state
-  state="$(worktree_state "$1" "${disposable_status_sed_script}")"
-  if [[ -n ${state} ]]; then
-    error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: $1"
-    printf '%s\n' "${state}" >&2
-    exit 1
-  fi
+	local state
+	state="$(worktree_state "$1" "${disposable_status_sed_script}")"
+	if [[ -n ${state} ]]; then
+		error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: $1"
+		printf '%s\n' "${state}" >&2
+		exit 1
+	fi
 }
 
 report_discarded_state() {
-  local state
-  state="$(worktree_state "$1" "")"
-  if [[ -n ${state} ]]; then
-    error_msg "--force discards this state in $1:"
-    printf '%s\n' "${state}" >&2
-  fi
+	local state
+	state="$(worktree_state "$1" "")"
+	if [[ -n ${state} ]]; then
+		error_msg "--force discards this state in $1:"
+		printf '%s\n' "${state}" >&2
+	fi
 }
 
 main() {
-  local repo_root worktree_path
-  local force=false
+	local repo_root worktree_path
+	local force=false
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    -h | --help)
-      help
-      exit 0
-      ;;
-    -f | --force)
-      force=true
-      shift
-      ;;
-    --)
-      shift
-      break
-      ;;
-    -*)
-      error_msg "unknown option: $1"
-      usage >&2
-      exit 64
-      ;;
-    *)
-      break
-      ;;
-    esac
-  done
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-h | --help)
+			help
+			exit 0
+			;;
+		-f | --force)
+			force=true
+			shift
+			;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			error_msg "unknown option: $1"
+			usage >&2
+			exit 64
+			;;
+		*)
+			break
+			;;
+		esac
+	done
 
-  if [[ $# -ne 1 ]]; then
-    usage >&2
-    exit 64
-  fi
+	if [[ $# -ne 1 ]]; then
+		usage >&2
+		exit 64
+	fi
 
-  worktree_path="$(git -C "$1" rev-parse --show-toplevel)"
-  worktree_path="$(readlink -f "${worktree_path}")"
-  repo_root="$(primary_worktree_root "${worktree_path}")"
+	worktree_path="$(git -C "$1" rev-parse --show-toplevel)"
+	worktree_path="$(readlink -f "${worktree_path}")"
+	repo_root="$(primary_worktree_root "${worktree_path}")"
 
-  if [[ ${worktree_path} == "${repo_root}" ]]; then
-    error_msg "refusing to remove the primary worktree: ${worktree_path}"
-    exit 1
-  fi
-  if [[ $(readlink -f .)/ == "${worktree_path}"/* ]]; then
-    error_msg "refusing to remove the worktree containing the current directory: ${worktree_path}"
-    exit 1
-  fi
+	if [[ ${worktree_path} == "${repo_root}" ]]; then
+		error_msg "refusing to remove the primary worktree: ${worktree_path}"
+		exit 1
+	fi
+	if [[ $(readlink -f .)/ == "${worktree_path}"/* ]]; then
+		error_msg "refusing to remove the worktree containing the current directory: ${worktree_path}"
+		exit 1
+	fi
 
-  if [[ ${force} == true ]]; then
-    report_discarded_state "${worktree_path}"
-  else
-    require_clean_worktree "${worktree_path}"
-  fi
+	if [[ ${force} == true ]]; then
+		report_discarded_state "${worktree_path}"
+	else
+		require_clean_worktree "${worktree_path}"
+	fi
 
-  git -C "${repo_root}" worktree remove --force "${worktree_path}"
+	git -C "${repo_root}" worktree remove --force "${worktree_path}"
 }
 
 main "$@"

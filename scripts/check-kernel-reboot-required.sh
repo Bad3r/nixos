@@ -7,7 +7,7 @@ output_format="json"
 
 # build.sh print_kernel_report_details reads the JSON keys listed in usage.
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: ${prog_name} [--json | --text]
 
 Report the running, activated, and booted NixOS kernels. The activated and
@@ -36,124 +36,124 @@ EOF
 }
 
 error_msg() {
-  printf '%s: %s\n' "${prog_name}" "$1" >&2
+	printf '%s: %s\n' "${prog_name}" "$1" >&2
 }
 
 json_string() {
-  local value="$1"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  value="${value//$'\n'/\\n}"
-  value="${value//$'\r'/\\r}"
-  value="${value//$'\t'/\\t}"
-  printf '"%s"' "${value}"
+	local value="$1"
+	value="${value//\\/\\\\}"
+	value="${value//\"/\\\"}"
+	value="${value//$'\n'/\\n}"
+	value="${value//$'\r'/\\r}"
+	value="${value//$'\t'/\\t}"
+	printf '"%s"' "${value}"
 }
 
 json_string_array() {
-  local out="["
-  local first=1
-  local item
-  for item in "$@"; do
-    if [[ ${first} -eq 0 ]]; then
-      out+=","
-    fi
-    first=0
-    out+="$(json_string "${item}")"
-  done
-  printf '%s]' "${out}"
+	local out="["
+	local first=1
+	local item
+	for item in "$@"; do
+		if [[ ${first} -eq 0 ]]; then
+			out+=","
+		fi
+		first=0
+		out+="$(json_string "${item}")"
+	done
+	printf '%s]' "${out}"
 }
 
 join_comma() {
-  local out=""
-  local item
-  for item in "$@"; do
-    if [[ -n ${out} ]]; then
-      out+=", "
-    fi
-    out+="${item}"
-  done
-  printf '%s' "${out}"
+	local out=""
+	local item
+	for item in "$@"; do
+		if [[ -n ${out} ]]; then
+			out+=", "
+		fi
+		out+="${item}"
+	done
+	printf '%s' "${out}"
 }
 
 # Keeps stdout parseable for the failure paths a caller has to distinguish from
 # "no reboot pending": every one of them exits 2, which is otherwise reported
 # on stderr alone.
 die() {
-  error_msg "$1"
-  if [[ ${output_format} == "json" ]]; then
-    printf '{\n  "reboot_required": null,\n  "error": %s\n}\n' "$(json_string "$1")"
-  fi
-  exit 2
+	error_msg "$1"
+	if [[ ${output_format} == "json" ]]; then
+		printf '{\n  "reboot_required": null,\n  "error": %s\n}\n' "$(json_string "$1")"
+	fi
+	exit 2
 }
 
 require_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    die "required command not found: $1"
-  fi
+	if ! command -v "$1" >/dev/null 2>&1; then
+		die "required command not found: $1"
+	fi
 }
 
 # Assigns through a caller-named variable rather than stdout so `die` runs in
 # the main shell: from a command substitution it would exit only the subshell,
 # and its JSON body would land in the variable being assigned.
 resolve_runtime_path() {
-  local label="$1"
-  local path="$2"
-  local out_var="$3"
-  local resolved
+	local label="$1"
+	local path="$2"
+	local out_var="$3"
+	local resolved
 
-  if [[ ! -e ${path} && ! -L ${path} ]]; then
-    die "${label} path does not exist: ${path}"
-  fi
+	if [[ ! -e ${path} && ! -L ${path} ]]; then
+		die "${label} path does not exist: ${path}"
+	fi
 
-  if ! resolved="$(readlink -f -- "${path}")" || [[ -z ${resolved} ]]; then
-    die "cannot resolve ${label} path: ${path}"
-  fi
+	if ! resolved="$(readlink -f -- "${path}")" || [[ -z ${resolved} ]]; then
+		die "cannot resolve ${label} path: ${path}"
+	fi
 
-  printf -v "${out_var}" '%s' "${resolved}"
+	printf -v "${out_var}" '%s' "${resolved}"
 }
 
 kernel_releases() {
-  local label="$1"
-  local out_var="$2"
-  local modules_dir="/run/${label}-system/kernel-modules/lib/modules"
-  local releases
+	local label="$1"
+	local out_var="$2"
+	local modules_dir="/run/${label}-system/kernel-modules/lib/modules"
+	local releases
 
-  if [[ ! -d ${modules_dir} ]]; then
-    die "${label} kernel modules directory does not exist: ${modules_dir}"
-  fi
+	if [[ ! -d ${modules_dir} ]]; then
+		die "${label} kernel modules directory does not exist: ${modules_dir}"
+	fi
 
-  # Sorted so the JSON report is byte-stable across runs; find walks the
-  # directory in whatever order the filesystem returns.
-  if ! releases="$(find "${modules_dir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)"; then
-    die "cannot inspect ${label} kernel modules directory: ${modules_dir}"
-  fi
-  if [[ -z ${releases} ]]; then
-    die "no ${label} kernel module release found in: ${modules_dir}"
-  fi
+	# Sorted so the JSON report is byte-stable across runs; find walks the
+	# directory in whatever order the filesystem returns.
+	if ! releases="$(find "${modules_dir}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)"; then
+		die "cannot inspect ${label} kernel modules directory: ${modules_dir}"
+	fi
+	if [[ -z ${releases} ]]; then
+		die "no ${label} kernel module release found in: ${modules_dir}"
+	fi
 
-  mapfile -t "${out_var}" <<<"${releases}"
+	mapfile -t "${out_var}" <<<"${releases}"
 }
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-  --json)
-    output_format="json"
-    shift
-    ;;
-  --text)
-    output_format="text"
-    shift
-    ;;
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  *)
-    error_msg "unknown argument: $1"
-    usage >&2
-    exit 2
-    ;;
-  esac
+	case "$1" in
+	--json)
+		output_format="json"
+		shift
+		;;
+	--text)
+		output_format="text"
+		shift
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		error_msg "unknown argument: $1"
+		usage >&2
+		exit 2
+		;;
+	esac
 done
 
 require_cmd find
@@ -162,7 +162,7 @@ require_cmd sort
 require_cmd uname
 
 if ! running_kernel="$(uname -r)" || [[ -z ${running_kernel} ]]; then
-  die "cannot determine the running kernel"
+	die "cannot determine the running kernel"
 fi
 
 # Declared ahead of the calls that fill them: shellcheck cannot follow a
@@ -187,32 +187,32 @@ kernel_releases booted booted_releases
 
 changed=()
 if [[ ${activated_kernel_image} != "${booted_kernel_image}" ]]; then
-  changed+=("kernel")
+	changed+=("kernel")
 fi
 if [[ ${activated_kernel_modules} != "${booted_kernel_modules}" ]]; then
-  changed+=("kernel_modules")
+	changed+=("kernel_modules")
 fi
 
 if [[ ${#changed[@]} -eq 0 ]]; then
-  reboot_required="false"
-  reason="no kernel change is pending; a kernel reboot is not required"
-  exit_code=0
+	reboot_required="false"
+	reason="no kernel change is pending; a kernel reboot is not required"
+	exit_code=0
 else
-  reboot_required="true"
-  reason="the activated kernel differs from the booted kernel; reboot is required"
-  exit_code=1
+	reboot_required="true"
+	reason="the activated kernel differs from the booted kernel; reboot is required"
+	exit_code=1
 fi
 
 if [[ ${output_format} == "text" ]]; then
-  printf 'Running kernel: %s\n' "${running_kernel}"
-  printf 'Activated kernel release(s): %s\n' "$(join_comma "${activated_releases[@]}")"
-  printf 'Booted kernel release(s): %s\n' "$(join_comma "${booted_releases[@]}")"
-  printf 'Activated kernel image: %s\n' "${activated_kernel_image}"
-  printf 'Booted kernel image: %s\n' "${booted_kernel_image}"
-  printf 'Activated kernel modules: %s\n' "${activated_kernel_modules}"
-  printf 'Booted kernel modules: %s\n' "${booted_kernel_modules}"
-  printf 'Result: %s.\n' "${reason}"
-  exit "${exit_code}"
+	printf 'Running kernel: %s\n' "${running_kernel}"
+	printf 'Activated kernel release(s): %s\n' "$(join_comma "${activated_releases[@]}")"
+	printf 'Booted kernel release(s): %s\n' "$(join_comma "${booted_releases[@]}")"
+	printf 'Activated kernel image: %s\n' "${activated_kernel_image}"
+	printf 'Booted kernel image: %s\n' "${booted_kernel_image}"
+	printf 'Activated kernel modules: %s\n' "${activated_kernel_modules}"
+	printf 'Booted kernel modules: %s\n' "${booted_kernel_modules}"
+	printf 'Result: %s.\n' "${reason}"
+	exit "${exit_code}"
 fi
 
 printf '{\n'

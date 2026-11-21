@@ -6,238 +6,238 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="${SCRIPT_DIR}/../../scripts/git-worktree-remove-safe.sh"
 
 if [[ ! -x ${SUT} ]]; then
-  printf 'run.sh: SUT not executable at %s\n' "${SUT}" >&2
-  exit 2
+	printf 'run.sh: SUT not executable at %s\n' "${SUT}" >&2
+	exit 2
 fi
 
 tmpdir="$(mktemp -d)"
 cleanup() {
-  if [[ -d ${tmpdir} ]]; then
-    chmod -R u+w "${tmpdir}"
-    rm -r "${tmpdir}"
-  fi
+	if [[ -d ${tmpdir} ]]; then
+		chmod -R u+w "${tmpdir}"
+		rm -r "${tmpdir}"
+	fi
 }
 trap cleanup EXIT
 
 init_repo() {
-  local repo
-  repo="$1"
+	local repo
+	repo="$1"
 
-  git init -q "${repo}"
-  git -C "${repo}" config user.email tests@example.invalid
-  git -C "${repo}" config user.name "git-worktree-remove-safe tests"
+	git init -q "${repo}"
+	git -C "${repo}" config user.email tests@example.invalid
+	git -C "${repo}" config user.name "git-worktree-remove-safe tests"
 }
 
 commit_all() {
-  local repo message
-  repo="$1"
-  message="$2"
+	local repo message
+	repo="$1"
+	message="$2"
 
-  git -C "${repo}" add .
-  git -C "${repo}" commit -q -m "${message}"
+	git -C "${repo}" add .
+	git -C "${repo}" commit -q -m "${message}"
 }
 
 make_submodule_source() {
-  local name submodule_source
-  name="$1"
-  submodule_source="${tmpdir}/${name}-submodule-source"
+	local name submodule_source
+	name="$1"
+	submodule_source="${tmpdir}/${name}-submodule-source"
 
-  mkdir -p "${submodule_source}"
-  init_repo "${submodule_source}"
-  printf '%s\n' '.pre-commit-config.yaml' >"${submodule_source}/.gitignore"
-  printf '%s\n' "submodule ${name}" >"${submodule_source}/README.md"
-  commit_all "${submodule_source}" "initial submodule"
+	mkdir -p "${submodule_source}"
+	init_repo "${submodule_source}"
+	printf '%s\n' '.pre-commit-config.yaml' >"${submodule_source}/.gitignore"
+	printf '%s\n' "submodule ${name}" >"${submodule_source}/README.md"
+	commit_all "${submodule_source}" "initial submodule"
 
-  printf '%s\n' "${submodule_source}"
+	printf '%s\n' "${submodule_source}"
 }
 
 add_submodule() {
-  local repo submodule_source
-  repo="$1"
-  submodule_source="$2"
+	local repo submodule_source
+	repo="$1"
+	submodule_source="$2"
 
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${submodule_source}" deps/sub
-  commit_all "${repo}" "add submodule"
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${submodule_source}" deps/sub
+	commit_all "${repo}" "add submodule"
 }
 
 assert_worktree_removed() {
-  local repo worktree
-  repo="$1"
-  worktree="$2"
+	local repo worktree
+	repo="$1"
+	worktree="$2"
 
-  if git -C "${repo}" worktree list --porcelain | grep -Fxq "worktree ${worktree}"; then
-    printf 'FAIL: worktree is still registered: %s\n' "${worktree}" >&2
-    exit 1
-  fi
-  if [[ -e ${worktree} ]]; then
-    printf 'FAIL: worktree path still exists: %s\n' "${worktree}" >&2
-    exit 1
-  fi
+	if git -C "${repo}" worktree list --porcelain | grep -Fxq "worktree ${worktree}"; then
+		printf 'FAIL: worktree is still registered: %s\n' "${worktree}" >&2
+		exit 1
+	fi
+	if [[ -e ${worktree} ]]; then
+		printf 'FAIL: worktree path still exists: %s\n' "${worktree}" >&2
+		exit 1
+	fi
 }
 
 assert_worktree_kept() {
-  local repo worktree
-  repo="$1"
-  worktree="$2"
+	local repo worktree
+	repo="$1"
+	worktree="$2"
 
-  if ! git -C "${repo}" worktree list --porcelain | grep -Fxq "worktree ${worktree}"; then
-    printf 'FAIL: worktree was removed: %s\n' "${worktree}" >&2
-    exit 1
-  fi
-  if [[ ! -d ${worktree} ]]; then
-    printf 'FAIL: worktree path is missing: %s\n' "${worktree}" >&2
-    exit 1
-  fi
+	if ! git -C "${repo}" worktree list --porcelain | grep -Fxq "worktree ${worktree}"; then
+		printf 'FAIL: worktree was removed: %s\n' "${worktree}" >&2
+		exit 1
+	fi
+	if [[ ! -d ${worktree} ]]; then
+		printf 'FAIL: worktree path is missing: %s\n' "${worktree}" >&2
+		exit 1
+	fi
 }
 
 test_ignored_root_precommit_config_allows_removal() {
-  local repo worktree
-  repo="${tmpdir}/ignored-root"
-  worktree="${tmpdir}/ignored-root-worktree"
+	local repo worktree
+	repo="${tmpdir}/ignored-root"
+	worktree="${tmpdir}/ignored-root-worktree"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' '.pre-commit-config.yaml' >"${repo}/.gitignore"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' '.pre-commit-config.yaml' >"${repo}/.gitignore"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
 
-  git -C "${repo}" worktree add -q -b ignored-root-test "${worktree}"
-  printf '%s\n' generated >"${worktree}/.pre-commit-config.yaml"
+	git -C "${repo}" worktree add -q -b ignored-root-test "${worktree}"
+	printf '%s\n' generated >"${worktree}/.pre-commit-config.yaml"
 
-  (cd "${repo}" && "${SUT}" "${worktree}")
-  assert_worktree_removed "${repo}" "${worktree}"
+	(cd "${repo}" && "${SUT}" "${worktree}")
+	assert_worktree_removed "${repo}" "${worktree}"
 }
 
 test_tracked_root_precommit_config_refuses_removal_with_submodules() {
-  local repo submodule_source worktree stderr_file
-  repo="${tmpdir}/tracked-root"
-  worktree="${tmpdir}/tracked-root-worktree"
-  stderr_file="${tmpdir}/tracked-root.stderr"
+	local repo submodule_source worktree stderr_file
+	repo="${tmpdir}/tracked-root"
+	worktree="${tmpdir}/tracked-root-worktree"
+	stderr_file="${tmpdir}/tracked-root.stderr"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' tracked >"${repo}/.pre-commit-config.yaml"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
-  submodule_source="$(make_submodule_source tracked-root)"
-  add_submodule "${repo}" "${submodule_source}"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' tracked >"${repo}/.pre-commit-config.yaml"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
+	submodule_source="$(make_submodule_source tracked-root)"
+	add_submodule "${repo}" "${submodule_source}"
 
-  git -C "${repo}" worktree add -q -b tracked-root-test "${worktree}"
-  git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
-  printf '%s\n' modified >"${worktree}/.pre-commit-config.yaml"
+	git -C "${repo}" worktree add -q -b tracked-root-test "${worktree}"
+	git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
+	printf '%s\n' modified >"${worktree}/.pre-commit-config.yaml"
 
-  if (cd "${repo}" && "${SUT}" "${worktree}") 2>"${stderr_file}"; then
-    printf 'FAIL: tracked .pre-commit-config.yaml did not block removal\n' >&2
-    exit 1
-  fi
-  assert_worktree_kept "${repo}" "${worktree}"
+	if (cd "${repo}" && "${SUT}" "${worktree}") 2>"${stderr_file}"; then
+		printf 'FAIL: tracked .pre-commit-config.yaml did not block removal\n' >&2
+		exit 1
+	fi
+	assert_worktree_kept "${repo}" "${worktree}"
 }
 
 test_ignored_submodule_precommit_config_allows_removal() {
-  local repo submodule_source worktree
-  repo="${tmpdir}/ignored-submodule"
-  worktree="${tmpdir}/ignored-submodule-worktree"
+	local repo submodule_source worktree
+	repo="${tmpdir}/ignored-submodule"
+	worktree="${tmpdir}/ignored-submodule-worktree"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
-  submodule_source="$(make_submodule_source ignored-submodule)"
-  add_submodule "${repo}" "${submodule_source}"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
+	submodule_source="$(make_submodule_source ignored-submodule)"
+	add_submodule "${repo}" "${submodule_source}"
 
-  git -C "${repo}" worktree add -q -b ignored-submodule-test "${worktree}"
-  git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
-  printf '%s\n' generated >"${worktree}/deps/sub/.pre-commit-config.yaml"
+	git -C "${repo}" worktree add -q -b ignored-submodule-test "${worktree}"
+	git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
+	printf '%s\n' generated >"${worktree}/deps/sub/.pre-commit-config.yaml"
 
-  (cd "${repo}" && "${SUT}" "${worktree}")
-  assert_worktree_removed "${repo}" "${worktree}"
+	(cd "${repo}" && "${SUT}" "${worktree}")
+	assert_worktree_removed "${repo}" "${worktree}"
 }
 
 test_force_removes_dirty_worktree_with_submodules() {
-  local repo submodule_source worktree stderr_file
-  repo="${tmpdir}/force"
-  worktree="${tmpdir}/force-worktree"
-  stderr_file="${tmpdir}/force.stderr"
+	local repo submodule_source worktree stderr_file
+	repo="${tmpdir}/force"
+	worktree="${tmpdir}/force-worktree"
+	stderr_file="${tmpdir}/force.stderr"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
-  submodule_source="$(make_submodule_source force)"
-  add_submodule "${repo}" "${submodule_source}"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
+	submodule_source="$(make_submodule_source force)"
+	add_submodule "${repo}" "${submodule_source}"
 
-  git -C "${repo}" worktree add -q -b force-test "${worktree}"
-  git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
-  printf '%s\n' draft >"${worktree}/draft.txt"
-  printf '%s\n' draft >"${worktree}/deps/sub/draft.txt"
+	git -C "${repo}" worktree add -q -b force-test "${worktree}"
+	git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
+	printf '%s\n' draft >"${worktree}/draft.txt"
+	printf '%s\n' draft >"${worktree}/deps/sub/draft.txt"
 
-  if (cd "${repo}" && "${SUT}" "${worktree}") 2>/dev/null; then
-    printf 'FAIL: dirty worktree was removed without --force\n' >&2
-    exit 1
-  fi
-  assert_worktree_kept "${repo}" "${worktree}"
+	if (cd "${repo}" && "${SUT}" "${worktree}") 2>/dev/null; then
+		printf 'FAIL: dirty worktree was removed without --force\n' >&2
+		exit 1
+	fi
+	assert_worktree_kept "${repo}" "${worktree}"
 
-  (cd "${repo}" && "${SUT}" --force "${worktree}") 2>"${stderr_file}"
-  assert_worktree_removed "${repo}" "${worktree}"
-  for reported in 'draft.txt' 'deps/sub/draft.txt'; do
-    if ! grep -Fq -- "${reported}" "${stderr_file}"; then
-      printf 'FAIL: --force did not report discarded %s\n' "${reported}" >&2
-      exit 1
-    fi
-  done
+	(cd "${repo}" && "${SUT}" --force "${worktree}") 2>"${stderr_file}"
+	assert_worktree_removed "${repo}" "${worktree}"
+	for reported in 'draft.txt' 'deps/sub/draft.txt'; do
+		if ! grep -Fq -- "${reported}" "${stderr_file}"; then
+			printf 'FAIL: --force did not report discarded %s\n' "${reported}" >&2
+			exit 1
+		fi
+	done
 }
 
 test_force_still_refuses_the_primary_worktree() {
-  local repo
-  repo="${tmpdir}/force-primary"
+	local repo
+	repo="${tmpdir}/force-primary"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
 
-  if (cd "${tmpdir}" && "${SUT}" --force "${repo}") 2>/dev/null; then
-    printf 'FAIL: --force removed the primary worktree\n' >&2
-    exit 1
-  fi
-  [[ -d ${repo}/.git ]]
+	if (cd "${tmpdir}" && "${SUT}" --force "${repo}") 2>/dev/null; then
+		printf 'FAIL: --force removed the primary worktree\n' >&2
+		exit 1
+	fi
+	[[ -d ${repo}/.git ]]
 }
 
 test_removes_from_outside_the_owning_repository() {
-  local repo other worktree
-  repo="${tmpdir}/outside"
-  other="${tmpdir}/outside-other"
-  worktree="${tmpdir}/outside-worktree"
+	local repo other worktree
+	repo="${tmpdir}/outside"
+	other="${tmpdir}/outside-other"
+	worktree="${tmpdir}/outside-worktree"
 
-  for dir in "${repo}" "${other}"; do
-    mkdir -p "${dir}"
-    init_repo "${dir}"
-    printf '%s\n' root >"${dir}/README.md"
-    commit_all "${dir}" "initial root"
-  done
-  git -C "${repo}" worktree add -q -b outside-test "${worktree}"
+	for dir in "${repo}" "${other}"; do
+		mkdir -p "${dir}"
+		init_repo "${dir}"
+		printf '%s\n' root >"${dir}/README.md"
+		commit_all "${dir}" "initial root"
+	done
+	git -C "${repo}" worktree add -q -b outside-test "${worktree}"
 
-  (cd "${other}" && "${SUT}" "${worktree}")
-  assert_worktree_removed "${repo}" "${worktree}"
+	(cd "${other}" && "${SUT}" "${worktree}")
+	assert_worktree_removed "${repo}" "${worktree}"
 }
 
 test_refuses_the_worktree_containing_the_current_directory() {
-  local repo worktree
-  repo="${tmpdir}/inside"
-  worktree="${tmpdir}/inside-worktree"
+	local repo worktree
+	repo="${tmpdir}/inside"
+	worktree="${tmpdir}/inside-worktree"
 
-  mkdir -p "${repo}"
-  init_repo "${repo}"
-  printf '%s\n' root >"${repo}/README.md"
-  commit_all "${repo}" "initial root"
-  git -C "${repo}" worktree add -q -b inside-test "${worktree}"
-  mkdir "${worktree}/sub"
+	mkdir -p "${repo}"
+	init_repo "${repo}"
+	printf '%s\n' root >"${repo}/README.md"
+	commit_all "${repo}" "initial root"
+	git -C "${repo}" worktree add -q -b inside-test "${worktree}"
+	mkdir "${worktree}/sub"
 
-  if (cd "${worktree}/sub" && "${SUT}" --force "${worktree}") 2>/dev/null; then
-    printf 'FAIL: removed the worktree containing the current directory\n' >&2
-    exit 1
-  fi
-  assert_worktree_kept "${repo}" "${worktree}"
+	if (cd "${worktree}/sub" && "${SUT}" --force "${worktree}") 2>/dev/null; then
+		printf 'FAIL: removed the worktree containing the current directory\n' >&2
+		exit 1
+	fi
+	assert_worktree_kept "${repo}" "${worktree}"
 }
 
 test_ignored_root_precommit_config_allows_removal

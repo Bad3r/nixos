@@ -16,18 +16,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="${SCRIPT_DIR}/../../scripts/lib/secrets-guard.sh"
 
 if [[ ! -f ${SUT} ]]; then
-  printf 'run.sh: SUT not found at %s\n' "${SUT}" >&2
-  exit 2
+	printf 'run.sh: SUT not found at %s\n' "${SUT}" >&2
+	exit 2
 fi
 # shellcheck source-path=SCRIPTDIR source=../../scripts/lib/secrets-guard.sh disable=SC1091
 source "${SUT}"
 
 tmpdir="$(mktemp -d)"
 cleanup() {
-  if [[ -d ${tmpdir} ]]; then
-    chmod -R u+w "${tmpdir}"
-    rm -r "${tmpdir}"
-  fi
+	if [[ -d ${tmpdir} ]]; then
+		chmod -R u+w "${tmpdir}"
+		rm -r "${tmpdir}"
+	fi
 }
 trap cleanup EXIT
 
@@ -42,29 +42,29 @@ tests_passed=0
 tests_ran=()
 
 pass() {
-  tests_passed=$((tests_passed + 1))
-  # The caller's name, so the tail of this file can assert that every case
-  # defined here actually ran rather than trusting the invocation list.
-  tests_ran+=("${FUNCNAME[1]}")
+	tests_passed=$((tests_passed + 1))
+	# The caller's name, so the tail of this file can assert that every case
+	# defined here actually ran rather than trusting the invocation list.
+	tests_ran+=("${FUNCNAME[1]}")
 }
 
 fail() {
-  printf 'FAIL: %s\n' "$1" >&2
-  if [[ -n ${2:-} && -f ${2:-} ]]; then
-    printf '%s\n' '--- guard output ---' >&2
-    cat "$2" >&2
-    printf '%s\n' '--------------------' >&2
-  fi
-  exit 1
+	printf 'FAIL: %s\n' "$1" >&2
+	if [[ -n ${2:-} && -f ${2:-} ]]; then
+		printf '%s\n' '--- guard output ---' >&2
+		cat "$2" >&2
+		printf '%s\n' '--------------------' >&2
+	fi
+	exit 1
 }
 
 init_repo() {
-  local repo="$1"
+	local repo="$1"
 
-  mkdir -p "${repo}"
-  git init -q -b main "${repo}"
-  git -C "${repo}" config user.email tests@example.invalid
-  git -C "${repo}" config user.name "secrets-guard tests"
+	mkdir -p "${repo}"
+	git init -q -b main "${repo}"
+	git -C "${repo}" config user.email tests@example.invalid
+	git -C "${repo}" config user.name "secrets-guard tests"
 }
 
 # The block as the committed .gitignore carries it, comments included:
@@ -73,9 +73,9 @@ init_repo() {
 # rather than read from the repo's own .gitignore so a mutation test can change
 # one line without the fixture depending on the tree the suite runs in.
 write_secrets_block() {
-  local repo="$1"
+	local repo="$1"
 
-  cat >"${repo}/.gitignore" <<'BLOCK'
+	cat >"${repo}/.gitignore" <<'BLOCK'
 # Secrets safety (defense-in-depth)
 # Do not commit private keys or local env files
 ########################################
@@ -99,56 +99,56 @@ BLOCK
 
 # A repo carrying the block, committed, with nothing untracked.
 make_repo() {
-  local repo="${tmpdir}/$1"
+	local repo="${tmpdir}/$1"
 
-  init_repo "${repo}"
-  write_secrets_block "${repo}"
-  printf '%s\n' readme >"${repo}/README.md"
-  git -C "${repo}" add .gitignore README.md
-  git -C "${repo}" commit -q -m "initial commit"
-  printf '%s\n' "${repo}"
+	init_repo "${repo}"
+	write_secrets_block "${repo}"
+	printf '%s\n' readme >"${repo}/README.md"
+	git -C "${repo}" add .gitignore README.md
+	git -C "${repo}" commit -q -m "initial commit"
+	printf '%s\n' "${repo}"
 }
 
 # secrets_guard_paths writes NUL-delimited hits to stdout and returns nonzero
 # when it could not scan, so both go through files: command substitution strips
 # NUL, which is the ambiguity the guard's own -z handling exists to remove.
 scan() {
-  local dir="$1"
-  scan_rc=0
-  secrets_guard_paths "${dir}" >"${tmpdir}/hits.bin" 2>"${tmpdir}/scan.err" || scan_rc=$?
-  hits=()
-  if [[ -s ${tmpdir}/hits.bin ]]; then
-    mapfile -d '' -t hits <"${tmpdir}/hits.bin"
-  fi
+	local dir="$1"
+	scan_rc=0
+	secrets_guard_paths "${dir}" >"${tmpdir}/hits.bin" 2>"${tmpdir}/scan.err" || scan_rc=$?
+	hits=()
+	if [[ -s ${tmpdir}/hits.bin ]]; then
+		mapfile -d '' -t hits <"${tmpdir}/hits.bin"
+	fi
 }
 
 enforce() {
-  local dir="$1"
-  local copier="${2:-path:${dir}}"
-  enforce_rc=0
-  secrets_guard_enforce "${dir}" "${copier}" \
-    >"${tmpdir}/enforce.out" 2>"${tmpdir}/enforce.err" || enforce_rc=$?
+	local dir="$1"
+	local copier="${2:-path:${dir}}"
+	enforce_rc=0
+	secrets_guard_enforce "${dir}" "${copier}" \
+		>"${tmpdir}/enforce.out" 2>"${tmpdir}/enforce.err" || enforce_rc=$?
 }
 
 has_hit() {
-  local want="$1"
-  local hit
-  for hit in "${hits[@]}"; do
-    [[ ${hit} == "${want}" ]] && return 0
-  done
-  return 1
+	local want="$1"
+	local hit
+	for hit in "${hits[@]}"; do
+		[[ ${hit} == "${want}" ]] && return 0
+	done
+	return 1
 }
 
 assert_hit() {
-  local want="$1"
-  local label="$2"
-  has_hit "${want}" || fail "${label}: expected a hit for ${want}, got: ${hits[*]:-none}" "${tmpdir}/scan.err"
+	local want="$1"
+	local label="$2"
+	has_hit "${want}" || fail "${label}: expected a hit for ${want}, got: ${hits[*]:-none}" "${tmpdir}/scan.err"
 }
 
 assert_no_hit() {
-  local want="$1"
-  local label="$2"
-  ! has_hit "${want}" || fail "${label}: unexpected hit for ${want}"
+	local want="$1"
+	local label="$2"
+	! has_hit "${want}" || fail "${label}: unexpected hit for ${want}"
 }
 
 # A mktemp that hands back a write-only path on its Nth call and an ordinary one
@@ -160,22 +160,22 @@ assert_no_hit() {
 # below while it runs, so a bare chmod or wc in here would be reported as the
 # guard's own failure rather than the fixture's.
 make_unreadable_mktemp_stub() {
-  local stub="$1"
-  local nth="$2"
-  local tool
+	local stub="$1"
+	local nth="$2"
+	local tool
 
-  mkdir -p "${stub}"
-  for tool in git grep awk rm; do
-    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
-  done
-  {
-    printf '%s\n' '#!/bin/sh'
-    printf 'real_mktemp="%s"\n' "$(type -P mktemp)"
-    printf 'real_chmod="%s"\n' "$(type -P chmod)"
-    printf 'real_wc="%s"\n' "$(type -P wc)"
-    printf 'counter="%s"\n' "${stub}/calls"
-    printf 'nth="%s"\n' "${nth}"
-    cat <<'STUB'
+	mkdir -p "${stub}"
+	for tool in git grep awk rm; do
+		ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+	done
+	{
+		printf '%s\n' '#!/bin/sh'
+		printf 'real_mktemp="%s"\n' "$(type -P mktemp)"
+		printf 'real_chmod="%s"\n' "$(type -P chmod)"
+		printf 'real_wc="%s"\n' "$(type -P wc)"
+		printf 'counter="%s"\n' "${stub}/calls"
+		printf 'nth="%s"\n' "${nth}"
+		cat <<'STUB'
 p="$("${real_mktemp}" "$@")"
 printf 'x' >>"${counter}"
 if [ "$("${real_wc}" -c <"${counter}")" -eq "${nth}" ]; then
@@ -183,8 +183,8 @@ if [ "$("${real_wc}" -c <"${counter}")" -eq "${nth}" ]; then
 fi
 printf '%s\n' "${p}"
 STUB
-  } >"${stub}/mktemp"
-  chmod +x "${stub}/mktemp"
+	} >"${stub}/mktemp"
+	chmod +x "${stub}/mktemp"
 }
 
 # --- the .gitignore parser -------------------------------------------------
@@ -193,33 +193,33 @@ STUB
 # that still parses can still have lost a pattern. Both ways of losing one have
 # to fail closed.
 test_parser_fails_closed_on_renamed_heading() {
-  local repo
-  repo="$(make_repo parser-heading)"
-  sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
-  : >"${repo}/probe.pem"
+	local repo
+	repo="$(make_repo parser-heading)"
+	sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
+	: >"${repo}/probe.pem"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 1 ]] || fail "renamed heading: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
-  grep -q 'did not yield the expected patterns' "${tmpdir}/scan.err" ||
-    fail "renamed heading: no parser error" "${tmpdir}/scan.err"
-  [[ ${#hits[@]} -eq 0 ]] || fail "renamed heading: reported hits from an unparsed block"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 1 ]] || fail "renamed heading: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+	grep -q 'did not yield the expected patterns' "${tmpdir}/scan.err" ||
+		fail "renamed heading: no parser error" "${tmpdir}/scan.err"
+	[[ ${#hits[@]} -eq 0 ]] || fail "renamed heading: reported hits from an unparsed block"
+	pass
 }
 
 # A blank line ends the block, so one inserted mid-block leaves deny non-empty
 # while dropping everything after it. A count check cannot see that, which is
 # why the guard names the patterns it requires.
 test_parser_fails_closed_on_blank_line_mid_block() {
-  local repo
-  repo="$(make_repo parser-blank)"
-  sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/\n&/' "${repo}/.gitignore"
-  : >"${repo}/probe.pem"
+	local repo
+	repo="$(make_repo parser-blank)"
+	sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/\n&/' "${repo}/.gitignore"
+	: >"${repo}/probe.pem"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 1 ]] || fail "blank line mid-block: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
-  grep -q 'missing: id_\* decrypted_\* \*\.dec\.\*' "${tmpdir}/scan.err" ||
-    fail "blank line mid-block: error did not name the dropped patterns" "${tmpdir}/scan.err"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 1 ]] || fail "blank line mid-block: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+	grep -q 'missing: id_\* decrypted_\* \*\.dec\.\*' "${tmpdir}/scan.err" ||
+		fail "blank line mid-block: error did not name the dropped patterns" "${tmpdir}/scan.err"
+	pass
 }
 
 # A process substitution discards awk's status, so an unreadable .gitignore
@@ -228,19 +228,19 @@ test_parser_fails_closed_on_blank_line_mid_block() {
 # this on grep reading the same file now, so the production route needs the mode
 # to change in between; this entry point is the one the suite itself uses.
 test_parser_splits_an_unreadable_gitignore_from_a_changed_block() {
-  local repo
-  repo="$(make_repo parser-unreadable)"
-  : >"${repo}/probe.pem"
-  chmod 000 "${repo}/.gitignore"
+	local repo
+	repo="$(make_repo parser-unreadable)"
+	: >"${repo}/probe.pem"
+	chmod 000 "${repo}/.gitignore"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 1 ]] || fail "unreadable block: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
-  grep -q '^Error: Reading .*\.gitignore failed (awk exit' "${tmpdir}/scan.err" ||
-    fail "unreadable block: the abort did not name the read" "${tmpdir}/scan.err"
-  ! grep -q 'did not yield the expected patterns' "${tmpdir}/scan.err" ||
-    fail "unreadable block: blamed a block it never read" "${tmpdir}/scan.err"
-  [[ ${#hits[@]} -eq 0 ]] || fail "unreadable block: reported hits from an unparsed block"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 1 ]] || fail "unreadable block: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+	grep -q '^Error: Reading .*\.gitignore failed (awk exit' "${tmpdir}/scan.err" ||
+		fail "unreadable block: the abort did not name the read" "${tmpdir}/scan.err"
+	! grep -q 'did not yield the expected patterns' "${tmpdir}/scan.err" ||
+		fail "unreadable block: blamed a block it never read" "${tmpdir}/scan.err"
+	[[ ${#hits[@]} -eq 0 ]] || fail "unreadable block: reported hits from an unparsed block"
+	pass
 }
 
 # A directory-only rule is all prefix, so reducing it to its last component
@@ -248,33 +248,33 @@ test_parser_splits_an_unreadable_gitignore_from_a_changed_block() {
 # The minimum-set check cannot see that: the ten names it asserts are all still
 # there, and this entry is an addition rather than one of them going missing.
 test_parser_enforces_a_directory_only_pattern() {
-  local repo
-  repo="$(make_repo parser-dir-pattern)"
-  sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/secrets\/keys\/\n&/' "${repo}/.gitignore"
-  mkdir -p "${repo}/secrets/keys"
-  : >"${repo}/secrets/keys/payload.bin"
+	local repo
+	repo="$(make_repo parser-dir-pattern)"
+	sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/secrets\/keys\/\n&/' "${repo}/.gitignore"
+	mkdir -p "${repo}/secrets/keys"
+	: >"${repo}/secrets/keys/payload.bin"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "directory-only pattern: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit secrets/keys/payload.bin "directory-only pattern"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "directory-only pattern: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit secrets/keys/payload.bin "directory-only pattern"
+	pass
 }
 
 # What the trailing-slash strip cannot rescue aborts instead of being skipped.
 # Dropping it quietly is the same silent thinning the case above covers, one
 # entry shape further out.
 test_parser_fails_closed_on_a_pattern_with_no_name() {
-  local repo
-  repo="$(make_repo parser-nameless)"
-  sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/foo\/\/\n&/' "${repo}/.gitignore"
-  : >"${repo}/probe.pem"
+	local repo
+	repo="$(make_repo parser-nameless)"
+	sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/foo\/\/\n&/' "${repo}/.gitignore"
+	: >"${repo}/probe.pem"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 1 ]] || fail "nameless pattern: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
-  grep -q "holds 'foo//', which reduces to no name" "${tmpdir}/scan.err" ||
-    fail "nameless pattern: the abort did not quote the entry" "${tmpdir}/scan.err"
-  [[ ${#hits[@]} -eq 0 ]] || fail "nameless pattern: reported hits from a block it refused"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 1 ]] || fail "nameless pattern: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+	grep -q "holds 'foo//', which reduces to no name" "${tmpdir}/scan.err" ||
+		fail "nameless pattern: the abort did not quote the entry" "${tmpdir}/scan.err"
+	[[ ${#hits[@]} -eq 0 ]] || fail "nameless pattern: reported hits from a block it refused"
+	pass
 }
 
 # --- secrets_guard_tracked -------------------------------------------------
@@ -282,146 +282,146 @@ test_parser_fails_closed_on_a_pattern_with_no_name() {
 # Three answers, not two. Collapsing 128 into "not tracked" reads a broken
 # repository as a foreign tree and skips the scan.
 test_tracked_splits_three_ways() {
-  local repo rc
-  repo="$(make_repo tracked)"
-  : >"${repo}/untracked.txt"
+	local repo rc
+	repo="$(make_repo tracked)"
+	: >"${repo}/untracked.txt"
 
-  rc=0
-  secrets_guard_tracked "${repo}" README.md || rc=$?
-  [[ ${rc} -eq 0 ]] || fail "tracked file: expected rc 0, got ${rc}"
+	rc=0
+	secrets_guard_tracked "${repo}" README.md || rc=$?
+	[[ ${rc} -eq 0 ]] || fail "tracked file: expected rc 0, got ${rc}"
 
-  rc=0
-  secrets_guard_tracked "${repo}" untracked.txt || rc=$?
-  [[ ${rc} -eq 1 ]] || fail "untracked file: expected rc 1, got ${rc}"
+	rc=0
+	secrets_guard_tracked "${repo}" untracked.txt || rc=$?
+	[[ ${rc} -eq 1 ]] || fail "untracked file: expected rc 1, got ${rc}"
 
-  printf 'garbage, not an index\n' >"${repo}/.git/index"
-  rc=0
-  secrets_guard_tracked "${repo}" README.md || rc=$?
-  [[ ${rc} -eq 128 ]] || fail "corrupt index: expected rc 128, got ${rc}"
-  pass
+	printf 'garbage, not an index\n' >"${repo}/.git/index"
+	rc=0
+	secrets_guard_tracked "${repo}" README.md || rc=$?
+	[[ ${rc} -eq 128 ]] || fail "corrupt index: expected rc 128, got ${rc}"
+	pass
 }
 
 # --- the scan --------------------------------------------------------------
 
 test_scan_matches_deny_patterns_and_honours_the_allow_entry() {
-  local repo
-  repo="$(make_repo deny-allow)"
-  : >"${repo}/.env"
-  : >"${repo}/probe.pem"
-  : >"${repo}/id_ed25519"
-  : >"${repo}/id_ed25519.pub"
-  : >"${repo}/notes.md"
+	local repo
+	repo="$(make_repo deny-allow)"
+	: >"${repo}/.env"
+	: >"${repo}/probe.pem"
+	: >"${repo}/id_ed25519"
+	: >"${repo}/id_ed25519.pub"
+	: >"${repo}/notes.md"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "deny/allow: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit .env "deny/allow"
-  assert_hit probe.pem "deny/allow"
-  assert_hit id_ed25519 "deny/allow"
-  assert_no_hit id_ed25519.pub "deny/allow"
-  assert_no_hit notes.md "deny/allow"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "deny/allow: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit .env "deny/allow"
+	assert_hit probe.pem "deny/allow"
+	assert_hit id_ed25519 "deny/allow"
+	assert_no_hit id_ed25519.pub "deny/allow"
+	assert_no_hit notes.md "deny/allow"
+	pass
 }
 
 # ls-files reports the files inside an ignored directory rather than the
 # directory, so a basename-only match copies id_backup/ whole while none of its
 # children match anything.
 test_scan_walks_every_path_component() {
-  local repo
-  repo="$(make_repo component-walk)"
-  mkdir -p "${repo}/id_backup"
-  : >"${repo}/id_backup/notes.txt"
+	local repo
+	repo="$(make_repo component-walk)"
+	mkdir -p "${repo}/id_backup"
+	: >"${repo}/id_backup/notes.txt"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "component walk: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit id_backup/notes.txt "component walk"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "component walk: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit id_backup/notes.txt "component walk"
+	pass
 }
 
 # The anchored patterns are reduced to their last component, so a stray
 # root-level decrypted_* aborts even though git check-ignore matches nothing:
 # the anchor scopes git's ignore rule, not this scan.
 test_scan_matches_the_anchored_patterns_by_name() {
-  local repo
-  repo="$(make_repo anchored)"
-  : >"${repo}/decrypted_context7.yaml"
-  : >"${repo}/probe.dec.txt"
+	local repo
+	repo="$(make_repo anchored)"
+	: >"${repo}/decrypted_context7.yaml"
+	: >"${repo}/probe.dec.txt"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "anchored: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit decrypted_context7.yaml "anchored"
-  assert_hit probe.dec.txt "anchored"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "anchored: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit decrypted_context7.yaml "anchored"
+	assert_hit probe.dec.txt "anchored"
+	pass
 }
 
 # ls-files stops at a repository boundary, reporting the directory once and
 # never opening it, so nothing inside was ever compared against the block.
 # path: has no such boundary, which makes the boundary itself the hit.
 test_scan_reports_a_nested_repository_boundary() {
-  local repo
-  repo="$(make_repo nested-repo)"
-  init_repo "${repo}/scratch"
-  : >"${repo}/scratch/.env"
+	local repo
+	repo="$(make_repo nested-repo)"
+	init_repo "${repo}/scratch"
+	: >"${repo}/scratch/.env"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "nested repo: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit scratch/ "nested repo"
-  assert_no_hit scratch/.env "nested repo"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "nested repo: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit scratch/ "nested repo"
+	assert_no_hit scratch/.env "nested repo"
+	pass
 }
 
 # A plain untracked directory is not a boundary: git descends into it, so only
 # what matches the block is reported and result/ or .direnv/ stay clear.
 test_scan_leaves_a_plain_untracked_directory_alone() {
-  local repo
-  repo="$(make_repo plain-dir)"
-  mkdir -p "${repo}/.direnv"
-  : >"${repo}/.direnv/flake-profile"
+	local repo
+	repo="$(make_repo plain-dir)"
+	mkdir -p "${repo}/.direnv"
+	: >"${repo}/.direnv/flake-profile"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "plain dir: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  [[ ${#hits[@]} -eq 0 ]] || fail "plain dir: reported ${hits[*]}"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "plain dir: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	[[ ${#hits[@]} -eq 0 ]] || fail "plain dir: reported ${hits[*]}"
+	pass
 }
 
 # Input and output are both NUL delimited so a path holding a newline is
 # matched once and reported once. Newline-delimited it was matched as one path
 # and reported as two, with the tally inflated to match.
 test_scan_round_trips_a_path_holding_a_newline() {
-  local repo probe
-  repo="$(make_repo newline)"
-  probe=$'two\nlines.pem'
-  : >"${repo}/${probe}"
+	local repo probe
+	repo="$(make_repo newline)"
+	probe=$'two\nlines.pem'
+	: >"${repo}/${probe}"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "newline: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  [[ ${#hits[@]} -eq 1 ]] || fail "newline: expected 1 hit, got ${#hits[@]}"
-  [[ ${hits[0]} == "${probe}" ]] || fail "newline: hit was mangled to ${hits[0]}"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "newline: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	[[ ${#hits[@]} -eq 1 ]] || fail "newline: expected 1 hit, got ${#hits[@]}"
+	[[ ${hits[0]} == "${probe}" ]] || fail "newline: hit was mangled to ${hits[0]}"
+	pass
 }
 
 # ls-files stops at a gitlink, but path: copies submodule working trees whole,
 # and the block mirrors the submodule's own decrypted_* rules so this pass can
 # classify with the same patterns instead of reporting every untracked file.
 test_scan_covers_submodule_working_trees() {
-  local repo source
-  repo="$(make_repo submodule)"
-  source="${tmpdir}/submodule-source"
-  init_repo "${source}"
-  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
-  printf '%s\n' 'submodule' >"${source}/README.md"
-  git -C "${source}" add .gitignore README.md
-  git -C "${source}" commit -q -m "initial submodule"
+	local repo source
+	repo="$(make_repo submodule)"
+	source="${tmpdir}/submodule-source"
+	init_repo "${source}"
+	printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+	printf '%s\n' 'submodule' >"${source}/README.md"
+	git -C "${source}" add .gitignore README.md
+	git -C "${source}" commit -q -m "initial submodule"
 
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
-  git -C "${repo}" commit -q -m "add submodule"
-  : >"${repo}/secrets/decrypted_probe.yaml"
-  : >"${repo}/secrets/build-output.bin"
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
+	git -C "${repo}" commit -q -m "add submodule"
+	: >"${repo}/secrets/decrypted_probe.yaml"
+	: >"${repo}/secrets/build-output.bin"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "submodule: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit secrets/decrypted_probe.yaml "submodule"
-  assert_no_hit secrets/build-output.bin "submodule"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "submodule: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit secrets/decrypted_probe.yaml "submodule"
+	assert_no_hit secrets/build-output.bin "submodule"
+	pass
 }
 
 # The enumeration was the one input here that was not NUL delimited, so a
@@ -431,36 +431,36 @@ test_scan_covers_submodule_working_trees() {
 # clean, nothing aborts, and the working tree path: copies whole is never
 # scanned. Unlike the file-path case, that failed open.
 test_scan_round_trips_a_submodule_path_holding_a_newline() {
-  local repo source sub
-  repo="$(make_repo submodule-newline)"
-  source="${tmpdir}/submodule-newline-source"
-  init_repo "${source}"
-  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
-  printf '%s\n' 'submodule' >"${source}/README.md"
-  git -C "${source}" add .gitignore README.md
-  git -C "${source}" commit -q -m "initial submodule"
+	local repo source sub
+	repo="$(make_repo submodule-newline)"
+	source="${tmpdir}/submodule-newline-source"
+	init_repo "${source}"
+	printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+	printf '%s\n' 'submodule' >"${source}/README.md"
+	git -C "${source}" add .gitignore README.md
+	git -C "${source}" commit -q -m "initial submodule"
 
-  # Added under an ordinary name and relocated, since submodule add refuses the
-  # newline outright ("invalid key (newline)") while git mv rewrites .gitmodules
-  # through git config quoting, which hands the real newline back to foreach.
-  sub="$(printf 'lib\nkeys')"
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" placeholder
-  git -C "${repo}" commit -q -m "add submodule"
-  git -C "${repo}" mv placeholder "${sub}"
-  git -C "${repo}" commit -q -m "a submodule path holding a newline"
+	# Added under an ordinary name and relocated, since submodule add refuses the
+	# newline outright ("invalid key (newline)") while git mv rewrites .gitmodules
+	# through git config quoting, which hands the real newline back to foreach.
+	sub="$(printf 'lib\nkeys')"
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" placeholder
+	git -C "${repo}" commit -q -m "add submodule"
+	git -C "${repo}" mv placeholder "${sub}"
+	git -C "${repo}" commit -q -m "a submodule path holding a newline"
 
-  # Both halves the split lands on, as ordinary untracked directories that list
-  # clean: with either missing the old code aborted on a submodule that is not
-  # there, which is closed rather than open and hides what this covers.
-  mkdir -p "${repo}/lib" "${repo}/keys"
-  : >"${repo}/lib/notes.txt"
-  : >"${repo}/keys/notes.txt"
-  : >"${repo}/${sub}/decrypted_probe.yaml"
+	# Both halves the split lands on, as ordinary untracked directories that list
+	# clean: with either missing the old code aborted on a submodule that is not
+	# there, which is closed rather than open and hides what this covers.
+	mkdir -p "${repo}/lib" "${repo}/keys"
+	: >"${repo}/lib/notes.txt"
+	: >"${repo}/keys/notes.txt"
+	: >"${repo}/${sub}/decrypted_probe.yaml"
 
-  scan "${repo}"
-  [[ ${scan_rc} -eq 0 ]] || fail "submodule newline: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_hit "${sub}/decrypted_probe.yaml" "submodule newline"
-  pass
+	scan "${repo}"
+	[[ ${scan_rc} -eq 0 ]] || fail "submodule newline: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_hit "${sub}/decrypted_probe.yaml" "submodule newline"
+	pass
 }
 
 # ls-files is confined to ${dir}, foreach is not: from a subdirectory it walks
@@ -470,29 +470,29 @@ test_scan_round_trips_a_submodule_path_holding_a_newline() {
 # to carry the block while this needs it not to. One submodule each side of the
 # boundary, because dropping the outside one must not drop the inside one.
 test_scan_skips_submodules_outside_the_scanned_directory() {
-  local repo source
-  repo="$(make_repo submodule-outside)"
-  source="${tmpdir}/submodule-outside-source"
-  init_repo "${source}"
-  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
-  printf '%s\n' 'submodule' >"${source}/README.md"
-  git -C "${source}" add .gitignore README.md
-  git -C "${source}" commit -q -m "initial submodule"
+	local repo source
+	repo="$(make_repo submodule-outside)"
+	source="${tmpdir}/submodule-outside-source"
+	init_repo "${source}"
+	printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+	printf '%s\n' 'submodule' >"${source}/README.md"
+	git -C "${source}" add .gitignore README.md
+	git -C "${source}" commit -q -m "initial submodule"
 
-  mkdir -p "${repo}/sub"
-  write_secrets_block "${repo}/sub"
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" sub/inner
-  git -C "${repo}" add sub/.gitignore
-  git -C "${repo}" commit -q -m "a submodule each side of sub/"
-  : >"${repo}/secrets/decrypted_outside.yaml"
-  : >"${repo}/sub/inner/decrypted_inside.yaml"
+	mkdir -p "${repo}/sub"
+	write_secrets_block "${repo}/sub"
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" sub/inner
+	git -C "${repo}" add sub/.gitignore
+	git -C "${repo}" commit -q -m "a submodule each side of sub/"
+	: >"${repo}/secrets/decrypted_outside.yaml"
+	: >"${repo}/sub/inner/decrypted_inside.yaml"
 
-  scan "${repo}/sub"
-  [[ ${scan_rc} -eq 0 ]] || fail "submodule outside: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
-  assert_no_hit ../secrets/decrypted_outside.yaml "submodule outside"
-  assert_hit inner/decrypted_inside.yaml "submodule outside"
-  pass
+	scan "${repo}/sub"
+	[[ ${scan_rc} -eq 0 ]] || fail "submodule outside: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+	assert_no_hit ../secrets/decrypted_outside.yaml "submodule outside"
+	assert_hit inner/decrypted_inside.yaml "submodule outside"
+	pass
 }
 
 # The preflight proves mktemp is present, not that it works, so a read-only
@@ -501,28 +501,28 @@ test_scan_skips_submodules_outside_the_scanned_directory() {
 # exists to prevent. Driven through secrets_guard_paths directly: enforce's own
 # mktemp fails first and this call site is never reached through it.
 test_scan_fails_closed_on_a_failing_mktemp() {
-  local repo stub tool
-  repo="$(make_repo scan-mktemp)"
-  : >"${repo}/id_ed25519"
+	local repo stub tool
+	repo="$(make_repo scan-mktemp)"
+	: >"${repo}/id_ed25519"
 
-  stub="${tmpdir}/stub-failing-mktemp-scan"
-  mkdir -p "${stub}"
-  for tool in git grep awk rm; do
-    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
-  done
-  # Present for command -v and creating nothing, unlike the failing rm below,
-  # which delegates first: here the missing file is the point.
-  printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
-  chmod +x "${stub}/mktemp"
+	stub="${tmpdir}/stub-failing-mktemp-scan"
+	mkdir -p "${stub}"
+	for tool in git grep awk rm; do
+		ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+	done
+	# Present for command -v and creating nothing, unlike the failing rm below,
+	# which delegates first: here the missing file is the point.
+	printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
+	chmod +x "${stub}/mktemp"
 
-  PATH="${stub}" scan "${repo}"
-  [[ ${scan_rc} -eq 1 ]] ||
-    fail "failing mktemp: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
-  grep -q '^Error: Creating a temporary file for the scan' "${tmpdir}/scan.err" ||
-    fail "failing mktemp: the abort did not name the temp file" "${tmpdir}/scan.err"
-  ! grep -q 'Listing untracked files' "${tmpdir}/scan.err" ||
-    fail "failing mktemp: blamed a git call that never ran" "${tmpdir}/scan.err"
-  pass
+	PATH="${stub}" scan "${repo}"
+	[[ ${scan_rc} -eq 1 ]] ||
+		fail "failing mktemp: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+	grep -q '^Error: Creating a temporary file for the scan' "${tmpdir}/scan.err" ||
+		fail "failing mktemp: the abort did not name the temp file" "${tmpdir}/scan.err"
+	! grep -q 'Listing untracked files' "${tmpdir}/scan.err" ||
+		fail "failing mktemp: blamed a git call that never ran" "${tmpdir}/scan.err"
+	pass
 }
 
 # printf was the one write the scan never checked, and it fails open in the
@@ -532,141 +532,141 @@ test_scan_fails_closed_on_a_failing_mktemp() {
 # can reach it. Called directly rather than through scan(), which writes to a
 # file that works.
 test_scan_fails_closed_on_an_unwritable_hit_list() {
-  local repo rc
-  repo="$(make_repo scan-write)"
-  : >"${repo}/id_ed25519"
+	local repo rc
+	repo="$(make_repo scan-write)"
+	: >"${repo}/id_ed25519"
 
-  rc=0
-  secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
-  [[ ${rc} -eq 1 ]] || fail "unwritable hit list: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
-  grep -q '^Error: Writing the hit list' "${tmpdir}/scan.err" ||
-    fail "unwritable hit list: the abort did not name the write" "${tmpdir}/scan.err"
-  pass
+	rc=0
+	secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
+	[[ ${rc} -eq 1 ]] || fail "unwritable hit list: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
+	grep -q '^Error: Writing the hit list' "${tmpdir}/scan.err" ||
+		fail "unwritable hit list: the abort did not name the write" "${tmpdir}/scan.err"
+	pass
 }
 
 # The submodule pass has its own printf and its own message, so a case whose only
 # hit is at the top level never reaches it.
 test_scan_fails_closed_on_an_unwritable_submodule_hit() {
-  local repo source rc
-  repo="$(make_repo scan-write-submodule)"
-  source="${tmpdir}/scan-write-submodule-source"
-  init_repo "${source}"
-  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
-  printf '%s\n' 'submodule' >"${source}/README.md"
-  git -C "${source}" add .gitignore README.md
-  git -C "${source}" commit -q -m "initial submodule"
+	local repo source rc
+	repo="$(make_repo scan-write-submodule)"
+	source="${tmpdir}/scan-write-submodule-source"
+	init_repo "${source}"
+	printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+	printf '%s\n' 'submodule' >"${source}/README.md"
+	git -C "${source}" add .gitignore README.md
+	git -C "${source}" commit -q -m "initial submodule"
 
-  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
-  git -C "${repo}" commit -q -m "add submodule"
-  # The only hit is inside the submodule, so the top-level loop writes nothing
-  # and the failure can only come from the second printf.
-  : >"${repo}/secrets/decrypted_probe.yaml"
+	git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
+	git -C "${repo}" commit -q -m "add submodule"
+	# The only hit is inside the submodule, so the top-level loop writes nothing
+	# and the failure can only come from the second printf.
+	: >"${repo}/secrets/decrypted_probe.yaml"
 
-  rc=0
-  secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
-  [[ ${rc} -eq 1 ]] || fail "unwritable submodule hit: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
-  grep -q 'Writing the hit list for submodule secrets' "${tmpdir}/scan.err" ||
-    fail "unwritable submodule hit: the abort did not name the submodule" "${tmpdir}/scan.err"
-  pass
+	rc=0
+	secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
+	[[ ${rc} -eq 1 ]] || fail "unwritable submodule hit: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
+	grep -q 'Writing the hit list for submodule secrets' "${tmpdir}/scan.err" ||
+		fail "unwritable submodule hit: the abort did not name the submodule" "${tmpdir}/scan.err"
+	pass
 }
 
 # A redirect that cannot open its file skips the loop rather than failing it, so
 # an unreadable listing classified nothing and still fell through to return 0.
 # The scan file is the second mktemp, and git writes it before the loop reads it.
 test_scan_fails_closed_on_an_unreadable_listing() {
-  local repo stub
-  repo="$(make_repo scan-read)"
-  : >"${repo}/id_ed25519"
+	local repo stub
+	repo="$(make_repo scan-read)"
+	: >"${repo}/id_ed25519"
 
-  stub="${tmpdir}/stub-unreadable-scan"
-  make_unreadable_mktemp_stub "${stub}" 2
+	stub="${tmpdir}/stub-unreadable-scan"
+	make_unreadable_mktemp_stub "${stub}" 2
 
-  PATH="${stub}" enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "unreadable listing: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q '^Error: Reading the untracked listing' "${tmpdir}/enforce.err" ||
-    fail "unreadable listing: the abort did not name the read" "${tmpdir}/enforce.err"
-  ! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
-    fail "unreadable listing: reported a hit it never classified" "${tmpdir}/enforce.err"
-  pass
+	PATH="${stub}" enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "unreadable listing: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q '^Error: Reading the untracked listing' "${tmpdir}/enforce.err" ||
+		fail "unreadable listing: the abort did not name the read" "${tmpdir}/enforce.err"
+	! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+		fail "unreadable listing: reported a hit it never classified" "${tmpdir}/enforce.err"
+	pass
 }
 
 # --- secrets_guard_enforce -------------------------------------------------
 
 test_enforce_returns_zero_on_a_clean_tree() {
-  local repo
-  repo="$(make_repo enforce-clean)"
+	local repo
+	repo="$(make_repo enforce-clean)"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 0 ]] || fail "clean tree: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 0 ]] || fail "clean tree: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	pass
 }
 
 test_enforce_reports_a_hit_and_names_the_copier() {
-  local repo
-  repo="$(make_repo enforce-hit)"
-  : >"${repo}/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-hit)"
+	: >"${repo}/id_ed25519"
 
-  enforce "${repo}" "the probe copier"
-  [[ ${enforce_rc} -eq 1 ]] || fail "hit: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'the probe copier' "${tmpdir}/enforce.err" ||
-    fail "hit: the abort did not name the copier" "${tmpdir}/enforce.err"
-  grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
-    fail "hit: the abort did not list the path" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}" "the probe copier"
+	[[ ${enforce_rc} -eq 1 ]] || fail "hit: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'the probe copier' "${tmpdir}/enforce.err" ||
+		fail "hit: the abort did not name the copier" "${tmpdir}/enforce.err"
+	grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+		fail "hit: the abort did not list the path" "${tmpdir}/enforce.err"
+	pass
 }
 
 # The notice and the abort both go to stderr, because cache-coverage.sh writes
 # its report to stdout and every skip fires before the report header.
 test_enforce_keeps_stdout_clear() {
-  local repo
-  repo="$(make_repo enforce-streams)"
-  : >"${repo}/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-streams)"
+	: >"${repo}/id_ed25519"
 
-  enforce "${repo}"
-  [[ -s ${tmpdir}/enforce.out ]] && fail "hit: wrote to stdout" "${tmpdir}/enforce.out"
+	enforce "${repo}"
+	[[ -s ${tmpdir}/enforce.out ]] && fail "hit: wrote to stdout" "${tmpdir}/enforce.out"
 
-  mkdir -p "${tmpdir}/enforce-streams-nongit"
-  enforce "${tmpdir}/enforce-streams-nongit"
-  [[ ${enforce_rc} -eq 0 ]] || fail "non-git skip: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  [[ -s ${tmpdir}/enforce.out ]] && fail "non-git skip: wrote the notice to stdout" "${tmpdir}/enforce.out"
-  grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
-    fail "non-git skip: no notice on stderr" "${tmpdir}/enforce.err"
-  pass
+	mkdir -p "${tmpdir}/enforce-streams-nongit"
+	enforce "${tmpdir}/enforce-streams-nongit"
+	[[ ${enforce_rc} -eq 0 ]] || fail "non-git skip: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	[[ -s ${tmpdir}/enforce.out ]] && fail "non-git skip: wrote the notice to stdout" "${tmpdir}/enforce.out"
+	grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
+		fail "non-git skip: no notice on stderr" "${tmpdir}/enforce.err"
+	pass
 }
 
 # The override is what gets an operator past a scratch tree that holds no
 # secret, so both spellings have to clear a tree that otherwise aborts.
 test_enforce_honours_the_override() {
-  local repo
-  repo="$(make_repo enforce-override)"
-  : >"${repo}/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-override)"
+	: >"${repo}/id_ed25519"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 1 ]] || fail "override control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 1 ]] || fail "override control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  ALLOW_SECRET_COPY=true enforce "${repo}"
-  [[ ${enforce_rc} -eq 0 ]] || fail "ALLOW_SECRET_COPY=true: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	ALLOW_SECRET_COPY=true enforce "${repo}"
+	[[ ${enforce_rc} -eq 0 ]] || fail "ALLOW_SECRET_COPY=true: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  ALLOW_SECRET_COPY=1 enforce "${repo}"
-  [[ ${enforce_rc} -eq 0 ]] || fail "ALLOW_SECRET_COPY=1: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  pass
+	ALLOW_SECRET_COPY=1 enforce "${repo}"
+	[[ ${enforce_rc} -eq 0 ]] || fail "ALLOW_SECRET_COPY=1: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	pass
 }
 
 # A tree that tracks the guard and has lost the heading has drifted, and that
 # has to fail closed rather than read as a repository that never had the block.
 test_enforce_fails_closed_when_the_guard_is_tracked() {
-  local repo
-  repo="$(make_repo enforce-drift)"
-  mkdir -p "${repo}/scripts/lib"
-  : >"${repo}/scripts/lib/secrets-guard.sh"
-  git -C "${repo}" add scripts/lib/secrets-guard.sh
-  git -C "${repo}" commit -q -m "add the guard"
-  sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
+	local repo
+	repo="$(make_repo enforce-drift)"
+	mkdir -p "${repo}/scripts/lib"
+	: >"${repo}/scripts/lib/secrets-guard.sh"
+	git -C "${repo}" add scripts/lib/secrets-guard.sh
+	git -C "${repo}" commit -q -m "add the guard"
+	sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] || fail "drift: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] || fail "drift: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	pass
 }
 
 # grep answers 0 match, 1 no match and 2 could not read, and -f is true for a
@@ -675,51 +675,51 @@ test_enforce_fails_closed_when_the_guard_is_tracked() {
 # which is the fail-open, and a tree tracking the guard reached the parser,
 # which blamed drift in a block awk could not read either.
 test_enforce_splits_an_unreadable_gitignore_from_a_missing_block() {
-  local repo foreign
+	local repo foreign
 
-  repo="$(make_repo enforce-unreadable)"
-  mkdir -p "${repo}/scripts/lib"
-  : >"${repo}/scripts/lib/secrets-guard.sh"
-  git -C "${repo}" add scripts/lib/secrets-guard.sh
-  git -C "${repo}" commit -q -m "add the guard"
-  : >"${repo}/id_ed25519"
-  chmod 000 "${repo}/.gitignore"
+	repo="$(make_repo enforce-unreadable)"
+	mkdir -p "${repo}/scripts/lib"
+	: >"${repo}/scripts/lib/secrets-guard.sh"
+	git -C "${repo}" add scripts/lib/secrets-guard.sh
+	git -C "${repo}" commit -q -m "add the guard"
+	: >"${repo}/id_ed25519"
+	chmod 000 "${repo}/.gitignore"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "unreadable gitignore: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q '^Error: Reading .*\.gitignore failed' "${tmpdir}/enforce.err" ||
-    fail "unreadable gitignore: the abort did not name the read" "${tmpdir}/enforce.err"
-  ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
-    fail "unreadable gitignore: blamed the block it never read" "${tmpdir}/enforce.err"
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "unreadable gitignore: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q '^Error: Reading .*\.gitignore failed' "${tmpdir}/enforce.err" ||
+		fail "unreadable gitignore: the abort did not name the read" "${tmpdir}/enforce.err"
+	! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
+		fail "unreadable gitignore: blamed the block it never read" "${tmpdir}/enforce.err"
 
-  # The same file, in a tree that does not track the guard, is where the old
-  # collapse returned 0 and copied the probe unscanned.
-  foreign="$(make_repo enforce-unreadable-foreign)"
-  : >"${foreign}/id_ed25519"
-  chmod 000 "${foreign}/.gitignore"
+	# The same file, in a tree that does not track the guard, is where the old
+	# collapse returned 0 and copied the probe unscanned.
+	foreign="$(make_repo enforce-unreadable-foreign)"
+	: >"${foreign}/id_ed25519"
+	chmod 000 "${foreign}/.gitignore"
 
-  enforce "${foreign}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "unreadable gitignore, foreign tree: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  ! grep -q 'does not track scripts/lib/secrets-guard.sh' "${tmpdir}/enforce.err" ||
-    fail "unreadable gitignore, foreign tree: skipped a file it could not read" "${tmpdir}/enforce.err"
-  pass
+	enforce "${foreign}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "unreadable gitignore, foreign tree: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	! grep -q 'does not track scripts/lib/secrets-guard.sh' "${tmpdir}/enforce.err" ||
+		fail "unreadable gitignore, foreign tree: skipped a file it could not read" "${tmpdir}/enforce.err"
+	pass
 }
 
 # The same shape without the guard is an ordinary repository whose .gitignore
 # never carried the block, so aborting would demand a block it never had.
 test_enforce_skips_a_tree_that_does_not_track_the_guard() {
-  local repo
-  repo="$(make_repo enforce-foreign)"
-  sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
-  : >"${repo}/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-foreign)"
+	sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
+	: >"${repo}/id_ed25519"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 0 ]] || fail "foreign tree: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'is not this repository' "${tmpdir}/enforce.err" ||
-    fail "foreign tree: no skip notice" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 0 ]] || fail "foreign tree: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'is not this repository' "${tmpdir}/enforce.err" ||
+		fail "foreign tree: no skip notice" "${tmpdir}/enforce.err"
+	pass
 }
 
 # Not one of these reports itself usefully from where it runs, which is why they
@@ -733,45 +733,45 @@ test_enforce_skips_a_tree_that_does_not_track_the_guard() {
 # No caller covers every route: build.sh has no required-tool loop and a checkout
 # run has no runtimeInputs.
 test_enforce_fails_closed_on_a_missing_external() {
-  local repo stub missing tool
+	local repo stub missing tool
 
-  repo="$(make_repo enforce-tools)"
-  : >"${repo}/id_ed25519"
+	repo="$(make_repo enforce-tools)"
+	: >"${repo}/id_ed25519"
 
-  # The control: with all five present this tree aborts on the hit, so an rc 2
-  # below is the missing tool rather than the fixture.
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 1 ]] || fail "tool control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	# The control: with all five present this tree aborts on the hit, so an rc 2
+	# below is the missing tool rather than the fixture.
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 1 ]] || fail "tool control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  # One stub per case, holding every tool the run needs except the one under
-  # test, so each is reached on its own rather than reported by an earlier miss.
-  # Assigning PATH clears bash's hashed command table, and the assignment is
-  # scoped to the call, so the suite's own grep still resolves afterwards.
-  for missing in git grep awk mktemp rm; do
-    stub="${tmpdir}/stub-no-${missing}"
-    mkdir -p "${stub}"
-    for tool in git grep awk mktemp rm; do
-      if [[ ${tool} != "${missing}" ]]; then
-        ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
-      fi
-    done
+	# One stub per case, holding every tool the run needs except the one under
+	# test, so each is reached on its own rather than reported by an earlier miss.
+	# Assigning PATH clears bash's hashed command table, and the assignment is
+	# scoped to the call, so the suite's own grep still resolves afterwards.
+	for missing in git grep awk mktemp rm; do
+		stub="${tmpdir}/stub-no-${missing}"
+		mkdir -p "${stub}"
+		for tool in git grep awk mktemp rm; do
+			if [[ ${tool} != "${missing}" ]]; then
+				ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+			fi
+		done
 
-    PATH="${stub}" enforce "${repo}"
-    [[ ${enforce_rc} -eq 2 ]] ||
-      fail "missing ${missing}: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-    grep -q "^Error: ${missing} was not found" "${tmpdir}/enforce.err" ||
-      fail "missing ${missing}: the abort did not name it" "${tmpdir}/enforce.err"
-    # The three ways the old code misread a missing tool: .gitignore drift for
-    # awk, a git call that never ran for mktemp, and a worktree reported as none
-    # for git, which was the fail-open.
-    ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
-      fail "missing ${missing}: blamed the .gitignore block instead" "${tmpdir}/enforce.err"
-    ! grep -q 'Listing untracked files' "${tmpdir}/enforce.err" ||
-      fail "missing ${missing}: blamed a git call that never ran" "${tmpdir}/enforce.err"
-    ! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
-      fail "missing ${missing}: skipped a real worktree instead of failing closed" "${tmpdir}/enforce.err"
-  done
-  pass
+		PATH="${stub}" enforce "${repo}"
+		[[ ${enforce_rc} -eq 2 ]] ||
+			fail "missing ${missing}: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+		grep -q "^Error: ${missing} was not found" "${tmpdir}/enforce.err" ||
+			fail "missing ${missing}: the abort did not name it" "${tmpdir}/enforce.err"
+		# The three ways the old code misread a missing tool: .gitignore drift for
+		# awk, a git call that never ran for mktemp, and a worktree reported as none
+		# for git, which was the fail-open.
+		! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
+			fail "missing ${missing}: blamed the .gitignore block instead" "${tmpdir}/enforce.err"
+		! grep -q 'Listing untracked files' "${tmpdir}/enforce.err" ||
+			fail "missing ${missing}: blamed a git call that never ran" "${tmpdir}/enforce.err"
+		! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
+			fail "missing ${missing}: skipped a real worktree instead of failing closed" "${tmpdir}/enforce.err"
+	done
+	pass
 }
 
 # rm -f closed secrets_guard_paths, so its status was the scan's status: a
@@ -779,31 +779,31 @@ test_enforce_fails_closed_on_a_missing_external() {
 # guard inoperative. Leaving a temp file behind is not a reason to stop reporting
 # secrets, so the scan returns success explicitly.
 test_scan_survives_a_failing_cleanup() {
-  local repo stub tool
+	local repo stub tool
 
-  repo="$(make_repo enforce-cleanup)"
-  : >"${repo}/id_ed25519"
+	repo="$(make_repo enforce-cleanup)"
+	: >"${repo}/id_ed25519"
 
-  # A real rm that reports failure, so the temp files still go and only the exit
-  # status is under test.
-  stub="${tmpdir}/stub-failing-rm"
-  mkdir -p "${stub}"
-  for tool in git grep awk mktemp; do
-    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
-  done
-  {
-    printf '%s\n' '#!/bin/sh'
-    printf '%s "$@"\n' "$(type -P rm)"
-    printf '%s\n' 'exit 1'
-  } >"${stub}/rm"
-  chmod +x "${stub}/rm"
+	# A real rm that reports failure, so the temp files still go and only the exit
+	# status is under test.
+	stub="${tmpdir}/stub-failing-rm"
+	mkdir -p "${stub}"
+	for tool in git grep awk mktemp; do
+		ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+	done
+	{
+		printf '%s\n' '#!/bin/sh'
+		printf '%s "$@"\n' "$(type -P rm)"
+		printf '%s\n' 'exit 1'
+	} >"${stub}/rm"
+	chmod +x "${stub}/rm"
 
-  PATH="${stub}" enforce "${repo}"
-  [[ ${enforce_rc} -eq 1 ]] ||
-    fail "failing cleanup: expected the hit at rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
-    fail "failing cleanup: the hit list was discarded" "${tmpdir}/enforce.err"
-  pass
+	PATH="${stub}" enforce "${repo}"
+	[[ ${enforce_rc} -eq 1 ]] ||
+		fail "failing cleanup: expected the hit at rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+		fail "failing cleanup: the hit list was discarded" "${tmpdir}/enforce.err"
+	pass
 }
 
 # The hit-list mktemp had no message of its own: an empty hits_file made the
@@ -811,30 +811,30 @@ test_scan_survives_a_failing_cleanup() {
 # the run returned 2 having printed nothing the guard wrote. Both callers
 # suspend errexit around this function, so no ERR trap covered it either.
 test_enforce_fails_closed_on_a_failing_mktemp() {
-  local repo stub tool
-  repo="$(make_repo enforce-mktemp)"
-  : >"${repo}/id_ed25519"
+	local repo stub tool
+	repo="$(make_repo enforce-mktemp)"
+	: >"${repo}/id_ed25519"
 
-  # The control: with a working mktemp this tree aborts on the hit, so the rc 2
-  # below is the temp file rather than the fixture.
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 1 ]] ||
-    fail "mktemp control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	# The control: with a working mktemp this tree aborts on the hit, so the rc 2
+	# below is the temp file rather than the fixture.
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 1 ]] ||
+		fail "mktemp control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  stub="${tmpdir}/stub-failing-mktemp-enforce"
-  mkdir -p "${stub}"
-  for tool in git grep awk rm; do
-    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
-  done
-  printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
-  chmod +x "${stub}/mktemp"
+	stub="${tmpdir}/stub-failing-mktemp-enforce"
+	mkdir -p "${stub}"
+	for tool in git grep awk rm; do
+		ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+	done
+	printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
+	chmod +x "${stub}/mktemp"
 
-  PATH="${stub}" enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "failing mktemp: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q '^Error: Creating a temporary file for the hit list' "${tmpdir}/enforce.err" ||
-    fail "failing mktemp: the abort printed no cause" "${tmpdir}/enforce.err"
-  pass
+	PATH="${stub}" enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "failing mktemp: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q '^Error: Creating a temporary file for the hit list' "${tmpdir}/enforce.err" ||
+		fail "failing mktemp: the abort printed no cause" "${tmpdir}/enforce.err"
+	pass
 }
 
 # Read side of the same round trip, and the last consumer of that file with no
@@ -842,35 +842,35 @@ test_enforce_fails_closed_on_a_failing_mktemp() {
 # that cannot open the file leaves hit_list at zero length and the clean-tree
 # check below reads that as a clear tree for a scan that found a secret.
 test_enforce_fails_closed_on_an_unreadable_hit_list() {
-  local repo stub
-  repo="$(make_repo enforce-read)"
-  : >"${repo}/id_ed25519"
+	local repo stub
+	repo="$(make_repo enforce-read)"
+	: >"${repo}/id_ed25519"
 
-  stub="${tmpdir}/stub-unreadable-hits"
-  make_unreadable_mktemp_stub "${stub}" 1
+	stub="${tmpdir}/stub-unreadable-hits"
+	make_unreadable_mktemp_stub "${stub}" 1
 
-  PATH="${stub}" enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "unreadable hit list: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q '^Error: Reading the hit list back' "${tmpdir}/enforce.err" ||
-    fail "unreadable hit list: the abort did not name the read" "${tmpdir}/enforce.err"
-  ! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
-    fail "unreadable hit list: reported a hit it could not read" "${tmpdir}/enforce.err"
-  pass
+	PATH="${stub}" enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "unreadable hit list: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q '^Error: Reading the hit list back' "${tmpdir}/enforce.err" ||
+		fail "unreadable hit list: the abort did not name the read" "${tmpdir}/enforce.err"
+	! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+		fail "unreadable hit list: reported a hit it could not read" "${tmpdir}/enforce.err"
+	pass
 }
 
 # An empty but readable hit list is the clean tree, which the read check has to
 # keep telling apart from one it could not open: mapfile is status 0 for the
 # first and nonzero for the second.
 test_enforce_keeps_the_empty_hit_list_a_clean_tree() {
-  local repo
-  repo="$(make_repo enforce-empty-hits)"
-  : >"${repo}/notes.md"
+	local repo
+	repo="$(make_repo enforce-empty-hits)"
+	: >"${repo}/notes.md"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 0 ]] ||
-    fail "empty hit list: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 0 ]] ||
+		fail "empty hit list: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	pass
 }
 
 # rev-parse answers 128 for a repository git declines to open as well as for a
@@ -879,61 +879,61 @@ test_enforce_keeps_the_empty_hit_list_a_clean_tree() {
 # worktree that outlived its gitdir was copied unscanned and told it was not a
 # worktree. A dangling .git symlink is the same marker, which -e alone drops.
 test_enforce_fails_closed_on_an_unopenable_repository() {
-  local repo wt dangling
-  repo="$(make_repo enforce-unopenable)"
-  wt="${tmpdir}/enforce-unopenable-wt"
-  git -C "${repo}" worktree add -q -b probe "${wt}"
-  : >"${wt}/id_ed25519"
+	local repo wt dangling
+	repo="$(make_repo enforce-unopenable)"
+	wt="${tmpdir}/enforce-unopenable-wt"
+	git -C "${repo}" worktree add -q -b probe "${wt}"
+	: >"${wt}/id_ed25519"
 
-  # The control: while the gitdir is intact this is a worktree and the probe is
-  # a hit, so the rc below is the severed gitdir rather than the fixture.
-  enforce "${wt}"
-  [[ ${enforce_rc} -eq 1 ]] ||
-    fail "unopenable control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	# The control: while the gitdir is intact this is a worktree and the probe is
+	# a hit, so the rc below is the severed gitdir rather than the fixture.
+	enforce "${wt}"
+	[[ ${enforce_rc} -eq 1 ]] ||
+		fail "unopenable control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  # What a moved or deleted owning checkout leaves behind, and what
-  # prune-stale-worktrees.sh reports as broken-gitdir rather than removing.
-  rm -r "${repo}/.git/worktrees"
-  [[ -f "${wt}/.git" ]] || fail "unopenable: the fixture lost its .git file"
+	# What a moved or deleted owning checkout leaves behind, and what
+	# prune-stale-worktrees.sh reports as broken-gitdir rather than removing.
+	rm -r "${repo}/.git/worktrees"
+	[[ -f "${wt}/.git" ]] || fail "unopenable: the fixture lost its .git file"
 
-  enforce "${wt}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "unopenable: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'carries a .git marker' "${tmpdir}/enforce.err" ||
-    fail "unopenable: the abort did not name the marker" "${tmpdir}/enforce.err"
-  ! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
-    fail "unopenable: skipped a broken repository as a foreign tree" "${tmpdir}/enforce.err"
+	enforce "${wt}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "unopenable: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'carries a .git marker' "${tmpdir}/enforce.err" ||
+		fail "unopenable: the abort did not name the marker" "${tmpdir}/enforce.err"
+	! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
+		fail "unopenable: skipped a broken repository as a foreign tree" "${tmpdir}/enforce.err"
 
-  dangling="${tmpdir}/enforce-unopenable-symlink"
-  mkdir -p "${dangling}"
-  ln -s "${tmpdir}/gitdir-that-is-gone" "${dangling}/.git"
-  enforce "${dangling}"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "dangling .git: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  pass
+	dangling="${tmpdir}/enforce-unopenable-symlink"
+	mkdir -p "${dangling}"
+	ln -s "${tmpdir}/gitdir-that-is-gone" "${dangling}/.git"
+	enforce "${dangling}"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "dangling .git: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	pass
 }
 
 # Tracked but absent is drift, so it fails closed where a tree that simply
 # never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
-  local repo bare
-  repo="$(make_repo enforce-absent)"
-  rm "${repo}/.gitignore"
+	local repo bare
+	repo="$(make_repo enforce-absent)"
+	rm "${repo}/.gitignore"
 
-  enforce "${repo}"
-  [[ ${enforce_rc} -eq 2 ]] || fail "tracked but absent: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	enforce "${repo}"
+	[[ ${enforce_rc} -eq 2 ]] || fail "tracked but absent: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
-  bare="${tmpdir}/enforce-nogitignore"
-  init_repo "${bare}"
-  printf '%s\n' readme >"${bare}/README.md"
-  git -C "${bare}" add README.md
-  git -C "${bare}" commit -q -m "initial commit"
+	bare="${tmpdir}/enforce-nogitignore"
+	init_repo "${bare}"
+	printf '%s\n' readme >"${bare}/README.md"
+	git -C "${bare}" add README.md
+	git -C "${bare}" commit -q -m "initial commit"
 
-  enforce "${bare}"
-  [[ ${enforce_rc} -eq 0 ]] || fail "never had one: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'has no .gitignore' "${tmpdir}/enforce.err" ||
-    fail "never had one: no skip notice" "${tmpdir}/enforce.err"
-  pass
+	enforce "${bare}"
+	[[ ${enforce_rc} -eq 0 ]] || fail "never had one: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'has no .gitignore' "${tmpdir}/enforce.err" ||
+		fail "never had one: no skip notice" "${tmpdir}/enforce.err"
+	pass
 }
 
 # Every discriminator below the subdirectory branch resolves its pathspec
@@ -943,30 +943,30 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
 # the root itself, so the two answers have to agree; the probe is what the skip
 # would have let path: copy.
 test_enforce_fails_closed_on_drift_above_a_subdirectory() {
-  local repo
-  repo="$(make_repo enforce-subdir-drift)"
-  mkdir -p "${repo}/scripts/lib" "${repo}/sub"
-  : >"${repo}/scripts/lib/secrets-guard.sh"
-  : >"${repo}/sub/flake.nix"
-  git -C "${repo}" add scripts/lib/secrets-guard.sh sub/flake.nix
-  git -C "${repo}" commit -q -m "the guard and a subdirectory flake"
-  : >"${repo}/sub/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-subdir-drift)"
+	mkdir -p "${repo}/scripts/lib" "${repo}/sub"
+	: >"${repo}/scripts/lib/secrets-guard.sh"
+	: >"${repo}/sub/flake.nix"
+	git -C "${repo}" add scripts/lib/secrets-guard.sh sub/flake.nix
+	git -C "${repo}" commit -q -m "the guard and a subdirectory flake"
+	: >"${repo}/sub/id_ed25519"
 
-  sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
-  enforce "${repo}/sub"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "renamed heading above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'has no secrets block while that tree tracks' "${tmpdir}/enforce.err" ||
-    fail "renamed heading above: the abort did not name the guard" "${tmpdir}/enforce.err"
+	sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
+	enforce "${repo}/sub"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "renamed heading above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'has no secrets block while that tree tracks' "${tmpdir}/enforce.err" ||
+		fail "renamed heading above: the abort did not name the guard" "${tmpdir}/enforce.err"
 
-  git -C "${repo}" checkout -q -- .gitignore
-  rm "${repo}/.gitignore"
-  enforce "${repo}/sub"
-  [[ ${enforce_rc} -eq 2 ]] ||
-    fail "tracked but absent above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'is tracked but absent from the worktree and' "${tmpdir}/enforce.err" ||
-    fail "tracked but absent above: the abort did not name the root" "${tmpdir}/enforce.err"
-  pass
+	git -C "${repo}" checkout -q -- .gitignore
+	rm "${repo}/.gitignore"
+	enforce "${repo}/sub"
+	[[ ${enforce_rc} -eq 2 ]] ||
+		fail "tracked but absent above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'is tracked but absent from the worktree and' "${tmpdir}/enforce.err" ||
+		fail "tracked but absent above: the abort did not name the root" "${tmpdir}/enforce.err"
+	pass
 }
 
 # The subdirectory that defines its own block is the one the abort must not
@@ -975,23 +975,23 @@ test_enforce_fails_closed_on_drift_above_a_subdirectory() {
 # copies. Reached through enforce, since the scan-level case cannot see the
 # branch that decides whether the scan runs at all.
 test_enforce_scans_a_subdirectory_carrying_its_own_block() {
-  local repo
-  repo="$(make_repo enforce-subdir-own-block)"
-  mkdir -p "${repo}/sub"
-  write_secrets_block "${repo}/sub"
-  : >"${repo}/sub/flake.nix"
-  git -C "${repo}" add sub/.gitignore sub/flake.nix
-  git -C "${repo}" commit -q -m "a subdirectory with its own block"
-  : >"${repo}/sub/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-subdir-own-block)"
+	mkdir -p "${repo}/sub"
+	write_secrets_block "${repo}/sub"
+	: >"${repo}/sub/flake.nix"
+	git -C "${repo}" add sub/.gitignore sub/flake.nix
+	git -C "${repo}" commit -q -m "a subdirectory with its own block"
+	: >"${repo}/sub/id_ed25519"
 
-  enforce "${repo}/sub"
-  [[ ${enforce_rc} -eq 1 ]] ||
-    fail "subdirectory with its own block: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  ! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
-    fail "subdirectory with its own block: refused a directory it can answer for" "${tmpdir}/enforce.err"
-  grep -q 'id_ed25519' "${tmpdir}/enforce.err" ||
-    fail "subdirectory with its own block: did not report the probe" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}/sub"
+	[[ ${enforce_rc} -eq 1 ]] ||
+		fail "subdirectory with its own block: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+		fail "subdirectory with its own block: refused a directory it can answer for" "${tmpdir}/enforce.err"
+	grep -q 'id_ed25519' "${tmpdir}/enforce.err" ||
+		fail "subdirectory with its own block: did not report the probe" "${tmpdir}/enforce.err"
+	pass
 }
 
 # rev-parse says yes from any subdirectory, while every .gitignore read here is
@@ -1000,22 +1000,22 @@ test_enforce_scans_a_subdirectory_carrying_its_own_block() {
 # The abort is the only outcome that reads the tree correctly: the block is real
 # and it is not the one this call can reach.
 test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree() {
-  local repo
-  repo="$(make_repo enforce-subdir)"
-  mkdir -p "${repo}/sub"
-  : >"${repo}/sub/flake.nix"
-  git -C "${repo}" add sub/flake.nix
-  git -C "${repo}" commit -q -m "a flake in a subdirectory"
-  : >"${repo}/sub/.env"
-  : >"${repo}/sub/id_ed25519"
+	local repo
+	repo="$(make_repo enforce-subdir)"
+	mkdir -p "${repo}/sub"
+	: >"${repo}/sub/flake.nix"
+	git -C "${repo}" add sub/flake.nix
+	git -C "${repo}" commit -q -m "a flake in a subdirectory"
+	: >"${repo}/sub/.env"
+	: >"${repo}/sub/id_ed25519"
 
-  enforce "${repo}/sub"
-  [[ ${enforce_rc} -eq 2 ]] || fail "subdirectory: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
-    fail "subdirectory: the abort did not name the root" "${tmpdir}/enforce.err"
-  ! grep -q 'has no .gitignore' "${tmpdir}/enforce.err" ||
-    fail "subdirectory: skipped a tree whose block covers it" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}/sub"
+	[[ ${enforce_rc} -eq 2 ]] || fail "subdirectory: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+		fail "subdirectory: the abort did not name the root" "${tmpdir}/enforce.err"
+	! grep -q 'has no .gitignore' "${tmpdir}/enforce.err" ||
+		fail "subdirectory: skipped a tree whose block covers it" "${tmpdir}/enforce.err"
+	pass
 }
 
 # Only a root that carries the block aborts. Every other repository has a
@@ -1023,21 +1023,21 @@ test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree() {
 # discriminators below the branch were written for, so it still skips rather
 # than turning that skip into a refusal.
 test_enforce_skips_a_subdirectory_of_a_tree_without_the_block() {
-  local repo
-  repo="${tmpdir}/enforce-subdir-foreign"
-  init_repo "${repo}"
-  mkdir -p "${repo}/pkgs/foo"
-  printf '%s\n' node_modules dist >"${repo}/.gitignore"
-  : >"${repo}/pkgs/foo/flake.nix"
-  git -C "${repo}" add .gitignore pkgs/foo/flake.nix
-  git -C "${repo}" commit -q -m "initial commit"
-  : >"${repo}/pkgs/foo/.env"
+	local repo
+	repo="${tmpdir}/enforce-subdir-foreign"
+	init_repo "${repo}"
+	mkdir -p "${repo}/pkgs/foo"
+	printf '%s\n' node_modules dist >"${repo}/.gitignore"
+	: >"${repo}/pkgs/foo/flake.nix"
+	git -C "${repo}" add .gitignore pkgs/foo/flake.nix
+	git -C "${repo}" commit -q -m "initial commit"
+	: >"${repo}/pkgs/foo/.env"
 
-  enforce "${repo}/pkgs/foo"
-  [[ ${enforce_rc} -eq 0 ]] || fail "foreign subdirectory: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  ! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
-    fail "foreign subdirectory: aborted a tree that never had the block" "${tmpdir}/enforce.err"
-  pass
+	enforce "${repo}/pkgs/foo"
+	[[ ${enforce_rc} -eq 0 ]] || fail "foreign subdirectory: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+	! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+		fail "foreign subdirectory: aborted a tree that never had the block" "${tmpdir}/enforce.err"
+	pass
 }
 
 test_parser_fails_closed_on_renamed_heading
@@ -1090,22 +1090,22 @@ test_enforce_skips_a_subdirectory_of_a_tree_without_the_block
 # no external the suite does not already need.
 missing=()
 while IFS= read -r line; do
-  fn="${line##* }"
-  [[ ${fn} == test_* ]] || continue
-  ran=0
-  for name in "${tests_ran[@]}"; do
-    if [[ ${name} == "${fn}" ]]; then
-      ran=1
-      break
-    fi
-  done
-  [[ ${ran} -eq 1 ]] || missing+=("${fn}")
+	fn="${line##* }"
+	[[ ${fn} == test_* ]] || continue
+	ran=0
+	for name in "${tests_ran[@]}"; do
+		if [[ ${name} == "${fn}" ]]; then
+			ran=1
+			break
+		fi
+	done
+	[[ ${ran} -eq 1 ]] || missing+=("${fn}")
 done < <(declare -F)
 
 if [[ ${#missing[@]} -gt 0 ]]; then
-  printf 'run.sh: defined but never reached pass: %s\n' "${missing[*]}" >&2
-  printf 'run.sh: add it to the invocation list above, or delete it.\n' >&2
-  exit 1
+	printf 'run.sh: defined but never reached pass: %s\n' "${missing[*]}" >&2
+	printf 'run.sh: add it to the invocation list above, or delete it.\n' >&2
+	exit 1
 fi
 
 printf '%d passed\n' "${tests_passed}"

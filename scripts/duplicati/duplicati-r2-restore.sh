@@ -3,7 +3,7 @@ set -euo pipefail
 umask 077
 
 usage() {
-  cat <<'USAGE'
+	cat <<'USAGE'
 Usage: duplicati-r2-restore.sh [OPTIONS] <target-slug> <regex> [-- <duplicati-cli args>]
 
 Restore files from a duplicati-r2 target whose paths match a POSIX regex.
@@ -126,10 +126,10 @@ USAGE
 }
 
 require_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "missing required command: $1" >&2
-    exit 127
-  fi
+	if ! command -v "$1" >/dev/null 2>&1; then
+		echo "missing required command: $1" >&2
+		exit 127
+	fi
 }
 
 require_cmd jq
@@ -155,8 +155,8 @@ require_cmd chown
 require_cmd chmod
 
 human_bytes() {
-  local n=${1:-0}
-  numfmt --to=iec-i --suffix=B --format='%.1f' "$n" 2>/dev/null || echo "${n}B"
+	local n=${1:-0}
+	numfmt --to=iec-i --suffix=B --format='%.1f' "$n" 2>/dev/null || echo "${n}B"
 }
 
 dry_run=false
@@ -173,160 +173,160 @@ declare -a passthrough=()
 declare -a positional=()
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-  --dry-run)
-    dry_run=true
-    shift
-    ;;
-  --force)
-    force=true
-    shift
-    ;;
-  --restore-path)
-    restore_path=$2
-    shift 2
-    ;;
-  --restore-path=*)
-    restore_path=${1#*=}
-    shift
-    ;;
-  --chown)
-    chown_spec=$2
-    shift 2
-    ;;
-  --chown=*)
-    chown_spec=${1#*=}
-    shift
-    ;;
-  --version)
-    version_arg=$2
-    shift 2
-    ;;
-  --version=*)
-    version_arg=${1#*=}
-    shift
-    ;;
-  --time)
-    time_arg=$2
-    shift 2
-    ;;
-  --time=*)
-    time_arg=${1#*=}
-    shift
-    ;;
-  --overwrite)
-    overwrite=$2
-    shift 2
-    ;;
-  --overwrite=*)
-    overwrite=${1#*=}
-    shift
-    ;;
-  --log-level)
-    log_level=$2
-    shift 2
-    ;;
-  --log-level=*)
-    log_level=${1#*=}
-    shift
-    ;;
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  --)
-    shift
-    passthrough+=("$@")
-    break
-    ;;
-  -*)
-    echo "unknown option: $1" >&2
-    usage >&2
-    exit 64
-    ;;
-  *)
-    positional+=("$1")
-    shift
-    ;;
-  esac
+	case "$1" in
+	--dry-run)
+		dry_run=true
+		shift
+		;;
+	--force)
+		force=true
+		shift
+		;;
+	--restore-path)
+		restore_path=$2
+		shift 2
+		;;
+	--restore-path=*)
+		restore_path=${1#*=}
+		shift
+		;;
+	--chown)
+		chown_spec=$2
+		shift 2
+		;;
+	--chown=*)
+		chown_spec=${1#*=}
+		shift
+		;;
+	--version)
+		version_arg=$2
+		shift 2
+		;;
+	--version=*)
+		version_arg=${1#*=}
+		shift
+		;;
+	--time)
+		time_arg=$2
+		shift 2
+		;;
+	--time=*)
+		time_arg=${1#*=}
+		shift
+		;;
+	--overwrite)
+		overwrite=$2
+		shift 2
+		;;
+	--overwrite=*)
+		overwrite=${1#*=}
+		shift
+		;;
+	--log-level)
+		log_level=$2
+		shift 2
+		;;
+	--log-level=*)
+		log_level=${1#*=}
+		shift
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--)
+		shift
+		passthrough+=("$@")
+		break
+		;;
+	-*)
+		echo "unknown option: $1" >&2
+		usage >&2
+		exit 64
+		;;
+	*)
+		positional+=("$1")
+		shift
+		;;
+	esac
 done
 
 if [[ ${#positional[@]} -ne 2 ]]; then
-  echo "expected exactly two positional args (slug and regex), got ${#positional[@]}" >&2
-  usage >&2
-  exit 64
+	echo "expected exactly two positional args (slug and regex), got ${#positional[@]}" >&2
+	usage >&2
+	exit 64
 fi
 
 slug=${positional[0]}
 user_regex=${positional[1]}
 
 if [[ -z $slug ]]; then
-  echo "target slug must not be empty" >&2
-  exit 64
+	echo "target slug must not be empty" >&2
+	exit 64
 fi
 
 if [[ -z $user_regex ]]; then
-  echo "regex must not be empty" >&2
-  exit 64
+	echo "regex must not be empty" >&2
+	exit 64
 fi
 
 if [[ -n $version_arg && -n $time_arg ]]; then
-  echo "--version and --time are mutually exclusive" >&2
-  exit 64
+	echo "--version and --time are mutually exclusive" >&2
+	exit 64
 fi
 
 if [[ -n $version_arg && ! $version_arg =~ ^[0-9]+$ ]]; then
-  echo "--version must be a non-negative integer, got '$version_arg'" >&2
-  exit 64
+	echo "--version must be a non-negative integer, got '$version_arg'" >&2
+	exit 64
 fi
 
 # Validate regex up front so we exit before any privileged action.
 regex_err=$(printf '' | grep -E -- "$user_regex" 2>&1 >/dev/null) || true
 if [[ -n $regex_err ]]; then
-  echo "invalid POSIX regex: $regex_err" >&2
-  exit 64
+	echo "invalid POSIX regex: $regex_err" >&2
+	exit 64
 fi
 
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-  echo "duplicati-r2-restore.sh must be run as root" >&2
-  exit 77
+	echo "duplicati-r2-restore.sh must be run as root" >&2
+	exit 77
 fi
 
 config_path="${DUPLICATI_R2_CONFIG:-/run/duplicati-r2/config.json}"
 if [[ ! -r $config_path ]]; then
-  echo "unable to read Duplicati config at $config_path" >&2
-  exit 66
+	echo "unable to read Duplicati config at $config_path" >&2
+	exit 66
 fi
 
 if ! jq -e --arg slug "$slug" '.targets[$slug]' "$config_path" >/dev/null 2>&1; then
-  echo "target '$slug' not found in $config_path" >&2
-  exit 66
+	echo "target '$slug' not found in $config_path" >&2
+	exit 66
 fi
 
 target_enabled=$(jq -r --arg slug "$slug" '.targets[$slug].enable // true' "$config_path")
 if [[ $target_enabled != "true" ]]; then
-  echo "target '$slug' is disabled (enable: $target_enabled). Refusing to restore." >&2
-  exit 66
+	echo "target '$slug' is disabled (enable: $target_enabled). Refusing to restore." >&2
+	exit 66
 fi
 
 target_json=$(jq --arg slug "$slug" -c '.targets[$slug]' "$config_path")
 
 env_file=$(jq -r --arg slug "$slug" \
-  '.targets[$slug].environmentFile // .environmentFile // "/etc/duplicati/r2.env"' \
-  "$config_path")
+	'.targets[$slug].environmentFile // .environmentFile // "/etc/duplicati/r2.env"' \
+	"$config_path")
 
 if [[ ! -f $env_file ]]; then
-  echo "missing environment file $env_file" >&2
-  exit 66
+	echo "missing environment file $env_file" >&2
+	exit 66
 fi
 
 bucket=$(jq -r --arg slug "$slug" \
-  '.targets[$slug].bucket // .bucket // "duplicati-nixos-backups"' \
-  "$config_path")
+	'.targets[$slug].bucket // .bucket // "duplicati-nixos-backups"' \
+	"$config_path")
 dest_subpath=$(jq -r --arg slug "$slug" '.destSubpath // $slug' <<<"$target_json")
 state_dir=$(jq -r --arg slug "$slug" \
-  '.targets[$slug].stateDir // .stateDir // "/var/lib/duplicati-r2"' \
-  "$config_path")
+	'.targets[$slug].stateDir // .stateDir // "/var/lib/duplicati-r2"' \
+	"$config_path")
 manifest_hostname=$(jq -r '.hostname // empty' "$config_path")
 
 db_slug=$(jq -rn --arg s "$slug" '$s | gsub("[^A-Za-z0-9_\\-]"; "-")')
@@ -334,31 +334,31 @@ db_path="${state_dir}/duplicati-r2-${db_slug}.sqlite"
 
 hostname_value="$manifest_hostname"
 if [[ -z ${hostname_value:-} ]]; then
-  if [[ -n ${DEFAULT_HOSTNAME:-} ]]; then
-    hostname_value="$DEFAULT_HOSTNAME"
-  else
-    hostname_value=$(hostname --short 2>/dev/null || hostname 2>/dev/null || echo duplicati)
-  fi
+	if [[ -n ${DEFAULT_HOSTNAME:-} ]]; then
+		hostname_value="$DEFAULT_HOSTNAME"
+	else
+		hostname_value=$(hostname --short 2>/dev/null || hostname 2>/dev/null || echo duplicati)
+	fi
 fi
 
 declare -a extra_args_raw=()
 mapfile -t extra_args_raw < <(jq -r '.extraArgs // [] | .[]' <<<"$target_json") || extra_args_raw=()
 declare -a extra_args=()
 for arg in "${extra_args_raw[@]}"; do
-  [[ -n $arg ]] && extra_args+=("$arg")
+	[[ -n $arg ]] && extra_args+=("$arg")
 done
 
 # shellcheck source=/dev/null disable=SC1091
 . "$env_file"
 
 if [[ -z ${AWS_ACCESS_KEY_ID:-} || -z ${AWS_SECRET_ACCESS_KEY:-} ]]; then
-  echo "AWS credentials missing in $env_file" >&2
-  exit 78
+	echo "AWS credentials missing in $env_file" >&2
+	exit 78
 fi
 
 if [[ -z ${DUPLICATI_PASSPHRASE:-} ]]; then
-  echo "DUPLICATI_PASSPHRASE missing in $env_file" >&2
-  exit 78
+	echo "DUPLICATI_PASSPHRASE missing in $env_file" >&2
+	exit 78
 fi
 
 # duplicati's S3 backend reads creds from AUTH_USERNAME/AUTH_PASSWORD; without
@@ -370,32 +370,32 @@ export AUTH_USERNAME="$AWS_ACCESS_KEY_ID" AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
 export DUPLICATI_PASSPHRASE PASSPHRASE="$DUPLICATI_PASSPHRASE"
 
 if [[ -n ${R2_S3_ENDPOINT_URL:-} ]]; then
-  export AWS_ENDPOINT_URL="$R2_S3_ENDPOINT_URL"
+	export AWS_ENDPOINT_URL="$R2_S3_ENDPOINT_URL"
 elif [[ -n ${R2_S3_ENDPOINT:-} ]]; then
-  export AWS_ENDPOINT_URL="https://${R2_S3_ENDPOINT}"
+	export AWS_ENDPOINT_URL="https://${R2_S3_ENDPOINT}"
 fi
 
 if [[ -z ${AWS_REGION:-} && -z ${AWS_DEFAULT_REGION:-} ]]; then
-  if [[ -n ${R2_REGION:-} ]]; then
-    export AWS_REGION="$R2_REGION" AWS_DEFAULT_REGION="$R2_REGION"
-  else
-    export AWS_REGION=auto AWS_DEFAULT_REGION=auto
-  fi
+	if [[ -n ${R2_REGION:-} ]]; then
+		export AWS_REGION="$R2_REGION" AWS_DEFAULT_REGION="$R2_REGION"
+	else
+		export AWS_REGION=auto AWS_DEFAULT_REGION=auto
+	fi
 fi
 
 server_name=""
 if [[ -n ${R2_S3_ENDPOINT:-} ]]; then
-  server_name="$R2_S3_ENDPOINT"
+	server_name="$R2_S3_ENDPOINT"
 elif [[ -n ${R2_S3_ENDPOINT_URL:-} ]]; then
-  server_name=${R2_S3_ENDPOINT_URL#https://}
-  server_name=${server_name#http://}
+	server_name=${R2_S3_ENDPOINT_URL#https://}
+	server_name=${server_name#http://}
 elif [[ -n ${AWS_ENDPOINT_URL:-} ]]; then
-  server_name=${AWS_ENDPOINT_URL#https://}
-  server_name=${server_name#http://}
+	server_name=${AWS_ENDPOINT_URL#https://}
+	server_name=${server_name#http://}
 fi
 if [[ -z $server_name ]]; then
-  echo "could not resolve R2 endpoint hostname (set R2_S3_ENDPOINT or R2_S3_ENDPOINT_URL)" >&2
-  exit 66
+	echo "could not resolve R2 endpoint hostname (set R2_S3_ENDPOINT or R2_S3_ENDPOINT_URL)" >&2
+	exit 66
 fi
 
 encoded_subpath=$(jq -rn --arg s "$dest_subpath" '$s | @uri')
@@ -425,9 +425,9 @@ dest="s3://${bucket}/${hostname_value}/${encoded_subpath}\
 
 restore_path_defaulted=false
 if [[ -z $restore_path ]]; then
-  ts=$(date -u +%Y%m%dT%H%M%SZ)
-  restore_path="/tmp/duplicati-restore/${slug}-${ts}"
-  restore_path_defaulted=true
+	ts=$(date -u +%Y%m%dT%H%M%SZ)
+	restore_path="/tmp/duplicati-restore/${slug}-${ts}"
+	restore_path_defaulted=true
 fi
 
 cat <<INFO
@@ -447,65 +447,65 @@ INFO
 [[ -n $version_arg ]] && echo "Version        : ${version_arg}"
 [[ -n $time_arg ]] && echo "Time           : ${time_arg}"
 if [[ ${#extra_args[@]} -gt 0 ]]; then
-  printf 'Manifest extra : %s\n' "${extra_args[*]}"
+	printf 'Manifest extra : %s\n' "${extra_args[*]}"
 fi
 if [[ ${#passthrough[@]} -gt 0 ]]; then
-  printf 'Passthrough    : %s\n' "${passthrough[*]}"
+	printf 'Passthrough    : %s\n' "${passthrough[*]}"
 fi
 echo
 
 # === Dry-run path ===
 if "$dry_run"; then
-  if [[ ! -r $db_path ]]; then
-    echo "db not readable at $db_path -- cannot perform dry-run analysis" >&2
-    echo "(without the local db, restore would trigger an implicit recreate)" >&2
-    exit 66
-  fi
+	if [[ ! -r $db_path ]]; then
+		echo "db not readable at $db_path -- cannot perform dry-run analysis" >&2
+		echo "(without the local db, restore would trigger an implicit recreate)" >&2
+		exit 66
+	fi
 
-  src_uri="file:${db_path}?mode=ro&immutable=1&nolock=1"
+	src_uri="file:${db_path}?mode=ro&immutable=1&nolock=1"
 
-  fileset_query_status=0
-  if [[ -n $version_arg ]]; then
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1 OFFSET ${version_arg};") ||
-      fileset_query_status=$?
-  elif [[ -n $time_arg ]]; then
-    epoch=$(date -d "$time_arg" +%s 2>/dev/null) || {
-      echo "could not parse --time '$time_arg'" >&2
-      exit 64
-    }
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset WHERE Timestamp <= ${epoch} ORDER BY Timestamp DESC LIMIT 1;") ||
-      fileset_query_status=$?
-  else
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1;") ||
-      fileset_query_status=$?
-  fi
-  if [[ $fileset_query_status -ne 0 ]]; then
-    echo "fileset selector query failed (sqlite3 exit ${fileset_query_status}); db locked, corrupt, or schema drift?" >&2
-    exit 66
-  fi
+	fileset_query_status=0
+	if [[ -n $version_arg ]]; then
+		fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1 OFFSET ${version_arg};") ||
+			fileset_query_status=$?
+	elif [[ -n $time_arg ]]; then
+		epoch=$(date -d "$time_arg" +%s 2>/dev/null) || {
+			echo "could not parse --time '$time_arg'" >&2
+			exit 64
+		}
+		fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset WHERE Timestamp <= ${epoch} ORDER BY Timestamp DESC LIMIT 1;") ||
+			fileset_query_status=$?
+	else
+		fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1;") ||
+			fileset_query_status=$?
+	fi
+	if [[ $fileset_query_status -ne 0 ]]; then
+		echo "fileset selector query failed (sqlite3 exit ${fileset_query_status}); db locked, corrupt, or schema drift?" >&2
+		exit 66
+	fi
 
-  if [[ -z $fileset_id ]]; then
-    echo "no fileset matched the version/time selector" >&2
-    exit 66
-  fi
+	if [[ -z $fileset_id ]]; then
+		echo "no fileset matched the version/time selector" >&2
+		exit 66
+	fi
 
-  fileset_ts_status=0
-  fileset_ts=$(sqlite3 "$src_uri" "SELECT datetime(Timestamp, 'unixepoch') FROM Fileset WHERE ID = ${fileset_id};") ||
-    fileset_ts_status=$?
-  if [[ $fileset_ts_status -ne 0 ]]; then
-    echo "fileset timestamp query failed (sqlite3 exit ${fileset_ts_status}); db locked, corrupt, or schema drift?" >&2
-    exit 66
-  fi
-  echo "Fileset        : ID=${fileset_id} (${fileset_ts} UTC)"
-  echo
+	fileset_ts_status=0
+	fileset_ts=$(sqlite3 "$src_uri" "SELECT datetime(Timestamp, 'unixepoch') FROM Fileset WHERE ID = ${fileset_id};") ||
+		fileset_ts_status=$?
+	if [[ $fileset_ts_status -ne 0 ]]; then
+		echo "fileset timestamp query failed (sqlite3 exit ${fileset_ts_status}); db locked, corrupt, or schema drift?" >&2
+		exit 66
+	fi
+	echo "Fileset        : ID=${fileset_id} (${fileset_ts} UTC)"
+	echo
 
-  scratch=$(mktemp -d -t duplicati-restore-dryrun.XXXXXX)
-  trap 'rm -rf "$scratch"' EXIT
-  ids_file="${scratch}/ids.tsv"
+	scratch=$(mktemp -d -t duplicati-restore-dryrun.XXXXXX)
+	trap 'rm -rf "$scratch"' EXIT
+	ids_file="${scratch}/ids.tsv"
 
-  echo "Scanning fileset for matching paths..."
-  set +e
-  sqlite3 -ascii -noheader "$src_uri" "
+	echo "Scanning fileset for matching paths..."
+	set +e
+	sqlite3 -ascii -noheader "$src_uri" "
     SELECT f.ID, f.Path
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
@@ -520,33 +520,33 @@ if "$dry_run"; then
     }
     $2 ~ ENVIRON["re"] { print $1 }
   ' >"$ids_file"
-  scan_stages=("${PIPESTATUS[@]}")
-  set -e
-  if [[ ${scan_stages[1]} -ne 0 ]]; then
-    echo "fileset scan filter failed (awk exit ${scan_stages[1]}); invalid record framing, regex rejected by awk, or could not write '$ids_file'?" >&2
-    exit 66
-  fi
-  if [[ ${scan_stages[0]} -ne 0 ]]; then
-    echo "fileset scan query failed (sqlite3 exit ${scan_stages[0]}); db locked, corrupt, or schema drift?" >&2
-    exit 66
-  fi
+	scan_stages=("${PIPESTATUS[@]}")
+	set -e
+	if [[ ${scan_stages[1]} -ne 0 ]]; then
+		echo "fileset scan filter failed (awk exit ${scan_stages[1]}); invalid record framing, regex rejected by awk, or could not write '$ids_file'?" >&2
+		exit 66
+	fi
+	if [[ ${scan_stages[0]} -ne 0 ]]; then
+		echo "fileset scan query failed (sqlite3 exit ${scan_stages[0]}); db locked, corrupt, or schema drift?" >&2
+		exit 66
+	fi
 
-  match_count=$(wc -l <"$ids_file" | awk '{print $1}')
+	match_count=$(wc -l <"$ids_file" | awk '{print $1}')
 
-  if [[ $match_count -eq 0 ]]; then
-    echo "Files matched  : 0"
-    echo
-    echo "(no impact analysis run; no files match the regex)"
-    exit 0
-  fi
+	if [[ $match_count -eq 0 ]]; then
+		echo "Files matched  : 0"
+		echo
+		echo "(no impact analysis run; no files match the regex)"
+		exit 0
+	fi
 
-  # Run impact join via a fresh sqlite3 invocation that ATTACHes the live db
-  # read-only and imports the matching IDs into a temp table. Capture output
-  # and status separately: a here-string read would succeed on the empty line
-  # a failed sqlite3 leaves behind and report garbage counts as a clean run.
-  impact_status=0
-  impact_output=$(
-    sqlite3 -separator ' ' -noheader <<SQL
+	# Run impact join via a fresh sqlite3 invocation that ATTACHes the live db
+	# read-only and imports the matching IDs into a temp table. Capture output
+	# and status separately: a here-string read would succeed on the empty line
+	# a failed sqlite3 leaves behind and report garbage counts as a clean run.
+	impact_status=0
+	impact_output=$(
+		sqlite3 -separator ' ' -noheader <<SQL
 .bail on
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
@@ -570,44 +570,44 @@ SELECT
   COALESCE((SELECT SUM(Size) FROM matching_blocks), 0),
   (SELECT COUNT(*) FROM matching_blocks WHERE State = 'Uploaded');
 SQL
-  ) || impact_status=$?
+	) || impact_status=$?
 
-  if [[ $impact_status -ne 0 ]]; then
-    echo "impact analysis query failed (sqlite3 exit ${impact_status}); db locked, corrupt, or schema drift?" >&2
-    exit 66
-  fi
+	if [[ $impact_status -ne 0 ]]; then
+		echo "impact analysis query failed (sqlite3 exit ${impact_status}); db locked, corrupt, or schema drift?" >&2
+		exit 66
+	fi
 
-  read -r plaintext_bytes dblocks encrypted_bytes orphans <<<"$impact_output"
+	read -r plaintext_bytes dblocks encrypted_bytes orphans <<<"$impact_output"
 
-  if [[ ! ${plaintext_bytes:-} =~ ^[0-9]+$ || ! ${dblocks:-} =~ ^[0-9]+$ ||
-    ! ${encrypted_bytes:-} =~ ^[0-9]+$ || ! ${orphans:-} =~ ^[0-9]+$ ]]; then
-    echo "impact analysis returned non-numeric output: '${impact_output}'" >&2
-    exit 66
-  fi
+	if [[ ! ${plaintext_bytes:-} =~ ^[0-9]+$ || ! ${dblocks:-} =~ ^[0-9]+$ ||
+		! ${encrypted_bytes:-} =~ ^[0-9]+$ || ! ${orphans:-} =~ ^[0-9]+$ ]]; then
+		echo "impact analysis returned non-numeric output: '${impact_output}'" >&2
+		exit 66
+	fi
 
-  printf 'Files matched  : %s\n' "$match_count"
-  printf 'Plaintext bytes: %s (%s)\n' "$plaintext_bytes" "$(human_bytes "$plaintext_bytes")"
-  printf 'Unique dblocks : %s\n' "$dblocks"
-  printf 'Fetch ceiling  : %s (%s, encrypted)\n' "$encrypted_bytes" "$(human_bytes "$encrypted_bytes")"
+	printf 'Files matched  : %s\n' "$match_count"
+	printf 'Plaintext bytes: %s (%s)\n' "$plaintext_bytes" "$(human_bytes "$plaintext_bytes")"
+	printf 'Unique dblocks : %s\n' "$dblocks"
+	printf 'Fetch ceiling  : %s (%s, encrypted)\n' "$encrypted_bytes" "$(human_bytes "$encrypted_bytes")"
 
-  if [[ ${orphans:-0} -gt 0 ]]; then
-    echo
-    echo "WARNING: ${orphans} of the matched dblocks have State='Uploaded' (not yet 'Verified')."
-    echo "  These can 404 on R2 if multipart uploads were aborted before completion."
-    echo "  See docs/apps/duplicati/recovery.md for the multipart-orphan signature."
-  fi
+	if [[ ${orphans:-0} -gt 0 ]]; then
+		echo
+		echo "WARNING: ${orphans} of the matched dblocks have State='Uploaded' (not yet 'Verified')."
+		echo "  These can 404 on R2 if multipart uploads were aborted before completion."
+		echo "  See docs/apps/duplicati/recovery.md for the multipart-orphan signature."
+	fi
 
-  exit 0
+	exit 0
 fi
 
 # === Real-run path ===
 
 if [[ ! -r $db_path ]]; then
-  echo "WARNING: local db at $db_path is missing or unreadable."
-  echo "  duplicati-cli will trigger an implicit recreate, downloading every dindex."
-  echo "  This can take hours on a multi-TiB archive at single-stream R2 throughput."
-  echo "  Consider restoring the per-target SQLite from a sidecar copy first."
-  echo
+	echo "WARNING: local db at $db_path is missing or unreadable."
+	echo "  duplicati-cli will trigger an implicit recreate, downloading every dindex."
+	echo "  This can take hours on a multi-TiB archive at single-stream R2 throughput."
+	echo "  Consider restoring the per-target SQLite from a sidecar copy first."
+	echo
 fi
 
 # Only content the restore must not disturb makes the path "populated". An
@@ -616,27 +616,27 @@ fi
 # root-owned and unusable by --chown's user.
 restore_path_populated=false
 probe_restore_path() {
-  local probe_status=0
-  local probe_hit
+	local probe_status=0
+	local probe_hit
 
-  # find -P treats a symlink start point as empty, so recheck after the lock
-  # is held before the probe result can clear the --force gate.
-  if [[ -L $restore_path ]]; then
-    echo "--restore-path must not be a symlink: $restore_path" >&2
-    echo "  It was created or replaced while this run was starting." >&2
-    exit 64
-  fi
-  probe_hit=$(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ||
-    probe_status=$?
-  if [[ $probe_status -ne 0 ]]; then
-    echo "could not determine whether '$restore_path' is empty (find exited ${probe_status})." >&2
-    echo "  Reading it as empty would skip the --force refusal and hand the root to the" >&2
-    echo "  post-restore chown/chmod, so refusing before the restore starts." >&2
-    exit 66
-  fi
-  if [[ -n $probe_hit ]]; then
-    restore_path_populated=true
-  fi
+	# find -P treats a symlink start point as empty, so recheck after the lock
+	# is held before the probe result can clear the --force gate.
+	if [[ -L $restore_path ]]; then
+		echo "--restore-path must not be a symlink: $restore_path" >&2
+		echo "  It was created or replaced while this run was starting." >&2
+		exit 64
+	fi
+	probe_hit=$(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ||
+		probe_status=$?
+	if [[ $probe_status -ne 0 ]]; then
+		echo "could not determine whether '$restore_path' is empty (find exited ${probe_status})." >&2
+		echo "  Reading it as empty would skip the --force refusal and hand the root to the" >&2
+		echo "  post-restore chown/chmod, so refusing before the restore starts." >&2
+		exit 66
+	fi
+	if [[ -n $probe_hit ]]; then
+		restore_path_populated=true
+	fi
 }
 
 # Trailing slashes are stripped before the symlink test: pathname resolution
@@ -644,7 +644,7 @@ probe_restore_path() {
 # reports false, walking straight past the refusal below. Normalizing here also
 # keeps the --restore-path= value handed to duplicati in one form.
 while [[ $restore_path == */ && ${#restore_path} -gt 1 ]]; do
-  restore_path=${restore_path%/}
+	restore_path=${restore_path%/}
 done
 # A symlink target would be scanned and written through inconsistently: find
 # defaults to -P and reports the link as empty, so the populated guard, the
@@ -654,44 +654,44 @@ done
 # -L is tested before -e because -e is false for a dangling link, which would
 # otherwise reach mkdir -p and fail there with "File exists".
 if [[ -L $restore_path ]]; then
-  echo "--restore-path must not be a symlink: $restore_path" >&2
-  echo "  Pass the resolved directory so the scoping scans and the root chown/chmod" >&2
-  echo "  operate on the same tree the restore writes to." >&2
-  exit 64
+	echo "--restore-path must not be a symlink: $restore_path" >&2
+	echo "  Pass the resolved directory so the scoping scans and the root chown/chmod" >&2
+	echo "  operate on the same tree the restore writes to." >&2
+	exit 64
 fi
 if [[ -e $restore_path ]]; then
-  if [[ ! -d $restore_path ]]; then
-    echo "--restore-path exists and is not a directory: $restore_path" >&2
-    exit 64
-  fi
-  # A marker orphaned by an untrappable death (SIGKILL, power loss) is this
-  # script's own debris, not content to protect. Counting it would make a
-  # directory the script created and emptied read as populated, so the rerun
-  # would demand --force and then skip the root chown/chmod that a freshly
-  # created path is supposed to get.
-  # Ignoring them is not the same as cleaning them up, and cleanup_scope only
-  # unlinks the marker this run created. Removing the rest here would break a
-  # concurrent run against the same path, so say they are there instead.
-  #
-  # Held lock means those markers belong to a live run, not to a dead one, and
-  # this note tells the operator to delete them. Doing that under a running
-  # restore removes its marker, so its -cnewer scans fail and both passes get an
-  # empty list: the very outcome the paragraph above declines to cause. Stay
-  # quiet and let the lock refusal below report the real situation.
-  if [[ ! -d ${restore_path}/.duplicati-restore-marker.lock ]] &&
-    [[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
-    echo "NOTE: orphaned restore markers are present under '$restore_path'." >&2
-    echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
-    echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
-  fi
-  probe_restore_path
-  if [[ $restore_path_populated == true && $force != true ]]; then
-    echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
-    echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
-    echo "  ownership/permission pass would mix with pre-existing content." >&2
-    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
-    exit 64
-  fi
+	if [[ ! -d $restore_path ]]; then
+		echo "--restore-path exists and is not a directory: $restore_path" >&2
+		exit 64
+	fi
+	# A marker orphaned by an untrappable death (SIGKILL, power loss) is this
+	# script's own debris, not content to protect. Counting it would make a
+	# directory the script created and emptied read as populated, so the rerun
+	# would demand --force and then skip the root chown/chmod that a freshly
+	# created path is supposed to get.
+	# Ignoring them is not the same as cleaning them up, and cleanup_scope only
+	# unlinks the marker this run created. Removing the rest here would break a
+	# concurrent run against the same path, so say they are there instead.
+	#
+	# Held lock means those markers belong to a live run, not to a dead one, and
+	# this note tells the operator to delete them. Doing that under a running
+	# restore removes its marker, so its -cnewer scans fail and both passes get an
+	# empty list: the very outcome the paragraph above declines to cause. Stay
+	# quiet and let the lock refusal below report the real situation.
+	if [[ ! -d ${restore_path}/.duplicati-restore-marker.lock ]] &&
+		[[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+		echo "NOTE: orphaned restore markers are present under '$restore_path'." >&2
+		echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
+		echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
+	fi
+	probe_restore_path
+	if [[ $restore_path_populated == true && $force != true ]]; then
+		echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
+		echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
+		echo "  ownership/permission pass would mix with pre-existing content." >&2
+		echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+		exit 64
+	fi
 fi
 
 # umask 077 masks every directory mkdir -p creates, intermediates included, so
@@ -707,13 +707,13 @@ fi
 # silently and the whole restore lands wherever it points.
 restore_parent=$(dirname "$restore_path")
 if [[ -L $restore_parent ]]; then
-  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
-  echo "  mkdir -p follows it, so the restore would be written outside --restore-path." >&2
-  exit 64
+	echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+	echo "  mkdir -p follows it, so the restore would be written outside --restore-path." >&2
+	exit 64
 fi
 if ! (umask 066 && mkdir -p "$restore_parent"); then
-  echo "could not create restore parent '$restore_parent'; mkdir's diagnostic is above." >&2
-  exit 66
+	echo "could not create restore parent '$restore_parent'; mkdir's diagnostic is above." >&2
+	exit 66
 fi
 # Re-test after the create. A link planted between the test above and this call
 # is entered silently by mkdir -p, and everything downstream dereferences: -O
@@ -723,34 +723,34 @@ fi
 # root-owned real directory has no substitution left, and once mkdir -p has put
 # one under a sticky /tmp they cannot unlink or rename it either.
 if [[ -L $restore_parent ]]; then
-  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
-  echo "  It was created or replaced while this run was starting." >&2
-  exit 64
+	echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+	echo "  It was created or replaced while this run was starting." >&2
+	exit 64
 fi
 # Only the default path gets the ownership check. Its parent is a fixed name
 # under a world-writable /tmp, so any local user can own it before a root run
 # and then swap the leaf. An explicit --restore-path is the operator's choice
 # and may legitimately sit under a tree they own rather than root.
 if [[ $restore_path_defaulted == true ]]; then
-  if [[ ! -O $restore_parent ]]; then
-    echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
-    echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
-    echo "  Remove it, or pass an explicit --restore-path." >&2
-    exit 64
-  fi
-  # The umask above only shapes a parent this run creates, and the default
-  # container is a fixed name that outlives a run. One left at 0700 by an
-  # earlier invocation would still block --chown's user, so set the mode rather
-  # than inherit whatever created it. Root-owned per the check above, not a
-  # symlink per the check before it, and dedicated to this script.
-  if ! chmod 0711 "$restore_parent"; then
-    echo "could not set the mode on restore parent '$restore_parent'; chmod's diagnostic is above." >&2
-    exit 66
-  fi
+	if [[ ! -O $restore_parent ]]; then
+		echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
+		echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
+		echo "  Remove it, or pass an explicit --restore-path." >&2
+		exit 64
+	fi
+	# The umask above only shapes a parent this run creates, and the default
+	# container is a fixed name that outlives a run. One left at 0700 by an
+	# earlier invocation would still block --chown's user, so set the mode rather
+	# than inherit whatever created it. Root-owned per the check above, not a
+	# symlink per the check before it, and dedicated to this script.
+	if ! chmod 0711 "$restore_parent"; then
+		echo "could not set the mode on restore parent '$restore_parent'; chmod's diagnostic is above." >&2
+		exit 66
+	fi
 fi
 if ! mkdir -p "$restore_path"; then
-  echo "could not create restore path '$restore_path'; mkdir's diagnostic is above." >&2
-  exit 66
+	echo "could not create restore path '$restore_path'; mkdir's diagnostic is above." >&2
+	exit 66
 fi
 # Same gap the parent closes just above, for the leaf: its -L test sits before
 # the whole parent guard, and mkdir -p is a silent no-op over a link to a
@@ -758,9 +758,9 @@ fi
 # parent, so that user can plant the leaf as a symlink in the window and put
 # duplicati, the lock, the marker, and both scoped passes on the far side.
 if [[ -L $restore_path ]]; then
-  echo "--restore-path must not be a symlink: $restore_path" >&2
-  echo "  It was created or replaced while this run was starting." >&2
-  exit 64
+	echo "--restore-path must not be a symlink: $restore_path" >&2
+	echo "  It was created or replaced while this run was starting." >&2
+	exit 64
 fi
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
@@ -778,16 +778,16 @@ scope_dir=""
 restore_marker=""
 restore_lock=""
 cleanup_scope() {
-  [[ -n $scope_dir ]] && rm -rf "$scope_dir"
-  [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
-  if [[ -n $restore_lock ]]; then
-    local rmdir_err
-    rmdir_err=$(rmdir "$restore_lock" 2>&1) || {
-      echo "WARNING: could not remove the restore lock at '$restore_lock': ${rmdir_err}" >&2
-      echo "  The next run against this path refuses with exit 64 until it is gone." >&2
-    }
-  fi
-  return 0
+	[[ -n $scope_dir ]] && rm -rf "$scope_dir"
+	[[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
+	if [[ -n $restore_lock ]]; then
+		local rmdir_err
+		rmdir_err=$(rmdir "$restore_lock" 2>&1) || {
+			echo "WARNING: could not remove the restore lock at '$restore_lock': ${rmdir_err}" >&2
+			echo "  The next run against this path refuses with exit 64 until it is gone." >&2
+		}
+	fi
+	return 0
 }
 trap cleanup_scope EXIT
 
@@ -806,15 +806,15 @@ restore_lock_path="${restore_path}/.duplicati-restore-marker.lock"
 lock_status=0
 lock_err=$(mkdir "$restore_lock_path" 2>&1) || lock_status=$?
 if [[ $lock_status -ne 0 ]]; then
-  if [[ ! -d $restore_lock_path ]]; then
-    echo "could not create the restore lock at '$restore_lock_path': ${lock_err}" >&2
-    exit 66
-  fi
-  echo "refusing: a restore already holds '$restore_path'." >&2
-  echo "  Concurrent runs scope against each other: each one's ctime window sweeps in" >&2
-  echo "  the other's restored entries and applies its own --chown to them." >&2
-  echo "  Remove ${restore_lock_path} if no restore is in flight." >&2
-  exit 64
+	if [[ ! -d $restore_lock_path ]]; then
+		echo "could not create the restore lock at '$restore_lock_path': ${lock_err}" >&2
+		exit 66
+	fi
+	echo "refusing: a restore already holds '$restore_path'." >&2
+	echo "  Concurrent runs scope against each other: each one's ctime window sweeps in" >&2
+	echo "  the other's restored entries and applies its own --chown to them." >&2
+	echo "  Remove ${restore_lock_path} if no restore is in flight." >&2
+	exit 64
 fi
 restore_lock="$restore_lock_path"
 
@@ -826,16 +826,16 @@ restore_lock="$restore_lock_path"
 # stable, so take it again now that it is held.
 probe_restore_path
 if [[ $restore_path_populated == true && $force != true ]]; then
-  echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
-  echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
-  exit 64
+	echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
+	echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+	exit 64
 fi
 
 # The chmod capability probe needs a private scratch directory, and it must run
 # before the empty-root mode change so that change can use -h when available.
 if ! scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX); then
-  echo "could not create the scope directory; mktemp's diagnostic is above." >&2
-  exit 66
+	echo "could not create the scope directory; mktemp's diagnostic is above." >&2
+	exit 66
 fi
 
 # chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
@@ -846,18 +846,18 @@ fi
 chmod_noderef=()
 scope_probe="${scope_dir}/probe"
 if ! : >"$scope_probe"; then
-  echo "could not create the scope probe; shell's diagnostic is above." >&2
-  exit 66
+	echo "could not create the scope probe; shell's diagnostic is above." >&2
+	exit 66
 fi
 chmod_probe_status=0
 chmod_probe_err=$(chmod -h u+rw "$scope_probe" 2>&1) || chmod_probe_status=$?
 if [[ $chmod_probe_status -eq 0 ]]; then
-  chmod_noderef=(-h)
+	chmod_noderef=(-h)
 else
-  echo "WARNING: chmod -h is unusable: ${chmod_probe_err}" >&2
-  echo "  The pre-restore mode change on --restore-path and the permission pass will" >&2
-  echo "  both follow a symlink swapped in for their operand instead of skipping it." >&2
-  echo "  The chown pass is unaffected." >&2
+	echo "WARNING: chmod -h is unusable: ${chmod_probe_err}" >&2
+	echo "  The pre-restore mode change on --restore-path and the permission pass will" >&2
+	echo "  both follow a symlink swapped in for their operand instead of skipping it." >&2
+	echo "  The chown pass is unaffected." >&2
 fi
 
 # mkdir -p is a no-op over an existing directory, so a leaf the operator
@@ -866,13 +866,13 @@ fi
 # Narrow it now, matching what --help promises for a path this run creates or
 # finds empty. A populated path keeps its own mode, per --force.
 if [[ $restore_path_populated == false ]] && ! chmod "${chmod_noderef[@]}" 0700 "$restore_path"; then
-  echo "could not set the mode on '$restore_path'; chmod's diagnostic is above." >&2
-  exit 66
+	echo "could not set the mode on '$restore_path'; chmod's diagnostic is above." >&2
+	exit 66
 fi
 
 if ! restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX"); then
-  echo "could not create the restore marker under '$restore_path'; mktemp's diagnostic is above." >&2
-  exit 66
+	echo "could not create the restore marker under '$restore_path'; mktemp's diagnostic is above." >&2
+	exit 66
 fi
 pre_dirs="${scope_dir}/pre-dirs"
 
@@ -884,28 +884,28 @@ pre_dirs="${scope_dir}/pre-dirs"
 marker_probe="${restore_marker}.probe"
 marker_settled=false
 for _ in {1..50}; do
-  if ! rm -f "$marker_probe"; then
-    echo "could not remove the previous restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
-    exit 66
-  fi
-  if ! (set -o noclobber && : >"$marker_probe"); then
-    echo "could not create the restore marker probe under '$restore_path'; shell's diagnostic is above." >&2
-    exit 66
-  fi
-  if [[ $marker_probe -nt $restore_marker ]]; then
-    marker_settled=true
-    break
-  fi
-  sleep 0.1
+	if ! rm -f "$marker_probe"; then
+		echo "could not remove the previous restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
+		exit 66
+	fi
+	if ! (set -o noclobber && : >"$marker_probe"); then
+		echo "could not create the restore marker probe under '$restore_path'; shell's diagnostic is above." >&2
+		exit 66
+	fi
+	if [[ $marker_probe -nt $restore_marker ]]; then
+		marker_settled=true
+		break
+	fi
+	sleep 0.1
 done
 if ! rm -f "$marker_probe"; then
-  echo "could not remove the restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
-  exit 66
+	echo "could not remove the restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
+	exit 66
 fi
 if [[ $marker_settled != true ]]; then
-  echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
-  echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
-  exit 66
+	echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
+	echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
+	exit 66
 fi
 
 # Resolve --chown here too. The post-restore pass tolerates a per-entry failure
@@ -913,12 +913,12 @@ fi
 # user or group indistinguishable there: it fails on every entry and reads as a
 # racy target. Catching it now costs one probe instead of a whole restore.
 if [[ $chown_spec != "none" ]]; then
-  chown_probe_status=0
-  chown_probe_err=$(chown "$chown_spec" "$scope_probe" 2>&1) || chown_probe_status=$?
-  if [[ $chown_probe_status -ne 0 ]]; then
-    echo "--chown '${chown_spec}' cannot be applied: ${chown_probe_err}" >&2
-    exit 64
-  fi
+	chown_probe_status=0
+	chown_probe_err=$(chown "$chown_spec" "$scope_probe" 2>&1) || chown_probe_status=$?
+	if [[ $chown_probe_status -ne 0 ]]; then
+		echo "--chown '${chown_spec}' cannot be applied: ${chown_probe_err}" >&2
+		exit 64
+	fi
 fi
 rm -f "$scope_probe"
 
@@ -929,11 +929,11 @@ rm -f "$scope_probe"
 # and say why rather than leaving find's bare exit 1 to be read as a duplicati
 # failure.
 if ! find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"; then
-  echo "could not inventory pre-existing directories under '$restore_path'." >&2
-  echo "  A partial inventory would let the post-restore chown/chmod reach pre-existing" >&2
-  echo "  directories, so refusing before the restore starts." >&2
-  echo "  Quiesce other writers on the target and re-run." >&2
-  exit 66
+	echo "could not inventory pre-existing directories under '$restore_path'." >&2
+	echo "  A partial inventory would let the post-restore chown/chmod reach pre-existing" >&2
+	echo "  directories, so refusing before the restore starts." >&2
+	echo "  Quiesce other writers on the target and re-run." >&2
+	exit 66
 fi
 
 # comm must collate identically to the sort feeding it: GNU comm compares with
@@ -942,33 +942,33 @@ fi
 # new) and then exits non-zero on "input is not in sorted order", killing the
 # script under pipefail after a successful restore.
 restored_entries() {
-  local rc=0
-  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0 || rc=$?
-  find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
-    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs" || rc=$?
-  return "$rc"
+	local rc=0
+	find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0 || rc=$?
+	find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
+		LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs" || rc=$?
+	return "$rc"
 }
 
 declare -a restore_args=(
-  "$dest"
-  "--dbpath=${db_path}"
-  "--restore-path=${restore_path}"
-  "--include=[${user_regex}]"
-  "--exclude=*"
-  "--console-log-level=${log_level}"
-  "--overwrite=${overwrite}"
-  "--restore-volume-downloaders=8"
-  "--restore-volume-decryptors=8"
-  "--restore-volume-decompressors=8"
-  "--restore-channel-buffer-size=32"
+	"$dest"
+	"--dbpath=${db_path}"
+	"--restore-path=${restore_path}"
+	"--include=[${user_regex}]"
+	"--exclude=*"
+	"--console-log-level=${log_level}"
+	"--overwrite=${overwrite}"
+	"--restore-volume-downloaders=8"
+	"--restore-volume-decryptors=8"
+	"--restore-volume-decompressors=8"
+	"--restore-channel-buffer-size=32"
 )
 [[ -n $version_arg ]] && restore_args+=("--version=${version_arg}")
 [[ -n $time_arg ]] && restore_args+=("--time=${time_arg}")
 if [[ ${#extra_args[@]} -gt 0 ]]; then
-  restore_args+=("${extra_args[@]}")
+	restore_args+=("${extra_args[@]}")
 fi
 if [[ ${#passthrough[@]} -gt 0 ]]; then
-  restore_args+=("${passthrough[@]}")
+	restore_args+=("${passthrough[@]}")
 fi
 
 echo ">>> duplicati-cli restore ..."
@@ -981,8 +981,8 @@ end=$(date +%s)
 elapsed=$((end - start))
 
 if [[ $rc -ne 0 ]]; then
-  echo "duplicati-cli restore failed with exit code $rc after ${elapsed}s" >&2
-  exit "$rc"
+	echo "duplicati-cli restore failed with exit code $rc after ${elapsed}s" >&2
+	exit "$rc"
 fi
 
 # Walk the tree once and reuse the result: both passes below must act on the
@@ -1007,42 +1007,42 @@ restored_entries >"$restored_list" || scan_status=$?
 # reads, and an error during that walk would raise the incomplete-pass warning
 # and exit 75 for a run that has no ownership pass to be incomplete.
 if [[ $chown_spec != "none" ]]; then
-  find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
+	find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
 fi
 
 if [[ $scan_status -ne 0 ]]; then
-  echo "WARNING: the post-restore scan exited ${scan_status}; find's own diagnostic is above." >&2
-  echo "  A directory vanishing or turning unreadable mid-walk does this on a live target." >&2
-  echo "  The passes below may cover fewer entries than the restore wrote." >&2
-  echo "  Re-run once other writers are quiesced to finish them." >&2
+	echo "WARNING: the post-restore scan exited ${scan_status}; find's own diagnostic is above." >&2
+	echo "  A directory vanishing or turning unreadable mid-walk does this on a live target." >&2
+	echo "  The passes below may cover fewer entries than the restore wrote." >&2
+	echo "  Re-run once other writers are quiesced to finish them." >&2
 fi
 
 if [[ $chown_spec != "none" ]]; then
-  echo
-  echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
-  # -h on both: find classified these paths with -P at scan time, but chown
-  # resolves each operand when it runs, so a writer in the tree could swap a
-  # listed path for a symlink in between and have root re-own the referent
-  # outside --restore-path. lchown(2) is identical to chown(2) for the regular
-  # files and directories actually in the list, and the `chown -R` this replaced
-  # was immune for the same reason (FTS_PHYSICAL, never dereferences).
-  #
-  # Tolerated for the same reason the scan is: the list is a snapshot, so an
-  # entry can be unlinked before chown reaches it, and xargs turns that into
-  # 123. Aborting here would skip the permission pass below and leave every
-  # restored file with duplicati's cleared write bits. chown keeps going after a
-  # failed operand, so the rest of the list is still applied. An unresolvable
-  # --chown was already rejected before the restore, so it cannot land here.
-  chown_status=0
-  xargs -0 -r chown -h "$chown_spec" <"$restored_list" || chown_status=$?
-  xargs -0 -r chown -h "$chown_spec" <"$restored_links" || chown_status=$?
-  if [[ $restore_path_populated == false ]]; then
-    chown -h "$chown_spec" "$restore_path" || chown_status=$?
-  fi
-  if [[ $chown_status -ne 0 ]]; then
-    echo "WARNING: the chown pass exited ${chown_status}; an entry the scan listed may have" >&2
-    echo "  vanished before chown reached it. The permission pass below still runs." >&2
-  fi
+	echo
+	echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
+	# -h on both: find classified these paths with -P at scan time, but chown
+	# resolves each operand when it runs, so a writer in the tree could swap a
+	# listed path for a symlink in between and have root re-own the referent
+	# outside --restore-path. lchown(2) is identical to chown(2) for the regular
+	# files and directories actually in the list, and the `chown -R` this replaced
+	# was immune for the same reason (FTS_PHYSICAL, never dereferences).
+	#
+	# Tolerated for the same reason the scan is: the list is a snapshot, so an
+	# entry can be unlinked before chown reaches it, and xargs turns that into
+	# 123. Aborting here would skip the permission pass below and leave every
+	# restored file with duplicati's cleared write bits. chown keeps going after a
+	# failed operand, so the rest of the list is still applied. An unresolvable
+	# --chown was already rejected before the restore, so it cannot land here.
+	chown_status=0
+	xargs -0 -r chown -h "$chown_spec" <"$restored_list" || chown_status=$?
+	xargs -0 -r chown -h "$chown_spec" <"$restored_links" || chown_status=$?
+	if [[ $restore_path_populated == false ]]; then
+		chown -h "$chown_spec" "$restore_path" || chown_status=$?
+	fi
+	if [[ $chown_status -ne 0 ]]; then
+		echo "WARNING: the chown pass exited ${chown_status}; an entry the scan listed may have" >&2
+		echo "  vanished before chown reached it. The permission pass below still runs." >&2
+	fi
 fi
 
 # Restore drops the owner write bit on dirs and files because duplicati's
@@ -1062,17 +1062,17 @@ echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_
 chmod_status=0
 xargs -0 -r chmod "${chmod_noderef[@]}" u+rwX,go-rwx <"$restored_list" || chmod_status=$?
 if [[ $restore_path_populated == false ]]; then
-  chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path" || chmod_status=$?
+	chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path" || chmod_status=$?
 fi
 if [[ $chmod_status -ne 0 ]]; then
-  echo "WARNING: the permission pass exited ${chmod_status}; an entry the scan listed may have" >&2
-  echo "  vanished before chmod reached it. Re-run once other writers are quiesced." >&2
+	echo "WARNING: the permission pass exited ${chmod_status}; an entry the scan listed may have" >&2
+	echo "  vanished before chmod reached it. Re-run once other writers are quiesced." >&2
 fi
 
 echo
 echo "Files under ${restore_path} written during the restore window:"
 if ! find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\n' | sort; then
-  echo "WARNING: the listing walk failed; it may be shorter than what the restore wrote." >&2
+	echo "WARNING: the listing walk failed; it may be shorter than what the restore wrote." >&2
 fi
 
 echo
@@ -1084,6 +1084,6 @@ printf 'Done in %ss.\n' "$elapsed"
 # ownership and permissions are incomplete, re-run once writers are quiesced.
 # chown_status is assigned only inside the chown branch, hence the default.
 if [[ $scan_status -ne 0 || ${chown_status:-0} -ne 0 || $chmod_status -ne 0 ]]; then
-  echo "the restore completed but the ownership/permission pass was incomplete." >&2
-  exit 75
+	echo "the restore completed but the ownership/permission pass was incomplete." >&2
+	exit 75
 fi

@@ -24,49 +24,49 @@ case "$sessionId" in
 esac
 
 deny() {
-  jq -n --arg reason "$1" '{
+	jq -n --arg reason "$1" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       permissionDecision: "deny",
       permissionDecisionReason: $reason
     }
   }'
-  exit 0
+	exit 0
 }
 
 topicHint="files you name to the user, reuse in another session, or cite in memory go in $scratch/<topic>/, named after the PR, branch, or task"
 if [ -n "$sessionDir" ]; then
-  hint="Throwaway files go in this session's $sessionDir (\$TMPDIR in the shell, swept after a week idle); $topicHint."
+	hint="Throwaway files go in this session's $sessionDir (\$TMPDIR in the shell, swept after a week idle); $topicHint."
 else
-  hint="${topicHint^}."
+	hint="${topicHint^}."
 fi
 
 # X11 and ICE sockets are the only /tmp paths agents legitimately touch.
 isTmp() {
-  case "$1" in
-  /tmp/.X11-unix | /tmp/.X11-unix/* | /tmp/.ICE-unix | /tmp/.ICE-unix/*) return 1 ;;
-  /tmp | /tmp/*) return 0 ;;
-  *) return 1 ;;
-  esac
+	case "$1" in
+	/tmp/.X11-unix | /tmp/.X11-unix/* | /tmp/.ICE-unix | /tmp/.ICE-unix/*) return 1 ;;
+	/tmp | /tmp/*) return 0 ;;
+	*) return 1 ;;
+	esac
 }
 
 # Random suffixes and IDs make a dir unfindable later; the tool-temp prefixes
 # are what the scratch sweep trashes after two idle days.
 badTopic() {
-  local name="$1"
-  case "$name" in
-  sessions | tmp | temp | scratch | work | test | tests | out | output | misc | data | files | notes | logs | review | main | master | new | stuff) return 0 ;;
-  nix-shell.* | nix-develop-* | pyright-* | tmp.*) return 0 ;;
-  esac
-  [[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
-  [[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
-  # Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit
-  # and letters then digits a version, such as debian12.
-  if [[ $name =~ [._-]([a-z0-9_]{8})$ ]]; then
-    local suffix="${BASH_REMATCH[1]}"
-    [[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ && ! $suffix =~ ^[a-z]+[0-9]+$ ]] && return 0
-  fi
-  return 1
+	local name="$1"
+	case "$name" in
+	sessions | tmp | temp | scratch | work | test | tests | out | output | misc | data | files | notes | logs | review | main | master | new | stuff) return 0 ;;
+	nix-shell.* | nix-develop-* | pyright-* | tmp.*) return 0 ;;
+	esac
+	[[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
+	[[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
+	# Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit
+	# and letters then digits a version, such as debian12.
+	if [[ $name =~ [._-]([a-z0-9_]{8})$ ]]; then
+		local suffix="${BASH_REMATCH[1]}"
+		[[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ && ! $suffix =~ ^[a-z]+[0-9]+$ ]] && return 0
+	fi
+	return 1
 }
 
 topicRule="Name a new top-level dir in $scratch after the PR, branch, or task: a lowercase slug (a-z, 0-9, . _ -), not a generic word, ID, or mktemp-style suffix."
@@ -74,76 +74,76 @@ topicRule="Name a new top-level dir in $scratch after the PR, branch, or task: a
 # Pass create for tools that make a new file, so it lands in a session or topic
 # dir, or dest for an sbx host target, which may also name a directory.
 checkPath() {
-  local path="$1" rest top
-  [ -n "$path" ] || return 0
-  case "$path" in
-  /*) ;;
-  *) path="${cwd:-/}/$path" ;;
-  esac
-  path="$(realpath -ms -- "$path")"
-  if isTmp "$path"; then
-    rest="${path#/tmp}"
-    case "$rest" in
-    /*/*) deny "$path is under /tmp. Write to $scratch$rest instead. $hint" ;;
-    *) deny "$path is under /tmp. Write to ${sessionDir:-$scratch/<topic>}$rest instead. $hint" ;;
-    esac
-  fi
-  if [ "${2-}" = dest ]; then
-    if [ "$path" = "$scratch" ] || [ "$path" = "$scratch/sessions" ] ||
-      { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; } ||
-      { [ "${path%/*}" = "$scratch/sessions" ] && [ "$path" != "$sessionDir" ] && [ ! -d "$path" ]; }; then
-      if [ -d "$path" ]; then
-        deny "sbx would drop its output loose in $path. $hint"
-      fi
-      deny "sbx would drop its output loose in ${path%/*}; for a directory target, create it first. $hint"
-    fi
-    return 0
-  fi
-  [ "${2-}" = create ] || return 0
-  case "$path" in
-  "$scratch"/*) ;;
-  *) return 0 ;;
-  esac
-  rest="${path#"$scratch"/}"
-  top="${rest%%/*}"
-  if [ "$top" = "$rest" ] && [ ! -e "$path" ]; then
-    deny "$path would sit loose in $scratch. $hint"
-  fi
-  if [ "$top" = sessions ]; then
-    rest="${rest#sessions/}"
-    if [ "${rest%%/*}" = "$rest" ]; then
-      deny "$path would sit loose in $scratch/sessions. $hint"
-    fi
-    if [ "$scratch/sessions/${rest%%/*}" != "$sessionDir" ] && [ ! -d "$scratch/sessions/${rest%%/*}" ]; then
-      deny "$scratch/sessions/${rest%%/*} is not this session's dir; the shell wrappers create those. $hint"
-    fi
-  elif [ ! -e "$scratch/$top" ] && badTopic "$top"; then
-    deny "$scratch/$top is not a findable name. $topicRule $hint"
-  fi
+	local path="$1" rest top
+	[ -n "$path" ] || return 0
+	case "$path" in
+	/*) ;;
+	*) path="${cwd:-/}/$path" ;;
+	esac
+	path="$(realpath -ms -- "$path")"
+	if isTmp "$path"; then
+		rest="${path#/tmp}"
+		case "$rest" in
+		/*/*) deny "$path is under /tmp. Write to $scratch$rest instead. $hint" ;;
+		*) deny "$path is under /tmp. Write to ${sessionDir:-$scratch/<topic>}$rest instead. $hint" ;;
+		esac
+	fi
+	if [ "${2-}" = dest ]; then
+		if [ "$path" = "$scratch" ] || [ "$path" = "$scratch/sessions" ] ||
+			{ [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; } ||
+			{ [ "${path%/*}" = "$scratch/sessions" ] && [ "$path" != "$sessionDir" ] && [ ! -d "$path" ]; }; then
+			if [ -d "$path" ]; then
+				deny "sbx would drop its output loose in $path. $hint"
+			fi
+			deny "sbx would drop its output loose in ${path%/*}; for a directory target, create it first. $hint"
+		fi
+		return 0
+	fi
+	[ "${2-}" = create ] || return 0
+	case "$path" in
+	"$scratch"/*) ;;
+	*) return 0 ;;
+	esac
+	rest="${path#"$scratch"/}"
+	top="${rest%%/*}"
+	if [ "$top" = "$rest" ] && [ ! -e "$path" ]; then
+		deny "$path would sit loose in $scratch. $hint"
+	fi
+	if [ "$top" = sessions ]; then
+		rest="${rest#sessions/}"
+		if [ "${rest%%/*}" = "$rest" ]; then
+			deny "$path would sit loose in $scratch/sessions. $hint"
+		fi
+		if [ "$scratch/sessions/${rest%%/*}" != "$sessionDir" ] && [ ! -d "$scratch/sessions/${rest%%/*}" ]; then
+			deny "$scratch/sessions/${rest%%/*} is not this session's dir; the shell wrappers create those. $hint"
+		fi
+	elif [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+		deny "$scratch/$top is not a findable name. $topicRule $hint"
+	fi
 }
 
 # Session dirs are swept, so instructions and memory must not point into them.
 isInstructionFile() {
-  case "$1" in
-  */CLAUDE.md | */AGENTS.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
-  *) return 1 ;;
-  esac
+	case "$1" in
+	*/CLAUDE.md | */AGENTS.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
+	*) return 1 ;;
+	esac
 }
 
 checkCitation() {
-  local path="$1"
-  case "$path" in
-  /*) ;;
-  *) path="${cwd:-/}/$path" ;;
-  esac
-  if isInstructionFile "$path" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
-    deny "$1 would cite a path under $scratch/sessions/, which is swept after a week idle. Move the file to $scratch/<topic>/ and cite that."
-  fi
+	local path="$1"
+	case "$path" in
+	/*) ;;
+	*) path="${cwd:-/}/$path" ;;
+	esac
+	if isInstructionFile "$path" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
+		deny "$1 would cite a path under $scratch/sessions/, which is swept after a week idle. Move the file to $scratch/<topic>/ and cite that."
+	fi
 }
 
 # The lines a patch adds to one file, so removed lines and other files never count.
 patchAdds() {
-  awk -v target="$1" '
+	awk -v target="$1" '
     /^\*\*\* ((Add|Update|Delete) File|Move to): / { sub(/^\*\*\* ((Add|Update|Delete) File|Move to): /, ""); inFile = ($0 == target); next }
     /^\*\*\* End Patch/ { inFile = 0; next }
     inFile && /^\+/ { print substr($0, 2) }
@@ -154,34 +154,34 @@ command="$(jq -r '.tool_input.command // ""' <<<"$input")"
 
 # Codex apply_patch carries the patch text in tool_input.command.
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
-  while IFS= read -r path; do
-    checkPath "$path"
-    checkCitation "$path" "$(patchAdds "$path")"
-  done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
-  while IFS= read -r path; do
-    checkPath "$path" create
-  done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
-  while IFS= read -r path; do
-    checkCitation "$path" "$(patchAdds "$path")"
-  done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
-  if [ "$tool" != Bash ]; then
-    exit 0
-  fi
+	while IFS= read -r path; do
+		checkPath "$path"
+		checkCitation "$path" "$(patchAdds "$path")"
+	done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
+	while IFS= read -r path; do
+		checkPath "$path" create
+	done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
+	while IFS= read -r path; do
+		checkCitation "$path" "$(patchAdds "$path")"
+	done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
+	if [ "$tool" != Bash ]; then
+		exit 0
+	fi
 fi
 
 case "$tool" in
 Write)
-  file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
-  checkPath "$file" create
-  checkCitation "$file" "$(jq -r '.tool_input.content // ""' <<<"$input")"
-  exit 0
-  ;;
+	file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
+	checkPath "$file" create
+	checkCitation "$file" "$(jq -r '.tool_input.content // ""' <<<"$input")"
+	exit 0
+	;;
 Edit | MultiEdit | NotebookEdit)
-  file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
-  checkPath "$file"
-  checkCitation "$file" "$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
-  exit 0
-  ;;
+	file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+	checkPath "$file"
+	checkCitation "$file" "$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
+	exit 0
+	;;
 Bash) ;;
 *) exit 0 ;;
 esac
@@ -192,231 +192,231 @@ command="${command//$'\\\n'/ }"
 # Splits a simple command into words; fails on unquoted shell operators,
 # substitutions, comments, or newlines, which a word list cannot express.
 splitWords() {
-  local s="$1" c word="" quote="" i=0 inWord=0
-  words=()
-  while [ "$i" -lt "${#s}" ]; do
-    c="${s:i:1}"
-    i=$((i + 1))
-    if [ "$quote" = "'" ]; then
-      if [ "$c" = "'" ]; then quote=""; else word+="$c"; fi
-      continue
-    fi
-    case "$c" in
-    \\)
-      [ "${s:i:1}" = $'\n' ] || word+="${s:i:1}"
-      i=$((i + 1))
-      ;;
-    '"')
-      if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi
-      ;;
-    '`') return 1 ;;
-    '$')
-      [ "${s:i:1}" != "(" ] || return 1
-      word+="$c"
-      ;;
-    *)
-      if [ -n "$quote" ]; then
-        word+="$c"
-      else
-        case "$c" in
-        ' ' | $'\t')
-          [ "$inWord" -eq 0 ] || words+=("$word")
-          word="" inWord=0
-          continue
-          ;;
-        "'") quote="'" ;;
-        '|' | '&' | ';' | '<' | '>' | '(' | ')' | $'\n') return 1 ;;
-        '#')
-          [ "$inWord" -eq 1 ] || return 1
-          word+="$c"
-          ;;
-        *) word+="$c" ;;
-        esac
-      fi
-      ;;
-    esac
-    inWord=1
-  done
-  [ -z "$quote" ] || return 1
-  [ "$inWord" -eq 0 ] || words+=("$word")
+	local s="$1" c word="" quote="" i=0 inWord=0
+	words=()
+	while [ "$i" -lt "${#s}" ]; do
+		c="${s:i:1}"
+		i=$((i + 1))
+		if [ "$quote" = "'" ]; then
+			if [ "$c" = "'" ]; then quote=""; else word+="$c"; fi
+			continue
+		fi
+		case "$c" in
+		\\)
+			[ "${s:i:1}" = $'\n' ] || word+="${s:i:1}"
+			i=$((i + 1))
+			;;
+		'"')
+			if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi
+			;;
+		'`') return 1 ;;
+		'$')
+			[ "${s:i:1}" != "(" ] || return 1
+			word+="$c"
+			;;
+		*)
+			if [ -n "$quote" ]; then
+				word+="$c"
+			else
+				case "$c" in
+				' ' | $'\t')
+					[ "$inWord" -eq 0 ] || words+=("$word")
+					word="" inWord=0
+					continue
+					;;
+				"'") quote="'" ;;
+				'|' | '&' | ';' | '<' | '>' | '(' | ')' | $'\n') return 1 ;;
+				'#')
+					[ "$inWord" -eq 1 ] || return 1
+					word+="$c"
+					;;
+				*) word+="$c" ;;
+				esac
+			fi
+			;;
+		esac
+		inWord=1
+	done
+	[ -z "$quote" ] || return 1
+	[ "$inWord" -eq 0 ] || words+=("$word")
 }
 
 # splitWords keeps expansions literal, so a host path is resolved here the
 # way the shell would, and skipped when it cannot be. The mode is checkPath's.
 # shellcheck disable=SC2016,SC2088
 checkHostPath() {
-  local path="$1" mode="${2:-dest}"
-  case "$path" in
-  '$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
-  '${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
-  '$HOME' | '$HOME/'*) path="$HOME${path#'$HOME'}" ;;
-  '${HOME}' | '${HOME}/'*) path="$HOME${path#'${HOME}'}" ;;
-  '~' | '~/'*) path="$HOME${path#'~'}" ;;
-  esac
-  case "$path" in
-  *[\$\`*?[]*) return 0 ;;
-  esac
-  checkPath "$path" "$mode"
+	local path="$1" mode="${2:-dest}"
+	case "$path" in
+	'$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
+	'${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
+	'$HOME' | '$HOME/'*) path="$HOME${path#'$HOME'}" ;;
+	'${HOME}' | '${HOME}/'*) path="$HOME${path#'${HOME}'}" ;;
+	'~' | '~/'*) path="$HOME${path#'~'}" ;;
+	esac
+	case "$path" in
+	*[\$\`*?[]*) return 0 ;;
+	esac
+	checkPath "$path" "$mode"
 }
 
 # Index of the command word after wrappers that run it locally, in cmdAt;
 # fails on a wrapper option it does not know.
 findCommand() {
-  local n=0
-  while :; do
-    case "${words[n]-}" in
-    nohup) n=$((n + 1)) ;;
-    timeout)
-      n=$((n + 1))
-      while [[ ${words[n]-} == -* ]]; do
-        case "${words[n]}" in
-        -k | -s) n=$((n + 2)) ;;
-        -k?* | -s?* | -v | --kill-after=* | --signal=* | --preserve-status | --foreground | --verbose) n=$((n + 1)) ;;
-        *) return 1 ;;
-        esac
-      done
-      n=$((n + 1))
-      ;;
-    *) break ;;
-    esac
-  done
-  cmdAt=$n
+	local n=0
+	while :; do
+		case "${words[n]-}" in
+		nohup) n=$((n + 1)) ;;
+		timeout)
+			n=$((n + 1))
+			while [[ ${words[n]-} == -* ]]; do
+				case "${words[n]}" in
+				-k | -s) n=$((n + 2)) ;;
+				-k?* | -s?* | -v | --kill-after=* | --signal=* | --preserve-status | --foreground | --verbose) n=$((n + 1)) ;;
+				*) return 1 ;;
+				esac
+			done
+			n=$((n + 1))
+			;;
+		*) break ;;
+		esac
+	done
+	cmdAt=$n
 }
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
 # only --to and a host cp destination write on the host.
 checkSbx() {
-  local n word verb="" positional=()
-  for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
-    word="${words[n]}"
-    case "$word" in
-    --)
-      case "$verb" in
-      exec | run) ;;
-      *) positional+=("${words[@]:n+1}") ;;
-      esac
-      break
-      ;;
-    --to)
-      n=$((n + 1))
-      checkHostPath "${words[n]-}"
-      ;;
-    --to=*) checkHostPath "${word#--to=}" ;;
-    -*) ;;
-    *) if [ -z "$verb" ]; then verb="$word"; else positional+=("$word"); fi ;;
-    esac
-  done
-  if [ "$verb" = cp ] && [ "${#positional[@]}" -ge 2 ] &&
-    ! grep -qE '^[a-z0-9][a-z0-9-]{0,30}:' <<<"${positional[1]}"; then
-    checkHostPath "${positional[1]}"
-  fi
+	local n word verb="" positional=()
+	for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
+		word="${words[n]}"
+		case "$word" in
+		--)
+			case "$verb" in
+			exec | run) ;;
+			*) positional+=("${words[@]:n+1}") ;;
+			esac
+			break
+			;;
+		--to)
+			n=$((n + 1))
+			checkHostPath "${words[n]-}"
+			;;
+		--to=*) checkHostPath "${word#--to=}" ;;
+		-*) ;;
+		*) if [ -z "$verb" ]; then verb="$word"; else positional+=("$word"); fi ;;
+		esac
+	done
+	if [ "$verb" = cp ] && [ "${#positional[@]}" -ge 2 ] &&
+		! grep -qE '^[a-z0-9][a-z0-9-]{0,30}:' <<<"${positional[1]}"; then
+		checkHostPath "${positional[1]}"
+	fi
 }
 
 # Checks the host paths ssh writes: its log, control socket, and known hosts.
 # Fails on an option that runs a local command, so the segment is checked whole.
 checkSshOption() {
-  local opt="$1" value="$2" key
-  case "$opt" in
-  E | S)
-    checkSshPath "$value"
-    return 0
-    ;;
-  o) ;;
-  *) return 0 ;;
-  esac
-  # ssh_config form: optional quotes around the key, whitespace and at most
-  # one = between key and value, quoted values, several files per value.
-  trimSpace
-  if [ "${value:0:1}" = '"' ]; then
-    value="${value:1}"
-    key="${value%%\"*}"
-    value="${value#"$key"}"
-    value="${value#\"}"
-  else
-    key="${value%%[=[:space:]]*}"
-    value="${value#"$key"}"
-  fi
-  case "${key,,}" in
-  controlpath | userknownhostsfile) ;;
-  proxycommand | localcommand | knownhostscommand) return 1 ;;
-  *) return 0 ;;
-  esac
-  trimSpace
-  value="${value#=}"
-  trimSpace
-  while [ -n "$value" ]; do
-    if [ "${value:0:1}" = '"' ]; then
-      value="${value:1}"
-      key="${value%%\"*}"
-      value="${value#"$key"}"
-      value="${value#\"}"
-    else
-      key="${value%%[[:space:]]*}"
-      value="${value#"$key"}"
-    fi
-    checkSshPath "$key"
-    trimSpace
-  done
+	local opt="$1" value="$2" key
+	case "$opt" in
+	E | S)
+		checkSshPath "$value"
+		return 0
+		;;
+	o) ;;
+	*) return 0 ;;
+	esac
+	# ssh_config form: optional quotes around the key, whitespace and at most
+	# one = between key and value, quoted values, several files per value.
+	trimSpace
+	if [ "${value:0:1}" = '"' ]; then
+		value="${value:1}"
+		key="${value%%\"*}"
+		value="${value#"$key"}"
+		value="${value#\"}"
+	else
+		key="${value%%[=[:space:]]*}"
+		value="${value#"$key"}"
+	fi
+	case "${key,,}" in
+	controlpath | userknownhostsfile) ;;
+	proxycommand | localcommand | knownhostscommand) return 1 ;;
+	*) return 0 ;;
+	esac
+	trimSpace
+	value="${value#=}"
+	trimSpace
+	while [ -n "$value" ]; do
+		if [ "${value:0:1}" = '"' ]; then
+			value="${value:1}"
+			key="${value%%\"*}"
+			value="${value#"$key"}"
+			value="${value#\"}"
+		else
+			key="${value%%[[:space:]]*}"
+			value="${value#"$key"}"
+		fi
+		checkSshPath "$key"
+		trimSpace
+	done
 }
 
 trimSpace() {
-  value="${value#"${value%%[![:space:]]*}"}"
+	value="${value#"${value%%[![:space:]]*}"}"
 }
 
 checkSshPath() {
-  case "$1" in
-  "" | none | /dev/null) ;;
-  *) checkHostPath "$1" create ;;
-  esac
+	case "$1" in
+	"" | none | /dev/null) ;;
+	*) checkHostPath "$1" create ;;
+	esac
 }
 
 # ssh parses options on both sides of the destination, up to -- or the first
 # word after it; the rest runs on the remote host. Fails on an option letter
 # ssh does not take, so the segment is checked whole.
 checkSsh() {
-  local n word j c value dest=0
-  for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
-    word="${words[n]}"
-    case "$word" in
-    --) return 0 ;;
-    -?*) ;;
-    *)
-      [ "$dest" -eq 0 ] || return 0
-      dest=1
-      continue
-      ;;
-    esac
-    for ((j = 1; j < ${#word}; j++)); do
-      c="${word:j:1}"
-      case "$c" in
-      [46AaCfGgKkMNnqsTtVvXxYyZ]) ;;
-      [BbcDEeFIiJLlmOoPpQRSWw])
-        value="${word:j+1}"
-        if [ -z "$value" ]; then
-          n=$((n + 1))
-          value="${words[n]-}"
-        fi
-        checkSshOption "$c" "$value" || return 1
-        break
-        ;;
-      *) return 1 ;;
-      esac
-    done
-  done
+	local n word j c value dest=0
+	for ((n = cmdAt + 1; n < ${#words[@]}; n++)); do
+		word="${words[n]}"
+		case "$word" in
+		--) return 0 ;;
+		-?*) ;;
+		*)
+			[ "$dest" -eq 0 ] || return 0
+			dest=1
+			continue
+			;;
+		esac
+		for ((j = 1; j < ${#word}; j++)); do
+			c="${word:j:1}"
+			case "$c" in
+			[46AaCfGgKkMNnqsTtVvXxYyZ]) ;;
+			[BbcDEeFIiJLlmOoPpQRSWw])
+				value="${word:j+1}"
+				if [ -z "$value" ]; then
+					n=$((n + 1))
+					value="${words[n]-}"
+				fi
+				checkSshOption "$c" "$value" || return 1
+				break
+				;;
+			*) return 1 ;;
+			esac
+		done
+	done
 }
 
 flushSegment() {
-  if [[ $segment == *s[bs][xh]* ]] && splitWords "$segment" && findCommand &&
-    case "${words[cmdAt]-}" in
-    sbx) checkSbx ;;
-    ssh) checkSsh ;;
-    *) false ;;
-    esac then
-    elided+=" ${words[*]:0:cmdAt} ${words[cmdAt]}$redirs "
-  else
-    elided+="$raw"
-  fi
-  segment="" raw="" redirs=""
+	if [[ $segment == *s[bs][xh]* ]] && splitWords "$segment" && findCommand &&
+		case "${words[cmdAt]-}" in
+		sbx) checkSbx ;;
+		ssh) checkSsh ;;
+		*) false ;;
+		esac then
+		elided+=" ${words[*]:0:cmdAt} ${words[cmdAt]}$redirs "
+	else
+		elided+="$raw"
+	fi
+	segment="" raw="" redirs=""
 }
 
 # Reads a ${...} expansion, one word to bash, from the index after its brace
@@ -424,97 +424,97 @@ flushSegment() {
 # word splits as one; fails on nested quotes, expansions, or escapes.
 # shellcheck disable=SC2016
 readBraces() {
-  local j="$1" ch
-  brace='${' braceWord='${'
-  while [ "$j" -lt "${#s}" ]; do
-    ch="${s:j:1}"
-    j=$((j + 1))
-    brace+="$ch"
-    if [ "$ch" = "}" ]; then
-      braceWord+="$ch"
-      i=$j
-      return 0
-    fi
-    [[ $ch != [\'\"\$\`\\] ]] || return 1
-    if [[ $ch == [[:space:]\|\&\;\<\>\(\)] ]]; then braceWord+=_; else braceWord+="$ch"; fi
-  done
-  return 1
+	local j="$1" ch
+	brace='${' braceWord='${'
+	while [ "$j" -lt "${#s}" ]; do
+		ch="${s:j:1}"
+		j=$((j + 1))
+		brace+="$ch"
+		if [ "$ch" = "}" ]; then
+			braceWord+="$ch"
+			i=$j
+			return 0
+		fi
+		[[ $ch != [\'\"\$\`\\] ]] || return 1
+		if [[ $ch == [[:space:]\|\&\;\<\>\(\)] ]]; then braceWord+=_; else braceWord+="$ch"; fi
+	done
+	return 1
 }
 
 # Moves one redirection out of the segment's words, so arguments after it stay
 # in the same command; fails on a target it cannot read as one plain word.
 readRedirect() {
-  local start=$((i - 1)) op="$c" target="" tq="" ch
-  if [[ $segment =~ (^|[[:space:]])([0-9]+)$ ]]; then
-    op="${BASH_REMATCH[2]}$op"
-    segment="${segment%"${BASH_REMATCH[2]}"}"
-  fi
-  while [[ ${s:i:1} == [\<\>\&\|] ]]; do
-    op+="${s:i:1}"
-    i=$((i + 1))
-  done
-  if [[ $op == *'<<' && ${s:i:1} == - ]]; then
-    op+=-
-    i=$((i + 1))
-  fi
-  case "${op##*[0-9]}" in
-  '<<' | '<<-' | '<<<') ;;
-  *'<<'*) return 1 ;;
-  esac
-  while [ "${s:i:1}" = " " ] || [ "${s:i:1}" = $'\t' ]; do i=$((i + 1)); done
-  while [ "$i" -lt "${#s}" ]; do
-    ch="${s:i:1}"
-    case "$ch" in
-    '`' | \\) return 1 ;;
-    '$')
-      [ "${s:i+1:1}" != "(" ] || return 1
-      if [ "${s:i+1:1}" = "{" ] && [ "$tq" != "'" ]; then
-        readBraces $((i + 2)) || return 1
-        target+="$braceWord"
-        continue
-      fi
-      ;;
-    "'" | '"')
-      if [ -z "$tq" ]; then
-        tq="$ch"
-      elif [ "$tq" = "$ch" ]; then
-        tq=""
-      fi
-      ;;
-    ' ' | $'\t' | $'\n' | '|' | '&' | ';' | '<' | '>' | '(' | ')') [ -n "$tq" ] || break ;;
-    esac
-    target+="$ch"
-    i=$((i + 1))
-  done
-  [ -n "$target" ] && [ -z "$tq" ] || return 1
-  case "$op" in
-  *'<<<') ;;
-  *'<<') heredocs+=("<${target//[\'\"]/}") ;;
-  *'<<-') heredocs+=("-${target//[\'\"]/}") ;;
-  esac
-  redirs+=" $op$target"
-  raw+="${s:start:i-start}"
+	local start=$((i - 1)) op="$c" target="" tq="" ch
+	if [[ $segment =~ (^|[[:space:]])([0-9]+)$ ]]; then
+		op="${BASH_REMATCH[2]}$op"
+		segment="${segment%"${BASH_REMATCH[2]}"}"
+	fi
+	while [[ ${s:i:1} == [\<\>\&\|] ]]; do
+		op+="${s:i:1}"
+		i=$((i + 1))
+	done
+	if [[ $op == *'<<' && ${s:i:1} == - ]]; then
+		op+=-
+		i=$((i + 1))
+	fi
+	case "${op##*[0-9]}" in
+	'<<' | '<<-' | '<<<') ;;
+	*'<<'*) return 1 ;;
+	esac
+	while [ "${s:i:1}" = " " ] || [ "${s:i:1}" = $'\t' ]; do i=$((i + 1)); done
+	while [ "$i" -lt "${#s}" ]; do
+		ch="${s:i:1}"
+		case "$ch" in
+		'`' | \\) return 1 ;;
+		'$')
+			[ "${s:i+1:1}" != "(" ] || return 1
+			if [ "${s:i+1:1}" = "{" ] && [ "$tq" != "'" ]; then
+				readBraces $((i + 2)) || return 1
+				target+="$braceWord"
+				continue
+			fi
+			;;
+		"'" | '"')
+			if [ -z "$tq" ]; then
+				tq="$ch"
+			elif [ "$tq" = "$ch" ]; then
+				tq=""
+			fi
+			;;
+		' ' | $'\t' | $'\n' | '|' | '&' | ';' | '<' | '>' | '(' | ')') [ -n "$tq" ] || break ;;
+		esac
+		target+="$ch"
+		i=$((i + 1))
+	done
+	[ -n "$target" ] && [ -z "$tq" ] || return 1
+	case "$op" in
+	*'<<<') ;;
+	*'<<') heredocs+=("<${target//[\'\"]/}") ;;
+	*'<<-') heredocs+=("-${target//[\'\"]/}") ;;
+	esac
+	redirs+=" $op$target"
+	raw+="${s:start:i-start}"
 }
 
 # Skips each pending here-document body, from the index after the newline that
 # ends its command line through its delimiter line; fails on a body its
 # delimiter never closes.
 readHeredocs() {
-  local entry delim line
-  for entry in "${heredocs[@]}"; do
-    delim="${entry:1}"
-    while :; do
-      [ "$i" -lt "${#s}" ] || return 1
-      line="${s:i}"
-      line="${line%%$'\n'*}"
-      i=$((i + ${#line} + 1))
-      if [ "${entry:0:1}" = - ]; then
-        while [ "${line:0:1}" = $'\t' ]; do line="${line:1}"; done
-      fi
-      [ "$line" != "$delim" ] || break
-    done
-  done
-  heredocs=()
+	local entry delim line
+	for entry in "${heredocs[@]}"; do
+		delim="${entry:1}"
+		while :; do
+			[ "$i" -lt "${#s}" ] || return 1
+			line="${s:i}"
+			line="${line%%$'\n'*}"
+			i=$((i + ${#line} + 1))
+			if [ "${entry:0:1}" = - ]; then
+				while [ "${line:0:1}" = $'\t' ]; do line="${line:1}"; done
+			fi
+			[ "$line" != "$delim" ] || break
+		done
+	done
+	heredocs=()
 }
 
 # Checks each sbx or ssh command between unquoted shell operators and replaces
@@ -523,75 +523,75 @@ readHeredocs() {
 # elsewhere. Drops comments and here-document bodies. Fails on substitutions,
 # which can hide operators from the split.
 elideRemote() {
-  # byte-indexed substrings
-  local LC_ALL=C s="$1" c next quote="" i=0 comment
-  segment="" raw="" redirs="" elided="" heredocs=()
-  while [ "$i" -lt "${#s}" ]; do
-    c="${s:i:1}" next="${s:i+1:1}"
-    i=$((i + 1))
-    if [ "$quote" = "'" ] || { [ "$quote" = ansi ] && [ "$c" != \\ ]; }; then
-      [ "$c" != "'" ] || quote=""
-      segment+="$c" raw+="$c"
-      continue
-    fi
-    case "$c" in
-    \\)
-      segment+="$c$next" raw+="$c$next"
-      i=$((i + 1))
-      continue
-      ;;
-    '`') return 1 ;;
-    '$')
-      [ "$next" != "(" ] || return 1
-      if [ "$next" = "{" ]; then
-        readBraces $((i + 1)) || return 1
-        segment+="$braceWord" raw+="$brace"
-        continue
-      fi
-      ;;
-    '"') if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi ;;
-    esac
-    if [ -z "$quote" ]; then
-      case "$c" in
-      "'") if [ "${segment: -1}" = '$' ]; then quote=ansi; else quote="'"; fi ;;
-      '#')
-        if [[ -z $segment || ${segment: -1} == [[:space:]] ]]; then
-          comment="${s:i}"
-          comment="${comment%%$'\n'*}"
-          i=$((i + ${#comment}))
-          continue
-        fi
-        ;;
-      '<' | '>')
-        [ "$next" != "(" ] || return 1
-        readRedirect || return 1
-        continue
-        ;;
-      '&')
-        if [ "$next" = '>' ]; then
-          readRedirect || return 1
-          continue
-        fi
-        ;;&
-      '|' | '&' | ';' | '(' | ')' | $'\n')
-        flushSegment
-        elided+="$c"
-        if [ "$c" = $'\n' ]; then
-          readHeredocs || return 1
-        fi
-        continue
-        ;;
-      esac
-    fi
-    segment+="$c" raw+="$c"
-  done
-  [ -z "$quote" ] && [ "${#heredocs[@]}" -eq 0 ] || return 1
-  flushSegment
+	# byte-indexed substrings
+	local LC_ALL=C s="$1" c next quote="" i=0 comment
+	segment="" raw="" redirs="" elided="" heredocs=()
+	while [ "$i" -lt "${#s}" ]; do
+		c="${s:i:1}" next="${s:i+1:1}"
+		i=$((i + 1))
+		if [ "$quote" = "'" ] || { [ "$quote" = ansi ] && [ "$c" != \\ ]; }; then
+			[ "$c" != "'" ] || quote=""
+			segment+="$c" raw+="$c"
+			continue
+		fi
+		case "$c" in
+		\\)
+			segment+="$c$next" raw+="$c$next"
+			i=$((i + 1))
+			continue
+			;;
+		'`') return 1 ;;
+		'$')
+			[ "$next" != "(" ] || return 1
+			if [ "$next" = "{" ]; then
+				readBraces $((i + 1)) || return 1
+				segment+="$braceWord" raw+="$brace"
+				continue
+			fi
+			;;
+		'"') if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi ;;
+		esac
+		if [ -z "$quote" ]; then
+			case "$c" in
+			"'") if [ "${segment: -1}" = '$' ]; then quote=ansi; else quote="'"; fi ;;
+			'#')
+				if [[ -z $segment || ${segment: -1} == [[:space:]] ]]; then
+					comment="${s:i}"
+					comment="${comment%%$'\n'*}"
+					i=$((i + ${#comment}))
+					continue
+				fi
+				;;
+			'<' | '>')
+				[ "$next" != "(" ] || return 1
+				readRedirect || return 1
+				continue
+				;;
+			'&')
+				if [ "$next" = '>' ]; then
+					readRedirect || return 1
+					continue
+				fi
+				;;&
+			'|' | '&' | ';' | '(' | ')' | $'\n')
+				flushSegment
+				elided+="$c"
+				if [ "$c" = $'\n' ]; then
+					readHeredocs || return 1
+				fi
+				continue
+				;;
+			esac
+		fi
+		segment+="$c" raw+="$c"
+	done
+	[ -z "$quote" ] && [ "${#heredocs[@]}" -eq 0 ] || return 1
+	flushSegment
 }
 
 if [[ $command == *s[bs][xh]* || $command == *'<<'* || $command == *'#'* ]] &&
-  elideRemote "$command"; then
-  command="$elided"
+	elideRemote "$command"; then
+	command="$elided"
 fi
 
 text="$(sed -E 's#/tmp/\.(X11|ICE)-unix#/allowed-socket#g' <<<"$command")"
@@ -599,21 +599,21 @@ q="[\"']?"
 t="${q}/tmp(/|[\"'[:space:];|&)]|$)"
 seg="[^|;&]*"
 patterns=(
-  "(>>?|>&|&>>?|>\|)[[:space:]]*${t}"
-  "\btee\b${seg}[[:space:]]${t}"
-  "\b(mkdir|touch|mktemp|truncate|cd|pushd)\b${seg}[[:space:]=]${t}"
-  "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${t}"
-  "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${q}/tmp(/[^[:space:]|;&]*)?${q}[[:space:]]*($|[|;&)])"
-  "\btar\b${seg}[[:space:]](-C|--directory)(=|[[:space:]]+)${t}"
-  "\bunzip\b${seg}[[:space:]]-d[[:space:]]*${t}"
-  "(^|[[:space:]])(-o|-O|-P|--output|--output-document|--directory-prefix|--target-directory|--tmpdir)(=|[[:space:]]+)${t}"
-  "\bof=${t}"
-  "(^|[[:space:]])[A-Za-z_][A-Za-z0-9_]*=${t}"
+	"(>>?|>&|&>>?|>\|)[[:space:]]*${t}"
+	"\btee\b${seg}[[:space:]]${t}"
+	"\b(mkdir|touch|mktemp|truncate|cd|pushd)\b${seg}[[:space:]=]${t}"
+	"\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${t}"
+	"\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${q}/tmp(/[^[:space:]|;&]*)?${q}[[:space:]]*($|[|;&)])"
+	"\btar\b${seg}[[:space:]](-C|--directory)(=|[[:space:]]+)${t}"
+	"\bunzip\b${seg}[[:space:]]-d[[:space:]]*${t}"
+	"(^|[[:space:]])(-o|-O|-P|--output|--output-document|--directory-prefix|--target-directory|--tmpdir)(=|[[:space:]]+)${t}"
+	"\bof=${t}"
+	"(^|[[:space:]])[A-Za-z_][A-Za-z0-9_]*=${t}"
 )
 for pattern in "${patterns[@]}"; do
-  if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution."
-  fi
+	if grep -qE -- "$pattern" <<<"$text"; then
+		deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Arguments that run elsewhere (an sbx guest command, an ssh remote command) are not checked unless the command has an env prefix or holds a substitution."
+	fi
 done
 
 # $TMPDIR is the session dir, so only literal $scratch paths can land loose.
@@ -625,54 +625,54 @@ opt="(=|[[:space:]]*)"
 tarDir="\btar\b${seg}[[:space:]](-C|--directory)${opt}"
 # Extracting tar segments only; a bundled x-flag word must directly follow tar.
 tarExtracting="$(tr '|;&' '\n' <<<"$command" |
-  grep -E -- "\btar([[:space:]]+x[A-Za-z]*([[:space:]]|$)|${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get)([[:space:]]|$))" || true)"
+	grep -E -- "\btar([[:space:]]+x[A-Za-z]*([[:space:]]|$)|${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get)([[:space:]]|$))" || true)"
 patterns=(
-  "(>>?|>&|&>>?|>\|)[[:space:]]*${leaf}"
-  "\btee\b${seg}[[:space:]]${leaf}"
-  "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
-  "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
-  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${rootEnd}"
-  "\bunzip\b${seg}[[:space:]]-d${opt}${rootEnd}"
-  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${rootEnd}"
-  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${rootEnd}"
-  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
-  "\bof=${leaf}"
+	"(>>?|>&|&>>?|>\|)[[:space:]]*${leaf}"
+	"\btee\b${seg}[[:space:]]${leaf}"
+	"\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
+	"\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
+	"\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${rootEnd}"
+	"\bunzip\b${seg}[[:space:]]-d${opt}${rootEnd}"
+	"\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${rootEnd}"
+	"\bcurl\b${seg}[[:space:]]--output-dir${opt}${rootEnd}"
+	"(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
+	"\bof=${leaf}"
 )
 if [ -n "$tarExtracting" ] && grep -qE -- "${tarDir}${rootEnd}" <<<"$tarExtracting"; then
-  deny "This command writes a file loose in $scratch. $hint"
+	deny "This command writes a file loose in $scratch. $hint"
 fi
 for pattern in "${patterns[@]}"; do
-  if grep -qE -- "$pattern" <<<"$command"; then
-    deny "This command writes a file loose in $scratch. $hint"
-  fi
+	if grep -qE -- "$pattern" <<<"$command"; then
+		deny "This command writes a file loose in $scratch. $hint"
+	fi
 done
 
 # A top-level dir a command creates must have a findable name.
 name="${q}${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+"
 writes=(
-  "(>>?|>&|&>>?|>\|)[[:space:]]*${name}"
-  "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
-  "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
-  "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
-  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${name}"
-  "\bunzip\b${seg}[[:space:]]-d${opt}${name}"
-  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${name}"
-  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${name}"
-  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${name}"
+	"(>>?|>&|&>>?|>\|)[[:space:]]*${name}"
+	"\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
+	"\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
+	"\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
+	"\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${name}"
+	"\bunzip\b${seg}[[:space:]]-d${opt}${name}"
+	"\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${name}"
+	"\bcurl\b${seg}[[:space:]]--output-dir${opt}${name}"
+	"(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${name}"
 )
 for pattern in "${writes[@]}" "TAR:${tarDir}${name}"; do
-  text="$command"
-  case "$pattern" in
-  TAR:*)
-    pattern="${pattern#TAR:}"
-    text="$tarExtracting"
-    ;;
-  esac
-  while IFS= read -r top; do
-    case "$top" in "" | sessions | *[*?[]*) continue ;; esac
-    if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
-      deny "$scratch/$top is not a findable name. $topicRule $hint"
-    fi
-  done < <(grep -oE -- "$pattern" <<<"$text" | grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" | sed "s#^$scratch/##")
+	text="$command"
+	case "$pattern" in
+	TAR:*)
+		pattern="${pattern#TAR:}"
+		text="$tarExtracting"
+		;;
+	esac
+	while IFS= read -r top; do
+		case "$top" in "" | sessions | *[*?[]*) continue ;; esac
+		if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+			deny "$scratch/$top is not a findable name. $topicRule $hint"
+		fi
+	done < <(grep -oE -- "$pattern" <<<"$text" | grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" | sed "s#^$scratch/##")
 done
 exit 0

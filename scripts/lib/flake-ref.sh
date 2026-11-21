@@ -26,11 +26,11 @@
 # unfiltered, so a primary checkout would copy the whole .git directory into the
 # store and lose self.rev with it.
 flake_path_ref_reason() {
-  local dir="$1"
-  local allow_dirty="$2"
-  if [[ ${allow_dirty} == "true" || ${allow_dirty} == "1" ]]; then
-    printf 'allow-dirty'
-  elif [[ -f "${dir}/.git" ]]; then
-    printf 'linked worktree'
-  fi
+	local dir="$1"
+	local allow_dirty="$2"
+	if [[ ${allow_dirty} == "true" || ${allow_dirty} == "1" ]]; then
+		printf 'allow-dirty'
+	elif [[ -f "${dir}/.git" ]]; then
+		printf 'linked worktree'
+	fi
 }

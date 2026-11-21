@@ -17,41 +17,41 @@ git config --global user.email mirror-test@example.invalid
 git config --global commit.gpgsign false
 
 fail() {
-  printf 'FAIL: %s\n' "$*" >&2
-  exit 1
+	printf 'FAIL: %s\n' "$*" >&2
+	exit 1
 }
 
 new_case() {
-  case_root="$test_root/$1"
-  upstream="$case_root/upstream"
-  export GIT_MIRROR_ROOT="$case_root/mirrors"
-  spec="fixture/$1"
-  mirror="$GIT_MIRROR_ROOT/fixture-$1"
-  mkdir -p "$upstream" "$GIT_MIRROR_ROOT"
-  touch "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME"
-  git -C "$upstream" init -q -b main
-  printf 'initial\n' >"$upstream/source.txt"
-  printf 'build/\n' >"$upstream/.gitignore"
-  git -C "$upstream" add source.txt .gitignore
-  git -C "$upstream" commit -qm initial
-  git config --global "url.file://$upstream.insteadOf" "https://github.com/$spec.git"
-  git clone -q "$upstream" "$mirror"
-  git -C "$mirror" remote set-url origin "https://github.com/$spec.git"
-  [[ $(git -C "$mirror" rev-parse HEAD) == "$(git -C "$upstream" rev-parse HEAD)" ]] || fail 'clone HEAD mismatch'
+	case_root="$test_root/$1"
+	upstream="$case_root/upstream"
+	export GIT_MIRROR_ROOT="$case_root/mirrors"
+	spec="fixture/$1"
+	mirror="$GIT_MIRROR_ROOT/fixture-$1"
+	mkdir -p "$upstream" "$GIT_MIRROR_ROOT"
+	touch "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME"
+	git -C "$upstream" init -q -b main
+	printf 'initial\n' >"$upstream/source.txt"
+	printf 'build/\n' >"$upstream/.gitignore"
+	git -C "$upstream" add source.txt .gitignore
+	git -C "$upstream" commit -qm initial
+	git config --global "url.file://$upstream.insteadOf" "https://github.com/$spec.git"
+	git clone -q "$upstream" "$mirror"
+	git -C "$mirror" remote set-url origin "https://github.com/$spec.git"
+	[[ $(git -C "$mirror" rev-parse HEAD) == "$(git -C "$upstream" rev-parse HEAD)" ]] || fail 'clone HEAD mismatch'
 }
 
 sync_ok() {
-  "$worker" "$spec" >"$case_root/sync.log" 2>&1 || {
-    cat "$case_root/sync.log" >&2
-    fail 'mirror sync failed'
-  }
-  [[ $(git -C "$mirror" rev-parse HEAD) == "$(git -C "$upstream" rev-parse HEAD)" ]] || fail 'sync HEAD mismatch'
+	"$worker" "$spec" >"$case_root/sync.log" 2>&1 || {
+		cat "$case_root/sync.log" >&2
+		fail 'mirror sync failed'
+	}
+	[[ $(git -C "$mirror" rev-parse HEAD) == "$(git -C "$upstream" rev-parse HEAD)" ]] || fail 'sync HEAD mismatch'
 }
 
 advance() {
-  printf 'updated\n' >"$upstream/source.txt"
-  git -C "$upstream" add source.txt
-  git -C "$upstream" commit -qm update
+	printf 'updated\n' >"$upstream/source.txt"
+	git -C "$upstream" add source.txt
+	git -C "$upstream" commit -qm update
 }
 
 new_case local-files
@@ -98,100 +98,100 @@ backup="$(git -C "$mirror" for-each-ref --format='%(objectname)' refs/heads/git-
 printf '%s\n' 'ok: diverged commits are backed up and local files remain'
 
 for collision in untracked ignored local-directory local-file symlink; do
-  new_case "$collision"
-  before="$(git -C "$mirror" rev-parse HEAD)"
-  case "$collision" in
-  untracked | ignored)
-    printf 'local instructions\n' >"$mirror/CLAUDE.md"
-    if [[ $collision == ignored ]]; then
-      printf 'CLAUDE.md\n' >>"$mirror/.git/info/exclude"
-    fi
-    printf 'upstream instructions\n' >"$upstream/CLAUDE.md"
-    git -C "$upstream" add CLAUDE.md
-    ;;
-  local-directory)
-    mkdir "$mirror/notes"
-    printf 'local instructions\n' >"$mirror/notes/CLAUDE.md"
-    printf 'upstream file\n' >"$upstream/notes"
-    git -C "$upstream" add notes
-    ;;
-  local-file | symlink)
-    printf 'local instructions\n' >"$case_root/local-content"
-    if [[ $collision == symlink ]]; then
-      ln -s "$case_root/local-content" "$mirror/notes"
-    else
-      cp "$case_root/local-content" "$mirror/notes"
-    fi
-    mkdir "$upstream/notes"
-    printf 'upstream file\n' >"$upstream/notes/README.md"
-    git -C "$upstream" add notes/README.md
-    ;;
-  esac
-  git -C "$upstream" commit -qm collision
-  if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
-    fail "$collision collision was accepted"
-  fi
-  grep -Fq 'refusing to overwrite local path' "$case_root/sync.log" || fail 'collision cause missing'
-  [[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'collision changed HEAD'
-  git -C "$mirror" diff --exit-code --cached
-  case "$collision" in
-  untracked | ignored) local_path="$mirror/CLAUDE.md" ;;
-  local-directory) local_path="$mirror/notes/CLAUDE.md" ;;
-  *) local_path="$mirror/notes" ;;
-  esac
-  [[ $(cat "$local_path") == 'local instructions' ]] || fail 'collision overwrote local content'
-  printf 'ok: %s collision preserves HEAD, index and local content\n' "$collision"
+	new_case "$collision"
+	before="$(git -C "$mirror" rev-parse HEAD)"
+	case "$collision" in
+	untracked | ignored)
+		printf 'local instructions\n' >"$mirror/CLAUDE.md"
+		if [[ $collision == ignored ]]; then
+			printf 'CLAUDE.md\n' >>"$mirror/.git/info/exclude"
+		fi
+		printf 'upstream instructions\n' >"$upstream/CLAUDE.md"
+		git -C "$upstream" add CLAUDE.md
+		;;
+	local-directory)
+		mkdir "$mirror/notes"
+		printf 'local instructions\n' >"$mirror/notes/CLAUDE.md"
+		printf 'upstream file\n' >"$upstream/notes"
+		git -C "$upstream" add notes
+		;;
+	local-file | symlink)
+		printf 'local instructions\n' >"$case_root/local-content"
+		if [[ $collision == symlink ]]; then
+			ln -s "$case_root/local-content" "$mirror/notes"
+		else
+			cp "$case_root/local-content" "$mirror/notes"
+		fi
+		mkdir "$upstream/notes"
+		printf 'upstream file\n' >"$upstream/notes/README.md"
+		git -C "$upstream" add notes/README.md
+		;;
+	esac
+	git -C "$upstream" commit -qm collision
+	if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
+		fail "$collision collision was accepted"
+	fi
+	grep -Fq 'refusing to overwrite local path' "$case_root/sync.log" || fail 'collision cause missing'
+	[[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'collision changed HEAD'
+	git -C "$mirror" diff --exit-code --cached
+	case "$collision" in
+	untracked | ignored) local_path="$mirror/CLAUDE.md" ;;
+	local-directory) local_path="$mirror/notes/CLAUDE.md" ;;
+	*) local_path="$mirror/notes" ;;
+	esac
+	[[ $(cat "$local_path") == 'local instructions' ]] || fail 'collision overwrote local content'
+	printf 'ok: %s collision preserves HEAD, index and local content\n' "$collision"
 done
 
 for collision in replaced-file replaced-file-deleted-upstream replaced-directory tracked-edit; do
-  new_case "$collision"
-  case "$collision" in
-  replaced-file | replaced-file-deleted-upstream)
-    printf 'upstream file\n' >"$upstream/notes"
-    git -C "$upstream" add notes
-    git -C "$upstream" commit -qm notes
-    sync_ok
-    if [[ $collision == replaced-file-deleted-upstream ]]; then
-      git -C "$upstream" rm -q notes
-      git -C "$upstream" commit -qm 'remove notes'
-    fi
-    rm "$mirror/notes"
-    mkdir "$mirror/notes"
-    local_path="$mirror/notes/CLAUDE.md"
-    ;;
-  replaced-directory)
-    mkdir "$upstream/notes"
-    printf 'upstream file\n' >"$upstream/notes/README.md"
-    git -C "$upstream" add notes/README.md
-    git -C "$upstream" commit -qm notes
-    sync_ok
-    rm -r "$mirror/notes"
-    local_path="$mirror/notes"
-    ;;
-  tracked-edit)
-    printf 'local tracked edit\n' >"$mirror/source.txt"
-    printf 'upstream instructions\n' >"$upstream/CLAUDE.md"
-    git -C "$upstream" add CLAUDE.md
-    git -C "$upstream" commit -qm collision
-    local_path="$mirror/CLAUDE.md"
-    ;;
-  esac
-  printf 'local instructions\n' >"$local_path"
-  before="$(git -C "$mirror" rev-parse HEAD)"
-  status_before="$(git -C "$mirror" status --porcelain --untracked-files=no)"
-  if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
-    fail "$collision collision was accepted"
-  fi
-  grep -Fq 'refusing to overwrite local path' "$case_root/sync.log" || fail 'collision cause missing'
-  [[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'collision changed HEAD'
-  [[ -z $(git -C "$mirror" stash list) ]] || fail 'refused sync created a stash'
-  [[ $(git -C "$mirror" status --porcelain --untracked-files=no) == "$status_before" ]] || fail 'refused sync changed tracked state'
-  [[ $(cat "$local_path") == 'local instructions' ]] || fail 'refused sync removed local content'
-  printf 'ok: %s collision is refused before stashing\n' "$collision"
+	new_case "$collision"
+	case "$collision" in
+	replaced-file | replaced-file-deleted-upstream)
+		printf 'upstream file\n' >"$upstream/notes"
+		git -C "$upstream" add notes
+		git -C "$upstream" commit -qm notes
+		sync_ok
+		if [[ $collision == replaced-file-deleted-upstream ]]; then
+			git -C "$upstream" rm -q notes
+			git -C "$upstream" commit -qm 'remove notes'
+		fi
+		rm "$mirror/notes"
+		mkdir "$mirror/notes"
+		local_path="$mirror/notes/CLAUDE.md"
+		;;
+	replaced-directory)
+		mkdir "$upstream/notes"
+		printf 'upstream file\n' >"$upstream/notes/README.md"
+		git -C "$upstream" add notes/README.md
+		git -C "$upstream" commit -qm notes
+		sync_ok
+		rm -r "$mirror/notes"
+		local_path="$mirror/notes"
+		;;
+	tracked-edit)
+		printf 'local tracked edit\n' >"$mirror/source.txt"
+		printf 'upstream instructions\n' >"$upstream/CLAUDE.md"
+		git -C "$upstream" add CLAUDE.md
+		git -C "$upstream" commit -qm collision
+		local_path="$mirror/CLAUDE.md"
+		;;
+	esac
+	printf 'local instructions\n' >"$local_path"
+	before="$(git -C "$mirror" rev-parse HEAD)"
+	status_before="$(git -C "$mirror" status --porcelain --untracked-files=no)"
+	if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
+		fail "$collision collision was accepted"
+	fi
+	grep -Fq 'refusing to overwrite local path' "$case_root/sync.log" || fail 'collision cause missing'
+	[[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'collision changed HEAD'
+	[[ -z $(git -C "$mirror" stash list) ]] || fail 'refused sync created a stash'
+	[[ $(git -C "$mirror" status --porcelain --untracked-files=no) == "$status_before" ]] || fail 'refused sync changed tracked state'
+	[[ $(cat "$local_path") == 'local instructions' ]] || fail 'refused sync removed local content'
+	printf 'ok: %s collision is refused before stashing\n' "$collision"
 done
 
 add_gitlink() {
-  git -C "$upstream" update-index --add --cacheinfo "160000,$(git -C "$upstream" rev-parse HEAD),$1"
+	git -C "$upstream" update-index --add --cacheinfo "160000,$(git -C "$upstream" rev-parse HEAD),$1"
 }
 
 new_case submodule-removed
@@ -210,7 +210,7 @@ git -C "$upstream" add sub
 git -C "$upstream" commit -qm 'submodule to file'
 before="$(git -C "$mirror" rev-parse HEAD)"
 if "$worker" "$spec" >"$case_root/sync.log" 2>&1; then
-  fail 'populated submodule replacement was accepted'
+	fail 'populated submodule replacement was accepted'
 fi
 grep -Fq "refusing to overwrite local path 'sub/CLAUDE.md'" "$case_root/sync.log" || fail 'submodule collision cause missing'
 [[ $(git -C "$mirror" rev-parse HEAD) == "$before" ]] || fail 'submodule collision changed HEAD'
@@ -218,22 +218,22 @@ grep -Fq "refusing to overwrite local path 'sub/CLAUDE.md'" "$case_root/sync.log
 printf '%s\n' 'ok: populated submodules survive gitlink bumps and block their replacement'
 
 for conversion in removal directory; do
-  new_case "submodule-$conversion"
-  add_gitlink sub
-  git -C "$upstream" commit -qm submodule
-  sync_ok
-  mkdir -p "$mirror/sub"
-  printf 'local instructions\n' >"$mirror/sub/CLAUDE.md"
-  git -C "$upstream" rm -q --cached sub
-  if [[ $conversion == directory ]]; then
-    mkdir "$upstream/sub"
-    printf 'upstream file\n' >"$upstream/sub/README.md"
-    git -C "$upstream" add sub/README.md
-  fi
-  git -C "$upstream" commit -qm "submodule $conversion"
-  sync_ok
-  [[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail "submodule $conversion removed local content"
-  printf 'ok: submodule %s updates and keeps local files\n' "$conversion"
+	new_case "submodule-$conversion"
+	add_gitlink sub
+	git -C "$upstream" commit -qm submodule
+	sync_ok
+	mkdir -p "$mirror/sub"
+	printf 'local instructions\n' >"$mirror/sub/CLAUDE.md"
+	git -C "$upstream" rm -q --cached sub
+	if [[ $conversion == directory ]]; then
+		mkdir "$upstream/sub"
+		printf 'upstream file\n' >"$upstream/sub/README.md"
+		git -C "$upstream" add sub/README.md
+	fi
+	git -C "$upstream" commit -qm "submodule $conversion"
+	sync_ok
+	[[ $(cat "$mirror/sub/CLAUDE.md") == 'local instructions' ]] || fail "submodule $conversion removed local content"
+	printf 'ok: submodule %s updates and keeps local files\n' "$conversion"
 done
 
 new_case submodule-added
@@ -269,13 +269,13 @@ git add mach source.txt
 git commit -qm 'Firefox docs fixture'
 printf 'local instructions\n' >CLAUDE.md
 "$docs_builder" >docs.log 2>&1 || {
-  cat docs.log >&2
-  fail 'local instructions blocked Firefox docs'
+	cat docs.log >&2
+	fail 'local instructions blocked Firefox docs'
 }
 [[ -s current/index.html ]] || fail 'Firefox docs were not published'
 printf 'tracked edit\n' >source.txt
 if "$docs_builder" >docs.log 2>&1; then
-  fail 'Firefox docs accepted tracked edits'
+	fail 'Firefox docs accepted tracked edits'
 fi
 grep -Fq 'refusing to build from a dirty Firefox checkout' docs.log || fail 'tracked edit refusal missing'
 printf '%s\n' 'ok: Firefox docs allow local instructions and reject tracked edits'
