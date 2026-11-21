@@ -393,7 +393,7 @@ let
           else if name == "firefox" then
             let
               cfg = osConfig.programs.${meta.app}.extended;
-              browser = lib.getExe' (cfg.finalPackage or cfg.package) "camoufox";
+              browser = lib.getExe (cfg.finalPackage or cfg.package);
               geckodriver = osConfig.programs.geckodriver.extended;
               driver =
                 if geckodriver.enable then
