@@ -130,6 +130,25 @@ in
             stop done | jq -e '.reason | contains("big.bin")' > /dev/null
             stop done true > /dev/null
 
+            # A large untracked directory collapses early without hiding small untracked dirs or later files.
+            mkdir -p "$repo/aaa-untracked" "$repo/small-untracked"
+            python3 -c '
+            from pathlib import Path
+            import sys
+            root = Path(sys.argv[1])
+            for i in range(205):
+                (root / f"f{i:03d}.txt").write_text("x\n", encoding="utf-8")
+            ' "$repo/aaa-untracked"
+            payload '{}' | hook round-start
+            jq -e '.starts.main.files["aaa-untracked/"] == "tree:>200"' "$ROUND_REPORT_SCRATCH/sessions/s/hooks/round-report/state.json" > /dev/null
+            jq -e '.starts.main.files | has("aaa-untracked/f000.txt") | not' "$ROUND_REPORT_SCRATCH/sessions/s/hooks/round-report/state.json" > /dev/null
+            echo real > "$repo/zzz-real.txt"
+            echo sub > "$repo/small-untracked/new.txt"
+            got=$(stop done)
+            echo "$got" | jq -e '.reason | contains("zzz-real.txt") and contains("small-untracked/new.txt") and (contains("aaa-untracked") | not)' > /dev/null
+            stop done true > /dev/null
+            rm -rf "$repo/aaa-untracked" "$repo/small-untracked" "$repo/zzz-real.txt"
+
             # Codex rounds are keyed by turn; a stop from another turn sees no snapshot.
             payload '{turn_id: "t1"}' | hook round-start
             echo turn > "$repo/turn.txt"

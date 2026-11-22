@@ -25,8 +25,13 @@ type Json = dict[str, object]
 
 SCRATCH = Path(os.environ["ROUND_REPORT_SCRATCH"])
 LIST_CAP = 20
-# Larger files are fingerprinted by size and mtime, so a snapshot never reads them.
+# Larger files or large snapshots fingerprint by size and mtime instead of reading contents.
 HASH_MAX_BYTES = 1 << 20
+HASH_COUNT_CAP = 200
+# Untracked directories past this count collapse to one tree entry, and total
+# untracked entries are capped so an untracked checkout cannot stall hooks.
+UNTRACKED_DIR_CAP = 200
+UNTRACKED_CAP = 500
 PORCELAIN_PREFIX = 3
 # Exit 1 from these as the last command means "no match" or "differs".
 NO_MATCH = re.compile(
@@ -60,23 +65,61 @@ def git(cwd: Path, *args: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def porcelain_paths(status: str) -> list[str]:
-    """Paths from NUL-separated porcelain v1 status, rename sources included."""
-    paths: list[str] = []
+def porcelain_entries(status: str) -> tuple[list[str], list[str]]:
+    """Split NUL-separated porcelain v1 paths into tracked and untracked lists."""
+    tracked: list[str] = []
+    untracked: list[str] = []
     entries = iter(status.split("\0"))
     for entry in entries:
         if len(entry) <= PORCELAIN_PREFIX:
             continue
         code, path = entry[:2], entry[PORCELAIN_PREFIX:]
-        paths.append(path)
+        if code == "??":
+            untracked.append(path)
+            continue
+        tracked.append(path)
         if "R" in code or "C" in code:
             source = next(entries, "")
             if source:
-                paths.append(source)
-    return paths
+                tracked.append(source)
+    return tracked, untracked
 
 
-def path_state(path: Path) -> str:
+def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str, str]]:
+    """Expand small untracked directories to file paths; collapse huge ones early."""
+    kept: list[str] = []
+    collapsed: dict[str, str] = {}
+    for entry in entries:
+        if not entry.endswith("/"):
+            kept.append(entry)
+            continue
+        directory = top / entry
+        if (directory / ".git").exists():
+            kept.append(entry)
+            continue
+        members: list[str] = []
+        overflow = False
+        try:
+            for root, dirs, files in directory.walk():
+                dirs[:] = sorted(d for d in dirs if d != ".git")
+                for filename in sorted(files):
+                    members.append((root / filename).relative_to(top).as_posix())
+                    if len(members) > UNTRACKED_DIR_CAP:
+                        overflow = True
+                        break
+                if overflow:
+                    break
+        except OSError:
+            kept.append(entry)
+            continue
+        if overflow:
+            collapsed[entry] = f"tree:>{UNTRACKED_DIR_CAP}"
+        else:
+            kept.extend(members)
+    return kept[:UNTRACKED_CAP], collapsed
+
+
+def path_state(path: Path, *, hash_content: bool = True) -> str:
     """Fingerprint one dirty path: content hash, size and mtime, link target, or nested repo."""
     try:
         if path.is_symlink():
@@ -87,7 +130,7 @@ def path_state(path: Path) -> str:
             return "dir:" + hashlib.sha256((head + nested).encode()).hexdigest()
         if path.is_file():
             info = path.stat()
-            if info.st_size > HASH_MAX_BYTES:
+            if not hash_content or info.st_size > HASH_MAX_BYTES:
                 return f"stat:{info.st_size}:{info.st_mtime_ns}"
             return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as error:
@@ -95,16 +138,21 @@ def path_state(path: Path) -> str:
     return "absent"
 
 
-def snapshot(cwd: Path) -> Json | None:
+def snapshot(cwd: Path, *, hash_content: bool | None = None) -> Json | None:
     """Record HEAD and a fingerprint of every dirty path in cwd's repository."""
     top_out = git(cwd, "rev-parse", "--show-toplevel")
     if top_out is None:
         return None
     top = Path(top_out.strip())
     head = (git(top, "rev-parse", "--verify", "-q", "HEAD") or "").strip()
-    status = git(top, "status", "--porcelain=v1", "-z", "--untracked-files=all") or ""
-    files = {p: path_state(top / p) for p in porcelain_paths(status)}
-    return {"top": str(top), "head": head, "files": files}
+    status = git(top, "status", "--porcelain=v1", "-z", "--untracked-files=normal") or ""
+    tracked, untracked = porcelain_entries(status)
+    kept_untracked, collapsed = expand_untracked(top, untracked)
+    paths = tracked + kept_untracked
+    use_hash = len(paths) <= HASH_COUNT_CAP if hash_content is None else hash_content
+    files = {p: path_state(top / p, hash_content=use_hash) for p in paths}
+    files.update(collapsed)
+    return {"top": str(top), "head": head, "hashed": use_hash, "files": files}
 
 
 def changed_files(start: Json | None, end: Json | None) -> list[str]:
@@ -114,7 +162,20 @@ def changed_files(start: Json | None, end: Json | None) -> list[str]:
     start_files = cast("dict[str, str]", start["files"])
     end_files = cast("dict[str, str]", end["files"])
     names = set(start_files) | set(end_files)
-    changed = {n for n in names if start_files.get(n) != end_files.get(n)}
+    collapsed_roots = [
+        n
+        for n in names
+        if start_files.get(n, "").startswith("tree:") or end_files.get(n, "").startswith("tree:")
+    ]
+    changed: set[str] = set()
+    for name in names:
+        if start_files.get(name) == end_files.get(name):
+            continue
+        parent = next(
+            (root for root in collapsed_roots if name != root and name.startswith(root)),
+            None,
+        )
+        changed.add(parent or name)
     start_head, end_head = str(start["head"]), str(end["head"])
     top = Path(str(end["top"]))
     if end_head and start_head != end_head:
@@ -130,7 +191,14 @@ def changed_files(start: Json | None, end: Json | None) -> list[str]:
 def in_codex_home(cwd: Path) -> bool:
     """Codex's own background threads (memory consolidation) run inside CODEX_HOME."""
     home = os.environ.get("CODEX_HOME")
-    return bool(home) and cwd.resolve().is_relative_to(Path(str(home)).resolve())
+    if not home:
+        return False
+    home_path = Path(home)
+    if not home_path.is_absolute():
+        home_path = Path.cwd() / home_path
+    codex_root = Path(os.path.normpath(home_path))
+    cwd_norm = Path(os.path.normpath(cwd if cwd.is_absolute() else Path.cwd() / cwd))
+    return cwd_norm.is_relative_to(codex_root) or cwd.resolve().is_relative_to(codex_root)
 
 
 def round_key(payload: Json) -> str:
@@ -283,7 +351,11 @@ def round_end(payload: Json) -> Json | None:
     failures, cursor = new_failures(log_path, int(cast("int", state.get("cursor", 0))))
     starts = cast("dict[str, Json | None]", state.get("starts") or {})
     start = starts.get(round_key(payload))
-    end = snapshot(Path(str(start["top"]))) if start else None
+    end = (
+        snapshot(Path(str(start["top"])), hash_content=bool(start.get("hashed", True)))
+        if start
+        else None
+    )
     output = round_output(payload, changed_files(start, end), failures, log_path)
     state["cursor"] = cursor
     if output is None or "decision" not in output:
