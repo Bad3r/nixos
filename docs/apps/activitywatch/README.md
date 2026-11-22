@@ -18,9 +18,9 @@ systemctl --user status "activitywatch*"
 
 The module adds the name to `/etc/hosts` on loopback.
 `.internal` keeps the lookup out of mDNS, which answers `.local` names first and never reads `/etc/hosts` on a miss.
-A `systemd-socket-proxyd` unit forwards the loopback web port to the server, so the URL needs no port.
-The socket starts with `sockets.target` and the proxy service on the first request.
-A switch never restarts a changed socket unit, so restart `activitywatch-http.socket` by hand after changing its address.
+nginx listens on loopback port 80 and proxies the name to the server, so the URL needs no port.
+It rewrites the `Host` header to `127.0.0.1`, the only kind `aw-server` answers while it binds loopback.
+Requests for any other name get no answer, which keeps the server's DNS-rebinding guard in place.
 
 ```bash
 getent hosts activitywatch.internal

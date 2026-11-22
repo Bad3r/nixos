@@ -11,7 +11,7 @@
 
   Notes:
     * The hostname is a /etc/hosts entry on loopback; .internal names skip mDNS, which answers .local first.
-    * A systemd-socket-proxyd unit forwards 127.0.0.1:80 to the server port, so the URL needs no port.
+    * nginx on 127.0.0.1:80 proxies the hostname to the server, so the URL needs no port.
 */
 _:
 let
@@ -24,6 +24,10 @@ let
     }:
     let
       cfg = config.services.activitywatch.extended;
+      loopbackHttp = {
+        addr = "127.0.0.1";
+        port = 80;
+      };
     in
     {
       options.services.activitywatch.extended = {
@@ -51,30 +55,27 @@ let
       config = lib.mkIf cfg.enable {
         networking.hosts."127.0.0.1" = [ cfg.hostname ];
 
-        systemd.sockets.activitywatch-http = {
-          description = "ActivityWatch web UI on port 80";
-          wantedBy = [ "sockets.target" ];
-          listenStreams = [ "127.0.0.1:80" ];
-        };
+        services.nginx = {
+          enable = true;
+          virtualHosts = {
+            # Closes requests for any other name, so a DNS-rebinding page
+            # cannot reach the server through the Host rewrite below.
+            activitywatch-reject = {
+              default = true;
+              serverName = "_";
+              listen = [ loopbackHttp ];
+              locations."/".return = "444";
+            };
 
-        systemd.services.activitywatch-http = {
-          description = "ActivityWatch web UI proxy";
-          serviceConfig = {
-            ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd --exit-idle-time=10min 127.0.0.1:${toString cfg.port}";
-            DynamicUser = true;
-            IPAddressDeny = "any";
-            IPAddressAllow = "localhost";
-            RestrictAddressFamilies = [
-              "AF_INET"
-              "AF_INET6"
-            ];
-            CapabilityBoundingSet = "";
-            NoNewPrivileges = true;
-            PrivateTmp = true;
-            PrivateDevices = true;
-            ProtectSystem = "strict";
-            ProtectHome = true;
-            SystemCallFilter = [ "@system-service" ];
+            ${cfg.hostname} = {
+              listen = [ loopbackHttp ];
+              locations."/" = {
+                proxyPass = "http://127.0.0.1:${toString cfg.port}";
+                recommendedProxySettings = false;
+                # aw-server answers only Host values of 127.0.0.1 or localhost.
+                extraConfig = "proxy_set_header Host 127.0.0.1;";
+              };
+            };
           };
         };
       };
