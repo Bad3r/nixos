@@ -2,6 +2,7 @@
   lib,
   stdenvNoCC,
   callPackage,
+  bubblewrap,
 }:
 let
   # kagi-search runs on browser-fetch's modules and interpreter: the jar, curl-impersonate and
@@ -30,6 +31,9 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     install -d $out/lib/kagi-search $out/bin
     cp -r kagi_search $out/lib/kagi-search/
+    # The PDF renderer's sandbox.
+    substituteInPlace $out/lib/kagi-search/kagi_search/pdf.py \
+      --replace-fail "@bwrap@" "${lib.getExe bubblewrap}"
     # -B: bytecode the check's runs would write into $out differs per build.
     for entry in kagi-search:cli kagi-search-webrun:webrun; do
       name=''${entry%%:*}

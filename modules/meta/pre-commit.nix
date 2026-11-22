@@ -55,6 +55,8 @@ _: {
                     ps.publicsuffixlist
                     (pkgs.callPackage ../../packages/camoufox { }).python
                     ps.pillow
+                    # kagi-search renders PDF pages with PDFium.
+                    ps.pypdfium2
                   ])
                 }/bin/python3"
               ];
