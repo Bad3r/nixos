@@ -61,7 +61,12 @@ let
             locations."/" = {
               proxyPass = site.upstream;
               recommendedProxySettings = false;
-              extraConfig = "proxy_set_header Host ${site.hostHeader};";
+              # Upstreams enforce their own body limits; the 10m nginx
+              # default would refuse large imports.
+              extraConfig = ''
+                proxy_set_header Host ${site.hostHeader};
+                client_max_body_size 0;
+              '';
             };
           }) sites;
         };
