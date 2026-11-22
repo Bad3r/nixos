@@ -164,6 +164,8 @@ class ArgumentsTest(unittest.TestCase):
         environment = {"CODEX_SESSION_ID": "root", "CODEX_THREAD_ID": "child"}
         with mock.patch.dict(os.environ, environment, clear=True):
             self.assertEqual(caller_session(), "codex:root")
+        with mock.patch.dict(os.environ, {"ANTIGRAVITY_CONVERSATION_ID": "c1"}, clear=True):
+            self.assertEqual(caller_session(), "antigravity:c1")
 
 
 class ServerTest(unittest.TestCase):

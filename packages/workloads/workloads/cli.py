@@ -31,7 +31,11 @@ TTL_TEXT = (
     " connections of other grants keep working. A sandbox without an address reaches a granted"
     " host service over vsock, at CID 2 on the service's port."
 )
-SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
+SESSION_VARIABLES = (
+    ("CLAUDE_CODE_SESSION_ID", "claude"),
+    ("CODEX_THREAD_ID", "codex"),
+    ("ANTIGRAVITY_CONVERSATION_ID", "antigravity"),
+)
 SHARE_TEXT = (
     "A guest takes the shares its declaration marks runtime = true; a sandbox takes its shared"
     " directory read-write, or a workloads.grants.sandboxShares entry read-only. A share stays"

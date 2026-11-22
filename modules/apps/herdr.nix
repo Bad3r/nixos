@@ -112,7 +112,19 @@
         # status from the version marker at these paths, and `herdr integration
         # install` fails on the read-only links instead of registering a second
         # hook.
-        home.file.".claude/hooks/herdr-agent-state.sh".source = "${assets}/claude/herdr-agent-state.sh";
+        home.file = {
+          ".claude/hooks/herdr-agent-state.sh".source = "${assets}/claude/herdr-agent-state.sh";
+        }
+        //
+          lib.optionalAttrs
+            (
+              lib.attrByPath [ "programs" "antigravity-cli" "extended" "enable" ] false osConfig
+              || lib.attrByPath [ "programs" "antigravity-hub" "extended" "enable" ] false osConfig
+            )
+            {
+              ".gemini/config/hooks/herdr-agent-state.sh".source =
+                "${assets}/antigravity_cli/herdr-agent-state.sh";
+            };
         xdg.configFile = {
           "codex/herdr-agent-state.sh".source = "${assets}/codex/herdr-agent-state.sh";
           "herdr/config.toml".source = (pkgs.formats.toml { }).generate "herdr-config.toml" settings;

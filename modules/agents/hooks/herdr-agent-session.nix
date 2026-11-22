@@ -5,10 +5,14 @@
 { inputs, lib, ... }:
 let
   hook =
-    agent:
+    {
+      agent,
+      event ? "SessionStart",
+      assetDir ? agent,
+    }:
     {
       name = "herdr-${agent}-session";
-      event = "SessionStart";
+      inherit event;
       timeout = 10;
       package =
         pkgs:
@@ -22,10 +26,11 @@ let
             pkgs.python3
           ];
           text = ''
-            exec ${pkgs.runtimeShell} ${src}/src/integration/assets/${agent}/herdr-agent-state.sh session
+            exec ${pkgs.runtimeShell} ${src}/src/integration/assets/${assetDir}/herdr-agent-state.sh session
           '';
         };
     }
+    // lib.optionalAttrs (agent == "antigravity") { antigravity = { }; }
     // lib.optionalAttrs (agent == "claude") {
       # Herdr's SESSION_START_MATCHER (src/integration/claude_settings.rs).
       claude.matcher = "^(startup|resume|clear|compact|fork)$";
@@ -34,7 +39,13 @@ let
 in
 {
   flake.lib.agents._internal.hooks.raw = {
-    herdr-claude-session = hook "claude";
-    herdr-codex-session = hook "codex";
+    herdr-antigravity-session = hook {
+      agent = "antigravity";
+      # PreInvocation is the first flat-list event carrying conversationId.
+      event = "PreInvocation";
+      assetDir = "antigravity_cli";
+    };
+    herdr-claude-session = hook { agent = "claude"; };
+    herdr-codex-session = hook { agent = "codex"; };
   };
 }

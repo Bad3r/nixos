@@ -48,7 +48,7 @@ These patterns recur everywhere:
 - [Custom package overlays](guides/custom-packages-overlays.md): an overlay joins `nixpkgs.overlays` only where its app's row is on.
 - [Custom packages](guides/custom-packages-style-guide.md): a derivation pinned by `hashes.json` and refreshed by its `update.py`.
 - [Secrets](sops/README.md): sops-nix payloads in the `secrets/` submodule, decrypted by one age key.
-- `modules/agents/system-prompt.nix` renders the shared agent baseline into the user-level `~/.claude/CLAUDE.md` and `~/.config/codex/AGENTS.md`, and `modules/agents/mcp.nix` compiles the per-client MCP server lists.
+- `modules/agents/system-prompt.nix` renders the shared agent baseline into `~/.claude/CLAUDE.md`, `~/.config/codex/AGENTS.md`, and `~/.gemini/config/AGENTS.md`, and `modules/agents/mcp.nix` compiles the per-client MCP server lists.
   Edit the source, not the rendered output.
 - `build.sh` runs the git hooks and `nix flake check`, then switches or boots through `nh os`, and refuses a dirty tree without `--allow-dirty`.
   `.github/workflows/check.yml` enforces the same Dendritic compliance in CI.
@@ -72,7 +72,7 @@ The reading path runs from what the project is to how it ships, each step buildi
 11. Service and desktop domains: `modules/networking/ssh.nix`, `modules/git/git.nix`, `modules/services/duplicati-r2.nix`, and `modules/csec/wordlists.nix`.
 12. Custom packages and overlays: `modules/hosts/common/custom-overlays-base.nix`, then `modules/apps/restringer/`, `packages/restringer/default.nix`, and its `hashes.json`.
     The per-package `update.py` pin updaters share the library in `scripts/updater/`.
-13. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
+13. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/antigravity-cli/home.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
 14. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme is VS Code Dark 2026 (`modules/stylix/vscode-dark-2026.base16.yaml`).
 15. Validation, tooling, and deployment: `modules/meta/devshell.nix`, `modules/apps/pentesting-devshell/package.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
     `modules/meta/hooks/apps-catalog-sync.nix` keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.

@@ -7,7 +7,7 @@
 
   Summary:
     * Renders ~/.opencodereview/config.json from programs.open-code-review.extended.settings.
-    * Links the skills the package ships into Claude Code and Codex on hosts that enable those apps.
+    * Links the skills the package ships into Antigravity, Claude Code, and Codex on hosts that enable those apps.
 */
 _: {
   flake.homeManagerModules.apps."open-code-review" =
@@ -43,6 +43,9 @@ _: {
             (pkgs.formats.json { }).generate "open-code-review-config.json"
               cfg.settings;
         }
+        // lib.optionalAttrs (appEnabled "antigravity-cli" || appEnabled "antigravity-hub") (
+          skillLinks ".gemini/config/skills" { recursive = true; }
+        )
         // lib.optionalAttrs (appEnabled "claude-code") (skillLinks ".claude/skills" { recursive = true; });
 
         xdg.configFile = lib.optionalAttrs (appEnabled "codex") (skillLinks "agents/skills" { });
