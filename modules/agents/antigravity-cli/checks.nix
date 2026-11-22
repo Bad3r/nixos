@@ -241,7 +241,17 @@ in
               check_state() {
                 local actual_file=$1 template_file=$2 hub_target=$3 expected_file
                 expected_file=$(mktemp)
-                jq -cS --arg target "$hub_target" '. + { hubStorageTarget: $target }' "$template_file" >"$expected_file"
+                jq -cS --arg target "$hub_target" '
+                  . + {
+                    hubStorageByTarget: (
+                      if (.hubStorage | length) > 0 and $target != "" then
+                        { ($target): .hubStorage }
+                      else
+                        {}
+                      end
+                    )
+                  }
+                ' "$template_file" >"$expected_file"
                 cmp "$expected_file" "$actual_file"
                 rm -f -- "$expected_file"
               }
@@ -444,15 +454,25 @@ in
               check "$HOME/.gemini/antigravity-cli/settings.json" '.agentMode' '"auto"'
               check "$HOME/.config/Antigravity/app_storage.json" 'has("autoCheckForUpdates")' false
 
-              # 4b. Legacy v1 .nix-managed.json lacking .hubStorage / .hubStorageTarget upgrades cleanly.
+              # 4b. Legacy v1 .nix-managed.json lacking or using .hubStorageTarget upgrades cleanly.
               seed legacy-state
               put ${legacyStateTemplate} "$HOME/.gemini/config/.nix-managed.json"
               PATH="/nonexistent" ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}
               apply
               check "$HOME/.config/Antigravity/app_storage.json" '.autoCheckForUpdates' '"false"'
               check_state "$HOME/.gemini/config/.nix-managed.json" ${stateTemplate} "$HOME/.config/Antigravity/app_storage.json"
+              jq --arg target "$HOME/.config/Antigravity/app_storage.json" '
+                . + { hubStorage: ["autoCheckForUpdates", "staleHubKey"], hubStorageTarget: $target }
+                | del(.hubStorageByTarget)
+              ' ${legacyStateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
+              jq '. + { staleHubKey: "true", keepUserKey: "1" }' ${liveHubStorage} >"$HOME/.config/Antigravity/app_storage.json"
+              chmod 0600 "$HOME/.config/Antigravity/app_storage.json"
+              apply
+              check "$HOME/.config/Antigravity/app_storage.json" 'has("staleHubKey")' false
+              check "$HOME/.config/Antigravity/app_storage.json" '.keepUserKey' '"1"'
+              check_state "$HOME/.gemini/config/.nix-managed.json" ${stateTemplate} "$HOME/.config/Antigravity/app_storage.json"
 
-              # 4c. Switching xdgConfigHome while dropping hubStorage keys does not prune user keys in the new root.
+              # 4c. Switching xdgConfigHome preserves unrelated roots and still prunes keys when returning.
               seed xdg-switch
               xdg1="$HOME/xdg1"
               xdg2="$HOME/xdg2"
@@ -477,6 +497,18 @@ in
                 "$xdg2"
               check "$xdg2/Antigravity/app_storage.json" '.autoCheckForUpdates' '"true"'
               check "$xdg2/Antigravity/app_storage.json" '.runInBackground' '"false"'
+              ${lib.getExe applyConfig} \
+                ${reducedMcpTemplate} \
+                ${reducedHooksTemplate} \
+                ${reducedPluginsTemplate} \
+                ${permissionsTemplate} \
+                ${reducedStateTemplate} \
+                ${reducedCliTemplate} \
+                ${reducedHubTemplate} \
+                "$xdg1"
+              check "$xdg1/Antigravity/app_storage.json" 'has("autoCheckForUpdates")' false
+              check "$xdg2/Antigravity/app_storage.json" '.autoCheckForUpdates' '"true"'
+              check "$HOME/.gemini/config/.nix-managed.json" '.hubStorageByTarget' '{}'
 
               # 5. Corrupt .nix-managed.json fails --check and apply before touching live files or cleaning migrated-settings.
               seed corrupt-state
@@ -493,6 +525,16 @@ in
               jq '. + { hubStorageTarget: 123 }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
               if ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}; then
                 echo "FAIL: --check accepted non-string hubStorageTarget" >&2
+                exit 1
+              fi
+              jq '. + { hubStorageByTarget: 123 }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
+              if ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}; then
+                echo "FAIL: --check accepted non-object hubStorageByTarget" >&2
+                exit 1
+              fi
+              jq '. + { hubStorageByTarget: { "/tmp/a": [123] } }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
+              if ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}; then
+                echo "FAIL: --check accepted non-string element in hubStorageByTarget" >&2
                 exit 1
               fi
               cmp ${liveConfig} "$HOME/.gemini/config/config.json"
@@ -658,8 +700,13 @@ in
                 config.flake.nixosConfigurations.songbird.config
               else
                 null;
+            songbirdCliEnabled =
+              songbirdCfg != null && (songbirdCfg.programs."antigravity-cli".extended.enable or false);
+            songbirdHubEnabled =
+              songbirdCfg != null && (songbirdCfg.programs."antigravity-hub".extended.enable or false);
+            songbirdAnyEnabled = songbirdCliEnabled || songbirdHubEnabled;
             wrappedRealAgy =
-              if songbirdCfg != null && (songbirdCfg.programs."antigravity-cli".extended.enable or false) then
+              if songbirdCliEnabled then
                 songbirdCfg.programs."antigravity-cli".extended.finalPackage
               else
                 telemetry.wrapAgy {
@@ -670,9 +717,35 @@ in
                 };
             hasHubPkg =
               pkgs.stdenv.hostPlatform.isLinux && inputs.llm-agents.packages.${system} ? antigravity-hub;
+            fallbackHubBase = inputs.llm-agents.packages.${system}.antigravity-hub.override {
+              languageServerFlags = [
+                "--https_server_port=7777"
+                "--remote_accessible"
+              ]
+              ++ telemetry.languageServerFlags;
+            };
+            fallbackHubPkg = pkgs.symlinkJoin (
+              {
+                name = "antigravity-hub-test-${fallbackHubBase.version or "custom"}";
+                paths = [ fallbackHubBase ];
+                nativeBuildInputs = [ pkgs.makeWrapper ];
+                postBuild = ''
+                  wrapProgram "$out/bin/antigravity" \
+                    ${lib.concatStringsSep " " (
+                      lib.mapAttrsToList (
+                        name: value: "--set ${lib.escapeShellArg name} ${lib.escapeShellArg value}"
+                      ) telemetry.sharedEnv
+                    )}
+                '';
+              }
+              // lib.optionalAttrs (fallbackHubBase ? version) { inherit (fallbackHubBase) version; }
+              // lib.optionalAttrs (fallbackHubBase ? meta) { inherit (fallbackHubBase) meta; }
+            );
             deployedHubPkg =
-              if songbirdCfg != null && (songbirdCfg.programs."antigravity-hub".extended.enable or false) then
+              if songbirdHubEnabled then
                 songbirdCfg.programs."antigravity-hub".extended.finalPackage
+              else if hasHubPkg then
+                fallbackHubPkg
               else
                 null;
             expectedSubcommands = lib.sort lib.lessThan telemetry.knownSubcommands;
@@ -680,11 +753,18 @@ in
               name:
               ''grep -qE "^export ${name}=['\"]?1['\"]?" "$hubBin" || { echo "FAIL: Hub launcher missing ${name}=1" >&2; exit 1; }''
             ) (lib.attrNames telemetry.sharedEnv);
-            songbirdInstructions =
-              if songbirdCfg != null then
+            renderedInstructions =
+              if songbirdAnyEnabled then
                 songbirdCfg.home-manager.users.vx.home.file.".gemini/config/AGENTS.md".text
               else
-                null;
+                config.flake.lib.agents.systemPrompt.render {
+                  vars = {
+                    questionTool = "ask_question";
+                    sbx = true;
+                  };
+                };
+            expectSbxRule =
+              if songbirdAnyEnabled then config.flake.lib.agents.skills.sbx.enabledOn songbirdCfg else true;
           in
           assert lib.assertMsg (
             !(cliSettings.showFeedbackSurvey or true)
@@ -702,29 +782,20 @@ in
             && (telemetry.cliEnv.CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS or null) == "1"
             && (telemetry.cliEnv.CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS or null) == "1"
           ) "antigravity-cli: CHROME_DEVTOOLS_MCP_NO_* variables must be \"1\"";
-          assert lib.assertMsg
-            (
-              songbirdCfg == null
-              || (deployedHubPkg != null && (songbirdCfg.programs."antigravity-cli".extended.enable or false))
-            )
-            "antigravity-cli: expected songbird to enable antigravity-cli and antigravity-hub so deployed wrappers are tested";
           assert lib.assertMsg (
-            songbirdCfg == null
+            !songbirdAnyEnabled
             || lib.hasInfix (lib.escapeShellArg songbirdCfg.home-manager.users.vx.xdg.configHome) songbirdCfg.home-manager.users.vx.home.activation.antigravitySetup.data
           ) "antigravity-cli: HM antigravitySetup must pass evaluated xdg.configHome";
+          assert lib.assertMsg (lib.hasInfix "`ask_question`" renderedInstructions)
+            "antigravity-cli: rendered AGENTS.md must reference `ask_question`";
           assert lib.assertMsg (
-            songbirdInstructions == null || lib.hasInfix "`ask_question`" songbirdInstructions
-          ) "antigravity-cli: rendered AGENTS.md must reference `ask_question`";
-          assert lib.assertMsg (
-            songbirdInstructions == null
-            || !(config.flake.lib.agents.skills.sbx.enabledOn songbirdCfg)
-            || lib.hasInfix "`sbx` VM" songbirdInstructions
+            !expectSbxRule || lib.hasInfix "`sbx` VM" renderedInstructions
           ) "antigravity-cli: rendered AGENTS.md must include `sbx` VM rule when sbx is enabled";
           assert lib.assertMsg (
-            songbirdInstructions == null || !(lib.hasPrefix "---" (lib.trim songbirdInstructions))
+            !(lib.hasPrefix "---" (lib.trim renderedInstructions))
           ) "antigravity-cli: rendered AGENTS.md must not start with YAML frontmatter";
           assert lib.assertMsg (
-            songbirdInstructions == null || builtins.stringLength songbirdInstructions <= 24000
+            builtins.stringLength renderedInstructions <= 24000
           ) "antigravity-cli: rendered AGENTS.md exceeds Antigravity 24000-character global rule limit";
           pkgs.runCommandLocal "antigravity-cli-no-google-telemetry" { passthru.runtimeCheck = true; } ''
             set -euo pipefail

@@ -85,6 +85,13 @@ let
                   | all(type == "array" and all(.[]; type == "string"))
                 )
                 and (if has("hubStorageTarget") then (.hubStorageTarget | type == "string") else true end)
+                and (
+                  if has("hubStorageByTarget") then
+                    (.hubStorageByTarget | type == "object" and all(.[]; type == "array" and all(.[]; type == "string")))
+                  else
+                    true
+                  end
+                )
             )
           ' "$state" >/dev/null 2>&1; then
           echo "antigravity-apply-config: $state is not a version 1 record; fix it, or delete it to reseed" >&2
@@ -94,7 +101,7 @@ let
       else
         previous=$(mktemp)
         tmp_files+=("$previous")
-        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[],"hubStorageTarget":""}' >"$previous"
+        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[],"hubStorageByTarget":{}}' >"$previous"
       fi
 
       validate_target() {
@@ -169,6 +176,7 @@ let
           exit 1
         fi
         chmod 0600 "$tmp"
+        # Skip replacing unchanged files so steady-state switches do not race running CLI or Hub saves.
         if [ -f "$target" ] && cmp -s "$tmp" "$target" && [ "$(stat -c %a "$target")" = "600" ]; then
           rm -f -- "$tmp"
           return 0
@@ -252,9 +260,12 @@ let
         stage_merge "$hub_storage" "$hub_storage_template" '
           $nix[0] as $declared
           | (
-              if ($state[0] | has("hubStorage")) and (($state[0].hubStorageTarget? // "") == $target)
-              then $state[0].hubStorage
-              else []
+              if ($state[0].hubStorageByTarget? | type == "object") and ($state[0].hubStorageByTarget | has($target)) then
+                $state[0].hubStorageByTarget[$target]
+              elif ($state[0] | has("hubStorage")) and (($state[0].hubStorageTarget? // "") == $target) then
+                $state[0].hubStorage
+              else
+                []
               end
             ) as $owned
           | reduce ($owned - ($declared | keys))[] as $key (.; del(.[$key]))
@@ -268,13 +279,30 @@ let
         --arg has_cli "$cli_settings_template" \
         --arg has_hub "$hub_storage_template" \
         --arg hub_target "$hub_storage" '
-        (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
+        (
+          ($prev[0].hubStorageByTarget? // {})
+          + (
+              if (($prev[0].hubStorageTarget? // "") != "") and (($prev[0].hubStorage? // []) != []) then
+                { ($prev[0].hubStorageTarget): $prev[0].hubStorage }
+              else
+                {}
+              end
+            )
+        ) as $prev_by_target
+        | del(.hubStorageTarget)
+        | (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
         | (
             if $has_hub == "" then
               .hubStorage = (if ($prev[0] | has("hubStorage")) then $prev[0].hubStorage else [] end)
-              | .hubStorageTarget = ($prev[0].hubStorageTarget? // "")
+              | .hubStorageByTarget = $prev_by_target
             else
-              .hubStorageTarget = $hub_target
+              .hubStorageByTarget = (
+                if (.hubStorage | length) == 0 then
+                  ($prev_by_target | del(.[$hub_target]))
+                else
+                  ($prev_by_target + { ($hub_target): .hubStorage })
+                end
+              )
             end
           )
       ' "$state_template" >"$state_tmp"
