@@ -77,6 +77,7 @@ let
     "bash -c"
     "bash -lc"
     "sh -c"
+    "sh -lc"
     "zsh -c"
     "zsh -lc"
   ]

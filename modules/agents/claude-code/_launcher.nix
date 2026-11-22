@@ -35,14 +35,19 @@ let
   );
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
-  # GrowthBook evaluation Remote Control requires.
+  # GrowthBook evaluation Remote Control requires. The Nix package's own
+  # wrapper repeats this guard (launchOnlyRun in nixos.nix) and clears the
+  # escape itself, so it must still see the variable.
+  targetReadsEscape = !installMethods.bun.enable && installMethods.nix.enable;
   launchOnlyBlock = lib.optionalString (claudeEnv.launchOnly != [ ]) ''
     if [ -z "''${${claudeEnv.launchOnlyEscape}:-}" ]; then
     ${lib.concatMapStringsSep "\n" (
       name: "  export ${name}=${lib.escapeShellArg claudeEnv.vars.${name}}"
     ) claudeEnv.launchOnly}
     else
-      unset ${lib.concatStringsSep " " claudeEnv.launchOnly} ${claudeEnv.launchOnlyEscape}
+      unset ${lib.concatStringsSep " " claudeEnv.launchOnly}${
+        lib.optionalString (!targetReadsEscape) " ${claudeEnv.launchOnlyEscape}"
+      }
     fi
   '';
 

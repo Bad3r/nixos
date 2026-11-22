@@ -222,7 +222,7 @@
 
         "claude-code/launcher-env" =
           let
-            probeTarget = pkgs.writeShellScript "claude-env-probe" ''
+            probeText = ''
               printf 'TEAMMATE=%s\nNONESS=%s\nTELEM=%s\nESCAPE=%s\nRCLAUNCH=%s\n' \
                 "''${CLAUDE_CODE_TEAMMATE_COMMAND-<unset>}" \
                 "''${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC-<unset>}" \
@@ -230,6 +230,18 @@
                 "''${CLAUDE_CODE_ALLOW_FEATURE_FLAGS-<unset>}" \
                 "''${CLAUDE_RC_LAUNCHING-<unset>}"
             '';
+            probeTarget = pkgs.writeShellScript "claude-env-probe" probeText;
+            # Stands in for the Nix package, whose own wrapper reads the escape.
+            probePackage = pkgs.writeShellScriptBin "claude" probeText;
+            nixLauncher = import ./_launcher.nix {
+              inherit lib pkgs;
+              installMethods = installMethodVariants.nix;
+              claudePkg = "${probePackage}";
+              bunInstallDir = "/nix/store/test-bun";
+              externalBinary = "/nix/store/test-external/bin/claude";
+              scratchDir = "./scratch";
+              launcherDir = "/home/test/.local/bin";
+            };
             launcher = import ./_launcher.nix {
               inherit lib pkgs;
               installMethods = installMethodVariants.external;
@@ -244,6 +256,8 @@
             set -euo pipefail
             claudeBin=${lib.getExe launcher.claudeWrapped}
             claudeRcBin=${lib.getExe launcher.claudeRcWrapped}
+            nixClaudeBin=${lib.getExe nixLauncher.claudeWrapped}
+            nixClaudeRcBin=${lib.getExe nixLauncher.claudeRcWrapped}
             assert_env() {
               local label=$1 expected=$2 actual=$3
               if [ "$actual" != "$expected" ]; then
@@ -279,6 +293,12 @@
             assert_env "custom override claude" $'TEAMMATE=/custom/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
             got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/custom/bin/claude "$claudeRcBin")
             assert_env "custom override claude-rc" $'TEAMMATE=/custom/bin/claude\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # A Nix-package target keeps the escape so its own guard skips launchOnly.
+            got=$(env -i PATH="$PATH" "$nixClaudeRcBin")
+            assert_env "nix claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=1\nRCLAUNCH=<unset>' "$got"
+            got=$(env -i PATH="$PATH" "$nixClaudeBin")
+            assert_env "nix claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
 
             echo "ok: claude-code launcher env contract" >"$out"
           '';

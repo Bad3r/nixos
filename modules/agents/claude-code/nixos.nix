@@ -57,7 +57,7 @@
           + lib.concatStringsSep " " (
             map (name: "${name}=${lib.escapeShellArg claudeEnv.vars.${name}}") claudeEnv.launchOnly
           )
-          + "; else unset ${lib.concatStringsSep " " claudeEnv.launchOnly}; fi"
+          + "; else unset ${lib.concatStringsSep " " claudeEnv.launchOnly} ${claudeEnv.launchOnlyEscape}; fi"
         )
       );
       strippedNames = lib.attrNames claudeEnv.vars ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
