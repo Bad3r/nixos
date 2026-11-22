@@ -61,6 +61,7 @@ class Reader:
         self.assignable: list[bool] = []
         self.word: list[str] | None = None
         self.quoted = False
+        self.saw_equals = False
         self.assign_unquoted = True
         self.redirected = False
         self.skip_word = False
@@ -94,6 +95,8 @@ class Reader:
             elif self.text[self.pos] in self.handlers:
                 self.handlers[self.text[self.pos]]()
             else:
+                if self.text[self.pos] == "=":
+                    self.saw_equals = True
                 self._add(self.text[self.pos])
                 self.pos += 1
         self._end_command()
@@ -108,7 +111,7 @@ class Reader:
         self.word.append(piece)
 
     def _mark_quoted(self) -> None:
-        if "=" not in "".join(self.word or []):
+        if not self.saw_equals:
             self.assign_unquoted = False
         self.quoted = True
 
@@ -120,6 +123,7 @@ class Reader:
             self.skip_word = False
         self.word = None
         self.quoted = False
+        self.saw_equals = False
         self.assign_unquoted = True
 
     def _end_command(self) -> None:
@@ -246,8 +250,7 @@ def is_deliberate(script: str) -> bool:
         return True
     lines = (line.strip() for line in script.split("\n"))
     first = next((line for line in lines if line and not line.startswith("#")), "")
-    head = re.split(r"[\s<>]", first, maxsplit=1)[0] if first else ""
-    return head in {"", "source", "."}
+    return not first or re.split(r"[\s<>]", first, maxsplit=1)[0] in {"source", "."}
 
 
 def wrapper_shell(words: list[str]) -> str | None:

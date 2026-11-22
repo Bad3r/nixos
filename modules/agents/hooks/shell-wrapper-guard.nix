@@ -36,6 +36,7 @@
           "bash -c 'git status' >/dev/null 2>&1"
           "sh -c 'for t in jq rg; do command -v $t; done'; echo done"
           "# list the tree\nbash -c 'ls'"
+          "bash -c '>out ls'"
           "bash -c 'if [ -L '\\''/a b'\\'' ]; then readlink '\\''/a b'\\''; fi'"
         ];
         allow = [

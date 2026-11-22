@@ -179,10 +179,10 @@ in
             payload '{}' | hook round-start
             git -C "$repo" add app.py
             echo edit2 >> "$repo/tests/test_app.py"
-            got=$(stop 'Updated tests/test_app.py')
+            got=$(stop 'Updated tests/test_app.py.')
             echo "$got" | jq -e '.decision == "block"' > /dev/null
             echo "$got" | jq -e '.reason | contains("app.py") and (contains("tests/test_app.py") | not) and (contains("interrupted-prev-round") | not)' > /dev/null
-            stop done true > /dev/null
+            stop 'Updated app.py and tests/test_app.py.' | jq -e 'has("decision") | not' > /dev/null
 
             # Codex rounds are keyed by turn; a stop from another turn sees no snapshot.
             payload '{turn_id: "t1"}' | hook round-start

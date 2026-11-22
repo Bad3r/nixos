@@ -425,7 +425,12 @@ def round_end(payload: Json) -> Json | None:
 
 def path_mentioned(path: str, message: str) -> bool:
     """Tell whether path appears as a complete path token in message."""
-    return bool(re.search(rf"(?<![A-Za-z0-9_./-]){re.escape(path)}(?![A-Za-z0-9_./-])", message))
+    return bool(
+        re.search(
+            rf"(?<![A-Za-z0-9_./-]){re.escape(path)}(?![A-Za-z0-9_/-]|\.[A-Za-z0-9_-])",
+            message,
+        ),
+    )
 
 
 def round_output(
