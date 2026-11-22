@@ -70,6 +70,15 @@ let
   bashAsk = [
     "gh repo delete"
     "gh pr close --delete-branch"
+    # PreToolUse shell-wrapper-guard denies plain leading `bash -c`/`sh -c`
+    # first so Code Mode retries unwrapped without prompting. Any wrapper the
+    # guard lets through (chained calls, `source`-prefixed scripts, `-lc`,
+    # `zsh -c`) still asks here so the rules above stay enforced.
+    "bash -c"
+    "bash -lc"
+    "sh -c"
+    "zsh -c"
+    "zsh -lc"
   ]
   # Boots an internet image with egress; sbx's own refusal reads an env the agent controls.
   ++ (
