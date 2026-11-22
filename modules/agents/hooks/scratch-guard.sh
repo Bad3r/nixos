@@ -184,6 +184,17 @@ if [ "$isAntigravity" = 1 ]; then
 	if [ "$tool" = Bash ]; then
 		jq -e '(.toolCall.args.CommandLine // null) | type == "string"' <<<"$input" >/dev/null 2>&1 ||
 			deny "Missing CommandLine in run_command hook payload."
+		jq -e '(.toolCall.args.Cwd | type) | . == "null" or . == "string"' <<<"$input" >/dev/null 2>&1 ||
+			deny "Invalid Cwd in run_command hook payload."
+		callCwd="$(jq -r 'if (.toolCall.args.Cwd | type) == "string" then .toolCall.args.Cwd else "" end' <<<"$input")"
+		if [ -n "$callCwd" ]; then
+			case "$callCwd" in
+			/*) cwd="$callCwd" ;;
+			*) cwd="${cwd:-/}/$callCwd" ;;
+			esac
+			cwd="$(realpath -ms -- "$cwd")"
+			checkPath "$cwd"
+		fi
 	fi
 	command="$(jq -r 'if (.toolCall.args.CommandLine | type) == "string" then .toolCall.args.CommandLine else "" end' <<<"$input")"
 else

@@ -96,6 +96,39 @@ in
         (agyCall "edit_file" { Replacement = "x"; })
         (agyCall "edit_file" { Path = "/repo/AGENTS.md"; })
         (agyCall "run_command" { Cwd = "/repo"; })
+        (agyCall "run_command" {
+          Cwd = "/tmp";
+          CommandLine = "echo x > notes.md";
+        })
+        (agyCall "run_command" {
+          Cwd = "../../tmp";
+          CommandLine = "echo x > notes.md";
+        })
+        (agyCall "run_command" {
+          Cwd = scratchDir;
+          CommandLine = "sbx cp n:/tmp/a .";
+        })
+        (agyCall "run_command" {
+          Cwd = scratchDir;
+          CommandLine = "ssh -E ssh.log h true";
+        })
+        (agyCall "run_command" {
+          Cwd = scratchDir;
+          CommandLine = "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: notes.md\n+x\n*** End Patch\nEOF";
+        })
+        (
+          agyCall "run_command" {
+            Cwd = "";
+            CommandLine = "sbx cp n:/tmp/a .";
+          }
+          // {
+            cwd = scratchDir;
+          }
+        )
+        (agyCall "run_command" {
+          Cwd = false;
+          CommandLine = "ls";
+        })
         (agyBash "echo hi > /tmp/x")
         (agyBash "mkdir -p ${scratchDir}/tmp")
         (write "/tmp/a")
@@ -265,6 +298,32 @@ in
         (agyWrite "${sessionDir}/a" "x")
         (agyEdit "${scratchDir}/topic/a" "See ${scratchDir}/topic/b")
         (agyBash "ls | tee \"$TMPDIR/out.txt\"")
+        (
+          agyCall "run_command" {
+            Cwd = "/repo";
+            CommandLine = "sbx cp n:/tmp/a .";
+          }
+          // {
+            cwd = scratchDir;
+          }
+        )
+        (
+          agyCall "run_command" {
+            Cwd = "/repo";
+            CommandLine = "sbx cp n:/tmp/a .";
+          }
+          // {
+            cwd = "/tmp";
+          }
+        )
+        (agyCall "run_command" {
+          Cwd = "/tmp/../repo";
+          CommandLine = "echo hi";
+        })
+        (agyCall "run_command" {
+          Cwd = scratchDir;
+          CommandLine = "ls";
+        })
         (agyCall "read_file" { Path = "/tmp/a"; })
         (write "${scratchDir}/topic/a")
         (patch "${scratchDir}/topic/a")
