@@ -13,7 +13,8 @@ Run `herdr server reload-config` after switching to apply palette changes to a r
 
 ## Agent integrations
 
-Claude Code and Codex report sessions to Herdr through `SessionStart` hooks in [the shared hook registry](../../../modules/agents/hooks/herdr-agent-session.nix), which run the integration scripts from the pinned Herdr source.
+Antigravity CLI, Claude Code, and Codex report sessions to Herdr through hooks in [the shared hook registry](../../../modules/agents/hooks/herdr-agent-session.nix).
+Those hooks run the integration scripts directly from the pinned Herdr source.
 The app module links the same scripts where `herdr integration status` looks for them, so `herdr integration install` fails for these agents instead of adding a second hook.
 Integrations for other agents remain unmanaged.
 

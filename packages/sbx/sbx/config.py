@@ -20,8 +20,13 @@ if TYPE_CHECKING:
 DURATION_PATTERN = re.compile(r"(\d+)([smhd]?)")
 MEMORY_PATTERN = re.compile(r"(\d+)([MG]?)", re.IGNORECASE)
 DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
-# Both name the root session inside subagents too, so --mine covers a session's subagents.
-SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_SESSION_ID", "codex"))
+# Each names the root session or conversation across subagents so --mine
+# covers their sandboxes.
+SESSION_VARIABLES = (
+    ("CLAUDE_CODE_SESSION_ID", "claude"),
+    ("CODEX_SESSION_ID", "codex"),
+    ("ANTIGRAVITY_CONVERSATION_ID", "antigravity"),
+)
 
 
 @dataclass(frozen=True)

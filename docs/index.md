@@ -333,6 +333,11 @@
 
 ## Agents
 
+### Antigravity CLI
+
+- [agents/antigravity-cli/configuration.md](agents/antigravity-cli/configuration.md)
+  - Declarative settings, permissions, plugins, MCP merging, controlled shell, and activation cleanup for Antigravity CLI and Hub.
+
 ### Claude Code
 
 - [agents/claude-code/skill-providers.md](agents/claude-code/skill-providers.md)

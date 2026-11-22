@@ -2,6 +2,7 @@
 { lib }:
 {
   validClients = [
+    "antigravity"
     "claude"
     "codex"
   ];

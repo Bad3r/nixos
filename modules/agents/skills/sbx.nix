@@ -98,7 +98,8 @@ let
 
     - Rerun the same command with `--wait 30m` as a background task (Claude
       Code `run_in_background`; Codex: a short `yield_time_ms`, then poll with
-      `write_stdin`) and do other work until it reports. An MCP call with
+      `write_stdin`; Antigravity: `run_command` with a short
+      `WaitMsBeforeAsync`) and do other work until it reports. An MCP call with
       `wait` blocks until the sandbox starts. Waiters start in arrival order;
       the TTL starts with the sandbox.
     - `sbx list --mine` shows a waiting create as `queued` with its `position`;
@@ -129,9 +130,10 @@ let
     | `gc [--dry-run]`                             | remove expired and orphaned sandboxes      |
 
     Destroy the sandboxes you create by name. `--mine` matches every sandbox of
-    the Claude Code or Codex session, its subagents' included; `/new`,
-    `/clear`, and a fork start a new session, which no longer sees the old
-    session's sandboxes.
+    the Claude Code or Codex session, its subagents' included, and every CLI
+    sandbox of the Antigravity conversation (`ANTIGRAVITY_CONVERSATION_ID`);
+    `/new`, `/clear`, and a fork start a new session, which no longer sees the
+    old session's sandboxes.
 
     ## JSON Contract
 
@@ -211,6 +213,8 @@ in
     description = "Run unknown binaries, downloads, untrusted repositories, and GUI checks in a disposable sbx VM: when to use it, its verbs, and the --json contract.";
     app = "sbx";
     body = skillBody;
+
+    antigravity = { };
 
     codex = {
       openaiYaml.interface = {
