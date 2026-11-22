@@ -71,11 +71,17 @@ let
     "gh repo delete"
     "gh pr close --delete-branch"
     # PreToolUse shell-wrapper-guard denies plain leading `bash -c`/`sh -c`
-    # first so Code Mode retries unwrapped without prompting. Any wrapper the
-    # guard lets through (chained calls, `source`-prefixed scripts, `-lc`,
-    # `zsh -c`) still asks here so the rules above stay enforced.
+    # first so Code Mode retries unwrapped without prompting. The listed
+    # wrapper spellings it lets through (chained calls, `source`-prefixed
+    # scripts, common flags) ask here; unlisted flag bundles, shells named by
+    # path, or wrappers run through `env`/`timeout`/`nohup` are not covered.
     "bash -c"
     "bash -lc"
+    "bash -ic"
+    "bash -euc"
+    "bash -e"
+    "bash --login"
+    "bash --norc"
     "sh -c"
     "sh -lc"
     "zsh -c"
