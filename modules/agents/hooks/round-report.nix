@@ -149,6 +149,41 @@ in
             stop done true > /dev/null
             rm -rf "$repo/aaa-untracked" "$repo/small-untracked" "$repo/zzz-real.txt"
 
+            # Ignored files inside an untracked directory never count.
+            printf '__pycache__/\n' > "$repo/.git/info/exclude"
+            mkdir -p "$repo/tools"
+            echo x > "$repo/tools/run.py"
+            payload '{}' | hook round-start
+            mkdir -p "$repo/tools/__pycache__"
+            echo b > "$repo/tools/__pycache__/run.pyc"
+            [ -z "$(stop done)" ]
+            rm -rf "$repo/tools"
+
+            # Untracked files the cap window drops at round end are not reported.
+            for i in $(seq 100 699); do : > "$repo/u$i"; done
+            payload '{}' | hook round-start
+            echo new > "$repo/a0new"
+            stop done | jq -e '.systemMessage | contains("Files changed this round (1)") and contains("a0new")' > /dev/null
+            stop done true > /dev/null
+            rm -f "$repo"/u* "$repo/a0new"
+
+            # Staging an already-modified file is detected; interrupted failures do
+            # not carry over to the next round; substring paths do not satisfy short names.
+            echo stage-me > "$repo/app.py"
+            mkdir -p "$repo/tests"
+            echo test > "$repo/tests/test_app.py"
+            git -C "$repo" add app.py tests/test_app.py
+            commit -m add-app
+            echo edit >> "$repo/app.py"
+            fail 'interrupted-prev-round' 2
+            payload '{}' | hook round-start
+            git -C "$repo" add app.py
+            echo edit2 >> "$repo/tests/test_app.py"
+            got=$(stop 'Updated tests/test_app.py')
+            echo "$got" | jq -e '.decision == "block"' > /dev/null
+            echo "$got" | jq -e '.reason | contains("app.py") and (contains("tests/test_app.py") | not) and (contains("interrupted-prev-round") | not)' > /dev/null
+            stop done true > /dev/null
+
             # Codex rounds are keyed by turn; a stop from another turn sees no snapshot.
             payload '{turn_id: "t1"}' | hook round-start
             echo turn > "$repo/turn.txt"

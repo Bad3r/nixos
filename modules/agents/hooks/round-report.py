@@ -19,7 +19,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import cast
+from typing import IO, cast
 
 type Json = dict[str, object]
 
@@ -54,20 +54,27 @@ def state_dir(payload: Json) -> Path:
     return path
 
 
+GIT_TIMEOUT_S = 15
+
+
 def git(cwd: Path, *args: str) -> str | None:
-    """Run git in cwd without optional locks; None when it fails."""
-    result = subprocess.run(
-        ["git", "--no-optional-locks", "-C", str(cwd), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    """Run git in cwd without optional locks; None when it fails or times out."""
+    try:
+        result = subprocess.run(
+            ["git", "--no-optional-locks", "-C", str(cwd), *args],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     return result.stdout if result.returncode == 0 else None
 
 
-def porcelain_entries(status: str) -> tuple[list[str], list[str]]:
-    """Split NUL-separated porcelain v1 paths into tracked and untracked lists."""
-    tracked: list[str] = []
+def porcelain_entries(status: str) -> tuple[dict[str, str], list[str]]:
+    """Split NUL-separated porcelain v1 paths into tracked code map and untracked list."""
+    tracked: dict[str, str] = {}
     untracked: list[str] = []
     entries = iter(status.split("\0"))
     for entry in entries:
@@ -77,12 +84,42 @@ def porcelain_entries(status: str) -> tuple[list[str], list[str]]:
         if code == "??":
             untracked.append(path)
             continue
-        tracked.append(path)
+        tracked[path] = code
         if "R" in code or "C" in code:
             source = next(entries, "")
             if source:
-                tracked.append(source)
+                tracked.setdefault(source, code)
     return tracked, untracked
+
+
+def untracked_members(top: Path, entry: str) -> list[str] | None:
+    """Untracked, non-ignored files under a directory; None past UNTRACKED_DIR_CAP."""
+    command = [
+        "git",
+        "--no-optional-locks",
+        "--literal-pathspecs",
+        "-C",
+        str(top),
+        "ls-files",
+        "-z",
+        "--others",
+        "--exclude-standard",
+        "--",
+        entry,
+    ]
+    members: list[str] = []
+    pending = b""
+    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as proc:
+        stdout = cast("IO[bytes]", proc.stdout)
+        while chunk := stdout.read(1 << 16):
+            *names, pending = (pending + chunk).split(b"\0")
+            members += [name.decode(errors="surrogateescape") for name in names if name]
+            if len(members) > UNTRACKED_DIR_CAP:
+                proc.kill()
+                return None
+    if proc.returncode != 0:
+        return [entry]
+    return members
 
 
 def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str, str]]:
@@ -90,29 +127,13 @@ def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str
     kept: list[str] = []
     collapsed: dict[str, str] = {}
     for entry in entries:
-        if not entry.endswith("/"):
+        if len(kept) >= UNTRACKED_CAP:
+            break
+        if not entry.endswith("/") or (top / entry / ".git").exists():
             kept.append(entry)
             continue
-        directory = top / entry
-        if (directory / ".git").exists():
-            kept.append(entry)
-            continue
-        members: list[str] = []
-        overflow = False
-        try:
-            for root, dirs, files in directory.walk():
-                dirs[:] = sorted(d for d in dirs if d != ".git")
-                for filename in sorted(files):
-                    members.append((root / filename).relative_to(top).as_posix())
-                    if len(members) > UNTRACKED_DIR_CAP:
-                        overflow = True
-                        break
-                if overflow:
-                    break
-        except OSError:
-            kept.append(entry)
-            continue
-        if overflow:
+        members = untracked_members(top, entry)
+        if members is None:
             collapsed[entry] = f"tree:>{UNTRACKED_DIR_CAP}"
         else:
             kept.extend(members)
@@ -138,20 +159,39 @@ def path_state(path: Path, *, hash_content: bool = True) -> str:
     return "absent"
 
 
-def snapshot(cwd: Path, *, hash_content: bool | None = None) -> Json | None:
-    """Record HEAD and a fingerprint of every dirty path in cwd's repository."""
+def snapshot(
+    cwd: Path,
+    *,
+    hash_content: bool | None = None,
+    known: set[str] | None = None,
+) -> Json | None:
+    """Record HEAD and a fingerprint of every dirty or known path in cwd's repository."""
     top_out = git(cwd, "rev-parse", "--show-toplevel")
     if top_out is None:
         return None
-    top = Path(top_out.strip())
-    head = (git(top, "rev-parse", "--verify", "-q", "HEAD") or "").strip()
-    status = git(top, "status", "--porcelain=v1", "-z", "--untracked-files=normal") or ""
+    top = Path(top_out.removesuffix("\n"))
+    head = (git(top, "rev-parse", "--verify", "-q", "HEAD") or "").removesuffix("\n")
+    status = git(top, "status", "--porcelain=v1", "-z", "--untracked-files=normal")
+    if status is None:
+        return None
     tracked, untracked = porcelain_entries(status)
     kept_untracked, collapsed = expand_untracked(top, untracked)
-    paths = tracked + kept_untracked
+    paths = list(tracked) + kept_untracked
     use_hash = len(paths) <= HASH_COUNT_CAP if hash_content is None else hash_content
-    files = {p: path_state(top / p, hash_content=use_hash) for p in paths}
+    files: dict[str, str] = {}
+    for p in paths:
+        prefix = f"{tracked[p]}:" if p in tracked else ""
+        # At round end, paths absent from the start snapshot are already known changed.
+        if known is not None and p not in known:
+            files[p] = f"{prefix}new"
+        else:
+            files[p] = f"{prefix}{path_state(top / p, hash_content=use_hash)}"
     files.update(collapsed)
+    # Paths dirty at round start get a state even when clean or past the
+    # untracked cap now, so a cap window that shifts reports nothing.
+    for p in known or ():
+        if p not in files:
+            files[p] = path_state(top / p, hash_content=use_hash)
     return {"top": str(top), "head": head, "hashed": use_hash, "files": files}
 
 
@@ -284,13 +324,23 @@ def log_failure(payload: Json) -> Json | None:
     return None
 
 
+def log_line_count(log_path: Path) -> int:
+    """Number of recorded lines in the failure log, or 0 if absent."""
+    try:
+        return len(log_path.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        return 0
+
+
 def round_start(payload: Json) -> Json | None:
-    """Snapshot the working tree at the start of a main-agent round."""
+    """Snapshot the working tree and failure-log cursor at the start of a main-agent round."""
     cwd = Path(str(payload.get("cwd") or Path.cwd()))
     if payload.get("agent_id") or in_codex_home(cwd):
         return None
-    state_path = state_dir(payload) / "state.json"
+    directory = state_dir(payload)
+    state_path = directory / "state.json"
     state = read_state(state_path)
+    state["cursor"] = log_line_count(directory / "failures.jsonl")
     state["starts"] = {round_key(payload): snapshot(cwd)}
     write_state(state_path, state)
     return None
@@ -352,7 +402,15 @@ def round_end(payload: Json) -> Json | None:
     starts = cast("dict[str, Json | None]", state.get("starts") or {})
     start = starts.get(round_key(payload))
     end = (
-        snapshot(Path(str(start["top"])), hash_content=bool(start.get("hashed", True)))
+        snapshot(
+            Path(str(start["top"])),
+            hash_content=bool(start.get("hashed", True)),
+            known={
+                name
+                for name, entry_state in cast("dict[str, str]", start["files"]).items()
+                if not entry_state.startswith("tree:")
+            },
+        )
         if start
         else None
     )
@@ -363,6 +421,11 @@ def round_end(payload: Json) -> Json | None:
     state["starts"] = starts
     write_state(state_path, state)
     return output
+
+
+def path_mentioned(path: str, message: str) -> bool:
+    """Tell whether path appears as a complete path token in message."""
+    return bool(re.search(rf"(?<![A-Za-z0-9_./-]){re.escape(path)}(?![A-Za-z0-9_./-])", message))
 
 
 def round_output(
@@ -389,7 +452,7 @@ def round_output(
     output: Json = {"systemMessage": "Round report\n" + "\n".join(shown)}
 
     message = str(payload.get("last_assistant_message") or "")
-    unmentioned = [f for f in files if f not in message]
+    unmentioned = [f for f in files if not path_mentioned(f, message)]
     if not payload.get("stop_hook_active") and (unmentioned or failures):
         output["decision"] = "block"
         output["reason"] = block_reason(unmentioned, failure_lines)
