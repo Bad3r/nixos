@@ -21,8 +21,9 @@ firewall's jump host.
 
 ## Related repository files
 
-- `modules/apps/remmina.nix`: system-level Remmina client and the
-  `application/x-rdp` MIME package.
+- `modules/apps/remmina.nix`: system-level Remmina client, the
+  `application/x-rdp` MIME package, and the optional Intel render node for
+  hardware H.264 decoding (`intelDecodeDevice`).
 - `modules/xdg/mime.nix`: routes `.rdp` profile files to Remmina.
 
 ## Upstream documentation
