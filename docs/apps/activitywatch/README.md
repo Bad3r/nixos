@@ -16,11 +16,7 @@ systemctl --user status "activitywatch*"
 
 ## Name resolution
 
-The module adds the name to `/etc/hosts` on loopback.
-`.internal` keeps the lookup out of mDNS, which answers `.local` names first and never reads `/etc/hosts` on a miss.
-nginx listens on loopback port 80 and proxies the name to the server, so the URL needs no port.
-It rewrites the `Host` header to `127.0.0.1`, the only kind `aw-server` answers while it binds loopback.
-Requests for any other name get no answer, which keeps the server's DNS-rebinding guard in place.
+The name is a [loopback site](../../networking/loopback-sites.md) that rewrites the `Host` header to `127.0.0.1`.
 
 ```bash
 getent hosts activitywatch.internal
