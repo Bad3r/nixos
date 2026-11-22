@@ -37,13 +37,16 @@ PORCELAIN_PREFIX = 3
 NO_MATCH = re.compile(
     r"(?:^|[|;&]\s*)(?:grep|rg|egrep|fgrep|diff|test|\[|git\s+(?:diff|grep))(?:\s|$)[^|;&]*$",
 )
-REDIRECT = re.compile(r"\d*>&\d+|&>")
+REDIRECT = re.compile(r"(?<!\d)\d{0,4}>&\d+|&>")
 INPUT_KEYS = ("command", "cmd", "file_path", "path", "url", "pattern", "code")
 
 
 def state_dir(payload: Json) -> Path:
     """Return the per-session state directory, creating it."""
     session = str(payload.get("session_id") or "unknown")
+    if session in {".", ".."} or any(sep in session for sep in ("/", "\\", "\0")):
+        message = f"invalid session id {session!r}"
+        raise ValueError(message)
     root = os.path.normpath(SCRATCH / "sessions")
     target = os.path.normpath(f"{root}/{session}/hooks/round-report")
     if not target.startswith(root + os.sep):
@@ -122,12 +125,14 @@ def untracked_members(top: Path, entry: str) -> list[str] | None:
     return members
 
 
-def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str, str]]:
+def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str, str], str | None]:
     """Expand small untracked directories to file paths; collapse huge ones early."""
     kept: list[str] = []
     collapsed: dict[str, str] = {}
+    truncated = False
     for entry in entries:
         if len(kept) >= UNTRACKED_CAP:
+            truncated = True
             break
         if not entry.endswith("/") or (top / entry / ".git").exists():
             kept.append(entry)
@@ -137,7 +142,18 @@ def expand_untracked(top: Path, entries: list[str]) -> tuple[list[str], dict[str
             collapsed[entry] = f"tree:>{UNTRACKED_DIR_CAP}"
         else:
             kept.extend(members)
-    return kept[:UNTRACKED_CAP], collapsed
+    if len(kept) > UNTRACKED_CAP:
+        truncated = True
+        kept = kept[:UNTRACKED_CAP]
+    cutoff = kept[-1] if truncated and kept else None
+    return kept, collapsed, cutoff
+
+
+def past_cutoff(path: str, cutoff: str | None) -> bool:
+    """Tell whether path sorts past the start snapshot's truncated untracked window."""
+    if cutoff is None:
+        return False
+    return path.encode("utf-8", "surrogateescape") > cutoff.encode("utf-8", "surrogateescape")
 
 
 def path_state(path: Path, *, hash_content: bool = True) -> str:
@@ -164,6 +180,8 @@ def snapshot(
     *,
     hash_content: bool | None = None,
     known: set[str] | None = None,
+    known_trees: set[str] | None = None,
+    untracked_end: str | None = None,
 ) -> Json | None:
     """Record HEAD and a fingerprint of every dirty or known path in cwd's repository."""
     top_out = git(cwd, "rev-parse", "--show-toplevel")
@@ -175,24 +193,44 @@ def snapshot(
     if status is None:
         return None
     tracked, untracked = porcelain_entries(status)
-    kept_untracked, collapsed = expand_untracked(top, untracked)
+    kept_untracked, collapsed, cutoff = expand_untracked(top, untracked)
     paths = list(tracked) + kept_untracked
     use_hash = len(paths) <= HASH_COUNT_CAP if hash_content is None else hash_content
     files: dict[str, str] = {}
     for p in paths:
+        if (
+            p not in tracked
+            and known is not None
+            and p not in known
+            and past_cutoff(p, untracked_end)
+        ):
+            continue
         prefix = f"{tracked[p]}:" if p in tracked else ""
         # At round end, paths absent from the start snapshot are already known changed.
         if known is not None and p not in known:
             files[p] = f"{prefix}new"
         else:
             files[p] = f"{prefix}{path_state(top / p, hash_content=use_hash)}"
-    files.update(collapsed)
+    for entry, tree_state in collapsed.items():
+        if (
+            known_trees is not None
+            and entry not in known_trees
+            and past_cutoff(entry, untracked_end)
+        ):
+            continue
+        files[entry] = tree_state
     # Paths dirty at round start get a state even when clean or past the
     # untracked cap now, so a cap window that shifts reports nothing.
     for p in known or ():
         if p not in files:
             files[p] = path_state(top / p, hash_content=use_hash)
-    return {"top": str(top), "head": head, "hashed": use_hash, "files": files}
+    return {
+        "top": str(top),
+        "head": head,
+        "hashed": use_hash,
+        "untracked_end": cutoff,
+        "files": files,
+    }
 
 
 def changed_files(start: Json | None, end: Json | None) -> list[str]:
@@ -297,7 +335,8 @@ def tool_command(tool_input: object) -> str:
 
 def log_failure(payload: Json) -> Json | None:
     """Append one failed tool call to the session log."""
-    if payload.get("is_interrupt"):
+    agent = str(payload.get("agent_type") or "main")
+    if payload.get("is_interrupt") or agent.endswith("-observer"):
         return None
     error = str(payload.get("error") or "")
     tool_input: object = payload.get("tool_input")
@@ -307,7 +346,7 @@ def log_failure(payload: Json) -> Json | None:
     detail = error.split("\n", 1)[-1] if exit_match else error
     entry = {
         "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "agent": payload.get("agent_type") or "main",
+        "agent": agent,
         "tool": payload.get("tool_name"),
         "input": describe_input(tool_input),
         "error": first_line(detail) or first_line(error),
@@ -401,20 +440,31 @@ def round_end(payload: Json) -> Json | None:
     failures, cursor = new_failures(log_path, int(cast("int", state.get("cursor", 0))))
     starts = cast("dict[str, Json | None]", state.get("starts") or {})
     start = starts.get(round_key(payload))
+    start_files = cast("dict[str, str]", start["files"]) if start else {}
     end = (
         snapshot(
             Path(str(start["top"])),
             hash_content=bool(start.get("hashed", True)),
             known={
                 name
-                for name, entry_state in cast("dict[str, str]", start["files"]).items()
+                for name, entry_state in start_files.items()
                 if not entry_state.startswith("tree:")
             },
+            known_trees={
+                name for name, entry_state in start_files.items() if entry_state.startswith("tree:")
+            },
+            untracked_end=cast("str | None", start.get("untracked_end")),
         )
         if start
         else None
     )
-    output = round_output(payload, changed_files(start, end), failures, log_path)
+    output = round_output(
+        payload,
+        changed_files(start, end),
+        failures,
+        log_path,
+        top=str(start["top"]) if start else None,
+    )
     state["cursor"] = cursor
     if output is None or "decision" not in output:
         starts.pop(round_key(payload), None)
@@ -423,11 +473,22 @@ def round_end(payload: Json) -> Json | None:
     return output
 
 
-def path_mentioned(path: str, message: str) -> bool:
-    """Tell whether path appears as a complete path token in message."""
+def path_mentioned(path: str, message: str, top: str | None = None) -> bool:
+    """Tell whether path appears as a complete relative or repo-rooted path token."""
+    prefixes = [r"\./"]
+    if top:
+        clean_top = top.rstrip("/")
+        prefixes.append(rf"(?:file://)?{re.escape(clean_top)}/")
+        home = os.environ.get("HOME", "").rstrip("/")
+        if home and clean_top == home:
+            prefixes.append(r"~/")
+        elif home and clean_top.startswith(home + "/"):
+            prefixes.append(rf"~/{re.escape(clean_top.removeprefix(home + '/'))}/")
+    prefix = f"(?:{'|'.join(prefixes)})?"
+    target = rf"{re.escape(path.rstrip('/'))}/?" if path.endswith("/") else re.escape(path)
     return bool(
         re.search(
-            rf"(?<![A-Za-z0-9_./-]){re.escape(path)}(?![A-Za-z0-9_/-]|\.[A-Za-z0-9_-])",
+            rf"(?<![A-Za-z0-9_./~-]){prefix}{target}(?![A-Za-z0-9_/-]|\.[A-Za-z0-9_-])",
             message,
         ),
     )
@@ -438,6 +499,8 @@ def round_output(
     files: list[str],
     failures: list[Json],
     log_path: Path,
+    *,
+    top: str | None = None,
 ) -> Json | None:
     """The round report, with a block when files or failures are unaccounted for."""
     if not files and not failures:
@@ -457,7 +520,7 @@ def round_output(
     output: Json = {"systemMessage": "Round report\n" + "\n".join(shown)}
 
     message = str(payload.get("last_assistant_message") or "")
-    unmentioned = [f for f in files if not path_mentioned(f, message)]
+    unmentioned = [f for f in files if not path_mentioned(f, message, top)]
     if not payload.get("stop_hook_active") and (unmentioned or failures):
         output["decision"] = "block"
         output["reason"] = block_reason(unmentioned, failure_lines)

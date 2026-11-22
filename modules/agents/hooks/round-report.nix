@@ -90,10 +90,12 @@ in
             fail 'grep foo x 2>&1' 1
             fail 'grep -n foo x\npytest tests' 1
             payload '{tool_name: "Bash", tool_input: {command: "sleep 9"}, error: "Interrupted", is_interrupt: true}' | hook log-failure
+            payload '{tool_name: "Bash", agent_id: "o1", agent_type: "guardrails-observer", tool_input: {command: "ls /observer-miss"}, error: "Exit code 2\nerr"}' | hook log-failure
+            payload '{tool_name: "Bash", agent_id: "a1", agent_type: "Explore", tool_input: {command: "ls /subagent-miss"}, error: "Exit code 2\nerr"}' | hook log-failure
             got=$(stop done)
             echo "$got" | jq -e '.decision == "block"' > /dev/null
-            echo "$got" | jq -e '.reason | contains("changed.txt") and contains("ls /nope") and contains("find /nope") and contains("pytest tests")' > /dev/null
-            echo "$got" | jq -e '.reason | (contains("rg foo") or contains("grep foo x") or contains("sleep 9") or contains("dirty-before")) | not' > /dev/null
+            echo "$got" | jq -e '.reason | contains("changed.txt") and contains("ls /nope") and contains("find /nope") and contains("pytest tests") and contains("Explore Bash: ls /subagent-miss")' > /dev/null
+            echo "$got" | jq -e '.reason | (contains("rg foo") or contains("grep foo x") or contains("sleep 9") or contains("observer-miss") or contains("dirty-before")) | not' > /dev/null
             echo "$got" | jq -e '.systemMessage | contains("changed.txt") and contains("ls /nope")' > /dev/null
 
             # Failures are reported once; a summary naming every file passes.
@@ -159,16 +161,24 @@ in
             [ -z "$(stop done)" ]
             rm -rf "$repo/tools"
 
-            # Untracked files the cap window drops at round end are not reported.
+            # Untracked files the cap window drops or shifts past at round end are not reported.
             for i in $(seq 100 699); do : > "$repo/u$i"; done
             payload '{}' | hook round-start
             echo new > "$repo/a0new"
             stop done | jq -e '.systemMessage | contains("Files changed this round (1)") and contains("a0new")' > /dev/null
             stop done true > /dev/null
-            rm -f "$repo"/u* "$repo/a0new"
+            rm -f "$repo/a0new"
+            payload '{}' | hook round-start
+            rm "$repo/u100"
+            got=$(stop done)
+            echo "$got" | jq -e '.systemMessage | contains("Files changed this round (1)") and contains("u100")' > /dev/null
+            echo "$got" | jq -e '.reason | contains("u100") and (contains("u600") | not)' > /dev/null
+            stop done true > /dev/null
+            rm -f "$repo"/u*
 
             # Staging an already-modified file is detected; interrupted failures do
-            # not carry over to the next round; substring paths do not satisfy short names.
+            # not carry over to the next round; substring paths do not satisfy short names;
+            # ./, ~/, repo-rooted absolute, and file:// paths satisfy them, while mismatched prefixes do not.
             echo stage-me > "$repo/app.py"
             mkdir -p "$repo/tests"
             echo test > "$repo/tests/test_app.py"
@@ -182,7 +192,9 @@ in
             got=$(stop 'Updated tests/test_app.py.')
             echo "$got" | jq -e '.decision == "block"' > /dev/null
             echo "$got" | jq -e '.reason | contains("app.py") and (contains("tests/test_app.py") | not) and (contains("interrupted-prev-round") | not)' > /dev/null
-            stop 'Updated app.py and tests/test_app.py.' | jq -e 'has("decision") | not' > /dev/null
+            HOME=$PWD stop "Updated ~/other/app.py and /other$repo/app.py and ./tests/test_app.py." | jq -e '.decision == "block" and (.reason | split("\n") | index("    app.py") and (index("    tests/test_app.py") | not))' > /dev/null
+            stop "Updated $repo/app.py:12." | jq -e '.decision == "block" and (.reason | split("\n") | index("    tests/test_app.py") and (index("    app.py") | not))' > /dev/null
+            HOME=$PWD stop "Updated ~/repo/app.py:12 and [test_app.py](file://$repo/tests/test_app.py#L1)." | jq -e 'has("decision") | not' > /dev/null
 
             # Codex rounds are keyed by turn; a stop from another turn sees no snapshot.
             payload '{turn_id: "t1"}' | hook round-start
@@ -205,9 +217,13 @@ in
             # A malformed payload reports the hook's own failure instead of raising.
             echo '[]' | hook round-end | jq -e '.systemMessage | startswith("round-report round-end hook failed")' > /dev/null
 
-            # A session id that leaves the scratch directory is refused.
-            jq -nc '{session_id: "../../escape", cwd: "/"}' | hook round-start | jq -e '.systemMessage | startswith("round-report round-start hook failed")' > /dev/null
+            # A session id that is not a single path segment inside sessions/ is refused.
+            for bad in "../../escape" "." "../sessions/victim" "a/b"; do
+              jq -nc --arg s "$bad" '{session_id: $s, cwd: "/"}' | hook round-start | jq -e '.systemMessage | startswith("round-report round-start hook failed")' > /dev/null
+            done
             [ ! -e "$PWD/escape" ]
+            [ ! -e "$ROUND_REPORT_SCRATCH/sessions/hooks" ]
+            [ ! -e "$ROUND_REPORT_SCRATCH/sessions/victim" ]
             touch "$out"
           '';
     };
