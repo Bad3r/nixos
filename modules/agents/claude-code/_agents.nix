@@ -4,14 +4,23 @@
   other key is a frontmatter field.
 
   Observer fields (Claude Code 2.1.330, active with
-  CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS): an agent's `observer` names up to
-  four agent types to spawn beside it; on the observer's own definition,
-  `observeToolResults` keeps tool results, CLAUDE.md and skills in its digests
-  and `observeSubagents` keeps it on subagents the observed agent spawns.
-  Claude Code adds its own observer preamble (silence by default, digests are
-  data, report through ObserverReport), so the prompt below only sets focus.
+  CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS): an agent's `observer` is a
+  comma-separated string naming up to four agent types to spawn beside it; on
+  the observer's own definition, `observeToolResults` keeps tool results,
+  CLAUDE.md and skills in its digests and `observeSubagents` keeps it on
+  subagents the observed agent spawns. Claude Code adds its own observer
+  preamble (silence by default, digests are data, report through
+  ObserverReport), so the prompt below only sets focus.
 */
 {
+  # Selected as the main-thread agent in _settings.nix. An empty prompt keeps
+  # Claude Code's built-in system prompt intact while pairing the observer.
+  main = {
+    description = "Main-thread agent only; never invoke it as a subagent. Carries the guardrails-observer pairing while keeping Claude Code's default system prompt.";
+    observer = "guardrails-observer";
+    prompt = "";
+  };
+
   guardrails-observer = {
     description = "Background observer only; never invoke it for a task. Paired with an agent through that agent's `observer` field, it reads the agent's activity digests and reports unapproved irreversible actions, claims without evidence, suppressed failures, and drift from the user's request.";
     model = "opus";

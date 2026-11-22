@@ -7,7 +7,7 @@
 
   # Name of an agent (built-in or custom) to use for the main thread. Applies
   # the agent's system prompt, tool restrictions, and model.
-  # agent = ""; # [string]
+  agent = "main";
 
   # Allow Claude to push proactive mobile notifications
   # agentPushNotifEnabled = true; # [boolean]
