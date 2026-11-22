@@ -27,15 +27,24 @@ _: {
       cfg = osConfig.services.activitywatch.extended;
       # The package's watcher units start at default.target, before the
       # session has a display, and never restart; bind them to the graphical
-      # session instead.
+      # session instead. Its BindsTo on activitywatch.target would stop them
+      # with that target and leave nothing to start them again.
       watcherUnit = {
-        Unit.PartOf = [ "graphical-session.target" ];
+        Unit = {
+          BindsTo = lib.mkForce [ ];
+          Wants = [ "activitywatch.service" ];
+          PartOf = [ "graphical-session.target" ];
+        };
         Service = {
           Restart = "on-failure";
           RestartSec = 3;
         };
         Install.WantedBy = lib.mkForce [ "graphical-session.target" ];
       };
+      portOptions = [
+        "--port"
+        (toString cfg.port)
+      ];
     in
     {
       config = lib.mkIf cfg.enable {
@@ -50,10 +59,14 @@ _: {
 
           # The watchers read a TOML file whose table carries the watcher name.
           watchers = {
-            aw-watcher-afk.package = cfg.package;
+            aw-watcher-afk = {
+              inherit (cfg) package;
+              extraOptions = portOptions;
+            };
 
             aw-watcher-window = {
               inherit (cfg) package;
+              extraOptions = portOptions;
               settings.aw-watcher-window = {
                 exclude_apps = [
                   "(?i)1password"
