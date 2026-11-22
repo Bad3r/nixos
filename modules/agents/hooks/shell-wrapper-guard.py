@@ -29,16 +29,13 @@ from typing import cast
 
 SHELLS = ("bash", "sh")
 WRAPPER_WORDS = 3
-ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=")
 OPERATOR = re.compile(r"&&|\|\||;;|\|&|[;&|\n]")
 SIMPLE_BRACES = re.compile(r"\$\{\w+\}")
 REDIRECTION = re.compile(r"&>>?|<>|>>|>\||[<>]&?")
 # Terminators after which the next command still leads the call.
 SEQUENCE = frozenset({"&&", ";", "\n"})
-# A script that is an option, empty, a lone variable, or that sources a file first.
-DELIBERATE = re.compile(
-    r"-|\s*\Z|\$\{?[\w@*#?!-]+\}?\Z|(?:\s|#[^\n]*\n)*(?:source|\.)\s",
-)
+# Characters of a special or positional parameter name.
+PARAMETER_CHARS = frozenset("_@*#?!-")
 REASON = (
     "`{shell} -c` wraps commands that this tool already runs in bash, and the "
     "permission checks cannot read inside the quoted script. Run the commands "
@@ -215,15 +212,35 @@ class Reader:
         self.skip_word = True
 
 
+def is_assignment(word: str) -> bool:
+    """Tell whether a word is a NAME=value or NAME+=value assignment."""
+    name, equals, _ = word.partition("=")
+    name = name.removesuffix("+")
+    return bool(equals) and name.isascii() and name.isidentifier()
+
+
 def is_prefix(words: list[str]) -> bool:
     """Tell whether a simple command only sets up the one after it."""
-    return words[0] == "cd" or all(ASSIGNMENT.match(word) for word in words)
+    return words[0] == "cd" or all(is_assignment(word) for word in words)
+
+
+def is_deliberate(script: str) -> bool:
+    """Tell whether a script is an option, a lone variable, empty, or sources a file first."""
+    name = script.removeprefix("$").removeprefix("{").removesuffix("}")
+    lone_variable = script.startswith("$") and bool(name)
+    if script.startswith("-") or (
+        lone_variable and all(c.isalnum() or c in PARAMETER_CHARS for c in name)
+    ):
+        return True
+    lines = (line.strip() for line in script.split("\n"))
+    first = next((line for line in lines if line and not line.startswith("#")), "")
+    return first.split(maxsplit=1)[:1] in ([], ["source"], ["."])
 
 
 def wrapper_shell(words: list[str]) -> str | None:
     """Return the shell name when a simple command is a needless -c wrapper."""
     plain = len(words) == WRAPPER_WORDS and words[0] in SHELLS and words[1] == "-c"
-    return words[0] if plain and not DELIBERATE.match(words[2]) else None
+    return words[0] if plain and not is_deliberate(words[2]) else None
 
 
 def needless_wrapper(command: str) -> str | None:
