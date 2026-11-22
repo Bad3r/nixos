@@ -596,7 +596,7 @@
     # Time in milliseconds to wait after the query loop becomes idle before automatically exiting. [numeric]
     # CLAUDE_CODE_EXIT_AFTER_STOP_DELAY = "";
     # Set to 1 to enable agent teams. [1 or unset]
-    # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
     CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "true";
     # JSON object to merge into the top level of every API request body.
     # CLAUDE_CODE_EXTRA_BODY = "";
@@ -841,7 +841,7 @@
     # CLAUDE_CODE_AGENT_PROXY_GH_SHIM = ""; # bool
     # CLAUDE_CODE_AGENT_PROXY_GIT_CONFIG = ""; # bool
     # CLAUDE_CODE_BG_TASKS_REPORT_RUNNING = ""; # bool
-    # CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS = ""; # bool
+    CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS = "1"; # bool
     # CLAUDE_CODE_PLAN_V2_AGENT_COUNT = ""; # int
     # CLAUDE_CODE_PLAN_V2_EXPLORE_AGENT_COUNT = ""; # int
     # CLAUDE_CODE_SUBAGENT_CACHE_EVICT = ""; # bool
