@@ -177,6 +177,18 @@ _: {
         "--isolated"
         "--no-usage-statistics"
         "--no-performance-crux"
+        # Every optional tool category, with the coordinate, memory, and DevTools-UI tools.
+        "--category-network-mocks"
+        "--category-extensions"
+        "--category-experimental-third-party"
+        "--category-experimental-webmcp"
+        "--category-pwa"
+        "--category-webauthn"
+        "--experimental-vision"
+        "--memory-debugging"
+        "--experimental-devtools"
+        # WebMCP tools exist only when Chrome ships the feature.
+        "--chrome-arg=--enable-features=WebMCP"
       ];
       timeout = 240;
       clients = [
@@ -185,8 +197,51 @@ _: {
       ];
       docs = {
         primaryUse = "Control and inspect a live Chrome browser session.";
-        accessNotes = "Shared wrapper forces usage statistics and CrUX off and disables update checks and npm update notifications. Standalone `--` is rejected so required flags cannot become positional arguments. Both clients use it instead of the upstream Claude plugin. Browser traffic and npm package resolution remain enabled; these controls are not a network sandbox.";
+        accessNotes = "Shared wrapper forces usage statistics and CrUX off and disables update checks and npm update notifications. Standalone `--` is rejected so required flags cannot become positional arguments. Runs the full tool set: every optional category (network mocks, extensions, WebMCP, third-party page tools, PWA, WebAuthn), the coordinate, memory, and DevTools-UI tools, and WebMCP enabled in Chrome. Needs Chrome 150 or newer for WebMCP. Both clients use it instead of the upstream Claude plugin. Browser traffic and npm package resolution remain enabled; these controls are not a network sandbox.";
         example = "`npx -y chrome-devtools-mcp@latest --executablePath=\"$(command -v google-chrome-stable)\" --isolated --no-usage-statistics --no-performance-crux`";
+      };
+    };
+
+    firefox = {
+      source = "npx";
+      # The browser is Camoufox, so the server exists only where that app's row is on.
+      app = "camoufox";
+      package = "@mozilla/firefox-mcp-moz@latest";
+      network.mode = "full";
+      args = [
+        # Every module, including the privileged, preference, relaunch, and raw BiDi ones.
+        "--tool-preset"
+        "all"
+        "--pref"
+        "toolkit.telemetry.enabled=false"
+        "--pref"
+        "toolkit.telemetry.unified=false"
+        "--pref"
+        "toolkit.telemetry.archive.enabled=false"
+        "--pref"
+        "datareporting.healthreport.uploadEnabled=false"
+        "--pref"
+        "datareporting.policy.dataSubmissionEnabled=false"
+        "--pref"
+        "browser.ping-centre.telemetry=false"
+        "--pref"
+        "browser.newtabpage.activity-stream.feeds.telemetry=false"
+        "--pref"
+        "browser.newtabpage.activity-stream.telemetry=false"
+        "--pref"
+        "app.shield.optoutstudies.enabled=false"
+        "--pref"
+        "app.normandy.enabled=false"
+      ];
+      timeout = 240;
+      clients = [
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Control and inspect a live Camoufox (Firefox) session, including privileged contexts.";
+        accessNotes = "Runs the Mozilla build of the server with every tool module, driving the camoufox app's browser, so it is present only where that app's row is on. Camoufox does not replace geckodriver, which still translates the server's WebDriver calls; the geckodriver app supplies it and the wrapper puts it on PATH. The wrapper sets MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 for the privileged modules and turns off Selenium Manager statistics and the Firefox crash reporter; Firefox telemetry prefs are off. Each session uses a fresh temporary profile. The privileged modules give the agent browser-privileged access with no web-content sandbox, so it can act outside the page.";
+        example = "Use `/mcp` to inspect the available `firefox` tools.";
       };
     };
 

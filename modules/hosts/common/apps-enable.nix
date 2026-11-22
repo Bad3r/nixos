@@ -82,6 +82,7 @@ let
       "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       charles.extended.enable = lib.mkOverride 1100 true;
       chatgpt.extended.enable = lib.mkOverride 1100 true;
+      "chromium-search".extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       clangd.extended.enable = lib.mkOverride 1100 false;
       # Both install methods off: delegate to the bun global path by default;
@@ -171,6 +172,7 @@ let
       gawk.extended.enable = lib.mkOverride 1100 false;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
+      geckodriver.extended.enable = lib.mkOverride 1100 false;
       "gemini-cli".extended.enable = lib.mkOverride 1100 false;
       "generation-manager".extended.enable = lib.mkOverride 1100 true;
       ghidra.extended.enable = lib.mkOverride 1100 true;

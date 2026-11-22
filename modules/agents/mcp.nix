@@ -52,6 +52,7 @@ let
     npx = [
       "timeout"
       "args"
+      "app"
     ];
     app = [
       "timeout"
@@ -169,8 +170,14 @@ let
       throw "Agent MCP server '${serverName}' has invalid source '${source}'. Valid: ${toString validSources}"
     else if missingFields != [ ] then
       throw "Agent MCP server '${serverName}' (${source}) missing required fields: ${toString missingFields}"
-    else if validatedServer ? app && !(config.flake.lib.nixos.hasApp validatedServer.app) then
-      throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps entry"
+    else if
+      validatedServer ? app
+      && !(
+        config.flake.lib.nixos.hasApp validatedServer.app
+        || config.flake.lib.nixos.hasBrowser validatedServer.app
+      )
+    then
+      throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps or browsers entry"
     else
       validatedServer
       // {
@@ -379,6 +386,42 @@ let
             in
             {
               command = "${wrapper}/bin/chrome-devtools-mcp-wrapper";
+              args = meta.args or [ ];
+              type = "stdio";
+            }
+            // timeouts
+          else if name == "firefox" then
+            let
+              cfg = osConfig.programs.${meta.app}.extended;
+              browser = lib.getExe (cfg.finalPackage or cfg.package);
+              geckodriver = osConfig.programs.geckodriver.extended;
+              driver =
+                if geckodriver.enable then
+                  geckodriver.finalPackage or geckodriver.package
+                else
+                  throw "Agent MCP server '${name}' needs the geckodriver app row on";
+              wrapper = pkgs.writeShellScriptBin "firefox-mcp-wrapper" ''
+                set -euo pipefail
+
+                # The privileged, prefs, and bidi modules need this in Firefox's own environment.
+                export MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1
+                export MOZ_CRASHREPORTER_DISABLE=1
+                export SE_AVOID_STATS=true
+                export DO_NOT_TRACK=1
+                export NPM_CONFIG_UPDATE_NOTIFIER=false
+
+                # The server searches PATH for geckodriver before it downloads a binary.
+                export PATH=${lib.makeBinPath [ driver ]}:"$PATH"
+
+                exec ${lib.getExe' pkgs.nodejs "npx"} \
+                  -y \
+                  ${meta.package} \
+                  "--firefox-path=${browser}" \
+                  "$@"
+              '';
+            in
+            {
+              command = "${wrapper}/bin/firefox-mcp-wrapper";
               args = meta.args or [ ];
               type = "stdio";
             }

@@ -13,6 +13,7 @@ in
     let
       # The variant the llm-agents fork builds and pushes to bad3r-nixos.
       codexPkg = inputs.llm-agents.packages.${system}.codex-voice;
+      osConfig.programs.codex.extended.model = "codex-config-check-model";
       osConfig.programs.codex.extended.plugins = lib.mapAttrs (_: plugin: plugin.codex) (
         lib.filterAttrs (_: plugin: plugin ? codex) (import ../_plugins.nix)
       );
