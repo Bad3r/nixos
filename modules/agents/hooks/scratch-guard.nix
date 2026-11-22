@@ -25,6 +25,28 @@ let
     inherit session_id;
     tool_input = { inherit file_path content; };
   };
+  agyCall = name: args: {
+    conversationId = session_id;
+    cwd = "/test/path";
+    hookEventName = "PreToolUse";
+    toolCall = {
+      id = "t1";
+      inherit name args;
+    };
+  };
+  agyBash = command: agyCall "run_command" { CommandLine = command; };
+  agyWrite =
+    path: content:
+    agyCall "write_file" {
+      Path = path;
+      Content = content;
+    };
+  agyEdit =
+    path: replacement:
+    agyCall "edit_file" {
+      Path = path;
+      Replacement = replacement;
+    };
 in
 {
   flake.lib.agents._internal.hooks.raw.scratch-guard = {
@@ -48,11 +70,34 @@ in
         '';
       };
 
+    antigravity.matcher = "write_file|edit_file|run_command";
     claude.matcher = "Write|Edit|MultiEdit|NotebookEdit|Bash";
     codex.matcher = "Bash|apply_patch";
 
     tests = {
       deny = [
+        (agyWrite "/tmp/a" "x")
+        (agyEdit "/tmp/a" "x")
+        (agyWrite "${scratchDir}/notes.md" "x")
+        (agyWrite "${scratchDir}/Notes/x" "x")
+        (agyEdit "/repo/AGENTS.md" "See ${sessionDir}/plan.md")
+        (agyCall "edit_file" {
+          Path = "/repo/AGENTS.md";
+          Edits = [
+            {
+              Target = "old";
+              Replacement = "See ${sessionDir}/plan.md";
+            }
+          ];
+        })
+        (agyWrite "/repo/GEMINI.md" "See ${sessionDir}/plan.md")
+        (agyCall "write_file" { Content = "x"; })
+        (agyCall "write_file" { Path = "/repo/a"; })
+        (agyCall "edit_file" { Replacement = "x"; })
+        (agyCall "edit_file" { Path = "/repo/AGENTS.md"; })
+        (agyCall "run_command" { Cwd = "/repo"; })
+        (agyBash "echo hi > /tmp/x")
+        (agyBash "mkdir -p ${scratchDir}/tmp")
         (write "/tmp/a")
         (write "/tmp")
         {
@@ -216,6 +261,11 @@ in
         "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
       allow = [
+        (agyWrite "${scratchDir}/topic/a" "x")
+        (agyWrite "${sessionDir}/a" "x")
+        (agyEdit "${scratchDir}/topic/a" "See ${scratchDir}/topic/b")
+        (agyBash "ls | tee \"$TMPDIR/out.txt\"")
+        (agyCall "read_file" { Path = "/tmp/a"; })
         (write "${scratchDir}/topic/a")
         (patch "${scratchDir}/topic/a")
         (write "${sessionDir}/a")

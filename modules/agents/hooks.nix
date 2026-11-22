@@ -41,6 +41,12 @@ let
       throw "Agent hook '${registryKey}' field 'timeout' must be a positive integer (seconds)"
     else if presentClients == [ ] then
       throw "Agent hook '${registryKey}' must declare at least one client block: ${lib.concatStringsSep ", " validClients}"
+    else if
+      validatedSpec ? antigravity
+      && validatedSpec.antigravity ? matcher
+      && !isAntigravityToolEvent validatedSpec.event
+    then
+      throw "Agent hook '${registryKey}'.antigravity.matcher is only supported on PreToolUse and PostToolUse events (got '${validatedSpec.event}')"
     else
       validatedSpec
       // lib.genAttrs presentClients (
@@ -86,27 +92,53 @@ let
 
   compiledHooks = lib.mapAttrs validateHookSpec rawHooks;
 
-  # settings.json / hooks.json shape: { <event> = [ { matcher; hooks = [ ... ]; } ]; }
+  # settings.json shape: { <event> = [ { matcher?; hooks = [ ... ]; } ]; }
+  # Antigravity hooks.json keys by hook name; only tool events wrap in { matcher, hooks }.
+  isAntigravityToolEvent = event: event == "PreToolUse" || event == "PostToolUse";
+
   clientHooks =
     client: pkgs:
     let
       hooks = lib.filter (hook: hook ? ${client}) (lib.attrValues compiledHooks);
+      handlerFor =
+        hook:
+        {
+          type = "command";
+          command = lib.getExe (hook.package pkgs);
+        }
+        // lib.optionalAttrs (hook ? timeout) { inherit (hook) timeout; };
       entry =
         hook:
         lib.optionalAttrs (hook.${client} ? matcher) { inherit (hook.${client}) matcher; }
         // {
-          hooks = [
-            (
-              {
-                type = "command";
-                command = lib.getExe (hook.package pkgs);
-              }
-              // lib.optionalAttrs (hook ? timeout) { inherit (hook) timeout; }
-            )
-          ];
+          hooks = [ (handlerFor hook) ];
         };
     in
-    lib.mapAttrs (_event: map entry) (lib.groupBy (hook: hook.event) hooks);
+    if client == "antigravity" then
+      lib.listToAttrs (
+        map (
+          hook:
+          let
+            handler = handlerFor hook;
+          in
+          lib.nameValuePair hook.name {
+            ${hook.event} =
+              if isAntigravityToolEvent hook.event then
+                [
+                  (
+                    lib.optionalAttrs (hook.antigravity ? matcher) { inherit (hook.antigravity) matcher; }
+                    // {
+                      hooks = [ handler ];
+                    }
+                  )
+                ]
+              else
+                [ handler ];
+          }
+        ) hooks
+      )
+    else
+      lib.mapAttrs (_event: map entry) (lib.groupBy (hook: hook.event) hooks);
 in
 {
   options.flake.lib.agents = {
@@ -143,7 +175,17 @@ in
               fail=0
               for expect in deny ask allow; do
                 while IFS= read -r case; do
-                  got="$(${lib.getExe (hook.package pkgs)} <<<"$case" | jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"')"
+                  out_json="$(${lib.getExe (hook.package pkgs)} <<<"$case")"
+                  if jq -e 'type == "object" and has("toolCall")' <<<"$case" >/dev/null 2>&1; then
+                    got="$(jq -rs '
+                      if length == 1 and (.[0] | type == "object") and ((.[0].decision // "") | type == "string" and length > 0)
+                      then .[0].decision
+                      else "missing-decision"
+                      end
+                    ' <<<"$out_json")"
+                  else
+                    got="$(jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"' <<<"$out_json")"
+                  fi
                   if [ "$got" != "$expect" ]; then
                     echo "expected $expect, got $got: $case" >&2
                     fail=1

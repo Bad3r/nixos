@@ -14,23 +14,53 @@
 # command) are skipped.
 
 input="$(cat)"
-tool="$(jq -r '.tool_name // ""' <<<"$input")"
-cwd="$(jq -r '.cwd // ""' <<<"$input")"
-sessionId="$(jq -r '.session_id // ""' <<<"$input")"
+if ! jq -e 'type == "object"' <<<"$input" >/dev/null 2>&1; then
+	exit 0
+fi
+isAntigravity="$(jq -r 'if has("toolCall") then "1" else "0" end' <<<"$input")"
+if [ "$isAntigravity" = 1 ]; then
+	rawTool="$(jq -r '.toolCall.name // ""' <<<"$input")"
+	cwd="$(jq -r '.cwd // ""' <<<"$input")"
+	sessionId="$(jq -r '.conversationId // ""' <<<"$input")"
+	case "$rawTool" in
+	run_command) tool=Bash ;;
+	write_file) tool=Write ;;
+	edit_file) tool=Edit ;;
+	*) tool="" ;;
+	esac
+else
+	tool="$(jq -r '.tool_name // ""' <<<"$input")"
+	cwd="$(jq -r '.cwd // ""' <<<"$input")"
+	sessionId="$(jq -r '.session_id // ""' <<<"$input")"
+fi
 
 case "$sessionId" in
 "" | *[!A-Za-z0-9-]*) sessionDir="" ;;
 *) sessionDir="$scratch/sessions/$sessionId" ;;
 esac
 
+allow() {
+	if [ "$isAntigravity" = 1 ]; then
+		printf '{"decision":"allow"}\n'
+	fi
+	exit 0
+}
+
 deny() {
-	jq -n --arg reason "$1" '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: $reason
-    }
-  }'
+	if [ "$isAntigravity" = 1 ]; then
+		jq -n --arg reason "$1" '{
+      decision: "deny",
+      reason: $reason
+    }'
+	else
+		jq -n --arg reason "$1" '{
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: $reason
+      }
+    }'
+	fi
 	exit 0
 }
 
@@ -125,7 +155,7 @@ checkPath() {
 # Session dirs are swept, so instructions and memory must not point into them.
 isInstructionFile() {
 	case "$1" in
-	*/CLAUDE.md | */AGENTS.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
+	*/CLAUDE.md | */AGENTS.md | */GEMINI.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
 	*) return 1 ;;
 	esac
 }
@@ -150,7 +180,15 @@ patchAdds() {
   ' <<<"$command"
 }
 
-command="$(jq -r '.tool_input.command // ""' <<<"$input")"
+if [ "$isAntigravity" = 1 ]; then
+	if [ "$tool" = Bash ]; then
+		jq -e '(.toolCall.args.CommandLine // null) | type == "string"' <<<"$input" >/dev/null 2>&1 ||
+			deny "Missing CommandLine in run_command hook payload."
+	fi
+	command="$(jq -r 'if (.toolCall.args.CommandLine | type) == "string" then .toolCall.args.CommandLine else "" end' <<<"$input")"
+else
+	command="$(jq -r '.tool_input.command // ""' <<<"$input")"
+fi
 
 # Codex apply_patch carries the patch text in tool_input.command.
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
@@ -165,25 +203,49 @@ if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; the
 		checkCitation "$path" "$(patchAdds "$path")"
 	done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
 	if [ "$tool" != Bash ]; then
-		exit 0
+		allow
 	fi
 fi
 
 case "$tool" in
 Write)
-	file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
+	if [ "$isAntigravity" = 1 ]; then
+		jq -e '(.toolCall.args.Path // "") | type == "string" and length > 0' <<<"$input" >/dev/null 2>&1 ||
+			deny "Missing file Path in $rawTool hook payload."
+		jq -e '(.toolCall.args.Content // null) | type == "string"' <<<"$input" >/dev/null 2>&1 ||
+			deny "Missing file Content in $rawTool hook payload."
+		file="$(jq -r '.toolCall.args.Path' <<<"$input")"
+		content="$(jq -r '.toolCall.args.Content' <<<"$input")"
+	else
+		file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
+		content="$(jq -r '.tool_input.content // ""' <<<"$input")"
+	fi
 	checkPath "$file" create
-	checkCitation "$file" "$(jq -r '.tool_input.content // ""' <<<"$input")"
-	exit 0
+	checkCitation "$file" "$content"
+	allow
 	;;
 Edit | MultiEdit | NotebookEdit)
-	file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+	if [ "$isAntigravity" = 1 ]; then
+		jq -e '(.toolCall.args.Path // "") | type == "string" and length > 0' <<<"$input" >/dev/null 2>&1 ||
+			deny "Missing file Path in $rawTool hook payload."
+		jq -e '
+			((.toolCall.args.Replacement // null) | type == "string")
+			or (((.toolCall.args.Edits // null) | type == "array" and length > 0)
+				and ((.toolCall.args.Edits // []) | all(type == "object" and ((.Replacement // null) | type == "string"))))
+		' <<<"$input" >/dev/null 2>&1 ||
+			deny "Missing Replacement or Edits in $rawTool hook payload."
+		file="$(jq -r '.toolCall.args.Path' <<<"$input")"
+		content="$(jq -r '[if (.toolCall.args.Replacement | type) == "string" then .toolCall.args.Replacement else empty end, ((.toolCall.args.Edits // [])[]? | if (.Replacement | type) == "string" then .Replacement else empty end)] | join("\n")' <<<"$input")"
+	else
+		file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+		content="$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
+	fi
 	checkPath "$file"
-	checkCitation "$file" "$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
-	exit 0
+	checkCitation "$file" "$content"
+	allow
 	;;
 Bash) ;;
-*) exit 0 ;;
+*) allow ;;
 esac
 
 # Line-oriented patterns below must see a continued command as one line.
@@ -675,4 +737,4 @@ for pattern in "${writes[@]}" "TAR:${tarDir}${name}"; do
 		fi
 	done < <(grep -oE -- "$pattern" <<<"$text" | grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" | sed "s#^$scratch/##")
 done
-exit 0
+allow

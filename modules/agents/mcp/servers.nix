@@ -8,7 +8,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Record structured reasoning steps for complex tasks.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity.";
         example = "`sequentialthinking start`";
       };
     };
@@ -19,7 +19,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Persist lightweight graph memory across runs.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity.";
         example = "`memory search_nodes --query \"token endpoint\"`";
       };
     };
@@ -29,10 +29,13 @@ _: {
       package = "context7-mcp";
       secretEnvVar = "CONTEXT7_API_KEY";
       network.allowedDomains = [ "context7.com" ];
-      clients = [ "codex" ];
+      clients = [
+        "antigravity"
+        "codex"
+      ];
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
-        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits. Scoped to Codex: Claude Code consumes the claude.ai Context7 connector instead, so the local server is dropped there to avoid a duplicate registration.";
+        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits. Scoped to Codex and Antigravity: Claude Code consumes the claude.ai Context7 connector instead, so the local server is dropped there to avoid a duplicate registration.";
         example = "`context7 resolve-library-id --name <library>`";
       };
     };
@@ -53,6 +56,7 @@ _: {
       url = "https://browser.mcp.cloudflare.com/mcp";
       network.mode = "full";
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
@@ -69,7 +73,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare builds and deployment activity.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfbuilds` tools.";
       };
     };
@@ -80,7 +84,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Query Cloudflare observability and logging data.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfobservability` tools.";
       };
     };
@@ -91,7 +95,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare bindings for Workers and Pages projects.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfbindings` tools.";
       };
     };
@@ -102,7 +106,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Query Cloudflare Radar internet telemetry and trends.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfradar` tools.";
       };
     };
@@ -113,7 +117,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare Containers projects and instances.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfcontainers` tools.";
       };
     };
@@ -124,7 +128,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Run GraphQL queries against Cloudflare analytics endpoints.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfgraphql` tools.";
       };
     };
@@ -145,12 +149,13 @@ _: {
       source = "http";
       url = "https://mcp.grep.app";
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Search public GitHub code indexed by grep.app.";
-        accessNotes = "Enabled by default for Codex and Claude Code through the remote grep.app HTTP endpoint.";
+        accessNotes = "Enabled by default for Codex, Claude Code, and Antigravity through the remote grep.app HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `gh_grep` tools.";
       };
     };
@@ -159,6 +164,7 @@ _: {
       source = "http";
       url = "https://mcp.deepwiki.com/mcp";
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
@@ -192,12 +198,13 @@ _: {
       ];
       timeout = 240;
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Control and inspect a live Chrome browser session.";
-        accessNotes = "Shared wrapper forces usage statistics and CrUX off and disables update checks and npm update notifications. Standalone `--` is rejected so required flags cannot become positional arguments. Runs the full tool set: every optional category (network mocks, extensions, WebMCP, third-party page tools, PWA, WebAuthn), the coordinate, memory, and DevTools-UI tools, and WebMCP enabled in Chrome. Needs Chrome 150 or newer for WebMCP. Both clients use it instead of the upstream Claude plugin. Browser traffic and npm package resolution remain enabled; these controls are not a network sandbox.";
+        accessNotes = "Shared wrapper forces usage statistics and CrUX off and disables update checks and npm update notifications. Standalone `--` is rejected so required flags cannot become positional arguments. Runs the full tool set: every optional category (network mocks, extensions, WebMCP, third-party page tools, PWA, WebAuthn), the coordinate, memory, and DevTools-UI tools, and WebMCP enabled in Chrome. Needs Chrome 150 or newer for WebMCP. Managed clients use it instead of the upstream plugins. Browser traffic and npm package resolution remain enabled; these controls are not a network sandbox.";
         example = "`npx -y chrome-devtools-mcp@latest --executablePath=\"$(command -v google-chrome-stable)\" --isolated --no-usage-statistics --no-performance-crux`";
       };
     };
@@ -235,6 +242,7 @@ _: {
       ];
       timeout = 240;
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
@@ -253,6 +261,7 @@ _: {
       toolTimeout = cfg: cfg.limits.maxTtl * 3600;
       autoApprove = true;
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];
@@ -283,6 +292,7 @@ _: {
       args = [ "--isolated" ];
       timeout = 240;
       clients = [
+        "antigravity"
         "claude"
         "codex"
       ];

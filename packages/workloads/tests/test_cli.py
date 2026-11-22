@@ -177,7 +177,17 @@ class GrantVerbsTest(unittest.TestCase):
         helper = FakeHelper({"grants": []})
         with unittest.mock.patch.dict("os.environ", {"CLAUDE_CODE_SESSION_ID": "s1"}, clear=True):
             run_grant(helper, lambda _: None, "grants")
-        self.assertEqual(helper.requests, [{"verb": "list", "session": "claude:s1"}])
+        with unittest.mock.patch.dict(
+            "os.environ", {"ANTIGRAVITY_CONVERSATION_ID": "c1"}, clear=True
+        ):
+            run_grant(helper, lambda _: None, "grants")
+        self.assertEqual(
+            helper.requests,
+            [
+                {"verb": "list", "session": "claude:s1"},
+                {"verb": "list", "session": "antigravity:c1"},
+            ],
+        )
 
     def test_revoke(self) -> None:
         """Revoke takes an id or --all with a source."""
