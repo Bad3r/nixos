@@ -25,10 +25,12 @@ type Json = dict[str, object]
 
 SCRATCH = Path(os.environ["ROUND_REPORT_SCRATCH"])
 LIST_CAP = 20
+# Larger files are fingerprinted by size and mtime, so a snapshot never reads them.
+HASH_MAX_BYTES = 1 << 20
 PORCELAIN_PREFIX = 3
 # Exit 1 from these as the last command means "no match" or "differs".
 NO_MATCH = re.compile(
-    r"(?:^|[|;&]\s*)(?:grep|rg|egrep|fgrep|find|diff|test|\[|git\s+(?:diff|grep))(?:\s|$)[^|;&]*$",
+    r"(?:^|[|;&]\s*)(?:grep|rg|egrep|fgrep|diff|test|\[|git\s+(?:diff|grep))(?:\s|$)[^|;&]*$",
 )
 REDIRECT = re.compile(r"\d*>&\d+|&>")
 INPUT_KEYS = ("command", "cmd", "file_path", "path", "url", "pattern", "code")
@@ -37,7 +39,12 @@ INPUT_KEYS = ("command", "cmd", "file_path", "path", "url", "pattern", "code")
 def state_dir(payload: Json) -> Path:
     """Return the per-session state directory, creating it."""
     session = str(payload.get("session_id") or "unknown")
-    path = SCRATCH / "sessions" / session / "hooks" / "round-report"
+    root = os.path.normpath(SCRATCH / "sessions")
+    target = os.path.normpath(f"{root}/{session}/hooks/round-report")
+    if not target.startswith(root + os.sep):
+        message = f"session id {session!r} leaves {root}"
+        raise ValueError(message)
+    path = Path(target)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -70,7 +77,7 @@ def porcelain_paths(status: str) -> list[str]:
 
 
 def path_state(path: Path) -> str:
-    """A fingerprint of one dirty path: content hash, link target, or nested repo state."""
+    """Fingerprint one dirty path: content hash, size and mtime, link target, or nested repo."""
     try:
         if path.is_symlink():
             return "link:" + str(path.readlink())
@@ -79,6 +86,9 @@ def path_state(path: Path) -> str:
             head = git(path, "rev-parse", "HEAD") or ""
             return "dir:" + hashlib.sha256((head + nested).encode()).hexdigest()
         if path.is_file():
+            info = path.stat()
+            if info.st_size > HASH_MAX_BYTES:
+                return f"stat:{info.st_size}:{info.st_mtime_ns}"
             return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as error:
         return f"unreadable:{error.errno}"
@@ -86,7 +96,7 @@ def path_state(path: Path) -> str:
 
 
 def snapshot(cwd: Path) -> Json | None:
-    """Record HEAD and a content hash of every dirty path in cwd's repository."""
+    """Record HEAD and a fingerprint of every dirty path in cwd's repository."""
     top_out = git(cwd, "rev-parse", "--show-toplevel")
     if top_out is None:
         return None
@@ -245,7 +255,10 @@ def block_reason(unmentioned: list[str], failure_lines: list[str]) -> str:
     """The instruction that sends the agent back to complete its summary."""
     reason = ["Round report check: before ending, revise your summary so that it:"]
     if unmentioned:
-        reason.append("- names these files that git shows changed this round:")
+        reason.append(
+            "- names each of these files that git shows changed this round, and says so "
+            "where another session sharing the tree changed one:",
+        )
         reason += [f"    {f}" for f in capped(unmentioned)]
     if failure_lines:
         reason.append(

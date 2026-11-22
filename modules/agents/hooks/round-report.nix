@@ -85,13 +85,14 @@ in
             payload '{}' | hook round-start
             echo new > "$repo/changed.txt"
             fail 'ls /nope' 2
+            fail 'find /nope -name x' 1
             fail 'rg foo src' 1
             fail 'grep foo x 2>&1' 1
             fail 'grep -n foo x\npytest tests' 1
             payload '{tool_name: "Bash", tool_input: {command: "sleep 9"}, error: "Interrupted", is_interrupt: true}' | hook log-failure
             got=$(stop done)
             echo "$got" | jq -e '.decision == "block"' > /dev/null
-            echo "$got" | jq -e '.reason | contains("changed.txt") and contains("ls /nope") and contains("pytest tests")' > /dev/null
+            echo "$got" | jq -e '.reason | contains("changed.txt") and contains("ls /nope") and contains("find /nope") and contains("pytest tests")' > /dev/null
             echo "$got" | jq -e '.reason | (contains("rg foo") or contains("grep foo x") or contains("sleep 9") or contains("dirty-before")) | not' > /dev/null
             echo "$got" | jq -e '.systemMessage | contains("changed.txt") and contains("ls /nope")' > /dev/null
 
@@ -122,6 +123,13 @@ in
             stop done | jq -e '.reason | contains("main-change.txt")' > /dev/null
             stop done true > /dev/null
 
+            # A file too large to hash still shows as changed.
+            head -c 2097152 /dev/zero > "$repo/big.bin"
+            payload '{}' | hook round-start
+            echo more >> "$repo/big.bin"
+            stop done | jq -e '.reason | contains("big.bin")' > /dev/null
+            stop done true > /dev/null
+
             # Codex rounds are keyed by turn; a stop from another turn sees no snapshot.
             payload '{turn_id: "t1"}' | hook round-start
             echo turn > "$repo/turn.txt"
@@ -142,6 +150,10 @@ in
 
             # A malformed payload reports the hook's own failure instead of raising.
             echo '[]' | hook round-end | jq -e '.systemMessage | startswith("round-report round-end hook failed")' > /dev/null
+
+            # A session id that leaves the scratch directory is refused.
+            jq -nc '{session_id: "../../escape", cwd: "/"}' | hook round-start | jq -e '.systemMessage | startswith("round-report round-start hook failed")' > /dev/null
+            [ ! -e "$PWD/escape" ]
             touch "$out"
           '';
     };
