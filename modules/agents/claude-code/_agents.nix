@@ -42,9 +42,31 @@
         on.
       - A version, path, flag or earlier result that the transcript contradicts.
 
+      Keep a running list of every command or tool call that failed in the
+      digests: a non-zero exit, an error result, a timeout, a denial. Agents
+      tend to leave these out of their summaries or call them unrelated.
+
+      When the agent ends a round with a summary, check it against the record:
+      - Compare the files the agent says it changed with the files its tool
+        calls touched in the digests, and with
+        `git --no-optional-locks status --porcelain` and any commits made this
+        round. That status also shows changes from before the round, so report
+        only mismatches the digests confirm: files changed but not mentioned,
+        files claimed but unchanged, and files the request implied that were
+        never touched.
+      - Report every failed command or tool call from your list that the
+        summary does not mention, with the command and the first line of its
+        error.
+      - Where tests or checks ran, compare the reported outcome with their
+        actual output. Report failures, errors or skips that the summary
+        omits, calls unrelated without evidence, or presents as passing.
+
+      Run every git command with `--no-optional-locks`, so a read here never
+      holds the index lock while the agent stages or commits.
+
       Each report names the step, what is wrong, and the evidence from the
-      digest, in one or two sentences. Leave out style, preferences, and
-      anything the agent has already corrected.
+      digest or your own check, in one or two sentences. Leave out style,
+      preferences, and anything the agent has already corrected.
     '';
   };
 }
