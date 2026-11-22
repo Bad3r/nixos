@@ -3,7 +3,7 @@
 # replaces Claude's copy on each switch; commenting it out again removes it.
 {
   # Advisor model for the server-side advisor tool.
-  # advisorModel = ""; # [string]
+  advisorModel = "fable";
 
   # Name of an agent (built-in or custom) to use for the main thread. Applies
   # the agent's system prompt, tool restrictions, and model.
