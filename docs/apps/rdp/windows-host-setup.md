@@ -2,7 +2,7 @@
 
 `scripts/windows/rdp-host-setup.ps1` prepares a Windows 10 or 11 host as an AVC444 Remote Desktop target for Remmina over the Cloudflare WARP Mesh.
 It writes the Remote Desktop policies into the local machine policy file (`Registry.pol`, the file `gpedit.msc` edits), so they appear in gpedit and survive policy refreshes.
-It also sets the 60 fps frame cap, opens RemoteApp to any installed program, and enables OpenSSH and WinRM for the Mesh range only.
+It also allows drive redirection for Remmina shared folders, sets the 60 fps frame cap, opens RemoteApp to any installed program, and enables OpenSSH and WinRM for the Mesh range only.
 Each value carries its gpedit path and reason in a comment beside it in the script.
 Failures and their fixes are on [windows-host-troubleshooting.md](windows-host-troubleshooting.md).
 
@@ -45,7 +45,8 @@ The script backs up `Registry.pol` and `gpt.ini` beside the originals with a `.b
 
 Precondition: the host passes `-Check`.
 
-1. In the Remmina profile, set Colour depth to `GFX AVC444 (32 bpp)` and Network connection type to `Auto-detect`.
+1. In the Remmina profile, set Colour depth to `GFX AVC444 (32 bpp)`, Network connection type to `Auto-detect`, and Share folder to `songbird,/home/vx/RDP`.
+   The folder appears on the host as `\\tsclient\songbird` and as a drive under This PC.
 
 2. Connect once, then confirm on the host that the client negotiated AVC:
 

@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Applies, or with -Check only reports, the host-side settings for AVC444 Remote Desktop,
-  RemoteApp, OpenSSH, and WinRM. Group Policy settings go into the local machine policy
+  drive redirection, RemoteApp, OpenSSH, and WinRM. Group Policy settings go into the local machine policy
   (Registry.pol, the file gpedit.msc edits), so they show in gpedit and survive policy refreshes.
   Every step is idempotent; a second run changes nothing. Exits 1 when any setting drifts.
 
@@ -55,6 +55,8 @@ $Policies = [ordered]@{
   fDenyTSConnections               = 0
   # Security > Require user authentication for remote connections by using NLA: Enabled
   UserAuthentication               = 1
+  # Device and Resource Redirection > Do not allow drive redirection: Disabled (Remmina shared folders)
+  fDisableCdm                      = 0
   # Remote Session Environment > Prioritize H.264/AVC 444 graphics mode: Enabled
   AVC444ModePreferred              = 1
   # Remote Session Environment > Configure H.264/AVC hardware encoding: Disabled
@@ -90,6 +92,7 @@ $PRegSignature = [uint32]0x67655250
 $SshRuleName = 'OpenSSH-Server-In-TCP'
 $WinRmRuleName = 'WinRM-HTTP-In-Mesh'
 $script:Drift = 0
+$script:PolicyChanged = $false
 
 function Write-State([string]$Item, [string]$Want, [string]$Have) {
   $ok = $Want -eq $Have
@@ -216,7 +219,7 @@ function Set-LocalMachinePolicy {
     Write-Change "policy $name = $want (was $have)"
   }
   $after = ConvertTo-PRegBytes $entries
-  if ($null -ne $before -and [Convert]::ToBase64String($after) -eq [Convert]::ToBase64String($before)) { return $false }
+  if ($null -ne $before -and [Convert]::ToBase64String($after) -eq [Convert]::ToBase64String($before)) { return }
   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
   if ($null -ne $before) { Copy-Item -Path $PolPath -Destination "$PolPath.bak-$stamp" }
   if (Test-Path $GptIni) { Copy-Item -Path $GptIni -Destination "$GptIni.bak-$stamp" }
@@ -225,7 +228,7 @@ function Set-LocalMachinePolicy {
   [IO.File]::WriteAllBytes($PolPath, $after)
   Update-GptIni
   Write-Change "wrote $PolPath (backup suffix .bak-$stamp)"
-  $true
+  $script:PolicyChanged = $true
 }
 
 # --- helpers --------------------------------------------------------------------
@@ -290,7 +293,7 @@ function Test-WinRmListener {
 # --- apply ----------------------------------------------------------------------
 
 if (-not $Check) {
-  $policyChanged = Set-LocalMachinePolicy
+  Set-LocalMachinePolicy
   foreach ($name in $Policies.Keys) { Set-RegDword "HKLM:\$TsPolicyKey" $name $Policies[$name] }
   foreach ($value in $RegistryValues) { Set-RegDword $value.Path $value.Name $value.Value }
 
@@ -320,7 +323,7 @@ if (-not $Check) {
     Set-MeshRule $WinRmRuleName 'Windows Remote Management (HTTP-In, Mesh)' 5985
   }
 
-  if ($policyChanged) {
+  if ($script:PolicyChanged) {
     # Domain policy errors make gpupdate report failure even when local policy applied.
     gpupdate.exe /target:computer /force | Out-Null
     Write-Change 'ran gpupdate /target:computer /force'
