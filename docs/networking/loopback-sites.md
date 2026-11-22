@@ -22,6 +22,11 @@ nginx passes the requested name upstream by default.
 An upstream that accepts only its own address, as `aw-server` does while it binds loopback, sets `hostHeader` to that address.
 nginx closes requests for any name without an entry, so a DNS-rebinding page never reaches an upstream through a rewritten header.
 
+## Browsers
+
+Firefox and LibreWolf run in HTTPS-Only mode, which exempts loopback addresses but not names that resolve to them.
+Their shared enterprise policies add each site to `HttpAllowlist`, so `http://<name>` loads without an upgrade to HTTPS.
+
 ## Check a site
 
 ```bash
