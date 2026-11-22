@@ -13,6 +13,7 @@
 { config, inputs, ... }:
 let
   meshInterface = config.flake.lib.nixos._firewallMeshInterface;
+  inherit (config.flake.lib.agents) scratchDir;
 
   AntigravityHubModule =
     {
@@ -23,6 +24,17 @@ let
     }:
     let
       cfg = config.programs."antigravity-hub".extended;
+      shell = import ../../agents/antigravity-cli/_shell.nix {
+        inherit lib pkgs scratchDir;
+      };
+      basePkg = cfg.package.override {
+        # The language server binds either localhost or 0.0.0.0; the firewall
+        # limits the wildcard to loopback and Mesh.
+        languageServerFlags = [
+          "--https_server_port=${toString cfg.port}"
+          "--remote_accessible"
+        ];
+      };
     in
     {
       options.programs."antigravity-hub".extended = {
@@ -35,7 +47,7 @@ let
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
-          description = "The antigravity-hub package with the configured language server flags.";
+          description = "The antigravity-hub package with the configured language server flags and controlled agent shell.";
         };
 
         package = lib.mkOption {
@@ -53,14 +65,24 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        programs."antigravity-hub".extended.finalPackage = cfg.package.override {
-          # The language server binds either localhost or 0.0.0.0; the firewall
-          # limits the wildcard to loopback and Mesh.
-          languageServerFlags = [
-            "--https_server_port=${toString cfg.port}"
-            "--remote_accessible"
-          ];
-        };
+        programs."antigravity-hub".extended.finalPackage = pkgs.symlinkJoin (
+          {
+            name = "antigravity-hub-${basePkg.version or "custom"}";
+            paths = [ basePkg ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              wrapProgram "$out/bin/antigravity" \
+                --prefix PATH : "${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin" \
+                --run ${lib.escapeShellArg ''
+                  if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
+                    export TMPDIR=${lib.escapeShellArg scratchDir}
+                  fi
+                ''}
+            '';
+          }
+          // lib.optionalAttrs (basePkg ? version) { inherit (basePkg) version; }
+          // lib.optionalAttrs (basePkg ? meta) { inherit (basePkg) meta; }
+        );
 
         environment.systemPackages = [ cfg.finalPackage ];
 
