@@ -220,6 +220,69 @@
               echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
             '';
 
+        "claude-code/launcher-env" =
+          let
+            probeTarget = pkgs.writeShellScript "claude-env-probe" ''
+              printf 'TEAMMATE=%s\nNONESS=%s\nTELEM=%s\nESCAPE=%s\nRCLAUNCH=%s\n' \
+                "''${CLAUDE_CODE_TEAMMATE_COMMAND-<unset>}" \
+                "''${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC-<unset>}" \
+                "''${DISABLE_TELEMETRY-<unset>}" \
+                "''${CLAUDE_CODE_ALLOW_FEATURE_FLAGS-<unset>}" \
+                "''${CLAUDE_RC_LAUNCHING-<unset>}"
+            '';
+            launcher = import ./_launcher.nix {
+              inherit lib pkgs;
+              installMethods = installMethodVariants.external;
+              claudePkg = "/nix/store/test-claude";
+              bunInstallDir = "/nix/store/test-bun";
+              externalBinary = "${probeTarget}";
+              scratchDir = "./scratch";
+              launcherDir = "/home/test/.local/bin";
+            };
+          in
+          pkgs.runCommandLocal "claude-code-launcher-env-check" { passthru.runtimeCheck = true; } ''
+            set -euo pipefail
+            claudeBin=${lib.getExe launcher.claudeWrapped}
+            claudeRcBin=${lib.getExe launcher.claudeRcWrapped}
+            assert_env() {
+              local label=$1 expected=$2 actual=$3
+              if [ "$actual" != "$expected" ]; then
+                printf 'FAIL (%s):\nexpected:\n%s\ngot:\n%s\n' "$label" "$expected" "$actual" >&2
+                exit 1
+              fi
+            }
+
+            # Fresh plain launcher sets itself and keeps launchOnly opt-outs on.
+            got=$(env -i PATH="$PATH" "$claudeBin")
+            assert_env "fresh claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # Fresh claude-rc sets itself, clears launchOnly, and unsets internal markers.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_TELEMETRY=1 "$claudeRcBin")
+            assert_env "fresh claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # Plain claude nested inside claude-rc resets teammate command and restores launchOnly.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/home/test/.local/bin/claude-rc "$claudeBin")
+            assert_env "claude inside claude-rc" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # claude-rc nested inside plain claude switches teammate command to claude-rc.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/home/test/.local/bin/claude "$claudeRcBin")
+            assert_env "claude-rc inside claude" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # Explicit empty CLAUDE_CODE_TEAMMATE_COMMAND is replaced by each launcher.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND="" "$claudeBin")
+            assert_env "empty teammate claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND="" "$claudeRcBin")
+            assert_env "empty teammate claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            # Manual override is preserved by both launchers.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/custom/bin/claude "$claudeBin")
+            assert_env "custom override claude" $'TEAMMATE=/custom/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/custom/bin/claude "$claudeRcBin")
+            assert_env "custom override claude-rc" $'TEAMMATE=/custom/bin/claude\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>' "$got"
+
+            echo "ok: claude-code launcher env contract" >"$out"
+          '';
+
         "claude-code/notify" =
           let
             inherit (config.flake.lib.agents._internal.hooks.raw.claude-notify.package pkgs) filter;
