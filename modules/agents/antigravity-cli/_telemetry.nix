@@ -1,7 +1,7 @@
 # Shared telemetry, analytics, and background update controls for Antigravity CLI and Hub.
 let
-  # Google Cloud / Clearcut telemetry and analytics flag for `language_server`
-  # and root / `acp` invocations of `agy`.
+  # `language_server` telemetry/analytics flag (`agy acp` and Hub `language_server`).
+  # External root `agy` builds compile out `--disable_telemetry`.
   languageServerFlags = [ "--disable_telemetry" ];
 
   # Disable implicit config watch, usage statistics, and npm update checks in
@@ -23,8 +23,9 @@ let
     autoCheckForUpdates = "false";
   };
 
-  # `agy` subcommands that parse isolated FlagSets and reject `--disable_telemetry`.
-  nonTelemetrySubcommands = [
+  # Known `agy` subcommands pinned against upstream `--help` output.
+  knownSubcommands = [
+    "acp"
     "agent"
     "agents"
     "changelog"
@@ -39,8 +40,8 @@ let
     "update"
   ];
 
-  # Wrap `agy` with the controlled shell, disabled telemetry/auto-updates, and
-  # per-subcommand `--disable_telemetry` placement.
+  # Wrap `agy` with the controlled shell, disabled auto-updates and MCP checks,
+  # and `--disable_telemetry` on `acp` (rejecting falsy overrides before `--`).
   wrapAgy =
     {
       lib,
@@ -53,7 +54,6 @@ let
       exportEnv = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") cliEnv
       );
-      nonTelemetryCases = lib.concatMapStringsSep " | " lib.escapeShellArg nonTelemetrySubcommands;
     in
     pkgs.symlinkJoin (
       {
@@ -70,17 +70,25 @@ let
           if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
             export TMPDIR=${lib.escapeShellArg scratchDir}
           fi
-          case "''${1:-}" in
-            "acp")
-              shift
-              set -- acp --disable_telemetry "$@"
-              ;;
-            ${nonTelemetryCases})
-              ;;
-            *)
-              set -- --disable_telemetry "$@"
-              ;;
-          esac
+          if [ "''${1:-}" = "acp" ]; then
+            shift
+            for arg in "$@"; do
+              [ "$arg" = "--" ] && break
+              case "$arg" in
+                -disable_telemetry=* | --disable_telemetry=* | -disable-telemetry=* | --disable-telemetry=*)
+                  val="''${arg#*=}"
+                  case "$val" in
+                    1 | t | T | TRUE | true | True) ;;
+                    *)
+                      echo "agy: telemetry is disabled by NixOS configuration and cannot be re-enabled ($arg)" >&2
+                      exit 2
+                      ;;
+                  esac
+                  ;;
+              esac
+            done
+            set -- acp --disable_telemetry "$@"
+          fi
           exec -a "$0" ${lib.escapeShellArg "${package}/bin/agy"} "$@"
           WRAPPER_EOF
           chmod +x "$out/bin/agy"
@@ -98,8 +106,8 @@ in
   inherit
     cliEnv
     hubStorage
+    knownSubcommands
     languageServerFlags
-    nonTelemetrySubcommands
     sharedEnv
     wrapAgy
     ;

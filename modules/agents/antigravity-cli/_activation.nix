@@ -33,6 +33,7 @@ let
     name = "antigravity-apply-config";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.diffutils
       pkgs.jq
     ];
     excludeShellChecks = [ "SC2016" ];
@@ -75,9 +76,16 @@ let
       if [ -e "$state" ]; then
         if ! jq -e --slurp '
             length == 1
-            and (.[0] | type == "object" and .version == 1
-              and ([.mcpServers, .hooks, .plugins, .cliSettings, (if has("hubStorage") then .hubStorage else [] end)]
-                | all(type == "array" and all(.[]; type == "string"))))
+            and (
+              .[0]
+              | type == "object"
+                and .version == 1
+                and (
+                  [.mcpServers, .hooks, .plugins, .cliSettings, (if has("hubStorage") then .hubStorage else [] end)]
+                  | all(type == "array" and all(.[]; type == "string"))
+                )
+                and (if has("hubStorageTarget") then (.hubStorageTarget | type == "string") else true end)
+            )
           ' "$state" >/dev/null 2>&1; then
           echo "antigravity-apply-config: $state is not a version 1 record; fix it, or delete it to reseed" >&2
           exit 1
@@ -86,7 +94,7 @@ let
       else
         previous=$(mktemp)
         tmp_files+=("$previous")
-        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[]}' >"$previous"
+        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[],"hubStorageTarget":""}' >"$previous"
       fi
 
       validate_target() {
@@ -243,23 +251,33 @@ let
       if [ -n "$hub_storage_template" ]; then
         stage_merge "$hub_storage" "$hub_storage_template" '
           $nix[0] as $declared
-          | reduce ((if ($state[0] | has("hubStorage")) then $state[0].hubStorage else [] end) - ($declared | keys))[] as $key (.; del(.[$key]))
+          | (
+              if ($state[0] | has("hubStorage")) and (($state[0].hubStorageTarget? // "") == $target)
+              then $state[0].hubStorage
+              else []
+              end
+            ) as $owned
+          | reduce ($owned - ($declared | keys))[] as $key (.; del(.[$key]))
           | . + $declared
         '
       fi
 
       state_tmp=$(mktemp "$state.nix-XXXXXX")
       tmp_files+=("$state_tmp")
-      if [ -n "$cli_settings_template" ] && [ -n "$hub_storage_template" ]; then
-        cat -- "$state_template" >"$state_tmp"
-      else
-        jq --slurpfile prev "$previous" \
-          --arg has_cli "$cli_settings_template" \
-          --arg has_hub "$hub_storage_template" '
-          (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
-          | (if $has_hub == "" then .hubStorage = (if ($prev[0] | has("hubStorage")) then $prev[0].hubStorage else [] end) else . end)
-        ' "$state_template" >"$state_tmp"
-      fi
+      jq -cS --slurpfile prev "$previous" \
+        --arg has_cli "$cli_settings_template" \
+        --arg has_hub "$hub_storage_template" \
+        --arg hub_target "$hub_storage" '
+        (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
+        | (
+            if $has_hub == "" then
+              .hubStorage = (if ($prev[0] | has("hubStorage")) then $prev[0].hubStorage else [] end)
+              | .hubStorageTarget = ($prev[0].hubStorageTarget? // "")
+            else
+              .hubStorageTarget = $hub_target
+            end
+          )
+      ' "$state_template" >"$state_tmp"
       chmod 0600 "$state_tmp"
       if [ ! -f "$state" ] || ! cmp -s "$state_tmp" "$state" || [ "$(stat -c %a "$state")" != "600" ]; then
         pending_srcs+=("$state_tmp")
@@ -270,7 +288,6 @@ let
 
       had_migrated=0
       for marker in \
-        "$config_dir/.migrated" \
         "$config_dir/plugins/migrated-settings" \
         "$HOME/.gemini/antigravity/plugin_data/migrated-settings" \
         "$cli_dir/plugin_data/migrated-settings"; do
@@ -288,7 +305,6 @@ let
         "$config_dir/plugins/migrated-settings" \
         "$HOME/.gemini/antigravity/plugin_data/migrated-settings" \
         "$cli_dir/plugin_data/migrated-settings"
-      rm -f -- "$config_dir/.migrated"
       if [ "$had_migrated" -eq 1 ]; then
         rm -f -- "$config_dir/mcp_config.json.backup"
       fi

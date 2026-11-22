@@ -12,7 +12,7 @@
     * MCP servers come from flake.lib.agents.mcp (modules/agents/mcp.nix).
     * Agent skills come from flake.lib.agents.skills (modules/agents/skills.nix).
     * Hooks come from flake.lib.agents.hooks (modules/agents/hooks.nix).
-    * User instructions (~/.gemini/config/AGENTS.md) come from flake.lib.agents.systemPrompt.
+    * User instructions (~/.gemini/config/AGENTS.md) come from flake.lib.agents.systemPrompt (modules/agents/system-prompt.nix).
     * Marketplace plugin selections come from programs."antigravity-cli".extended.plugins (defaults in modules/agents/_plugins.nix).
 */
 _: {

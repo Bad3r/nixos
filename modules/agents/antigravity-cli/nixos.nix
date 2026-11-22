@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI wrapped with `--disable_telemetry`, disabled auto-updates, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:

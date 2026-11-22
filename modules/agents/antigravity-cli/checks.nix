@@ -229,7 +229,7 @@ in
             ''
               set -euo pipefail
               apply() {
-                ${lib.getExe applyConfig} \
+                PATH="/nonexistent" ${lib.getExe applyConfig} \
                   ${mcpTemplate} \
                   ${hooksTemplate} \
                   ${pluginsTemplate} \
@@ -237,6 +237,13 @@ in
                   ${stateTemplate} \
                   ${cliSettingsTemplate} \
                   ${hubStorageTemplate}
+              }
+              check_state() {
+                local actual_file=$1 template_file=$2 hub_target=$3 expected_file
+                expected_file=$(mktemp)
+                jq -cS --arg target "$hub_target" '. + { hubStorageTarget: $target }' "$template_file" >"$expected_file"
+                cmp "$expected_file" "$actual_file"
+                rm -f -- "$expected_file"
               }
               check() {
                 local file=$1 query=$2 expected=$3 actual
@@ -271,7 +278,7 @@ in
               [ ! -e "$HOME/.gemini/config/plugins/migrated-settings" ]
               [ ! -e "$HOME/.gemini/antigravity/plugin_data/migrated-settings" ]
               [ ! -e "$HOME/.gemini/antigravity-cli/plugin_data/migrated-settings" ]
-              [ ! -e "$HOME/.gemini/config/.migrated" ]
+              [ -e "$HOME/.gemini/config/.migrated" ]
               [ ! -e "$HOME/.gemini/config/mcp_config.json.backup" ]
 
               mcp="$HOME/.gemini/config/mcp_config.json"
@@ -308,7 +315,7 @@ in
               check "$hub" '.autoCheckForUpdates' '"false"'
               check "$hub" '.["enable-wcv-three-layer-stack"]' '"true"'
               check "$hub" '.runInBackground' '"false"'
-              cmp ${stateTemplate} "$state"
+              check_state "$state" ${stateTemplate} "$hub"
 
               for f in "$mcp" "$hooks" "$cfg" "$cli" "$hub" "$state"; do
                 [ "$(stat -c %a "$f")" = "600" ]
@@ -437,13 +444,39 @@ in
               check "$HOME/.gemini/antigravity-cli/settings.json" '.agentMode' '"auto"'
               check "$HOME/.config/Antigravity/app_storage.json" 'has("autoCheckForUpdates")' false
 
-              # 4b. Legacy v1 .nix-managed.json lacking .hubStorage upgrades cleanly.
+              # 4b. Legacy v1 .nix-managed.json lacking .hubStorage / .hubStorageTarget upgrades cleanly.
               seed legacy-state
               put ${legacyStateTemplate} "$HOME/.gemini/config/.nix-managed.json"
-              ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}
+              PATH="/nonexistent" ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}
               apply
               check "$HOME/.config/Antigravity/app_storage.json" '.autoCheckForUpdates' '"false"'
-              cmp ${stateTemplate} "$HOME/.gemini/config/.nix-managed.json"
+              check_state "$HOME/.gemini/config/.nix-managed.json" ${stateTemplate} "$HOME/.config/Antigravity/app_storage.json"
+
+              # 4c. Switching xdgConfigHome while dropping hubStorage keys does not prune user keys in the new root.
+              seed xdg-switch
+              xdg1="$HOME/xdg1"
+              xdg2="$HOME/xdg2"
+              ${lib.getExe applyConfig} \
+                ${mcpTemplate} \
+                ${hooksTemplate} \
+                ${pluginsTemplate} \
+                ${permissionsTemplate} \
+                ${stateTemplate} \
+                ${cliSettingsTemplate} \
+                ${hubStorageTemplate} \
+                "$xdg1"
+              put ${liveHubStorage} "$xdg2/Antigravity/app_storage.json"
+              ${lib.getExe applyConfig} \
+                ${reducedMcpTemplate} \
+                ${reducedHooksTemplate} \
+                ${reducedPluginsTemplate} \
+                ${permissionsTemplate} \
+                ${reducedStateTemplate} \
+                ${reducedCliTemplate} \
+                ${reducedHubTemplate} \
+                "$xdg2"
+              check "$xdg2/Antigravity/app_storage.json" '.autoCheckForUpdates' '"true"'
+              check "$xdg2/Antigravity/app_storage.json" '.runInBackground' '"false"'
 
               # 5. Corrupt .nix-managed.json fails --check and apply before touching live files or cleaning migrated-settings.
               seed corrupt-state
@@ -455,6 +488,11 @@ in
               fi
               if apply; then
                 echo "FAIL: corrupt .nix-managed.json accepted" >&2
+                exit 1
+              fi
+              jq '. + { hubStorageTarget: 123 }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
+              if ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}; then
+                echo "FAIL: --check accepted non-string hubStorageTarget" >&2
                 exit 1
               fi
               cmp ${liveConfig} "$HOME/.gemini/config/config.json"
@@ -637,11 +675,16 @@ in
                 songbirdCfg.programs."antigravity-hub".extended.finalPackage
               else
                 null;
-            expectedSubcommands = lib.sort lib.lessThan ([ "acp" ] ++ telemetry.nonTelemetrySubcommands);
+            expectedSubcommands = lib.sort lib.lessThan telemetry.knownSubcommands;
             sharedEnvChecks = lib.concatMapStringsSep "\n" (
               name:
               ''grep -qE "^export ${name}=['\"]?1['\"]?" "$hubBin" || { echo "FAIL: Hub launcher missing ${name}=1" >&2; exit 1; }''
             ) (lib.attrNames telemetry.sharedEnv);
+            songbirdInstructions =
+              if songbirdCfg != null then
+                songbirdCfg.home-manager.users.vx.home.file.".gemini/config/AGENTS.md".text
+              else
+                null;
           in
           assert lib.assertMsg (
             !(cliSettings.showFeedbackSurvey or true)
@@ -669,6 +712,20 @@ in
             songbirdCfg == null
             || lib.hasInfix (lib.escapeShellArg songbirdCfg.home-manager.users.vx.xdg.configHome) songbirdCfg.home-manager.users.vx.home.activation.antigravitySetup.data
           ) "antigravity-cli: HM antigravitySetup must pass evaluated xdg.configHome";
+          assert lib.assertMsg (
+            songbirdInstructions == null || lib.hasInfix "`ask_question`" songbirdInstructions
+          ) "antigravity-cli: rendered AGENTS.md must reference `ask_question`";
+          assert lib.assertMsg (
+            songbirdInstructions == null
+            || !(config.flake.lib.agents.skills.sbx.enabledOn songbirdCfg)
+            || lib.hasInfix "`sbx` VM" songbirdInstructions
+          ) "antigravity-cli: rendered AGENTS.md must include `sbx` VM rule when sbx is enabled";
+          assert lib.assertMsg (
+            songbirdInstructions == null || !(lib.hasPrefix "---" (lib.trim songbirdInstructions))
+          ) "antigravity-cli: rendered AGENTS.md must not start with YAML frontmatter";
+          assert lib.assertMsg (
+            songbirdInstructions == null || builtins.stringLength songbirdInstructions <= 24000
+          ) "antigravity-cli: rendered AGENTS.md exceeds Antigravity 24000-character global rule limit";
           pkgs.runCommandLocal "antigravity-cli-no-google-telemetry" { passthru.runtimeCheck = true; } ''
             set -euo pipefail
             mkdir -p "$TMPDIR/home"
@@ -693,16 +750,31 @@ in
               fi
             }
 
-            expect_stub " [--disable_telemetry]"
-            expect_stub " [--disable_telemetry] [-p] [hi]" -p hi
-            expect_stub " [--disable_telemetry] [--] [-weird]" -- -weird
-            expect_stub " [--disable_telemetry] [fix bug]" "fix bug"
+            expect_reject_stub() {
+              if env -i HOME="$TMPDIR/home" PATH="${pkgs.coreutils}/bin" "$stubAgy" "$@" >/dev/null 2>&1; then
+                echo "FAIL: stub agy $* unexpectedly succeeded" >&2
+                exit 1
+              fi
+            }
+
+            expect_stub ""
+            expect_stub " [-p] [hi]" -p hi
+            expect_stub " [--] [--disable_telemetry=false]" -- --disable_telemetry=false
+            expect_stub " [fix bug]" "fix bug"
             expect_stub " [acp] [--disable_telemetry] [--stdio]" acp --stdio
-            ${lib.concatMapStringsSep "\n" (
-              sub: "expect_stub \" [${sub}] [arg]\" ${lib.escapeShellArg sub} arg"
-            ) telemetry.nonTelemetrySubcommands}
+            expect_stub " [acp] [--disable_telemetry] [--disable_telemetry=true] [--stdio]" acp --disable_telemetry=true --stdio
+            expect_stub " [acp] [--disable_telemetry] [--stdio] [--] [--disable_telemetry=false]" acp --stdio -- --disable_telemetry=false
+
+            expect_reject_stub acp --disable_telemetry=false
+            expect_reject_stub acp -disable_telemetry=0
+            expect_reject_stub acp --disable-telemetry=f
+            expect_reject_stub acp -disable-telemetry=
 
             help_out="$(env -i HOME="$TMPDIR/home" PATH="${pkgs.coreutils}/bin" "$realAgy" --help 2>&1)"
+            if printf '%s\n' "$help_out" | grep -qE 'disable[-_]telemetry'; then
+              echo "FAIL: root agy --help now exposes disable_telemetry; update wrapAgy to inject it there too" >&2
+              exit 1
+            fi
             actual_subs="$(
               awk '
                 /^Available subcommands:$/ { in_subs = 1; next }
@@ -716,6 +788,22 @@ in
                 "$expected_subs" "$actual_subs" >&2
               exit 1
             fi
+
+            root_flag_err="$(env -i HOME="$TMPDIR/home" PATH="${pkgs.coreutils}/bin" "$realAgy" --input-format invalid 2>&1 || true)"
+            printf '%s\n' "$root_flag_err" | grep -qF 'unknown --input-format' || {
+              echo "FAIL: unexpected root flag error: $root_flag_err" >&2
+              exit 1
+            }
+            if printf '%s\n' "$root_flag_err" | grep -qF 'flags provided but not defined'; then
+              echo "FAIL: root agy rejected wrapper flags: $root_flag_err" >&2
+              exit 1
+            fi
+
+            acp_flag_err="$(env -i HOME="$TMPDIR/home" PATH="${pkgs.coreutils}/bin" "$realAgy" acp --unknown-telemetry-check 2>&1 || true)"
+            printf '%s\n' "$acp_flag_err" | grep -qF 'flags provided but not defined: -unknown-telemetry-check' || {
+              echo "FAIL: acp did not accept injected --disable_telemetry: $acp_flag_err" >&2
+              exit 1
+            }
 
             for sub in acp plugin mcp models; do
               env -i HOME="$TMPDIR/home" PATH="${pkgs.coreutils}/bin" "$realAgy" "$sub" --help >/dev/null

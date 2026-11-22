@@ -7,9 +7,10 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 
 - [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
 - [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell and sets the Hub server port.
-- [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables CLI and Language Server telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
+- [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
+- [Shared system prompt](../../../modules/agents/system-prompt.nix): renders `~/.gemini/config/AGENTS.md` with `ask_question` and `sbx` settings.
 - [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, notifications, and verbosity for `agy`.
 - [Permissions policy](../../../modules/agents/antigravity-cli/_permissions.nix): defines `allow`, `ask`, and `deny` rules for CLI settings and Hub grants.
 - [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins and merges declared JSON keys atomically.
@@ -28,10 +29,10 @@ Activation also deletes leftover `migrated-settings` directories and manual `her
 
 ## Telemetry and update checks
 
-`agy` injects `--disable_telemetry` on root and `acp` calls while skipping subcommands whose isolated flag parsers reject it.
-The `antigravity-cli/no-google-telemetry` check pins that subcommand list against upstream `agy --help` output and verifies Hub wrapper flags and environment.
-Because `/config` stores the Google account telemetry toggle server-side rather than in `settings.json`, the wrapper flags keep local CLI telemetry disabled anyway.
-`agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows invoke remote Language Server binaries outside local wrappers.
+`agy` accepts `--disable_telemetry` only on `acp`, so the wrapper injects it there and rejects falsy overrides before `--`.
+Root `agy` sessions lack a local telemetry flag and read the Google account toggle from `/config` when signed in.
+The `antigravity-cli/no-google-telemetry` check pins `agy` flag support against upstream `--help` output and checks Hub wrapper flags and environment.
+`agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows run remote Language Server binaries.
 
 ## Plugins and MCP servers
 
