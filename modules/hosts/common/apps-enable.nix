@@ -146,6 +146,7 @@ let
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
       ethtool.extended.enable = lib.mkOverride 1100 true;
+      "evil-winrm".extended.enable = lib.mkOverride 1100 true;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
