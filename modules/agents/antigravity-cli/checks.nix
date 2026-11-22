@@ -2,6 +2,7 @@
   config,
   inputs,
   lib,
+  metaOwner,
   ...
 }:
 let
@@ -663,6 +664,8 @@ in
                 config.flake.nixosConfigurations.songbird.config
               else
                 null;
+            songbirdHm =
+              if songbirdCfg != null then songbirdCfg.home-manager.users.${metaOwner.username} else null;
             songbirdCliEnabled =
               songbirdCfg != null && (songbirdCfg.programs."antigravity-cli".extended.enable or false);
             songbirdHubEnabled =
@@ -718,7 +721,7 @@ in
             ) (lib.attrNames telemetry.sharedEnv);
             renderedInstructions =
               if songbirdAnyEnabled then
-                songbirdCfg.home-manager.users.vx.home.file.".gemini/config/AGENTS.md".text
+                songbirdHm.home.file.".gemini/config/AGENTS.md".text
               else
                 config.flake.lib.agents.systemPrompt.render {
                   vars = {
@@ -747,7 +750,7 @@ in
           ) "antigravity-cli: CHROME_DEVTOOLS_MCP_NO_* variables must be \"1\"";
           assert lib.assertMsg (
             !songbirdAnyEnabled
-            || lib.hasInfix (lib.escapeShellArg songbirdCfg.home-manager.users.vx.xdg.configHome) songbirdCfg.home-manager.users.vx.home.activation.antigravitySetup.data
+            || lib.hasInfix (lib.escapeShellArg songbirdHm.xdg.configHome) songbirdHm.home.activation.antigravitySetup.data
           ) "antigravity-cli: HM antigravitySetup must pass evaluated xdg.configHome";
           assert lib.assertMsg (lib.hasInfix "`ask_question`" renderedInstructions)
             "antigravity-cli: rendered AGENTS.md must reference `ask_question`";
