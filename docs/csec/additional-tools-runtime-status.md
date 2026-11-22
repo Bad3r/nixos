@@ -40,13 +40,14 @@ own category.
 `arwen` was added to the reference on 2026-08-05 and smoke-tested the same day
 against the pin current then (`arwen 0.0.5-unstable-2026-04-07`). It runs as
 documented, taking "run as documented" from 100 to 101 and the reference total
-from 127 to 128.
+from 127 to 128. `evil-winrm` was promoted out of the reference on 2026-11-22,
+taking both back to 100 and 127.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 101     |
+| ✅ Run as documented                                             | 100     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 3       |
 | ⚠️ Blocked by the unfree license gate                            | 1       |
@@ -56,15 +57,15 @@ from 127 to 128.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **128** |
+| **Total entries in the reference**                               | **127** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
-The five tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
-nikto, and wafw00f) are intentionally absent from this report because they are
-no longer entries in the companion reference.
+The six tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
+nikto, wafw00f, and evil-winrm) are intentionally absent from this report because
+they are no longer entries in the companion reference.
 
 ## ✅ Tools that run as documented
 
@@ -81,7 +82,6 @@ no longer entries in the companion reference.
 - ✅ adidnsdump
 - ✅ ldapdomaindump
 - ✅ donpapi
-- ✅ evil-winrm (`-h` writes usage only to a TTY; piped or redirected it exits 0 silently)
 
 ### Network Reconnaissance and Enumeration
 

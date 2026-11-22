@@ -4,6 +4,12 @@
 
 ## Active Directory & SMB Enumeration
 
+- evil-winrm
+  - run..: `evil-winrm -i $target -u $user -p $pass`
+  - Repo.: <https://github.com/Hackplayers/evil-winrm>
+  - Docs.: <https://github.com/Hackplayers/evil-winrm#readme>
+  - Desc.: Interactive WinRM shell with file upload and download, PowerShell script and binary loading, and password, NTLM hash, Kerberos, and certificate authentication. `-h` writes its usage banner only to a TTY; piped or redirected it exits 0 with no output.
+  - Stat.: Maintained (nixpkgs 4.1).
 - netexec
   - run..: `nxc smb $target -u $user -p $pass`
   - Repo.: <https://github.com/Pennyw0rth/NetExec>

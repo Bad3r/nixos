@@ -546,6 +546,10 @@
 
 - [apps/rdp/README.md](apps/rdp/README.md)
   - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
+- [apps/rdp/windows-host-setup.md](apps/rdp/windows-host-setup.md)
+  - Configure a Windows host and the Remmina profile for AVC444 RDP with SSH and WinRM over the WARP Mesh.
+- [apps/rdp/windows-host-troubleshooting.md](apps/rdp/windows-host-troubleshooting.md)
+  - AVC444 sessions that drop, sessions without H.264, and SSH failures on those Windows hosts.
 - [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
   - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
 
