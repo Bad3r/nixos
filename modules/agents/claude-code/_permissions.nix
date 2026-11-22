@@ -15,10 +15,11 @@ let
   # `Bash(git *)` matches `git`/`git status` but not `github`.
   bash = cmd: "Bash(${cmd} *)";
 
-  # Command prefixes auto-approved without a permission prompt.
+  # Command prefixes auto-approved without a permission prompt. No shell is
+  # listed: a `bash` or `zsh` prefix would approve any `-c` script, and auto
+  # mode ignores such a rule and sends the command to its classifier.
   bashAllow = [
     "awk"
-    "bash"
     "biome"
     "cat"
     "cd"
@@ -59,7 +60,6 @@ let
     "uniq"
     "uv"
     "wc"
-    "zsh"
   ]
   ++ (if sbx then [ "sbx" ] else [ ]);
 
@@ -70,12 +70,6 @@ let
   bashAsk = [
     "gh repo delete"
     "gh pr close --delete-branch"
-    # These wrapping forms must ask, or every rule above is bypassable
-    # through `bash -c '...'`.
-    "bash -c"
-    "bash -lc"
-    "zsh -c"
-    "zsh -lc"
   ]
   # Boots an internet image with egress; sbx's own refusal reads an env the agent controls.
   ++ (
