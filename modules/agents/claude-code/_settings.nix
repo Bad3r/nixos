@@ -256,6 +256,10 @@
   # project and local settings are ignored.
   # processWrapper = ""; # [string]
 
+  # Prompt cache TTL for the main conversation: "5m" or "1h".
+  # CLAUDE_CODE_PROMPT_CACHE_TTL takes precedence.
+  promptCacheTtl = "1h";
+
   # Default environment ID to use for cloud sessions
   # remote = { }; # [object]
 
@@ -301,6 +305,10 @@
   # Re-run the status line command every N seconds in addition to event-driven
   # updates
   # statusLine = { }; # [object]
+
+  # Prompt cache TTL for subagents, workflows, background and helper requests:
+  # "5m" or "1h". CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL takes precedence.
+  subagentPromptCacheTtl = "1h";
 
   # When safeguards flag a message, automatically switch to a different model
   # to keep chatting. When off, your session will pause instead.

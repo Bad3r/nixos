@@ -394,7 +394,7 @@
     # Timeout in milliseconds for the first query to wait on the initial skills sync when CLAUDE_CODE_SYNC_SKILLS is set (default: 5000). [numeric]
     # CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS = "";
     # Override, in milliseconds, how long a non-interactive session waits at exit for its agent team to finish tearing down. [numeric]
-    # CLAUDE_CODE_TEAM_TEARDOWN_PARK_TIMEOUT_MS = "";
+    CLAUDE_CODE_TEAM_TEARDOWN_PARK_TIMEOUT_MS = "20000";
     # Timeout in milliseconds before the streaming idle watchdog closes a stalled connection. [numeric]
     # CLAUDE_STREAM_IDLE_TIMEOUT_MS = "";
     # Specify HTTPS proxy server for network connections.
@@ -516,6 +516,8 @@
     # CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "";
     # Controls whether sessions use the structured Task tools (TaskCreate, TaskUpdate, TaskGet, TaskList) or the legacy TodoWrite tool. [0 or unset]
     # CLAUDE_CODE_ENABLE_TASKS = "0";
+    # Offer the Wrap up tool (recap and next-step buttons drawn by the Claude apps); also gated server-side. [1 or unset]
+    CLAUDE_CODE_ENABLE_WRAP_UP = "1";
     # Set to 1 to turn off the in-process cache of credentials resolved from the
     # AWS default credential provider chain, so Claude Code resolves the chain on
     # every API request. [1 or unset]
