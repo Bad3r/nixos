@@ -84,12 +84,32 @@ let
 
       - Follow each project's conventions and templates, and reuse its abstractions
         before inventing new ones.
-      - Comments carry only context the code cannot show.
       - When a change alters what users or callers see (an option, flag, environment
         variable, workflow, or requirement), update the existing docs; avoid needless
         doc churn.
-      - Write commits, PRs, issues, code comments, and docs impersonally.
       - Fix the class, not the line.
+    '';
+
+    writing = _vars: ''
+      ## Writing
+
+      - Lead replies and reports with the answer or the result. If anything blocked
+        you, say that first.
+      - In all prose, replies included, give each sentence one idea. Put the point
+        first and its reason after it, and state a consequence as its own sentence
+        instead of appending it with `, so`.
+      - Use active voice: present tense for what holds, past tense for what
+        happened, the imperative for steps.
+      - Keep a sentence only when the reader needs it. State an uncertainty once, as
+        a fact, and leave out filler, softeners, transitions, reassurance, and
+        commentary on the text itself.
+      - Write commits, PRs, issues, code comments, and docs impersonally.
+      - Comments carry only context the code cannot show.
+      - Comments and docs state what is true now; history belongs to git, and status
+        to issues and PRs.
+      - In replies, commits, PRs, and issues, write URLs in full, inline or as a
+        footnote, never behind link text. When reporting on a PR or issue, end with
+        its URL.
     '';
 
     safety = _vars: ''
@@ -107,7 +127,6 @@ let
 
       - Let failures surface; when suppression is intended, log the cause and make it
         explicit.
-      - If anything blocked you, say so first.
       - Fix problems at their source; when that is out of reach for the task,
         surface the constraint and get approval before any downstream workaround.
     '';
@@ -131,8 +150,6 @@ let
         AI-attribution trailer, confirm through ${questionToolText vars.questionTool}
         first.
       - If a signed commit fails, retry with signing disabled.
-      - Write URLs in full, inline or as a footnote, never behind link text. When
-        reporting on a PR or issue, end with its URL.
     '';
   };
 
@@ -140,6 +157,7 @@ let
     "workingAgreement"
     "toolsAndEnvironment"
     "editing"
+    "writing"
     "safety"
     "failuresAndFixes"
     "validation"
