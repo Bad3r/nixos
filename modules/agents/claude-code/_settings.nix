@@ -308,7 +308,7 @@
 
   # Prompt cache TTL for subagents, workflows, background and helper requests:
   # "5m" or "1h". CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL takes precedence.
-  subagentPromptCacheTtl = "1h";
+  subagentPromptCacheTtl = "5m";
 
   # When safeguards flag a message, automatically switch to a different model
   # to keep chatting. When off, your session will pause instead.
@@ -318,7 +318,7 @@
   # syntaxHighlightingDisabled = true; # [boolean]
 
   # How spawned teammates execute (tmux, iterm2, in-process, auto)
-  # teammateMode = ""; # [enum]
+  teammateMode = "tmux";
 
   # Emit OSC 9;4 progress sequences during long operations
   terminalProgressBarEnabled = true;

@@ -39,6 +39,7 @@
         _claude-json.nix       ~/.claude.json preferences
         _keybindings.nix       ~/.claude/keybindings.json
         _theme.nix             ~/.claude/themes/<slug>.json, the `theme` in _settings.nix
+        _agents.nix            ~/.claude/agents/<name>.md custom agent definitions
       Plumbing: _activation.nix (jq merge, optional bun install, and the
       bun binary's REPL wall clock patch through repl-wall-clock.mjs) and
       _launcher.nix (launcher environment and binary selection).
@@ -154,6 +155,31 @@ _: {
       );
 
       bunInstallDir = "${config.xdg.dataHome}/bun";
+
+      # Home-relative directory of the claude and claude-rc launchers.
+      launcherRelDir = ".local/bin";
+      launcherDir = "${config.home.homeDirectory}/${launcherRelDir}";
+
+      # Each attribute renders to ~/.claude/agents/<name>.md: `prompt` is the
+      # body, every other key a frontmatter field (JSON scalars are valid YAML).
+      claudeAgentFiles = lib.mapAttrs' (
+        name: agent:
+        let
+          frontmatter = builtins.removeAttrs agent [ "prompt" ] // {
+            inherit name;
+          };
+        in
+        lib.nameValuePair ".claude/agents/${name}.md" {
+          text = ''
+            ---
+            ${lib.concatStringsSep "\n" (
+              lib.mapAttrsToList (key: value: "${key}: ${builtins.toJSON value}") frontmatter
+            )}
+            ---
+
+            ${agent.prompt}'';
+        }
+      ) (import ./_agents.nix);
       configuredExternalBinary = lib.attrByPath [
         "programs"
         "claude-code"
@@ -197,6 +223,7 @@ _: {
           bunInstallDir
           externalBinary
           installMethods
+          launcherDir
           ;
         inherit (agents) scratchDir;
       };
@@ -232,25 +259,26 @@ _: {
 
             ".claude/themes/${themeSlug}.json".text = builtins.toJSON claudeTheme;
 
-            ".local/bin/claude" = {
+            "${launcherRelDir}/claude" = {
               source = lib.getExe claudeRuntime.claudeWrapped;
               executable = true;
             };
 
             # Same launcher with the telemetry opt-out lifted, which is what
             # `claude rc` needs; see launchOnly in _env.nix.
-            ".local/bin/claude-rc" = {
+            "${launcherRelDir}/claude-rc" = {
               source = lib.getExe claudeRuntime.claudeRcWrapped;
               executable = true;
             };
           }
-          // claudeSkillFiles;
+          // claudeSkillFiles
+          // claudeAgentFiles;
 
           inherit activation;
 
           # bun puts its global bin on home.sessionPath; mkBefore orders
           # ~/.local/bin ahead of it so the wrapper shadows a bun-global claude.
-          sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
+          sessionPath = lib.mkBefore [ launcherDir ];
 
           # launchOnly names stay included: claude-rc unsets them before exec, so
           # this keeps the opt-out live for a bun binary run outside the launcher.

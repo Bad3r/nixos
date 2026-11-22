@@ -13,6 +13,7 @@
   externalBinary,
   installMethods,
   scratchDir,
+  launcherDir,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -151,6 +152,12 @@ let
 
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
 
+    # tmux and iTerm2 teammates start through this launcher instead of the bare
+    # binary, which would skip everything above; claude-rc names itself first.
+    if [ -z "''${CLAUDE_CODE_TEAMMATE_COMMAND+x}" ]; then
+      export CLAUDE_CODE_TEAMMATE_COMMAND=${lib.escapeShellArg "${launcherDir}/claude"}
+    fi
+
     ${targetScript}
 
     if [ ! -x "$target" ]; then
@@ -174,6 +181,9 @@ let
     unset ${lib.concatStringsSep " " claudeEnv.launchOnly} DO_NOT_TRACK
     unset DISABLE_GROWTHBOOK
     export ${claudeEnv.launchOnlyEscape}=1
+    if [ -z "''${CLAUDE_CODE_TEAMMATE_COMMAND+x}" ]; then
+      export CLAUDE_CODE_TEAMMATE_COMMAND=${lib.escapeShellArg "${launcherDir}/claude-rc"}
+    fi
 
     exec ${lib.getExe claudeWrapped} "$@"
   '';

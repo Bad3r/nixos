@@ -36,6 +36,7 @@
       # Baked into the binary so a bare claude that bypasses ~/.local/bin/claude
       # still gets every _env.nix var.
       claudeEnv = import ./_env.nix;
+      claudeSettings = import ./_settings.nix;
       setFlags = lib.concatStringsSep " " (
         lib.mapAttrsToList (
           name: value:
@@ -150,6 +151,11 @@
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
+
+        # Teammates in tmux mode run in tmux panes.
+        programs.tmux.extended.enable = lib.mkIf ((claudeSettings.teammateMode or null) == "tmux") (
+          lib.mkOverride 1050 true
+        );
 
         assertions =
           let

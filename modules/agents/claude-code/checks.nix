@@ -15,6 +15,7 @@
           claudePkg = "/nix/store/test-claude";
           bunInstallDir = "/nix/store/test-bun";
           externalBinary = "/nix/store/test-external/bin/claude";
+          launcherDir = "/home/test/.local/bin";
         };
       installMethodVariants = {
         bun = {
