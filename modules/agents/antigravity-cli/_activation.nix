@@ -81,10 +81,9 @@ let
               | type == "object"
                 and .version == 1
                 and (
-                  [.mcpServers, .hooks, .plugins, .cliSettings, (if has("hubStorage") then .hubStorage else [] end)]
+                  [.mcpServers, .hooks, .plugins, .cliSettings]
                   | all(type == "array" and all(.[]; type == "string"))
                 )
-                and (if has("hubStorageTarget") then (.hubStorageTarget | type == "string") else true end)
                 and (
                   if has("hubStorageByTarget") then
                     (.hubStorageByTarget | type == "object" and all(.[]; type == "array" and all(.[]; type == "string")))
@@ -101,7 +100,7 @@ let
       else
         previous=$(mktemp)
         tmp_files+=("$previous")
-        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[],"hubStorageByTarget":{}}' >"$previous"
+        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorageByTarget":{}}' >"$previous"
       fi
 
       validate_target() {
@@ -259,18 +258,15 @@ let
       if [ -n "$hub_storage_template" ]; then
         stage_merge "$hub_storage" "$hub_storage_template" '
           $nix[0] as $declared
-          | (
-              if ($state[0].hubStorageByTarget? | type == "object") and ($state[0].hubStorageByTarget | has($target)) then
-                $state[0].hubStorageByTarget[$target]
-              elif ($state[0] | has("hubStorage")) and (($state[0].hubStorageTarget? // "") == $target) then
-                $state[0].hubStorage
-              else
-                []
-              end
-            ) as $owned
+          | (($state[0].hubStorageByTarget? // {})[$target] // []) as $owned
           | reduce ($owned - ($declared | keys))[] as $key (.; del(.[$key]))
           | . + $declared
         '
+      fi
+
+      hub_keys_json='[]'
+      if [ -n "$hub_storage_template" ]; then
+        hub_keys_json="$(jq -c 'keys' "$hub_storage_template")"
       fi
 
       state_tmp=$(mktemp "$state.nix-XXXXXX")
@@ -278,31 +274,17 @@ let
       jq -cS --slurpfile prev "$previous" \
         --arg has_cli "$cli_settings_template" \
         --arg has_hub "$hub_storage_template" \
-        --arg hub_target "$hub_storage" '
-        (
-          ($prev[0].hubStorageByTarget? // {})
-          + (
-              if (($prev[0].hubStorageTarget? // "") != "") and (($prev[0].hubStorage? // []) != []) then
-                { ($prev[0].hubStorageTarget): $prev[0].hubStorage }
-              else
-                {}
-              end
-            )
-        ) as $prev_by_target
-        | del(.hubStorageTarget)
+        --arg hub_target "$hub_storage" \
+        --argjson hub_keys "$hub_keys_json" '
+        ($prev[0].hubStorageByTarget? // {}) as $prev_by_target
         | (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
-        | (
+        | .hubStorageByTarget = (
             if $has_hub == "" then
-              .hubStorage = (if ($prev[0] | has("hubStorage")) then $prev[0].hubStorage else [] end)
-              | .hubStorageByTarget = $prev_by_target
+              $prev_by_target
+            elif ($hub_keys | length) == 0 then
+              ($prev_by_target | del(.[$hub_target]))
             else
-              .hubStorageByTarget = (
-                if (.hubStorage | length) == 0 then
-                  ($prev_by_target | del(.[$hub_target]))
-                else
-                  ($prev_by_target + { ($hub_target): .hubStorage })
-                end
-              )
+              ($prev_by_target + { ($hub_target): $hub_keys })
             end
           )
       ' "$state_template" >"$state_tmp"

@@ -125,7 +125,6 @@ _: {
           hooks = lib.attrNames hooks;
           plugins = lib.attrNames pluginsByDir;
           cliSettings = lib.optionals cliEnabled (lib.attrNames cliSettingsJson);
-          hubStorage = lib.optionals hubEnabled (lib.attrNames telemetry.hubStorage);
         }
       );
 

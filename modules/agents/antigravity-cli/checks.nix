@@ -104,28 +104,6 @@ in
           "permissions"
           "toolPermission"
         ];
-        hubStorage = [ "autoCheckForUpdates" ];
-      };
-      legacyStateTemplate = json "legacy-state-template.json" {
-        version = 1;
-        mcpServers = [
-          "deepwiki"
-          "sbx"
-        ];
-        hooks = [
-          "herdr-antigravity-session"
-          "scratch-guard"
-        ];
-        plugins = [
-          "cloudflare"
-          "egm"
-          "swarm"
-        ];
-        cliSettings = [
-          "agentMode"
-          "permissions"
-          "toolPermission"
-        ];
       };
 
       reducedMcpTemplate = json "mcp-reduced.json" {
@@ -163,7 +141,6 @@ in
         hooks = [ "scratch-guard" ];
         plugins = [ "cloudflare" ];
         cliSettings = [ "agentMode" ];
-        hubStorage = [ ];
       };
 
       liveMcp = json "live-mcp.json" {
@@ -239,18 +216,19 @@ in
                   ${hubStorageTemplate}
               }
               check_state() {
-                local actual_file=$1 template_file=$2 hub_target=$3 expected_file
+                local actual_file=$1 template_file=$2 hub_target=$3 hub_tpl=''${4:-${hubStorageTemplate}} expected_file
                 expected_file=$(mktemp)
-                jq -cS --arg target "$hub_target" '
-                  . + {
-                    hubStorageByTarget: (
-                      if (.hubStorage | length) > 0 and $target != "" then
-                        { ($target): .hubStorage }
-                      else
-                        {}
-                      end
-                    )
-                  }
+                jq -cS --arg target "$hub_target" --slurpfile hub "$hub_tpl" '
+                  ($hub[0] | keys) as $keys
+                  | . + {
+                      hubStorageByTarget: (
+                        if ($keys | length) > 0 and $target != "" then
+                          { ($target): $keys }
+                        else
+                          {}
+                        end
+                      )
+                    }
                 ' "$template_file" >"$expected_file"
                 cmp "$expected_file" "$actual_file"
                 rm -f -- "$expected_file"
@@ -441,7 +419,7 @@ in
                 "" \
                 ""
               check "$HOME/.gemini/config/.nix-managed.json" '.cliSettings' '["agentMode","permissions","toolPermission"]'
-              check "$HOME/.gemini/config/.nix-managed.json" '.hubStorage' '["autoCheckForUpdates"]'
+              check "$HOME/.gemini/config/.nix-managed.json" '.hubStorageByTarget[$ENV.HOME + "/.config/Antigravity/app_storage.json"]' '["autoCheckForUpdates"]'
               ${lib.getExe applyConfig} \
                 ${reducedMcpTemplate} \
                 ${reducedHooksTemplate} \
@@ -454,22 +432,12 @@ in
               check "$HOME/.gemini/antigravity-cli/settings.json" '.agentMode' '"auto"'
               check "$HOME/.config/Antigravity/app_storage.json" 'has("autoCheckForUpdates")' false
 
-              # 4b. Legacy v1 .nix-managed.json lacking or using .hubStorageTarget upgrades cleanly.
+              # 4b. Pre-hubStorageByTarget v1 .nix-managed.json upgrades cleanly.
               seed legacy-state
-              put ${legacyStateTemplate} "$HOME/.gemini/config/.nix-managed.json"
+              put ${stateTemplate} "$HOME/.gemini/config/.nix-managed.json"
               PATH="/nonexistent" ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}
               apply
               check "$HOME/.config/Antigravity/app_storage.json" '.autoCheckForUpdates' '"false"'
-              check_state "$HOME/.gemini/config/.nix-managed.json" ${stateTemplate} "$HOME/.config/Antigravity/app_storage.json"
-              jq --arg target "$HOME/.config/Antigravity/app_storage.json" '
-                . + { hubStorage: ["autoCheckForUpdates", "staleHubKey"], hubStorageTarget: $target }
-                | del(.hubStorageByTarget)
-              ' ${legacyStateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
-              jq '. + { staleHubKey: "true", keepUserKey: "1" }' ${liveHubStorage} >"$HOME/.config/Antigravity/app_storage.json"
-              chmod 0600 "$HOME/.config/Antigravity/app_storage.json"
-              apply
-              check "$HOME/.config/Antigravity/app_storage.json" 'has("staleHubKey")' false
-              check "$HOME/.config/Antigravity/app_storage.json" '.keepUserKey' '"1"'
               check_state "$HOME/.gemini/config/.nix-managed.json" ${stateTemplate} "$HOME/.config/Antigravity/app_storage.json"
 
               # 4c. Switching xdgConfigHome preserves unrelated roots and still prunes keys when returning.
@@ -520,11 +488,6 @@ in
               fi
               if apply; then
                 echo "FAIL: corrupt .nix-managed.json accepted" >&2
-                exit 1
-              fi
-              jq '. + { hubStorageTarget: 123 }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
-              if ${lib.getExe applyConfig} --check "" "" "" "" "" ${cliSettingsTemplate} ${hubStorageTemplate}; then
-                echo "FAIL: --check accepted non-string hubStorageTarget" >&2
                 exit 1
               fi
               jq '. + { hubStorageByTarget: 123 }' ${stateTemplate} >"$HOME/.gemini/config/.nix-managed.json"
