@@ -1,13 +1,13 @@
 # Repository Instructions
 
 A personal NixOS configuration built with the Dendritic Pattern: every `.nix`
-file under `modules/` is a flake-parts module that is imported automatically,
-so files move freely and nothing imports a module by literal path. A `_`
-prefix opts a file out, which is how private helpers and experiments stay
-unloaded. Architecture docs live under `docs/architecture/`.
+file under `modules/` is a flake-parts module that is imported automatically.
+Files move freely and nothing imports a module by literal path. A `_` prefix
+opts a file out, which is how private helpers and experiments stay unloaded.
+Architecture docs live under `docs/architecture/`.
 
-Nothing outside this repository consumes it, so backward compatibility is
-never a goal: remove legacy support instead of carrying both paths.
+Nothing outside this repository consumes it. Backward compatibility is never
+a goal: remove legacy support instead of carrying both paths.
 
 ## Modules
 
@@ -15,11 +15,12 @@ never a goal: remove legacy support instead of carrying both paths.
   and hosts compose them from those namespaces. Use `lib.hasAttrByPath` with
   `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 - Cross-host logic lives in `modules/hosts/common/` and feeds the
-  `hosts-common` aggregate, which `modules/configurations/nixos.nix` imports
-  ahead of each registered host's own module (registry:
-  `modules/hosts/common/registry.nix`), so per-host overrides win. Host
-  iteration belongs to that file alone: iterating `flake.lib.nixos.hosts` from
-  a common module can recurse infinitely.
+  `hosts-common` aggregate. Per-host overrides win because
+  `modules/configurations/nixos.nix` imports the aggregate ahead of each
+  registered host's own module (registry:
+  `modules/hosts/common/registry.nix`). Host iteration belongs to
+  `modules/configurations/nixos.nix` alone: iterating `flake.lib.nixos.hosts`
+  from a common module can recurse infinitely.
 - Device policy shared by several apps belongs in the common aggregate; app
   modules own their packages and wrappers.
 - `modules/hosts/common/apps-enable.nix` sets app defaults at
@@ -38,7 +39,7 @@ never a goal: remove legacy support instead of carrying both paths.
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
 - The nixpkgs, home-manager, stylix, and llm-agents.nix inputs track Bad3r's
-  forks (`docs/reference/fork-sync-automation.md`), so a package or module fix
+  forks (`docs/reference/fork-sync-automation.md`). A package or module fix
   lands on the fork branch, not in a local override or consumer-side
   workaround: validate it with `--override-input`, push the fork branch, then
   update the lock.
