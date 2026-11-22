@@ -58,8 +58,10 @@ class Reader:
         self.text = text
         self.pos = 0
         self.words: list[str] = []
+        self.assignable: list[bool] = []
         self.word: list[str] | None = None
         self.quoted = False
+        self.assign_unquoted = True
         self.redirected = False
         self.skip_word = False
         self.handlers = {
@@ -74,12 +76,13 @@ class Reader:
             "#": self._hash,
             "(": self._unmodelled,
             ")": self._unmodelled,
+            "{": self._unmodelled,
             "`": self._unmodelled,
         }
 
-    def command(self) -> tuple[list[str], bool, str]:
-        """Read one simple command: its words, whether it redirects, its terminator."""
-        self.words, self.redirected, self.skip_word = [], False, False
+    def command(self) -> tuple[list[str], list[bool], bool, str]:
+        """Read one simple command: its words, assignability, whether it redirects, terminator."""
+        self.words, self.assignable, self.redirected, self.skip_word = [], [], False, False
         while self.pos < len(self.text):
             operator = OPERATOR.match(self.text, self.pos)
             if self.text.startswith("&>", self.pos):
@@ -87,14 +90,14 @@ class Reader:
             elif operator:
                 self._end_command()
                 self.pos = operator.end()
-                return self.words, self.redirected, operator[0]
+                return self.words, self.assignable, self.redirected, operator[0]
             elif self.text[self.pos] in self.handlers:
                 self.handlers[self.text[self.pos]]()
             else:
                 self._add(self.text[self.pos])
                 self.pos += 1
         self._end_command()
-        return self.words, self.redirected, ""
+        return self.words, self.assignable, self.redirected, ""
 
     def _peek(self, offset: int = 1) -> str:
         return self.text[self.pos + offset : self.pos + offset + 1]
@@ -104,13 +107,20 @@ class Reader:
             self.word = []
         self.word.append(piece)
 
+    def _mark_quoted(self) -> None:
+        if "=" not in "".join(self.word or []):
+            self.assign_unquoted = False
+        self.quoted = True
+
     def _end_word(self) -> None:
         if self.word is not None and not self.skip_word:
             self.words.append("".join(self.word))
+            self.assignable.append(self.assign_unquoted)
         if self.word is not None:
             self.skip_word = False
         self.word = None
         self.quoted = False
+        self.assign_unquoted = True
 
     def _end_command(self) -> None:
         self._end_word()
@@ -137,21 +147,21 @@ class Reader:
         if not following:
             raise UnmodelledError
         if following != "\n":
+            self._mark_quoted()
             self._add(following)
-            self.quoted = True
         self.pos += 2
 
     def _single(self) -> None:
         end = self.text.find("'", self.pos + 1)
         if end < 0:
             raise UnmodelledError
+        self._mark_quoted()
         self._add(self.text[self.pos + 1 : end])
-        self.quoted = True
         self.pos = end + 1
 
     def _double(self) -> None:
+        self._mark_quoted()
         self._add("")
-        self.quoted = True
         self.pos += 1
         while self._peek(0) != '"':
             char = self._peek(0)
@@ -219,9 +229,11 @@ def is_assignment(word: str) -> bool:
     return bool(equals) and name.isascii() and name.isidentifier()
 
 
-def is_prefix(words: list[str]) -> bool:
+def is_prefix(words: list[str], assignable: list[bool]) -> bool:
     """Tell whether a simple command only sets up the one after it."""
-    return words[0] == "cd" or all(is_assignment(word) for word in words)
+    return words[0] == "cd" or all(
+        ok and is_assignment(word) for word, ok in zip(words, assignable, strict=True)
+    )
 
 
 def is_deliberate(script: str) -> bool:
@@ -234,7 +246,8 @@ def is_deliberate(script: str) -> bool:
         return True
     lines = (line.strip() for line in script.split("\n"))
     first = next((line for line in lines if line and not line.startswith("#")), "")
-    return first.split(maxsplit=1)[:1] in ([], ["source"], ["."])
+    head = re.split(r"[\s<>]", first, maxsplit=1)[0] if first else ""
+    return head in {"", "source", "."}
 
 
 def wrapper_shell(words: list[str]) -> str | None:
@@ -248,8 +261,8 @@ def needless_wrapper(command: str) -> str | None:
     reader = Reader(command)
     try:
         while True:
-            words, redirected, terminator = reader.command()
-            if words and not is_prefix(words):
+            words, assignable, redirected, terminator = reader.command()
+            if words and not is_prefix(words, assignable):
                 return wrapper_shell(words)
             blank = not words and not redirected
             if terminator not in (SEQUENCE if words else {"\n"} if blank else ()):
@@ -260,7 +273,10 @@ def needless_wrapper(command: str) -> str | None:
 
 def main() -> None:
     """Read a PreToolUse payload on stdin and print a deny decision if needed."""
-    payload = cast("object", json.load(sys.stdin))
+    try:
+        payload = cast("object", json.load(sys.stdin))
+    except ValueError:
+        return
     if not isinstance(payload, dict):
         return
     tool_input = cast("dict[str, object]", payload).get("tool_input")
