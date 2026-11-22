@@ -8,6 +8,7 @@
   Notes:
     * Shared customization root ~/.gemini/config/ serves both antigravity-cli (`agy`) and antigravity-hub (`antigravity`).
     * CLI-specific settings (~/.gemini/antigravity-cli/settings.json) are merged only when antigravity-cli is enabled.
+    * Hub UI storage (~/.config/Antigravity/app_storage.json) disables background update checks when antigravity-hub is enabled.
     * MCP servers come from flake.lib.agents.mcp (modules/agents/mcp.nix).
     * Agent skills come from flake.lib.agents.skills (modules/agents/skills.nix).
     * Hooks come from flake.lib.agents.hooks (modules/agents/hooks.nix).
@@ -25,16 +26,21 @@ _: {
       ...
     }:
     let
+      telemetry = import ./_telemetry.nix;
       cliEnabled = lib.attrByPath [ "programs" "antigravity-cli" "extended" "enable" ] false osConfig;
       hubEnabled = lib.attrByPath [ "programs" "antigravity-hub" "extended" "enable" ] false osConfig;
       anyEnabled = cliEnabled || hubEnabled;
 
-      agyPkg = lib.attrByPath [
-        "programs"
-        "antigravity-cli"
-        "extended"
-        "package"
-      ] null osConfig;
+      agyPkg =
+        if cliEnabled then
+          lib.attrByPath [ "programs" "antigravity-cli" "extended" "finalPackage" ] (lib.attrByPath [
+            "programs"
+            "antigravity-cli"
+            "extended"
+            "package"
+          ] null osConfig) osConfig
+        else
+          null;
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
       mcpServers = agents.mcp.clients.antigravity.servers { inherit pkgs osConfig; };
@@ -106,6 +112,11 @@ _: {
           pkgs.writeText "antigravity-cli-settings.json" (builtins.toJSON cliSettingsJson)
         else
           null;
+      hubStorageFile =
+        if hubEnabled then
+          pkgs.writeText "antigravity-hub-storage.json" (builtins.toJSON telemetry.hubStorage)
+        else
+          null;
 
       stateFile = pkgs.writeText "antigravity-nix-managed.json" (
         builtins.toJSON {
@@ -114,6 +125,7 @@ _: {
           hooks = lib.attrNames hooks;
           plugins = lib.attrNames pluginsByDir;
           cliSettings = lib.optionals cliEnabled (lib.attrNames cliSettingsJson);
+          hubStorage = lib.optionals hubEnabled (lib.attrNames telemetry.hubStorage);
         }
       );
 
@@ -127,10 +139,12 @@ _: {
           permissionsFile
           stateFile
           cliSettingsFile
+          hubStorageFile
           cliEnabled
           agyPkg
           marketplacePlugins
           ;
+        xdgConfigHome = config.xdg.configHome;
       };
 
       antigravityInstructions = agents.systemPrompt.render {

@@ -2,12 +2,13 @@
   Home Manager activation for Antigravity CLI and Antigravity Hub.
 
   antigravity-apply-config atomically merges Nix-declared entries into
-  ~/.gemini/config/{mcp_config,hooks,config}.json and (when CLI is enabled)
-  ~/.gemini/antigravity-cli/settings.json while leaving runtime state
-  (installedFrom plugin provenance, sidecars, custom themes, model choices,
-  and trustedWorkspaces) intact. The record lives in
-  ~/.gemini/config/.nix-managed.json so entries dropped from Nix are removed on
-  the next switch.
+  ~/.gemini/config/{mcp_config,hooks,config}.json,
+  ~/.gemini/antigravity-cli/settings.json (when CLI is enabled), and
+  ${XDG_CONFIG_HOME:-$HOME/.config}/Antigravity/app_storage.json (when Hub is
+  enabled) while leaving runtime state (installedFrom plugin provenance,
+  sidecars, custom themes, model choices, trustedWorkspaces, and UI storage)
+  intact. The record lives in ~/.gemini/config/.nix-managed.json so entries
+  dropped from Nix are removed on the next switch.
 
   Also removes artifacts left behind by an earlier migrated-settings import and
   a manual `herdr integration install` block without clobbering unrelated entries.
@@ -21,6 +22,8 @@
   permissionsFile,
   stateFile,
   cliSettingsFile ? null,
+  hubStorageFile ? null,
+  xdgConfigHome ? null,
   cliEnabled ? false,
   agyPkg ? null,
   marketplacePlugins ? [ ],
@@ -46,13 +49,17 @@ let
       permissions_template=''${4:-}
       state_template=''${5:-}
       cli_settings_template=''${6:-}
+      hub_storage_template=''${7:-}
+      xdg_config_home=''${8:-''${XDG_CONFIG_HOME:-$HOME/.config}}
 
       config_dir="$HOME/.gemini/config"
       cli_dir="$HOME/.gemini/antigravity-cli"
+      hub_config_dir="$xdg_config_home/Antigravity"
       mcp_config="$config_dir/mcp_config.json"
       hooks_config="$config_dir/hooks.json"
       app_config="$config_dir/config.json"
       cli_settings="$cli_dir/settings.json"
+      hub_storage="$hub_config_dir/app_storage.json"
       state="$config_dir/.nix-managed.json"
 
       tmp_files=()
@@ -69,7 +76,7 @@ let
         if ! jq -e --slurp '
             length == 1
             and (.[0] | type == "object" and .version == 1
-              and ([.mcpServers, .hooks, .plugins, .cliSettings]
+              and ([.mcpServers, .hooks, .plugins, .cliSettings, (if has("hubStorage") then .hubStorage else [] end)]
                 | all(type == "array" and all(.[]; type == "string"))))
           ' "$state" >/dev/null 2>&1; then
           echo "antigravity-apply-config: $state is not a version 1 record; fix it, or delete it to reseed" >&2
@@ -79,7 +86,7 @@ let
       else
         previous=$(mktemp)
         tmp_files+=("$previous")
-        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[]}' >"$previous"
+        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorage":[]}' >"$previous"
       fi
 
       validate_target() {
@@ -116,6 +123,12 @@ let
           else error("\($target) is not a single JSON object") end
         '
       fi
+      if [ -n "$hub_storage_template" ]; then
+        validate_target "$hub_storage" '
+          if length == 1 and (.[0] | type) == "object" then true
+          else error("\($target) is not a single JSON object") end
+        '
+      fi
 
       if [ "$check_only" -eq 1 ]; then
         exit 0
@@ -124,6 +137,10 @@ let
       mkdir -p "$config_dir"
       if [ -n "$cli_settings_template" ]; then
         mkdir -p "$cli_dir"
+      fi
+      if [ -n "$hub_storage_template" ]; then
+        mkdir -p "$xdg_config_home"
+        mkdir -m 0700 "$hub_config_dir" 2>/dev/null || [ -d "$hub_config_dir" ] || mkdir -m 0700 "$hub_config_dir"
       fi
 
       stage_merge() {
@@ -144,6 +161,10 @@ let
           exit 1
         fi
         chmod 0600 "$tmp"
+        if [ -f "$target" ] && cmp -s "$tmp" "$target" && [ "$(stat -c %a "$target")" = "600" ]; then
+          rm -f -- "$tmp"
+          return 0
+        fi
         pending_srcs+=("$tmp")
         pending_dsts+=("$target")
       }
@@ -219,16 +240,33 @@ let
         '
       fi
 
+      if [ -n "$hub_storage_template" ]; then
+        stage_merge "$hub_storage" "$hub_storage_template" '
+          $nix[0] as $declared
+          | reduce ((if ($state[0] | has("hubStorage")) then $state[0].hubStorage else [] end) - ($declared | keys))[] as $key (.; del(.[$key]))
+          | . + $declared
+        '
+      fi
+
       state_tmp=$(mktemp "$state.nix-XXXXXX")
       tmp_files+=("$state_tmp")
-      if [ -n "$cli_settings_template" ]; then
+      if [ -n "$cli_settings_template" ] && [ -n "$hub_storage_template" ]; then
         cat -- "$state_template" >"$state_tmp"
       else
-        jq --slurpfile prev "$previous" '.cliSettings = $prev[0].cliSettings' "$state_template" >"$state_tmp"
+        jq --slurpfile prev "$previous" \
+          --arg has_cli "$cli_settings_template" \
+          --arg has_hub "$hub_storage_template" '
+          (if $has_cli == "" then .cliSettings = $prev[0].cliSettings else . end)
+          | (if $has_hub == "" then .hubStorage = (if ($prev[0] | has("hubStorage")) then $prev[0].hubStorage else [] end) else . end)
+        ' "$state_template" >"$state_tmp"
       fi
       chmod 0600 "$state_tmp"
-      pending_srcs+=("$state_tmp")
-      pending_dsts+=("$state")
+      if [ ! -f "$state" ] || ! cmp -s "$state_tmp" "$state" || [ "$(stat -c %a "$state")" != "600" ]; then
+        pending_srcs+=("$state_tmp")
+        pending_dsts+=("$state")
+      else
+        rm -f -- "$state_tmp"
+      fi
 
       had_migrated=0
       for marker in \
@@ -262,6 +300,8 @@ let
   installPluginsEnabled = cliEnabled && agyPkg != null && marketplacePlugins != [ ];
   agyBin = lib.getExe agyPkg;
   cliArg = if cliSettingsFile != null then "${cliSettingsFile}" else "";
+  hubArg = if hubStorageFile != null then "${hubStorageFile}" else "";
+  xdgConfigArg = if xdgConfigHome != null then xdgConfigHome else "";
 in
 {
   inherit applyConfig;
@@ -275,7 +315,7 @@ in
             pkgs.jq
           ]
         }:$PATH"
-        run ${lib.getExe applyConfig} --check "" "" "" "" "" ${lib.escapeShellArg cliArg}
+        run ${lib.getExe applyConfig} --check "" "" "" "" "" ${lib.escapeShellArg cliArg} ${lib.escapeShellArg hubArg} ${lib.escapeShellArg xdgConfigArg}
 
         missing_plugins=()
         ${lib.concatMapStringsSep "\n" (p: ''
@@ -314,7 +354,9 @@ in
               ${pluginsFile} \
               ${permissionsFile} \
               ${stateFile} \
-              ${lib.escapeShellArg cliArg}
+              ${lib.escapeShellArg cliArg} \
+              ${lib.escapeShellArg hubArg} \
+              ${lib.escapeShellArg xdgConfigArg}
           '';
     };
 }

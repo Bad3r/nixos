@@ -8,12 +8,13 @@
   Summary:
     * Provides the `antigravity` desktop app for running Google Antigravity agents across separate projects.
     * Ships the Electron app from the llm-agents.nix package, patched for NixOS.
-    * Serves the Hub on a fixed port that Mesh peers reach through the firewall.
+    * Serves the Hub on a fixed port that Mesh peers reach through the firewall, with Language Server telemetry disabled.
 */
 { config, inputs, ... }:
 let
   meshInterface = config.flake.lib.nixos._firewallMeshInterface;
   inherit (config.flake.lib.agents) scratchDir;
+  telemetry = import ../../agents/antigravity-cli/_telemetry.nix;
 
   AntigravityHubModule =
     {
@@ -27,13 +28,19 @@ let
       shell = import ../../agents/antigravity-cli/_shell.nix {
         inherit lib pkgs scratchDir;
       };
+      sharedEnvArgs = lib.concatStringsSep " " (
+        lib.mapAttrsToList (
+          name: value: "--set ${lib.escapeShellArg name} ${lib.escapeShellArg value}"
+        ) telemetry.sharedEnv
+      );
       basePkg = cfg.package.override {
         # The language server binds either localhost or 0.0.0.0; the firewall
         # limits the wildcard to loopback and Mesh.
         languageServerFlags = [
           "--https_server_port=${toString cfg.port}"
           "--remote_accessible"
-        ];
+        ]
+        ++ telemetry.languageServerFlags;
       };
     in
     {
@@ -73,6 +80,7 @@ let
             postBuild = ''
               wrapProgram "$out/bin/antigravity" \
                 --prefix PATH : "${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin" \
+                ${sharedEnvArgs} \
                 --run ${lib.escapeShellArg ''
                   if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
                     export TMPDIR=${lib.escapeShellArg scratchDir}

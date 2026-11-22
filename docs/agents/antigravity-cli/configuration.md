@@ -7,6 +7,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 
 - [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
 - [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell and sets the Hub server port.
+- [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables CLI and Language Server telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
 - [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, notifications, and verbosity for `agy`.
@@ -20,10 +21,17 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 ## Shared and CLI-only files
 
 `antigravity-cli` and `antigravity-hub` share `~/.gemini/config/` for `AGENTS.md`, `skills/`, `hooks.json`, `mcp_config.json`, and `config.json`.
-Enabling `antigravity-hub` without `antigravity-cli` writes that shared root and leaves `~/.gemini/antigravity-cli/settings.json` untouched.
-`~/.gemini/config/.nix-managed.json` tracks Nix-owned keys across all four JSON targets.
+Enabling `antigravity-hub` without `antigravity-cli` writes that shared root and `~/.config/Antigravity/app_storage.json` while leaving `~/.gemini/antigravity-cli/settings.json` untouched.
+`~/.gemini/config/.nix-managed.json` tracks Nix-owned keys across all managed JSON targets.
 Dropping a Nix declaration removes its tracked entry on the next switch while leaving user entries, model picks, and `installedFrom` metadata intact.
 Activation also deletes leftover `migrated-settings` directories and manual `herdr` hook blocks that conflict with declarative ownership.
+
+## Telemetry and update checks
+
+`agy` injects `--disable_telemetry` on root and `acp` calls while skipping subcommands whose isolated flag parsers reject it.
+The `antigravity-cli/no-google-telemetry` check pins that subcommand list against upstream `agy --help` output and verifies Hub wrapper flags and environment.
+Because `/config` stores the Google account telemetry toggle server-side rather than in `settings.json`, the wrapper flags keep local CLI telemetry disabled anyway.
+`agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows invoke remote Language Server binaries outside local wrappers.
 
 ## Plugins and MCP servers
 
@@ -47,6 +55,7 @@ Build the Antigravity activation, shell wrapper, and scratch-guard checks before
 ```sh
 nix build --accept-flake-config --no-link \
   'path:.#checks.x86_64-linux."antigravity-cli/activation-merge"' \
+  'path:.#checks.x86_64-linux."antigravity-cli/no-google-telemetry"' \
   'path:.#checks.x86_64-linux."antigravity-cli/shell-wrapper"' \
   'path:.#checks.x86_64-linux."agents/hooks/scratch-guard"'
 ```

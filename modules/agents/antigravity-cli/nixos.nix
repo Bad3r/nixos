@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI wrapped with the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI wrapped with `--disable_telemetry`, disabled auto-updates, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:
@@ -34,6 +34,7 @@ let
     let
       cfg = config.programs."antigravity-cli".extended;
       shell = import ./_shell.nix { inherit lib pkgs scratchDir; };
+      telemetry = import ./_telemetry.nix;
     in
     {
       imports = [ (import ../_plugin-options.nix "antigravity-cli") ];
@@ -55,29 +56,20 @@ let
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
-          description = "The antigravity-cli package wrapped with the controlled agent shell and rm shim.";
+          description = "The antigravity-cli package wrapped with disabled telemetry and auto-updates, the controlled agent shell, and rm shim.";
         };
       };
 
       config = lib.mkIf cfg.enable {
-        programs."antigravity-cli".extended.finalPackage = pkgs.symlinkJoin (
-          {
-            name = "antigravity-cli-${cfg.package.version or "custom"}";
-            paths = [ cfg.package ];
-            nativeBuildInputs = [ pkgs.makeWrapper ];
-            postBuild = ''
-              wrapProgram "$out/bin/agy" \
-                --prefix PATH : "${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin" \
-                --run ${lib.escapeShellArg ''
-                  if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
-                    export TMPDIR=${lib.escapeShellArg scratchDir}
-                  fi
-                ''}
-            '';
-          }
-          // lib.optionalAttrs (cfg.package ? version) { inherit (cfg.package) version; }
-          // lib.optionalAttrs (cfg.package ? meta) { inherit (cfg.package) meta; }
-        );
+        programs."antigravity-cli".extended.finalPackage = telemetry.wrapAgy {
+          inherit
+            lib
+            pkgs
+            shell
+            scratchDir
+            ;
+          inherit (cfg) package;
+        };
 
         environment.systemPackages = [ cfg.finalPackage ];
       };
