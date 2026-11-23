@@ -105,6 +105,8 @@
   - Pinning interface names under `net.ifnames=0` and narrowing alternative names without a pin.
 - [networking/link-policy.md](networking/link-policy.md)
   - systemd-udevd `.link` address policies, device matching, and when a change applies.
+- [networking/loopback-sites.md](networking/loopback-sites.md)
+  - `networking.loopbackSites`: `.internal` names on loopback port 80 proxied by nginx, adding a site, and the Host header.
 - [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
 - [networking/workload-drops.md](networking/workload-drops.md)
@@ -149,6 +151,8 @@
   - Binary analysis, decompilation, and dynamic instrumentation tools.
 - [csec/toolkit/javascript-reversing-source-recovery.md](csec/toolkit/javascript-reversing-source-recovery.md)
   - JavaScript deobfuscation, source recovery, and analysis utilities.
+- [csec/toolkit/protobuf-reversing.md](csec/toolkit/protobuf-reversing.md)
+  - Protobuf schema recovery, schemaless decoding, and endpoint fuzzing tools.
 - [csec/toolkit/anonymity-vpn-tunneling.md](csec/toolkit/anonymity-vpn-tunneling.md)
   - Anonymity networks, VPN clients, and tunneling tools.
 - [csec/toolkit/forensics-recovery-imaging.md](csec/toolkit/forensics-recovery-imaging.md)
@@ -384,6 +388,11 @@
 
 - [apps/herdr/README.md](apps/herdr/README.md)
   - Herdr configuration ownership and privacy boundaries.
+
+### ActivityWatch
+
+- [apps/activitywatch/README.md](apps/activitywatch/README.md)
+  - The `activitywatch.internal` web UI, the user services, how the name resolves, and what the watchers record.
 
 ### browser-fetch
 

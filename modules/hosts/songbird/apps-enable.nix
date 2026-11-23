@@ -18,6 +18,7 @@ let
     mitmproxy = true;
     "cloudflare-warp" = true;
     "warp-devices" = true;
+    activitywatch = true;
     assetripper = true;
     "protonmail-bridge" = true;
     lact = true;
@@ -31,6 +32,15 @@ let
     "clojure-lsp" = true;
     leiningen = true;
     lief = true;
+    asar = true;
+    blackboxprotobuf = true;
+    bloaty = true;
+    buf = true;
+    goresym = true;
+    pbtk = true;
+    protobuf = true;
+    redress = true;
+    upx = true;
     delve = true;
     discordo = true;
     go = true;
