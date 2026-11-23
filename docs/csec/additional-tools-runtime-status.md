@@ -11,9 +11,9 @@ that time, and the inventory and summary below were reconciled on 2026-08-01
 against the companion reference without re-executing anything.
 
 The only entries re-run since are the nine the 2026-05-04 snapshot recorded
-under "build or evaluation error"; all 117 others still carry their 2026-05-04
-result. Those nine were re-run in two batches. Five cleared and one was
-reclassified, taking the group from nine entries to three and "run as
+under "build or evaluation error"; every other entry still carries its
+2026-05-04 result. Those nine were re-run in two batches. Five cleared and one
+was reclassified, taking the group from nine entries to three and "run as
 documented" from 95 to 100.
 
 `mitm6` and `maigret` were re-verified on 2026-07-23 under Python 3.14.6 and
@@ -39,10 +39,7 @@ own category.
 
 `arwen` was added to the reference on 2026-08-05 and smoke-tested the same day
 against the pin current then (`arwen 0.0.5-unstable-2026-04-07`). It runs as
-documented, taking "run as documented" from 100 to 101 and the reference total
-from 127 to 128. `evil-winrm` was promoted out of the reference on 2026-11-22,
-taking both back to 100 and 127, and `upx` on 2026-11-23, taking them to 99
-and 126.
+documented.
 
 ## Summary
 
@@ -64,9 +61,8 @@ The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
-The seven tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
-nikto, wafw00f, evil-winrm, and upx) are intentionally absent from this report
-because they are no longer entries in the companion reference.
+katana, gau, gowitness, nikto, wafw00f, evil-winrm, and upx are documented in
+`docs/csec/toolkit.md`, not in the companion reference, and are not listed here.
 
 ## ✅ Tools that run as documented
 

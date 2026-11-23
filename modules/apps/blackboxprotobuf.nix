@@ -7,7 +7,7 @@
 
   Summary:
     * Decodes Protobuf messages to JSON with an inferred type definition, and re-encodes edited JSON.
-    * Provides the `bbpb` command and the `blackboxprotobuf` Python library.
+    * Provides the `bbpb` command.
 */
 _:
 let
