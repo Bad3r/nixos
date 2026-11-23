@@ -33,6 +33,7 @@ let
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
       amass.extended.enable = lib.mkOverride 1100 true;
+      asar.extended.enable = lib.mkOverride 1100 false;
       audiness.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-cli".extended.enable = lib.mkOverride 1100 true;
@@ -60,11 +61,13 @@ let
       biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
+      bloaty.extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
       "browser-fetch".extended.enable = lib.mkOverride 1100 false;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
+      buf.extended.enable = lib.mkOverride 1100 false;
       "build-sh-completion".extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;
@@ -195,6 +198,7 @@ let
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
       gopass.extended.enable = lib.mkOverride 1100 false;
       gopls.extended.enable = lib.mkOverride 1100 false;
+      goresym.extended.enable = lib.mkOverride 1100 false;
       gowitness.extended.enable = lib.mkOverride 1100 true;
       gparted.extended.enable = lib.mkOverride 1100 true;
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
@@ -394,6 +398,7 @@ let
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
       projectlibre.extended.enable = lib.mkOverride 1100 false;
+      protobuf.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
@@ -416,6 +421,7 @@ let
       rclone.extended.protonDrive.enable = lib.mkOverride 1100 true;
       readpdf.extended.enable = lib.mkOverride 1100 true;
       realforce-connect.extended.enable = lib.mkOverride 1100 false;
+      redress.extended.enable = lib.mkOverride 1100 false;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restic.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
@@ -510,6 +516,7 @@ let
       unrar.extended.enable = lib.mkOverride 1100 false;
       unzip.extended.enable = lib.mkOverride 1100 true;
       upscayl.extended.enable = lib.mkOverride 1100 true;
+      upx.extended.enable = lib.mkOverride 1100 false;
       usbutils.extended.enable = lib.mkOverride 1100 true;
       "util-linux".extended.enable = lib.mkOverride 1100 true;
       uv.extended.enable = lib.mkOverride 1100 true;

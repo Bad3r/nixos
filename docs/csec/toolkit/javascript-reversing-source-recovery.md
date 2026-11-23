@@ -4,6 +4,11 @@
 
 ## JavaScript Reversing & Source Recovery
 
+- asar
+  - run..: `asar extract $app/resources/app.asar out/`
+  - Repo.: <https://github.com/electron/asar>
+  - Docs.: <https://github.com/electron/asar#readme>
+  - Desc.: Lists, extracts, and repacks Electron `app.asar` archives to reach an app's bundled JavaScript.
 - source-map-explorer
   - run..: `source-map-explorer bundle.js bundle.js.map`
   - Repo.: <https://github.com/danvk/source-map-explorer>

@@ -41,13 +41,14 @@ own category.
 against the pin current then (`arwen 0.0.5-unstable-2026-04-07`). It runs as
 documented, taking "run as documented" from 100 to 101 and the reference total
 from 127 to 128. `evil-winrm` was promoted out of the reference on 2026-11-22,
-taking both back to 100 and 127.
+taking both back to 100 and 127, and `upx` on 2026-11-23, taking them to 99
+and 126.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 100     |
+| ✅ Run as documented                                             | 99      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 3       |
 | ⚠️ Blocked by the unfree license gate                            | 1       |
@@ -57,15 +58,15 @@ taking both back to 100 and 127.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **127** |
+| **Total entries in the reference**                               | **126** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
-The six tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
-nikto, wafw00f, and evil-winrm) are intentionally absent from this report because
-they are no longer entries in the companion reference.
+The seven tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
+nikto, wafw00f, evil-winrm, and upx) are intentionally absent from this report
+because they are no longer entries in the companion reference.
 
 ## ✅ Tools that run as documented
 
@@ -149,7 +150,6 @@ they are no longer entries in the companion reference.
 - ✅ ropper (uvx)
 - ✅ gef (gdb plugin; help command shows gdb usage)
 - ✅ python3Packages.ropgadget
-- ✅ upx
 - ✅ arwen (verified 2026-08-05; `elf print-interpreter` and `elf print-needed` both return real data on a store binary)
 
 ### Forensics, Recovery and Imaging

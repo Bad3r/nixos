@@ -31,6 +31,13 @@ let
     "clojure-lsp" = true;
     leiningen = true;
     lief = true;
+    goresym = true;
+    protobuf = true;
+    buf = true;
+    asar = true;
+    upx = true;
+    bloaty = true;
+    redress = true;
     delve = true;
     discordo = true;
     go = true;
