@@ -22,9 +22,11 @@ let
   docClientOrder = [
     "codex"
     "claude"
+    "antigravity"
   ];
 
   clientLabels = {
+    antigravity = "Antigravity";
     claude = "Claude Code";
     codex = "Codex";
   };
@@ -479,6 +481,29 @@ let
         // lib.optionalAttrs validatedServers.${name}.autoApprove {
           default_tools_approval_mode = "approve";
         }
+      ) servers
+    else if client == "antigravity" then
+      # Antigravity uses serverUrl for Streamable HTTP, drops type/per-ms keys,
+      # and uses one timeoutSeconds field (default 300s connect / 180s call).
+      lib.mapAttrs (
+        _name: server:
+        let
+          effectiveTimeoutSec = lib.max (server.startup_timeout_sec or 0) (server.tool_timeout_sec or 0);
+          timeoutAttr = lib.optionalAttrs (effectiveTimeoutSec > 180) {
+            timeoutSeconds = effectiveTimeoutSec;
+          };
+        in
+        if server ? url then
+          { serverUrl = server.url; } // timeoutAttr
+        else
+          builtins.removeAttrs server [
+            "type"
+            "startup_timeout_sec"
+            "startup_timeout_ms"
+            "tool_timeout_sec"
+            "timeout"
+          ]
+          // timeoutAttr
       ) servers
     else
       servers;

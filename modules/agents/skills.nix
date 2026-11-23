@@ -79,6 +79,10 @@ let
     let
       allowedFields =
         {
+          antigravity = [
+            "frontmatter"
+            "prelude"
+          ];
           claude = [
             "frontmatter"
             "prelude"
@@ -229,10 +233,43 @@ let
       ${body}
     '';
 
+  renderAntigravityMarkdown =
+    spec:
+    let
+      frontmatter =
+        renderFrontmatter
+          (
+            {
+              inherit (spec)
+                name
+                description
+                ;
+            }
+            // (spec.antigravity.frontmatter or { })
+          )
+          [
+            "name"
+            "description"
+          ];
+      body = renderSkillDocument {
+        inherit (spec)
+          title
+          body
+          ;
+        prelude = spec.antigravity.prelude or "";
+      };
+    in
+    ''
+      ${frontmatter}
+
+      ${body}
+    '';
+
   compileSkill =
     registryKey: rawSpec:
     let
       spec = validateSkillSpec registryKey rawSpec;
+      antigravityMarkdown = if spec ? antigravity then renderAntigravityMarkdown spec else null;
       codexMarkdown = if spec ? codex then renderCodexMarkdown spec else null;
       codexOpenaiYaml = if spec ? codex then renderCodexOpenaiYaml spec else null;
       claudeMarkdown = if spec ? claude then renderClaudeMarkdown spec else null;
@@ -246,6 +283,9 @@ let
       enabledOn =
         osConfig:
         spec.app == null || lib.attrByPath [ "programs" spec.app "extended" "enable" ] false osConfig;
+    }
+    // lib.optionalAttrs (spec ? antigravity) {
+      antigravity = antigravityMarkdown;
     }
     // lib.optionalAttrs (spec ? claude) {
       claude = claudeMarkdown;

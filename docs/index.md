@@ -151,6 +151,8 @@
   - Binary analysis, decompilation, and dynamic instrumentation tools.
 - [csec/toolkit/javascript-reversing-source-recovery.md](csec/toolkit/javascript-reversing-source-recovery.md)
   - JavaScript deobfuscation, source recovery, and analysis utilities.
+- [csec/toolkit/protobuf-reversing.md](csec/toolkit/protobuf-reversing.md)
+  - Protobuf schema recovery, schemaless decoding, and endpoint fuzzing tools.
 - [csec/toolkit/anonymity-vpn-tunneling.md](csec/toolkit/anonymity-vpn-tunneling.md)
   - Anonymity networks, VPN clients, and tunneling tools.
 - [csec/toolkit/forensics-recovery-imaging.md](csec/toolkit/forensics-recovery-imaging.md)
@@ -334,6 +336,11 @@
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
 ## Agents
+
+### Antigravity CLI
+
+- [agents/antigravity-cli/configuration.md](agents/antigravity-cli/configuration.md)
+  - Declarative settings, permissions, plugins, MCP merging, controlled shell, and activation cleanup for Antigravity CLI and Hub.
 
 ### Claude Code
 
@@ -553,6 +560,10 @@
 
 - [apps/rdp/README.md](apps/rdp/README.md)
   - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
+- [apps/rdp/windows-host-setup.md](apps/rdp/windows-host-setup.md)
+  - Configure a Windows host and the Remmina profile for AVC444 RDP with SSH and WinRM over the WARP Mesh.
+- [apps/rdp/windows-host-troubleshooting.md](apps/rdp/windows-host-troubleshooting.md)
+  - AVC444 sessions that drop, sessions without H.264, and SSH failures on those Windows hosts.
 - [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
   - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
 

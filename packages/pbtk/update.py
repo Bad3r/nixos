@@ -1,0 +1,85 @@
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
+# Copyright (c) 2026 Bad3r
+
+"""Update script for pbtk."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+from typing import cast
+
+PACKAGE_NAME = "pbtk"
+OWNER = "marin-m"
+REPO = "pbtk"
+
+
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+from updater_bootstrap import bootstrap  # noqa: E402
+
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+HASHES_FILE = PACKAGE_DIR / "hashes.json"
+sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
+
+from updater import (  # noqa: E402
+    calculate_url_hash,
+    fetch_github_latest_tag_version,
+    load_hashes,
+    save_hashes,
+)
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--check-release",
+        action="store_true",
+        help="validate release metadata without fetching archive hashes",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="recalculate hashes even when the version is unchanged",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Update pbtk to the latest stable GitHub tag."""
+    args = parse_args()
+    data = load_hashes(HASHES_FILE)
+    current = cast("str", data["version"])
+    latest = fetch_github_latest_tag_version(OWNER, REPO, prefix="")
+
+    print(f"Current: {current}")
+    print(f"Latest:  {latest}")
+
+    if args.check_release:
+        print("Release metadata is valid")
+        return
+
+    if current == latest and not args.force:
+        print("Already up to date")
+        return
+
+    print("Calculating source hash...")
+    src_hash = calculate_url_hash(
+        f"https://github.com/{OWNER}/{REPO}/archive/refs/tags/{latest}.tar.gz",
+        unpack=True,
+    )
+
+    new_data = {
+        "version": latest,
+        "srcHash": src_hash,
+    }
+    save_hashes(HASHES_FILE, new_data)
+    print(f"Updated {HASHES_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+
+
+if __name__ == "__main__":
+    main()

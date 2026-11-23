@@ -52,14 +52,15 @@ in
             fi
           done
 
-          # A running Codex thread holds an flock on its writer lock; /proc/locks
-          # shows it without opening, so a probe can neither steal nor recreate it.
-          codexLive() {
-            local lock ino
-            for lock in ${lib.escapeShellArg "${ownerHome}/.config/codex"}/thread-writer-locks/"$1".lock \
-              ${lib.escapeShellArg "${ownerHome}/.config/orca/codex-accounts"}/*/home/thread-writer-locks/"$1".lock; do
-              ino="$(stat -c %i -- "$lock" 2>/dev/null)" || continue
-              if grep -q "FLOCK .*:$ino " /proc/locks; then
+          # Running Codex threads and Antigravity sessions hold an flock on their
+          # lock file; compare device major:minor:inode against /proc/locks
+          # without opening so a probe can neither steal nor recreate it.
+          flockLive() {
+            local lock maj min ino dev_ino
+            for lock in "$@"; do
+              IFS=: read -r maj min ino < <(stat -c '%Hd:%Ld:%i' -- "$lock" 2>/dev/null) || continue
+              printf -v dev_ino '%02x:%02x:%s' "$maj" "$min" "$ino"
+              if grep -Eq "^[0-9]+: FLOCK .* $dev_ino " /proc/locks; then
                 return 0
               fi
             done
@@ -75,7 +76,12 @@ in
               [ -d "$dir" ] || continue
               id="$(basename "$dir")"
               case "$live" in *" $id "*) continue ;; esac
-              if codexLive "$id"; then
+              if flockLive \
+                ${lib.escapeShellArg "${ownerHome}/.config/codex"}/thread-writer-locks/"$id".lock \
+                ${lib.escapeShellArg "${ownerHome}/.config/orca/codex-accounts"}/*/home/thread-writer-locks/"$id".lock \
+                ${lib.escapeShellArg "${ownerHome}/.gemini/antigravity"}/presence/"$id".lock \
+                ${lib.escapeShellArg "${ownerHome}/.gemini/antigravity-cli"}/presence/"$id".lock \
+                ${lib.escapeShellArg "${ownerHome}/.gemini/antigravity-ide"}/presence/"$id".lock; then
                 continue
               fi
               if idleFor "$dir" 7; then
@@ -88,7 +94,8 @@ in
             done
           fi
 
-          for entry in "$scratch"/nix-shell.* "$scratch"/nix-develop-* "$scratch"/pyright-* "$scratch"/tmp.*; do
+          trashToolTemp() {
+            local entry=$1
             if { [ -f "$entry" ] || [ -d "$entry" ]; } && [ ! -L "$entry" ] && idleFor "$entry" 2; then
               echo "trashing tool temp $entry"
               trash-put -- "$entry" || {
@@ -96,11 +103,22 @@ in
                 failed=1
               }
             fi
+          }
+
+          for entry in "$scratch"/nix-shell.* "$scratch"/nix-develop-* "$scratch"/pyright-* "$scratch"/tmp.*; do
+            trashToolTemp "$entry"
+          done
+
+          # Antigravity Go os.MkdirTemp/os.CreateTemp produce numeric suffixes only,
+          # leaving persistent topic dirs like agy-plugin-cli-migration untouched.
+          for entry in "$scratch"/agy-plugin-cli-*; do
+            [[ $(basename "$entry") =~ ^agy-plugin-cli-([0-9]+|ca-[0-9]+\.pem)$ ]] || continue
+            trashToolTemp "$entry"
           done
 
           for dir in "$scratch"/*/; do
             name="$(basename "$dir")"
-            case "$name" in sessions | claude-* | codex-* | node-compile-cache | nix-shell.* | nix-develop-* | pyright-*) continue ;; esac
+            case "$name" in sessions | claude-* | codex-* | agy-plugin-cli-* | node-compile-cache | nix-shell.* | nix-develop-* | pyright-*) continue ;; esac
             if idleFor "$dir" 60; then
               echo "topic dir idle for 60+ days: $dir"
             fi

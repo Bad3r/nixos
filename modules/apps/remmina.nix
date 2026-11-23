@@ -45,14 +45,47 @@ let
         };
 
         package = lib.mkPackageOption pkgs "remmina" { };
+
+        intelDecodeDevice = lib.mkOption {
+          type = lib.types.nullOr (lib.types.strMatching "/dev/dri/.+");
+          default = null;
+          example = "/dev/dri/by-path/pci-0000:00:02.0-render";
+          description = ''
+            Render node of an Intel GPU that decodes RDP H.264 streams through
+            VA-API and intel-media-driver, whatever LIBVA_DRIVER_NAME the session
+            sets. Null leaves FreeRDP on its default node, /dev/dri/renderD128,
+            with the session's libva driver.
+          '';
+        };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [
-          cfg.package
-          rdpMimeInfo
-        ];
-      };
+      config = lib.mkIf cfg.enable (
+        lib.mkMerge [
+          {
+            environment.systemPackages = [
+              cfg.package
+              rdpMimeInfo
+            ];
+          }
+          # An overlay, so every launcher (safeguard-rdp, 1drdp) starts the
+          # same wrapped Remmina.
+          (lib.mkIf (cfg.intelDecodeDevice != null) {
+            nixpkgs.overlays = [
+              (final: prev: {
+                remmina = prev.remmina.overrideAttrs (old: {
+                  preFixup = (old.preFixup or "") + ''
+                    gappsWrapperArgs+=(
+                      --set LIBVA_DRIVER_NAME iHD
+                      --set LIBVA_DRIVERS_PATH "${final.intel-media-driver}/lib/dri"
+                      --set FREERDP_HWCTX_DEVICE "${cfg.intelDecodeDevice}"
+                    )
+                  '';
+                });
+              })
+            ];
+          })
+        ]
+      );
     };
 in
 {
