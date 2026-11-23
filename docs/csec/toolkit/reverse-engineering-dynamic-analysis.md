@@ -9,6 +9,11 @@
   - Repo.: <https://github.com/AssetRipper/AssetRipper>
   - Docs.: <https://assetripper.github.io/AssetRipper/>
   - Desc.: GUI application for analyzing Unity game files and extracting assets.
+- bloaty
+  - run..: `bloaty -d sections,symbols $binary`
+  - Repo.: <https://github.com/google/bloaty>
+  - Docs.: <https://github.com/google/bloaty/blob/main/doc/using.md>
+  - Desc.: Size profiler that attributes ELF, Mach-O, PE, and WebAssembly file and VM size to sections, symbols, or compile units, and diffs two builds.
 - capstone
   - run..: `cstool x64 "55 48 89 e5"`
   - Repo.: <https://github.com/capstone-engine/capstone>
@@ -39,6 +44,11 @@
   - Repo.: <https://github.com/NationalSecurityAgency/ghidra>
   - Docs.: <https://ghidra-sre.org/>
   - Desc.: NSA reverse engineering platform with decompiler.
+- goresym
+  - run..: `GoReSym -t -d -p $binary`
+  - Repo.: <https://github.com/mandiant/GoReSym>
+  - Docs.: <https://github.com/mandiant/GoReSym#readme>
+  - Desc.: Recovers function names, types, file and line data, and build information from Go binaries, stripped ones included, as JSON. Release 3.4.1 rejects Go 1.27 binaries with `no valid pclntab found` (<https://github.com/mandiant/GoReSym/issues/90>).
 - hopper
   - run..: `hopper`
   - Repo.: <https://www.hopperapp.com/>
@@ -95,6 +105,11 @@
   - Repo.: <https://github.com/radareorg/radare2>
   - Docs.: <https://book.rada.re/>
   - Desc.: Command-line reverse engineering framework with disassembler, debugger, hex editor, and binary patching.
+- redress
+  - run..: `redress info $binary`
+  - Repo.: <https://github.com/goretk/redress>
+  - Docs.: <https://github.com/goretk/redress#readme>
+  - Desc.: Go binary analyzer that extracts packages, types, interfaces, methods, and the source tree layout from stripped binaries; also runs as a radare2 plugin. Packaged locally in [`packages/redress`](../../../packages/redress/default.nix).
 - rizin
   - run..: `rizin -A $binary`
   - Repo.: <https://github.com/rizinorg/rizin>
@@ -105,6 +120,11 @@
   - Repo.: <https://github.com/strace/strace>
   - Docs.: <https://strace.io/>
   - Desc.: System call tracer.
+- upx
+  - run..: `upx -d $packed_binary`
+  - Repo.: <https://github.com/upx/upx>
+  - Docs.: <https://upx.github.io/>
+  - Desc.: Ultimate Packer for eXecutables; packs and unpacks ELF, PE, and Mach-O binaries, commonly seen on malware samples.
 - valgrind
   - run..: `valgrind $binary`
   - Repo.: <https://sourceware.org/git/valgrind.git>
