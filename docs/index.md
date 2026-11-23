@@ -149,6 +149,8 @@
   - Binary analysis, decompilation, and dynamic instrumentation tools.
 - [csec/toolkit/javascript-reversing-source-recovery.md](csec/toolkit/javascript-reversing-source-recovery.md)
   - JavaScript deobfuscation, source recovery, and analysis utilities.
+- [csec/toolkit/protobuf-reversing.md](csec/toolkit/protobuf-reversing.md)
+  - Protobuf schema recovery, schemaless decoding, and endpoint fuzzing tools.
 - [csec/toolkit/anonymity-vpn-tunneling.md](csec/toolkit/anonymity-vpn-tunneling.md)
   - Anonymity networks, VPN clients, and tunneling tools.
 - [csec/toolkit/forensics-recovery-imaging.md](csec/toolkit/forensics-recovery-imaging.md)

@@ -33,7 +33,6 @@ let
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
       amass.extended.enable = lib.mkOverride 1100 true;
-      asar.extended.enable = lib.mkOverride 1100 false;
       audiness.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-cli".extended.enable = lib.mkOverride 1100 true;
@@ -41,6 +40,7 @@ let
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      asar.extended.enable = lib.mkOverride 1100 false;
       assetripper.extended.enable = lib.mkOverride 1100 false;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
@@ -61,6 +61,7 @@ let
       biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
+      blackboxprotobuf.extended.enable = lib.mkOverride 1100 false;
       bloaty.extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
@@ -380,6 +381,7 @@ let
       patchelf.extended.enable = lib.mkOverride 1100 true;
       patchutils.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
+      pbtk.extended.enable = lib.mkOverride 1100 false;
       pciutils.extended.enable = lib.mkOverride 1100 true;
       "pentesting-devshell".extended.enable = lib.mkOverride 1100 false;
       picom.extended.enable = lib.mkOverride 1100 true;

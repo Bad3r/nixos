@@ -34,6 +34,10 @@ Tools support reconnaissance, web testing, reverse engineering, forensics, and i
 
 [JavaScript reversing catalog](toolkit/javascript-reversing-source-recovery.md#javascript-reversing--source-recovery)
 
+## Protobuf Reversing
+
+[Protobuf reversing catalog](toolkit/protobuf-reversing.md#protobuf-reversing)
+
 ## Anonymity, VPN & Tunneling
 
 [Anonymity and tunneling catalog](toolkit/anonymity-vpn-tunneling.md#anonymity-vpn--tunneling)

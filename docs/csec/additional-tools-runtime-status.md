@@ -11,7 +11,7 @@ that time, and the inventory and summary below were reconciled on 2026-08-01
 against the companion reference without re-executing anything.
 
 The only entries re-run since are the nine the 2026-05-04 snapshot recorded
-under "build or evaluation error"; all 118 others still carry their 2026-05-04
+under "build or evaluation error"; all 117 others still carry their 2026-05-04
 result. Those nine were re-run in two batches. Five cleared and one was
 reclassified, taking the group from nine entries to three and "run as
 documented" from 95 to 100.
