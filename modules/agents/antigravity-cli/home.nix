@@ -192,7 +192,7 @@ _: {
           source = dir;
           recursive = true;
         }
-      ) (agents.skills.packDirsFor "antigravity" osConfig);
+      ) (agents.skills.packDirsFor "antigravity");
     in
     {
       config = lib.mkIf anyEnabled {

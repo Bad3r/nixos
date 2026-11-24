@@ -129,7 +129,7 @@
 
       packCodexSkillDirs = lib.mapAttrs' (
         name: dir: lib.nameValuePair "agents/skills/${name}" { source = dir; }
-      ) (agents.skills.packDirsFor "codex" osConfig);
+      ) (agents.skills.packDirsFor "codex");
     in
     {
       config = lib.mkIf nixosEnabled {

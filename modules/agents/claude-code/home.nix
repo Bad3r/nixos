@@ -254,7 +254,7 @@ _: {
           source = dir;
           recursive = true;
         }
-      ) (agents.skills.packDirsFor "claude" osConfig);
+      ) (agents.skills.packDirsFor "claude");
     in
     {
       config = lib.mkIf nixosEnabled {

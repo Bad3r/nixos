@@ -78,7 +78,6 @@ in
       codexManifest = agents.mcp.clients.codex.manifest {
         inherit pkgs;
         osConfig = fullOsConfig;
-        serverOverrides = nodeReplOverrides;
         sopsSecrets = sampleSopsSecrets;
       };
       antigravityManifest = agents.mcp.clients.antigravity.manifest {
@@ -110,7 +109,7 @@ in
         "antigravity"
         "claude"
         "codex"
-      ] (client: agents.skills.packDirsFor client emptyOsConfig);
+      ] agents.skills.packDirsFor;
     in
     {
       checks."agents/mcp/codemode" =
@@ -161,7 +160,7 @@ in
                 "--manifest"
                 (builtins.elemAt codexServers.codemode.args 2)
                 "--timeout"
-                "240"
+                "225"
               ]
             &&
               antigravityServers.codemode.args == [
@@ -169,7 +168,7 @@ in
                 "--manifest"
                 (builtins.elemAt antigravityServers.codemode.args 2)
                 "--timeout"
-                "240"
+                "225"
               ]
             &&
               claudeServers.codemode.args == [
@@ -177,10 +176,10 @@ in
                 "--manifest"
                 (builtins.elemAt claudeServers.codemode.args 2)
                 "--timeout"
-                "240"
+                "225"
               ]
           )
-          "client codemode entries must stay bounded at 240s (independent of sbx) with client-native timeout keys";
+          "client codemode entries must stay bounded at 240s (with 225s gateway headroom) and client-native timeout keys";
         assert lib.assertMsg (
           lib.elem "MCP_CODEMODE_ENABLE" codexServers.codemode.env_vars
           && lib.elem "MCP_CODEMODE_DISABLE" codexServers.codemode.env_vars

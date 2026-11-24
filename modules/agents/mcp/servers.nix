@@ -37,7 +37,7 @@ _: {
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
         accessNotes = "Works without an API key; provision `~/.local/share/context7/api-key` for higher rate limits. Shared across Codex, Antigravity, and Claude Code, where `claude.ai Context7` is denied so every client routes through `codemode`.";
-        example = "`context7 resolve-library-id --name <library>`";
+        example = "Use `codemode` `search` (`await codemode.tools(\"context7\")`) or `execute` (`await codemode.context7.resolve_library_id(...)`).";
       };
     };
 
@@ -69,7 +69,7 @@ _: {
       docs = {
         primaryUse = "Search OpenAI developer docs and API references.";
         accessNotes = "Enabled by default only for Codex through a streamable HTTP endpoint.";
-        example = "`codex mcp add openaiDeveloperDocs --url https://developers.openai.com/mcp`";
+        example = "Use `codemode` `search` (`await codemode.tools(\"openaiDeveloperDocs\")`).";
       };
     };
 
@@ -84,7 +84,7 @@ _: {
       docs = {
         primaryUse = "Search public GitHub code indexed by grep.app.";
         accessNotes = "Enabled by default for Codex, Claude Code, and Antigravity through the remote grep.app HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `gh_grep` tools.";
+        example = "Use `codemode` `search` (`await codemode.tools(\"gh_grep\")`).";
       };
     };
 
@@ -103,7 +103,7 @@ _: {
       ];
       docs = {
         primaryUse = "Search and retrieve official Google developer documentation.";
-        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key`. Enable without restarting via `mcp-codemode enable google-developer-knowledge` (project-scoped in `~/.local/state/mcp-codemode/overrides.json`) or `mcp-codemode enable --user google-developer-knowledge` (required for GUI clients), or launch the client with `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
+        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key` (`X-Goog-Api-Key` from `secrets/google-developer-knowledge-mcp.yaml`). Enable without restarting via `mcp-codemode enable google-developer-knowledge` from the target project directory (writes a project-scoped entry in `~/.local/state/mcp-codemode/overrides.json` matching that directory and its subdirectories) or `mcp-codemode enable --user google-developer-knowledge` (required for GUI clients launched outside the open workspace), or launch the client with `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
         example = "`mcp-codemode enable google-developer-knowledge`";
       };
     };
@@ -119,7 +119,7 @@ _: {
       docs = {
         primaryUse = "Browse repository knowledge bases.";
         accessNotes = "Official remote no-authentication-required HTTP endpoint; pass `owner/repo` to the DeepWiki tools.";
-        example = "`claude mcp add -s user -t http deepwiki https://mcp.deepwiki.com/mcp`";
+        example = "Use `codemode` `search` (`await codemode.tools(\"deepwiki\")`).";
       };
     };
 
@@ -197,7 +197,7 @@ _: {
       docs = {
         primaryUse = "Control and inspect a live Camoufox (Firefox) session, including privileged contexts.";
         accessNotes = "Runs the Mozilla build of the server with every tool module, driving the camoufox app's browser, so it is present only where that app's row is on. Camoufox does not replace geckodriver, which still translates the server's WebDriver calls; the geckodriver app supplies it and the wrapper puts it on PATH. The wrapper sets MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 for the privileged modules and turns off Selenium Manager statistics and the Firefox crash reporter; Firefox telemetry prefs are off. Each session uses a fresh temporary profile. The privileged modules give the agent browser-privileged access with no web-content sandbox, so it can act outside the page.";
-        example = "Use `/mcp` to inspect the available `firefox` tools.";
+        example = "Use `codemode` `search` (`await codemode.tools(\"firefox\")`).";
       };
     };
 

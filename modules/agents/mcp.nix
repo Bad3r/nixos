@@ -10,7 +10,6 @@ let
   validSources = [
     "nix"
     "http"
-    "sse"
     "npx"
     "app"
   ];
@@ -41,7 +40,6 @@ let
   requiredFields = {
     nix = [ "package" ];
     http = [ "url" ];
-    sse = [ "url" ];
     npx = [ "package" ];
     app = [
       "app"
@@ -55,7 +53,6 @@ let
       "timeout"
       "secretHeader"
     ];
-    sse = [ "timeout" ];
     npx = [
       "timeout"
       "args"
@@ -209,6 +206,10 @@ let
       throw "Agent MCP server '${serverName}' requires boolean field 'autoApprove'"
     else if autoApprove && !direct then
       throw "Agent MCP server '${serverName}' sets 'autoApprove = true' without 'direct = true'"
+    else if direct && (validatedServer.disabled or false) then
+      throw "Agent MCP server '${serverName}' cannot combine 'direct = true' with 'disabled = true'"
+    else if direct && (validatedServer ? secretHeader) then
+      throw "Agent MCP server '${serverName}' cannot combine 'direct = true' with 'secretHeader'"
     else
       validatedServer
       // {
@@ -281,6 +282,12 @@ let
                 ];
                 text = /* bash */ ''
                   secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}/context7/api-key"
+                  if [ ! -r "$secret_path" ] || [ ! -s "$secret_path" ]; then
+                    fallback_path="$HOME/.local/share/context7/api-key"
+                    if [ -r "$fallback_path" ] && [ -s "$fallback_path" ]; then
+                      secret_path="$fallback_path"
+                    fi
+                  fi
                   if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
                     # Context7 supports unauthenticated access; export auth only when the optional secret exists.
                     if ! secret_value="$(tr -d '\r\n' < "$secret_path")"; then
@@ -330,16 +337,6 @@ let
           }
           // timeouts
           // lib.optionalAttrs (meta ? toolTimeout) (mkToolTimeouts toolTimeout);
-
-        sse = {
-          command = "${lib.getExe' pkgs.nodejs "npx"}";
-          args = [
-            "mcp-remote"
-            meta.url
-          ];
-          type = "stdio";
-        }
-        // timeouts;
 
         npx =
           if name == "playwright" then
@@ -501,16 +498,22 @@ let
   codemodePkgFor =
     pkgs: osConfig:
     let
+      hasEnable = lib.hasAttrByPath [ "programs" "mcp-codemode" "extended" "enable" ] osConfig;
+      enabled = lib.attrByPath [ "programs" "mcp-codemode" "extended" "enable" ] false osConfig;
       configured = lib.attrByPath [ "programs" "mcp-codemode" "extended" "package" ] null osConfig;
     in
-    if configured != null then configured else pkgs.callPackage ../../packages/mcp-codemode { };
+    if hasEnable && !enabled then
+      throw "Agent MCP codemode gateway needs the mcp-codemode app row on (programs.\"mcp-codemode\".extended.enable = true)"
+    else if configured != null then
+      configured
+    else
+      pkgs.callPackage ../../packages/mcp-codemode { };
 
   mkClientManifestData =
     {
       client,
       pkgs,
       osConfig,
-      serverOverrides ? { },
       sopsSecrets ? { },
     }:
     enabled:
@@ -521,7 +524,6 @@ let
         name: server:
         let
           meta = validatedServers.${name};
-          override = serverOverrides.${name} or { };
           declaredSecretPath =
             if meta ? secretHeader then
               lib.attrByPath [ meta.secretHeader.relativePath "path" ] null sopsSecrets
@@ -559,9 +561,6 @@ let
             transport = "stdio";
             inherit (server) command;
             args = server.args or [ ];
-          }
-          // lib.optionalAttrs (override ? env) {
-            inherit (override) env;
           }
       ) rawServers;
     in
@@ -653,24 +652,23 @@ let
                 client
                 pkgs
                 osConfig
-                serverOverrides
                 sopsSecrets
                 ;
             } codemodeNames;
             manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
             codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
-            envVars = lib.unique (
-              [
-                "MCP_CODEMODE_ENABLE"
-                "MCP_CODEMODE_DISABLE"
-                "XDG_STATE_HOME"
-                "XDG_DATA_HOME"
-              ]
-              ++ lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) codemodeNames
-            );
+            envVars = [
+              "MCP_CODEMODE_ENABLE"
+              "MCP_CODEMODE_DISABLE"
+              "XDG_STATE_HOME"
+              "XDG_DATA_HOME"
+            ];
             maxToolTimeoutSec = lib.foldl' lib.max defaultToolTimeoutSec (
               map (name: manifestData.servers.${name}.toolTimeoutSec) codemodeNames
             );
+            # Leave 15 s of headroom below the client/REPL timeout so sandbox teardown
+            # and structured timeout errors flush before the client aborts the tool call.
+            codemodeTimeoutSec = lib.max defaultTimeoutSec (maxToolTimeoutSec - 15);
             baseEntry = {
               command = codemodeBin;
               args = [
@@ -678,7 +676,7 @@ let
                 "--manifest"
                 "${manifestFile}"
                 "--timeout"
-                (toString maxToolTimeoutSec)
+                (toString codemodeTimeoutSec)
               ];
             };
           in
@@ -725,7 +723,6 @@ let
         {
           pkgs,
           osConfig,
-          serverOverrides ? { },
           sopsSecrets ? { },
         }:
         mkClientManifestData {
@@ -733,7 +730,6 @@ let
             client
             pkgs
             osConfig
-            serverOverrides
             sopsSecrets
             ;
         } (enabledNames osConfig);
@@ -832,7 +828,7 @@ let
       [
         "# MCP Tools"
         ""
-        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>` (`mcp-codemode status` prints active override entries)."
+        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>`, using the manifest store path from `~/.claude.json`, `~/.gemini/config/mcp_config.json`, or `$CODEX_HOME/config.base.toml` (`mcp-codemode status` alone prints active override entries). Project-scoped toggles (`mcp-codemode enable <server>`) match the gateway's working directory and its descendants; GUI clients launch outside the open workspace and require `--user`."
         ""
         (renderTableRow tableHeaders)
         renderRule

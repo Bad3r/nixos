@@ -350,7 +350,7 @@ let
   compiledPacks = lib.mapAttrs compilePack rawPacks;
 
   packDirsFor =
-    client: _osConfig:
+    client:
     let
       matchingPacks = lib.attrValues (
         lib.filterAttrs (_: pack: lib.elem client pack.clients) compiledPacks
