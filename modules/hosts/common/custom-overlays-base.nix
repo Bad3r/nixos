@@ -12,8 +12,11 @@ let
   appPackageOverlay =
     name:
     { config, lib, ... }:
+    let
+      rowEnabled = namespace: lib.attrByPath [ namespace name "extended" "enable" ] false config;
+    in
     {
-      config = lib.mkIf config.programs.${name}.extended.enable {
+      config = lib.mkIf (rowEnabled "programs" || rowEnabled "services") {
         nixpkgs.overlays = [
           (final: _prev: {
             ${name} = final.callPackage (packagesDir + "/${name}") { };

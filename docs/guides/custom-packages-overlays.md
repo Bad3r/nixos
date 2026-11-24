@@ -2,7 +2,7 @@
 
 A user-facing in-tree package at `packages/<name>/default.nix` becomes `pkgs.<name>` on every host whose `<name>` app row is on.
 `modules/hosts/common/custom-overlays-base.nix` derives that overlay for every `packages/` directory named after an app registered under `flake.nixosModules.apps`, so the package directory and the app module are the only files to create.
-The derived overlay calls `final.callPackage` on the directory with no arguments and gates itself on `programs.<name>.extended.enable`; rows are in [App registry](apps-module-registry.md).
+The derived overlay calls `final.callPackage` on the directory with no arguments and gates itself on `programs.<name>.extended.enable` or `services.<name>.extended.enable`; rows are in [App registry](apps-module-registry.md).
 
 A package that needs more, such as a `callPackage` argument or a patch on a nixpkgs package, registers its own overlay module as `flake.customOverlays.<name>`, which takes the place of a derived one.
 The overlay sits in the app's folder as `modules/apps/<name>/overlay.nix`, next to its `nixos.nix`:
