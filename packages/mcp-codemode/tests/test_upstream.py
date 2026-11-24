@@ -201,6 +201,80 @@ def _make_edge_handler(edge_state: _HttpEdgeState) -> type[http.server.BaseHTTPR
     return BoundHandler
 
 
+def _make_concurrency_handler(
+    split_utf8_text: str,
+    state: dict[str, object],
+    lock: threading.Lock,
+) -> type[http.server.BaseHTTPRequestHandler]:
+    class ConcurrencyHandler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+            _ = (format, args)
+
+        def do_DELETE(self) -> None:
+            headers_list = cast("list[tuple[str | None, str | None]]", state["delete_headers"])
+            with lock:
+                headers_list.append(
+                    (
+                        self.headers.get("Mcp-Session-Id"),
+                        self.headers.get("MCP-Protocol-Version"),
+                    )
+                )
+            self.send_response(204)
+            self.end_headers()
+
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            req = cast("dict[str, object]", json.loads(self.rfile.read(length)))
+            method = req.get("method")
+            msg_id = req.get("id")
+            if method == "initialize":
+                time.sleep(0.05)
+                with lock:
+                    state["init_count"] = cast("int", state["init_count"]) + 1
+                payload = json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": msg_id,
+                        "result": {"protocolVersion": "2025-06-18", "capabilities": {}},
+                    }
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Mcp-Session-Id", "sess-race")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            if method == "notifications/initialized":
+                self.send_response(202)
+                self.end_headers()
+                return
+            raw_event = (
+                "data: "
+                + json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": msg_id,
+                        "result": {"content": [{"type": "text", "text": split_utf8_text}]},
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            ).encode("utf-8")
+            em_dash_idx = raw_event.index(b"\xe2\x80\x94")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(raw_event)))
+            self.end_headers()
+            self.wfile.write(raw_event[: em_dash_idx + 1])
+            self.wfile.flush()
+            time.sleep(0.02)
+            self.wfile.write(raw_event[em_dash_idx + 1 :])
+            self.wfile.flush()
+
+    return ConcurrencyHandler
+
+
 class UpstreamTest(unittest.TestCase):
     """Covers HTTP SSE/gzip/session/redirect/secret headers and stdio pagination/teardown."""
 
@@ -582,3 +656,126 @@ class UpstreamTest(unittest.TestCase):
         finally:
             srv.shutdown()
             srv.server_close()
+
+    def test_concurrent_init_split_utf8_sse_and_delete_protocol_header(self) -> None:
+        """Serialize cold HTTP/stdio init, preserve split UTF-8 in SSE, and send protocol header."""
+        lock = threading.Lock()
+        split_utf8_text = "alpha — omega"
+        state: dict[str, object] = {"init_count": 0, "delete_headers": []}
+        handler_cls = _make_concurrency_handler(split_utf8_text, state, lock)
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
+        port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            spec = ServerSpec(
+                name="race-http",
+                alias="race_http",
+                transport="http",
+                url=f"http://127.0.0.1:{port}/mcp",
+            )
+            client = HttpUpstreamClient(spec)
+            results: list[dict[str, object]] = []
+            errors: list[Exception] = []
+
+            def _worker() -> None:
+                try:
+                    results.append(client.call_tool("ping", {}))
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=_worker) for _ in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=5.0)
+            self.assertEqual(errors, [])
+            self.assertEqual(state["init_count"], 1)
+            expected_results = 4
+            self.assertEqual(len(results), expected_results)
+            for item in results:
+                content = cast("list[dict[str, object]]", item["content"])
+                self.assertEqual(content[0]["text"], split_utf8_text)
+            client.close()
+            self.assertEqual(state["delete_headers"], [("sess-race", "2025-06-18")])
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_stdio_concurrent_init_and_upstream_cancellation(self) -> None:
+        """Reject duplicate stdio initialize and forward notifications/cancelled upstream."""
+        script_body = """
+import json, sys, time
+initialized = False
+cancelled = []
+for line in sys.stdin:
+    msg = json.loads(line)
+    method = msg.get("method")
+    msg_id = msg.get("id")
+    if method == "initialize":
+        time.sleep(0.05)
+        if initialized:
+            out = {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32000, "message": "dup"}}
+        else:
+            initialized = True
+            out = {"jsonrpc": "2.0", "id": msg_id, "result": {"protocolVersion": "2025-03-26"}}
+        sys.stdout.write(json.dumps(out) + "\\n")
+        sys.stdout.flush()
+    elif method == "notifications/cancelled":
+        cancelled.append(msg.get("params", {}).get("requestId"))
+    elif method == "tools/call":
+        name = msg["params"]["name"]
+        if name == "sleep":
+            time.sleep(3.0)
+        elif name == "cancelled_ids":
+            out = {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {"content": [{"type": "text", "text": json.dumps(cancelled)}]},
+            }
+            sys.stdout.write(json.dumps(out) + "\\n")
+            sys.stdout.flush()
+        else:
+            out = {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {"content": [{"type": "text", "text": "ok"}]},
+            }
+            sys.stdout.write(json.dumps(out) + "\\n")
+            sys.stdout.flush()
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "strict_stdio.py"
+            script.write_text(script_body, encoding="utf-8")
+            spec = ServerSpec(
+                name="strict-stdio",
+                alias="strict_stdio",
+                transport="stdio",
+                command=sys.executable,
+                args=("-u", str(script)),
+            )
+            client = StdioUpstreamClient(spec)
+            try:
+                errors: list[Exception] = []
+
+                def _call_ok() -> None:
+                    try:
+                        client.call_tool("ok", {})
+                    except Exception as exc:  # noqa: BLE001
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=_call_ok) for _ in range(4)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join(timeout=5.0)
+                self.assertEqual(errors, [])
+
+                cancel = threading.Event()
+                threading.Timer(0.15, cancel.set).start()
+                t0 = time.monotonic()
+                with self.assertRaises(UpstreamError) as cancel_ctx:
+                    client.call_tool("sleep", {}, cancel_event=cancel)
+                self.assertIn("cancelled", str(cancel_ctx.exception))
+                self.assertLess(time.monotonic() - t0, 1.5)
+            finally:
+                client.close()

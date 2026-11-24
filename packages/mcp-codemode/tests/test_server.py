@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import http.server
-import io
 import json
 import os
 import sys
@@ -404,7 +403,7 @@ for line in sys.stdin:
                     server.supervisor.close_all()
 
     def test_serve_stdio_concurrent_ping_and_cancellation(self) -> None:
-        """Answer ping immediately and cancel in-flight tools/call via notifications/cancelled."""
+        """Keep stdin open to prove notifications/cancelled (not EOF) aborts tools/call."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             manifest_path = root / "manifest.json"
@@ -422,9 +421,29 @@ for line in sys.stdin:
             )
             server = CodeModeServer(manifest, sandbox_cfg, cwd=root)
 
-            requests = "\n".join(
-                [
-                    json.dumps(
+            in_r, in_w = os.pipe()
+            out_r, out_w = os.pipe()
+            replies: list[dict[str, object]] = []
+            cancel_done = threading.Event()
+
+            cancel_req_id = 10
+
+            def _read_replies() -> None:
+                with os.fdopen(out_r, "r", encoding="utf-8") as reader:
+                    for line in reader:
+                        if not line.strip():
+                            continue
+                        parsed = cast("dict[str, object]", json.loads(line))
+                        replies.append(parsed)
+                        if parsed.get("id") == cancel_req_id:
+                            cancel_done.set()
+
+            reader_thread = threading.Thread(target=_read_replies, daemon=True)
+            reader_thread.start()
+
+            def _feed_stdin() -> None:
+                with os.fdopen(in_w, "w", encoding="utf-8") as writer:
+                    for payload in (
                         {
                             "jsonrpc": "2.0",
                             "id": 10,
@@ -433,36 +452,47 @@ for line in sys.stdin:
                                 "name": "search",
                                 "arguments": {"code": "async () => new Promise(() => {})"},
                             },
-                        }
-                    ),
-                    json.dumps({"jsonrpc": "2.0", "id": 11, "method": "ping"}),
-                    json.dumps(
+                        },
+                        {
+                            "jsonrpc": "2.0",
+                            "id": ["unhashable"],
+                            "method": "tools/call",
+                            "params": {"name": "search", "arguments": {"code": "1 + 1"}},
+                        },
+                        {"jsonrpc": "2.0", "id": 11, "method": "ping"},
                         {
                             "jsonrpc": "2.0",
                             "method": "notifications/cancelled",
                             "params": {"requestId": 10},
-                        }
-                    ),
-                ]
-            )
-            fake_in = io.StringIO(requests + "\n")
-            fake_out = io.StringIO()
+                        },
+                    ):
+                        writer.write(json.dumps(payload) + "\n")
+                        writer.flush()
+                    # Keep stdin open until cancellation finishes so EOF cannot mask it.
+                    cancel_done.wait(timeout=4.0)
+
+            feeder = threading.Thread(target=_feed_stdin, daemon=True)
+            feeder.start()
+
             t0 = time.monotonic()
             with (
-                mock.patch.object(sys, "stdin", fake_in),
-                mock.patch.object(sys, "stdout", fake_out),
+                os.fdopen(in_r, "r", encoding="utf-8") as pipe_in,
+                os.fdopen(out_w, "w", encoding="utf-8") as pipe_out,
+                mock.patch.object(sys, "stdin", pipe_in),
+                mock.patch.object(sys, "stdout", pipe_out),
             ):
                 rc = server.serve_stdio()
             elapsed = time.monotonic() - t0
+            feeder.join(timeout=2.0)
+            reader_thread.join(timeout=2.0)
+
             self.assertEqual(rc, 0)
+            self.assertTrue(cancel_done.is_set())
             self.assertLess(elapsed, 3.0)
 
-            replies = [
-                cast("dict[str, object]", json.loads(line))
-                for line in fake_out.getvalue().splitlines()
-                if line.strip()
-            ]
-            by_id = {reply["id"]: reply for reply in replies}
+            by_id = {
+                reply["id"]: reply for reply in replies if isinstance(reply.get("id"), (int, str))
+            }
             self.assertEqual(by_id[11]["result"], {})
             cancelled_res = cast("dict[str, object]", by_id[10]["result"])
             self.assertTrue(cancelled_res["isError"])

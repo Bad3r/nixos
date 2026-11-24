@@ -8,16 +8,18 @@ import json
 import signal
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+import time
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from ._util import (
+    PACKAGE_INFO,
     PROTOCOL_VERSION,
-    SERVER_INFO,
+    RPC_METHOD_NOT_FOUND,
     SUPPORTED_PROTOCOL_VERSIONS,
     as_dict,
     as_dict_list,
+    is_valid_rpc_id,
 )
 from .config import (
     DISABLE_ENV_VAR,
@@ -39,10 +41,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 NON_TEXT_BLOCK_TYPES = frozenset({"image", "audio", "resource", "resource_link"})
-RPC_METHOD_NOT_FOUND = -32601
 RPC_INVALID_PARAMS = -32602
 RPC_INTERNAL_ERROR = -32603
-DEFAULT_SEARCH_TIMEOUT_SEC = 60.0
+RPC_DEADLINE_HEADROOM_SEC = 3.0
+UNFILTERED_DISCOVERY_TIMEOUT_SEC = 45.0
+SHUTDOWN_JOIN_SEC = 2.0
 MAX_ATTACHMENTS = 16
 MAX_CONCURRENT_REQUESTS = 8
 MAX_DISCOVERY_WORKERS = 6
@@ -61,9 +64,11 @@ class ToolDispatchError(RuntimeError):
         """Create an error explaining how to enable an opt-in server."""
         return cls(
             f"MCP server '{server}' is disabled. Enable it without restarting via "
-            f"`mcp-codemode enable {server}` (project-scoped in {user_overrides_path()}) or "
-            f"`mcp-codemode enable --user {server}` (user-wide; required for GUI clients), "
-            f"or launch the client with `{ENABLE_ENV_VAR}={server}`."
+            f"`mcp-codemode enable {server}` (run from the project directory; writes a "
+            f"project-scoped entry in {user_overrides_path()}) or "
+            f"`mcp-codemode enable --user {server}` (user-wide; required for GUI clients "
+            f"that launch outside the workspace directory), or launch the client with "
+            f"`{ENABLE_ENV_VAR}={server}`."
         )
 
     @classmethod
@@ -98,10 +103,12 @@ def _collect_blocks(
                 if len(attachments) < MAX_ATTACHMENTS:
                     attachments.append(block)
             meta: dict[str, object] = {"type": btype}
-            if "mimeType" in block:
-                meta["mimeType"] = block["mimeType"]
-            if "uri" in block:
-                meta["uri"] = block["uri"]
+            nested = as_dict(block.get("resource")) if btype == "resource" else None
+            for field_name in ("mimeType", "uri"):
+                if field_name in block:
+                    meta[field_name] = block[field_name]
+                elif nested is not None and field_name in nested:
+                    meta[field_name] = nested[field_name]
             non_text_meta.append(meta)
     return text_parts, non_text_meta
 
@@ -176,6 +183,13 @@ def _format_execution_text(value: object, logs: list[str]) -> str:
     return truncate_text("\n\n".join(sections))
 
 
+def _rpc_deadline(sandbox_deadline: float) -> float:
+    remaining = sandbox_deadline - time.monotonic()
+    if remaining > RPC_DEADLINE_HEADROOM_SEC + 1.0:
+        return sandbox_deadline - RPC_DEADLINE_HEADROOM_SEC
+    return sandbox_deadline
+
+
 def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
     server_list = ", ".join(
         f"{spec.alias} ({spec.name})" if spec.alias != spec.name else spec.name
@@ -192,14 +206,15 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
     )
     exec_desc = (
         "Execute JS/TS in an isolated zero-network, zero-filesystem sandbox with access to "
-        "enabled MCP servers via `codemode.<server>.<tool>(args)` or "
-        "`codemode.call(server, tool, args)`, plus `await codemode.servers()`, "
-        "`await codemode.tools()`, and `await codemode.spec()`. Use `search` first to inspect "
-        "schemas. Return only the filtered result you need; output past 24,000 chars is "
-        "truncated. Toggle opt-in servers without restarting the client via "
-        f"`mcp-codemode enable <server>` (project-scoped in {user_overrides_path()}) or "
-        "`mcp-codemode enable --user <server>` (user-wide; required for GUI clients), "
-        f"or set `{ENABLE_ENV_VAR}` / `{DISABLE_ENV_VAR}` before launching the client."
+        "enabled MCP servers via `codemode.<server>.<tool>(args)` (use underscore aliases such as "
+        "`cloudflare_api` for hyphenated server names) or `codemode.call(server, tool, args)`, "
+        "plus `await codemode.servers()`, `await codemode.tools()`, and `await codemode.spec()`. "
+        "Use `search` first to inspect schemas. Return only the filtered result you need; output "
+        "past 24,000 chars is truncated. Toggle opt-in servers without restarting the client via "
+        f"`mcp-codemode enable <server>` (run from the project directory; writes to "
+        f"{user_overrides_path()}) or `mcp-codemode enable --user <server>` (user-wide; required "
+        f"for GUI clients launched outside the workspace), or set `{ENABLE_ENV_VAR}` / "
+        f"`{DISABLE_ENV_VAR}` before launching the client."
     )
     return [
         {
@@ -248,6 +263,14 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
     ]
 
 
+@dataclass(frozen=True)
+class _DiscoveryOpts:
+    refresh: bool
+    compact: bool
+    deadline: float
+    cancel_event: threading.Event | None = None
+
+
 class CodeModeServer:
     """JSON-RPC 2.0 stdio MCP server routing search and execute calls."""
 
@@ -266,7 +289,7 @@ class CodeModeServer:
         self._tools = _build_tool_definitions(manifest)
         self._stdout_lock = threading.Lock()
         self._cancel_lock = threading.Lock()
-        self._active_cancels: dict[object, threading.Event] = {}
+        self._active_cancels: dict[str | int | float, threading.Event] = {}
 
     def _current_states(self) -> tuple[dict[str, bool], dict[str, str]]:
         states, sources = resolve_enabled_servers(self.manifest, self.cwd)
@@ -293,9 +316,7 @@ class CodeModeServer:
         name: str,
         *,
         enabled: bool,
-        refresh: bool,
-        compact: bool,
-        deadline: float | None,
+        opts: _DiscoveryOpts,
     ) -> dict[str, object]:
         spec = self.manifest.servers[name]
         if not enabled:
@@ -307,7 +328,12 @@ class CodeModeServer:
                 "error": str(ToolDispatchError.disabled_server(spec.name)),
             }
         try:
-            tools = self.supervisor.get_tools(spec.name, refresh=refresh, deadline=deadline)
+            tools = self.supervisor.get_tools(
+                spec.name,
+                refresh=opts.refresh,
+                deadline=opts.deadline,
+                cancel_event=opts.cancel_event,
+            )
         except UpstreamError as exc:
             return {
                 "server": spec.name,
@@ -316,7 +342,7 @@ class CodeModeServer:
                 "tools": [],
                 "error": str(exc),
             }
-        rendered = [_compact_tool_entry(t) for t in tools] if compact else tools
+        rendered = [_compact_tool_entry(t) for t in tools] if opts.compact else tools
         return {
             "server": spec.name,
             "alias": spec.alias,
@@ -324,12 +350,59 @@ class CodeModeServer:
             "tools": rendered,
         }
 
+    def _discover_servers_parallel(
+        self,
+        enabled_names: list[str],
+        opts: _DiscoveryOpts,
+    ) -> dict[str, object]:
+        results: dict[str, object] = {}
+        results_lock = threading.Lock()
+        sem = threading.Semaphore(min(len(enabled_names), MAX_DISCOVERY_WORKERS))
+
+        def _probe(name: str) -> None:
+            with sem:
+                entry = self._inspect_server_tools(name, enabled=True, opts=opts)
+            with results_lock:
+                results[name] = entry
+
+        threads: dict[str, threading.Thread] = {}
+        for name in enabled_names:
+            thread = threading.Thread(target=_probe, args=(name,), daemon=True)
+            threads[name] = thread
+            thread.start()
+
+        join_deadline = opts.deadline + 0.5
+        for thread in threads.values():
+            remaining = join_deadline - time.monotonic()
+            if remaining > 0:
+                thread.join(timeout=remaining)
+
+        out: dict[str, object] = {}
+        with results_lock:
+            for name in enabled_names:
+                if name in results:
+                    out[name] = results[name]
+                else:
+                    spec = self.manifest.servers[name]
+                    out[name] = {
+                        "server": spec.name,
+                        "alias": spec.alias,
+                        "enabled": True,
+                        "tools": [],
+                        "error": (
+                            f"upstream '{spec.name}' discovery timed out; "
+                            f"pass '{spec.name}' to codemode.tools() to wait for cold startup"
+                        ),
+                    }
+        return out
+
     def _handle_discovery_rpc(
         self,
         params: dict[str, object],
         *,
         compact: bool,
         deadline: float,
+        cancel_event: threading.Event | None,
     ) -> dict[str, object]:
         states, _ = self._current_states()
         refresh = bool(params.get("refresh", False))
@@ -341,9 +414,12 @@ class CodeModeServer:
             return self._inspect_server_tools(
                 canonical,
                 enabled=states[canonical],
-                refresh=refresh,
-                compact=compact,
-                deadline=deadline,
+                opts=_DiscoveryOpts(
+                    refresh=refresh,
+                    compact=compact,
+                    deadline=deadline,
+                    cancel_event=cancel_event,
+                ),
             )
 
         out: dict[str, object] = {}
@@ -361,21 +437,18 @@ class CodeModeServer:
         if not enabled_names:
             return out
 
-        workers = min(len(enabled_names), MAX_DISCOVERY_WORKERS)
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {
-                name: pool.submit(
-                    self._inspect_server_tools,
-                    name,
-                    enabled=True,
+        probe_deadline = min(deadline, time.monotonic() + UNFILTERED_DISCOVERY_TIMEOUT_SEC)
+        out.update(
+            self._discover_servers_parallel(
+                enabled_names,
+                _DiscoveryOpts(
                     refresh=refresh,
                     compact=compact,
-                    deadline=deadline,
-                )
-                for name in enabled_names
-            }
-            for name, fut in futures.items():
-                out[name] = fut.result()
+                    deadline=probe_deadline,
+                    cancel_event=cancel_event,
+                ),
+            )
+        )
         return out
 
     def _handle_call_tool_rpc(
@@ -384,6 +457,7 @@ class CodeModeServer:
         attachments: list[dict[str, object]],
         attachments_lock: threading.Lock,
         deadline: float,
+        cancel_event: threading.Event | None,
     ) -> object:
         raw_server = str(params.get("server", ""))
         tool_name = str(params.get("tool", ""))
@@ -400,7 +474,13 @@ class CodeModeServer:
         if not states[canonical]:
             raise ToolDispatchError.disabled_server(canonical)
 
-        result = self.supervisor.call_tool(canonical, tool_name, arguments, deadline=deadline)
+        result = self.supervisor.call_tool(
+            canonical,
+            tool_name,
+            arguments,
+            deadline=deadline,
+            cancel_event=cancel_event,
+        )
         if result.get("isError"):
             raise ToolDispatchError.upstream_tool_error(
                 canonical,
@@ -414,18 +494,40 @@ class CodeModeServer:
         tool_name: str,
         attachments: list[dict[str, object]],
         attachments_lock: threading.Lock,
-    ) -> Callable[[str, dict[str, object], float], object]:
-        def rpc_handler(method: str, params: dict[str, object], deadline: float) -> object:
+    ) -> Callable[[str, dict[str, object], float, threading.Event], object]:
+        def rpc_handler(
+            method: str,
+            params: dict[str, object],
+            deadline: float,
+            cancel_event: threading.Event,
+        ) -> object:
+            effective_deadline = _rpc_deadline(deadline)
             if method == "servers":
                 return self._handle_servers_rpc()
             if method == "tools":
-                return self._handle_discovery_rpc(params, compact=True, deadline=deadline)
+                return self._handle_discovery_rpc(
+                    params,
+                    compact=True,
+                    deadline=effective_deadline,
+                    cancel_event=cancel_event,
+                )
             if method == "spec":
-                return self._handle_discovery_rpc(params, compact=False, deadline=deadline)
+                return self._handle_discovery_rpc(
+                    params,
+                    compact=False,
+                    deadline=effective_deadline,
+                    cancel_event=cancel_event,
+                )
             if method == "call_tool":
                 if tool_name != "execute":
                     raise ToolDispatchError.unsupported_method(tool_name, method)
-                return self._handle_call_tool_rpc(params, attachments, attachments_lock, deadline)
+                return self._handle_call_tool_rpc(
+                    params,
+                    attachments,
+                    attachments_lock,
+                    effective_deadline,
+                    cancel_event,
+                )
             raise ToolDispatchError.unsupported_method(tool_name, method)
 
         return rpc_handler
@@ -456,15 +558,10 @@ class CodeModeServer:
         attachments: list[dict[str, object]] = []
         attachments_lock = threading.Lock()
         rpc_handler = self._make_rpc_handler(tool_name, attachments, attachments_lock)
-        effective_timeout = (
-            min(self.sandbox_config.timeout_sec, DEFAULT_SEARCH_TIMEOUT_SEC)
-            if tool_name == "search"
-            else self.sandbox_config.timeout_sec
-        )
         effective_config = replace(
             self.sandbox_config,
-            timeout_sec=effective_timeout,
             cancel_event=cancel_event,
+            on_abort=self.supervisor.cancel_active,
         )
 
         try:
@@ -513,7 +610,7 @@ class CodeModeServer:
             result = {
                 "protocolVersion": self._negotiate_protocol_version(params),
                 "capabilities": {"tools": {}},
-                "serverInfo": SERVER_INFO,
+                "serverInfo": PACKAGE_INFO,
             }
         elif method == "ping":
             result = {}
@@ -531,10 +628,13 @@ class CodeModeServer:
         return result, error
 
     def _cancel_request(self, request_id: object) -> None:
+        if not is_valid_rpc_id(request_id):
+            return
         with self._cancel_lock:
             cancel_event = self._active_cancels.get(request_id)
         if cancel_event is not None:
             cancel_event.set()
+            self.supervisor.cancel_active()
 
     def handle_message(
         self,
@@ -593,11 +693,41 @@ class CodeModeServer:
                 else None
             )
         finally:
-            if msg_id is not None and cancel_event is not None:
+            if is_valid_rpc_id(msg_id) and cancel_event is not None:
                 with self._cancel_lock:
                     self._active_cancels.pop(msg_id, None)
         if reply is not None:
             self._write_reply(reply)
+
+    def _parse_stdin_message(self, raw_line: str) -> dict[str, object] | None:
+        stripped = raw_line.strip()
+        if not stripped:
+            return None
+        try:
+            parsed: object = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(f"mcp-codemode: ignoring invalid JSON on stdin: {exc}\n")
+            sys.stderr.flush()
+            return None
+        return as_dict(parsed)
+
+    def _shutdown_workers(
+        self,
+        active_threads: set[threading.Thread],
+        threads_lock: threading.Lock,
+    ) -> None:
+        with self._cancel_lock:
+            for ev in self._active_cancels.values():
+                ev.set()
+            self._active_cancels.clear()
+        self.supervisor.cancel_active()
+        with threads_lock:
+            pending_threads = list(active_threads)
+        join_deadline = time.monotonic() + SHUTDOWN_JOIN_SEC
+        for thread in pending_threads:
+            remaining = join_deadline - time.monotonic()
+            if remaining > 0:
+                thread.join(timeout=remaining)
 
     def serve_stdio(self) -> int:
         """Run the newline-delimited JSON-RPC loop on stdin/stdout until EOF."""
@@ -607,36 +737,37 @@ class CodeModeServer:
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
         previous_sigint = signal.signal(signal.SIGINT, _handle_signal)
-        executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS)
+        request_sem = threading.Semaphore(MAX_CONCURRENT_REQUESTS)
+        active_threads: set[threading.Thread] = set()
+        threads_lock = threading.Lock()
+
+        def _worker(msg: dict[str, object], cancel_event: threading.Event) -> None:
+            try:
+                with request_sem:
+                    self._run_message_safe(msg, cancel_event=cancel_event)
+            finally:
+                with threads_lock:
+                    active_threads.discard(threading.current_thread())
+
         try:
             for raw_line in sys.stdin:
-                stripped = raw_line.strip()
-                if not stripped:
-                    continue
-                try:
-                    parsed: object = json.loads(stripped)
-                except json.JSONDecodeError as exc:
-                    sys.stderr.write(f"mcp-codemode: ignoring invalid JSON on stdin: {exc}\n")
-                    sys.stderr.flush()
-                    continue
-                msg = as_dict(parsed)
+                msg = self._parse_stdin_message(raw_line)
                 if msg is None:
                     continue
-                if msg.get("method") == "tools/call":
-                    cancel_event = threading.Event()
-                    msg_id = msg.get("id")
-                    if msg_id is not None:
-                        with self._cancel_lock:
-                            self._active_cancels[msg_id] = cancel_event
-                    executor.submit(self._run_message_safe, msg, cancel_event=cancel_event)
-                else:
+                if msg.get("method") != "tools/call":
                     self._run_message_safe(msg)
+                    continue
+                cancel_event = threading.Event()
+                msg_id = msg.get("id")
+                if is_valid_rpc_id(msg_id):
+                    with self._cancel_lock:
+                        self._active_cancels[msg_id] = cancel_event
+                thread = threading.Thread(target=_worker, args=(msg, cancel_event), daemon=True)
+                with threads_lock:
+                    active_threads.add(thread)
+                thread.start()
         finally:
-            with self._cancel_lock:
-                for ev in self._active_cancels.values():
-                    ev.set()
-                self._active_cancels.clear()
-            executor.shutdown(wait=True, cancel_futures=True)
+            self._shutdown_workers(active_threads, threads_lock)
             signal.signal(signal.SIGTERM, previous_sigterm)
             signal.signal(signal.SIGINT, previous_sigint)
             self.supervisor.close_all()

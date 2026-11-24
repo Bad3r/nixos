@@ -17,7 +17,6 @@ from unittest import mock
 from mcp_codemode.cli import main
 from mcp_codemode.config import (
     ENABLE_ENV_VAR,
-    active_project_overrides,
     user_overrides_path,
 )
 
@@ -70,7 +69,6 @@ class CliTest(unittest.TestCase):
                     self.assertEqual(main(["enable", "google-developer-knowledge"]), 0)
                     self.assertTrue(user_overrides_path().is_file())
                     self.assertFalse((proj_dir / ".mcp-codemode.json").exists())
-                    self.assertEqual(active_project_overrides(proj_dir), [str(proj_dir.resolve())])
 
                     self.assertEqual(main(["disable", "--user", "deepwiki"]), 0)
 
@@ -91,6 +89,7 @@ class CliTest(unittest.TestCase):
                     bare = cast("dict[str, object]", json.loads(bare_json.getvalue()))
                     self.assertEqual(bare["userDisable"], ["deepwiki"])
                     self.assertEqual(bare["envEnable"], ["deepwiki"])
+                    self.assertEqual(bare["projectOverrides"], [str(proj_dir.resolve())])
                     self.assertTrue(bare["projectOverridesExist"])
 
                     bare_text = io.StringIO()

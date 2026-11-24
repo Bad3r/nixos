@@ -2,26 +2,66 @@
 //
 // Isolated Code Mode script runner executed inside Node 24 (--permission,
 // --disallow-code-generation-from-strings, --disable-proto=throw) + Bubblewrap
-// (--unshare-all) for OS/filesystem/network/codegen confinement. Model code
-// runs in a separate node:vm context without process, require, fetch, or
-// filesystem globals and communicates with the host gateway strictly over
+// (--unshare-all --cap-drop ALL) for OS/filesystem/network/codegen confinement.
+// Model code runs in a separate node:vm context without process, require, fetch,
+// or filesystem globals and communicates with the host gateway strictly over
 // newline-delimited JSON on stdin/stdout.
 
 import { stripTypeScriptTypes } from "node:module";
 import readline from "node:readline";
 import vm from "node:vm";
 
+// Capture primordials before user code executes so host IPC cannot be hooked.
+const objectAssign = Object.assign;
+const objectCreate = Object.create;
+const objectFreeze = Object.freeze;
+const objectHasOwn = Object.hasOwn;
+const reflectGet = Reflect.get;
+const HostPromise = Promise;
+const safeJsonParse = JSON.parse;
+const safeJsonStringify = JSON.stringify;
+const isError = Error.isError;
+const hostSetTimeout = setTimeout;
+const hostClearTimeout = clearTimeout;
+
 const MAX_LOG_LINES = 200;
 const MAX_LOG_BYTES = 64 * 1024;
 const logs = [];
 let logBytes = 0;
-const pending = new Map();
+const pending = objectCreate(null);
+const timers = objectCreate(null);
 let nextRpcId = 1;
+let nextTimerId = 1;
 let finished = false;
+let vmJsonParse = (raw) => safeJsonParse(raw);
+let vmMakeError = (message) => new Error(message);
 
-const safeJsonStringify = JSON.stringify;
-
-// Seal host-realm prototypes reachable through bridged objects before user code runs.
+// Seal reachable host constructors and prototypes before user code runs.
+for (const ctor of [
+	Object,
+	Array,
+	Function,
+	Promise,
+	Error,
+	TypeError,
+	RangeError,
+	SyntaxError,
+	ReferenceError,
+	URIError,
+	EvalError,
+	URL,
+	URLSearchParams,
+	TextEncoder,
+	TextDecoder,
+	Map,
+	Set,
+	Date,
+	RegExp,
+	ArrayBuffer,
+	Uint8Array,
+]) {
+	objectFreeze(ctor);
+}
 for (const proto of [
 	Object.prototype,
 	Array.prototype,
@@ -31,8 +71,15 @@ for (const proto of [
 	URLSearchParams.prototype,
 	TextEncoder.prototype,
 	TextDecoder.prototype,
+	Map.prototype,
+	Set.prototype,
+	Date.prototype,
+	RegExp.prototype,
+	ArrayBuffer.prototype,
+	Uint8Array.prototype,
+	Object.getPrototypeOf(Uint8Array.prototype),
 ]) {
-	Object.freeze(proto);
+	objectFreeze(proto);
 }
 for (const errProto of [
 	Error.prototype,
@@ -46,28 +93,38 @@ for (const errProto of [
 	Object.preventExtensions(errProto);
 }
 
-function serializeEnvelope(msg) {
-	const envelope = Object.assign(Object.create(null), msg);
+function safeErrorMessage(err) {
+	if (isError(err)) {
+		try {
+			return String(err.message);
+		} catch {
+			return "Error";
+		}
+	}
+	try {
+		return String(err);
+	} catch {
+		return "[unprintable error]";
+	}
+}
+
+function serializeTerminalEnvelope(msg) {
+	const envelope = objectAssign(objectCreate(null), msg);
 	try {
 		return safeJsonStringify(envelope);
 	} catch (err) {
-		const reason = err instanceof Error ? err.message : String(err);
-		const fallback = Object.assign(Object.create(null), {
+		const fallback = objectAssign(objectCreate(null), {
 			type: "error",
-			error: `sandbox result serialization failed: ${reason}`,
+			error: `sandbox result serialization failed: ${safeErrorMessage(err)}`,
 			logs,
 		});
 		return safeJsonStringify(fallback);
 	}
 }
 
-function sendHost(msg) {
-	process.stdout.write(`${serializeEnvelope(msg)}\n`);
-}
-
 function sendHostAndWait(msg) {
-	return new Promise((resolve, reject) => {
-		process.stdout.write(`${serializeEnvelope(msg)}\n`, (err) => {
+	return new HostPromise((resolve, reject) => {
+		process.stdout.write(`${serializeTerminalEnvelope(msg)}\n`, (err) => {
 			if (err) {
 				reject(err);
 			} else {
@@ -78,19 +135,47 @@ function sendHostAndWait(msg) {
 }
 
 function rpcCall(method, params = {}) {
-	return new Promise((resolve, reject) => {
+	return new HostPromise((resolve, reject) => {
 		const id = nextRpcId++;
-		pending.set(id, { resolve, reject });
-		sendHost({ type: "rpc", id, method, params });
+		let wire;
+		try {
+			wire = safeJsonStringify(
+				objectAssign(objectCreate(null), {
+					type: "rpc",
+					id,
+					method,
+					params,
+				}),
+			);
+		} catch (err) {
+			reject(
+				vmMakeError(
+					`RPC argument serialization failed: ${safeErrorMessage(err)}`,
+				),
+			);
+			return;
+		}
+		pending[id] = { resolve, reject };
+		process.stdout.write(`${wire}\n`);
 	});
 }
 
 function formatLogArg(arg) {
 	if (typeof arg === "string") return arg;
+	if (arg === undefined) return "undefined";
+	if (typeof arg === "function") {
+		return `[Function: ${arg.name || "anonymous"}]`;
+	}
 	try {
-		return safeJsonStringify(arg);
+		const serialized = safeJsonStringify(arg);
+		if (serialized !== undefined) return serialized;
 	} catch {
+		// Fall through to safe stringification.
+	}
+	try {
 		return String(arg);
+	} catch {
+		return "[unprintable value]";
 	}
 }
 
@@ -117,7 +202,7 @@ function normalizeDiscoveryParams(server, options) {
 }
 
 function resolveCanonicalServer(serverAliases, key) {
-	return Object.hasOwn(serverAliases, key) ? serverAliases[key] : key;
+	return objectHasOwn(serverAliases, key) ? serverAliases[key] : key;
 }
 
 function buildCodemode(mode, serverAliases) {
@@ -130,16 +215,20 @@ function buildCodemode(mode, serverAliases) {
 	};
 
 	if (mode !== "execute") {
-		return Object.freeze(base);
+		return objectFreeze(base);
 	}
 
-	const serverCache = new Map();
+	const serverCache = objectCreate(null);
 	const makeServerProxy = (serverKey) => {
 		const canonical = resolveCanonicalServer(serverAliases, serverKey);
-		if (serverCache.has(canonical)) return serverCache.get(canonical);
-		const proxy = new Proxy(Object.create(null), {
+		if (objectHasOwn(serverCache, canonical)) return serverCache[canonical];
+		const proxy = new Proxy(objectCreate(null), {
 			get(_target, toolProp) {
-				if (typeof toolProp !== "string" || toolProp === "then") {
+				if (
+					typeof toolProp !== "string" ||
+					toolProp === "then" ||
+					toolProp === "toJSON"
+				) {
 					return undefined;
 				}
 				return (args = {}) =>
@@ -150,7 +239,7 @@ function buildCodemode(mode, serverAliases) {
 					});
 			},
 		});
-		serverCache.set(canonical, proxy);
+		serverCache[canonical] = proxy;
 		return proxy;
 	};
 
@@ -167,8 +256,8 @@ function buildCodemode(mode, serverAliases) {
 	return new Proxy(execBase, {
 		get(target, prop, receiver) {
 			if (typeof prop !== "string") return undefined;
-			if (Object.hasOwn(target, prop)) {
-				return Reflect.get(target, prop, receiver);
+			if (objectHasOwn(target, prop)) {
+				return reflectGet(target, prop, receiver);
 			}
 			if (prop === "then" || prop === "toJSON") return undefined;
 			return makeServerProxy(prop);
@@ -184,19 +273,40 @@ function stripTypesIfPossible(source) {
 	}
 }
 
+function stripTrailingSemicolonAndComments(source) {
+	let current = source.trim();
+	while (true) {
+		const next = current
+			.replace(/(?:^|\n)[ \t]*\/\/[^\n]*$/, "")
+			.replace(/\/\*[\s\S]*?\*\/\s*$/, "")
+			.replace(/;\s*$/, "")
+			.trim();
+		if (next === current) return current;
+		current = next;
+	}
+}
+
+function tryCompileExpr(candidate) {
+	if (!candidate) return null;
+	const wrappedExpr = stripTypesIfPossible(`(async () => (\n${candidate}\n))`);
+	try {
+		return new vm.Script(wrappedExpr);
+	} catch {
+		return null;
+	}
+}
+
 function compileUserCode(source, context) {
 	const trimmed = source.trim();
-	const exprCandidate = trimmed.replace(/;+\s*$/, "");
-	let exprScript = null;
-	if (exprCandidate) {
-		const wrappedExpr = stripTypesIfPossible(
-			`(async () => (\n${exprCandidate}\n))`,
+	// Pre-strip top-level TypeScript declarations (e.g. `type X = ...; async () => ...`)
+	// before testing single-expression wrapping.
+	const preStripped = stripTypesIfPossible(trimmed).trim();
+	const exprCandidate = stripTrailingSemicolonAndComments(preStripped);
+	let exprScript = tryCompileExpr(exprCandidate);
+	if (exprScript === null && /;\s*\/\/[^\n]*$/.test(exprCandidate)) {
+		exprScript = tryCompileExpr(
+			exprCandidate.replace(/;(\s*\/\/[^\n]*)$/, "$1").trim(),
 		);
-		try {
-			exprScript = new vm.Script(wrappedExpr);
-		} catch {
-			exprScript = null;
-		}
 	}
 	if (exprScript !== null) {
 		const outer = exprScript.runInContext(context);
@@ -210,8 +320,25 @@ function compileUserCode(source, context) {
 	return bodyScript.runInContext(context);
 }
 
+function sandboxSetTimeout(fn, delay, ...args) {
+	const id = nextTimerId++;
+	const handle = hostSetTimeout(() => {
+		delete timers[id];
+		if (typeof fn === "function") fn(...args);
+	}, delay);
+	timers[id] = handle;
+	return id;
+}
+
+function sandboxClearTimeout(id) {
+	if (typeof id === "number" && objectHasOwn(timers, id)) {
+		hostClearTimeout(timers[id]);
+		delete timers[id];
+	}
+}
+
 function makeSandboxContext(codemode) {
-	const safeConsole = Object.freeze({
+	const safeConsole = objectFreeze({
 		log: (...args) => appendLog("log", args),
 		info: (...args) => appendLog("info", args),
 		warn: (...args) => appendLog("warn", args),
@@ -227,17 +354,24 @@ function makeSandboxContext(codemode) {
 		structuredClone,
 		atob,
 		btoa,
-		setTimeout,
-		clearTimeout,
+		setTimeout: sandboxSetTimeout,
+		clearTimeout: sandboxClearTimeout,
 	};
-	return vm.createContext(sandbox, {
+	const context = vm.createContext(sandbox, {
 		codeGeneration: { strings: false, wasm: false },
 	});
+	vmJsonParse = vm.runInContext("((s) => JSON.parse(s))", context);
+	vmMakeError = vm.runInContext("((m) => new Error(m))", context);
+	return context;
 }
 
 async function finishWith(msg) {
 	if (finished) return;
 	finished = true;
+	for (const id of Object.keys(timers)) {
+		hostClearTimeout(timers[id]);
+		delete timers[id];
+	}
 	try {
 		await sendHostAndWait(msg);
 	} finally {
@@ -247,13 +381,11 @@ async function finishWith(msg) {
 }
 
 process.on("uncaughtException", (err) => {
-	const message = err instanceof Error ? err.message : String(err);
-	void finishWith({ type: "error", error: message, logs });
+	void finishWith({ type: "error", error: safeErrorMessage(err), logs });
 });
 
 process.on("unhandledRejection", (reason) => {
-	const message = reason instanceof Error ? reason.message : String(reason);
-	void finishWith({ type: "error", error: message, logs });
+	void finishWith({ type: "error", error: safeErrorMessage(reason), logs });
 });
 
 async function runCode(msg) {
@@ -268,8 +400,7 @@ async function runCode(msg) {
 			logs,
 		});
 	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		await finishWith({ type: "error", error: message, logs });
+		await finishWith({ type: "error", error: safeErrorMessage(err), logs });
 	}
 }
 
@@ -282,20 +413,28 @@ rl.on("line", (line) => {
 	if (!trimmed) return;
 	let msg;
 	try {
-		msg = JSON.parse(trimmed);
+		msg = safeJsonParse(trimmed);
 	} catch {
 		return;
 	}
 	if (msg.type === "run") {
 		void runCode(msg);
 	} else if (msg.type === "rpc_result") {
-		const waiter = pending.get(msg.id);
-		if (!waiter) return;
-		pending.delete(msg.id);
+		if (!objectHasOwn(pending, msg.id)) return;
+		const waiter = pending[msg.id];
+		delete pending[msg.id];
 		if (msg.ok) {
-			waiter.resolve(msg.result);
+			try {
+				const marshalled =
+					msg.result === undefined
+						? undefined
+						: vmJsonParse(safeJsonStringify(msg.result));
+				waiter.resolve(marshalled);
+			} catch (err) {
+				waiter.reject(vmMakeError(safeErrorMessage(err)));
+			}
 		} else {
-			waiter.reject(new Error(String(msg.error || "upstream RPC failed")));
+			waiter.reject(vmMakeError(String(msg.error || "upstream RPC failed")));
 		}
 	}
 });

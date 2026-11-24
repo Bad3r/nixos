@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import json
 import os
@@ -39,11 +40,6 @@ class ConfigError(RuntimeError):
     def invalid_secret_path(cls, detail: str) -> ConfigError:
         """Create an error when a secret path is unsafe."""
         return cls(f"invalid MCP secret path: {detail}")
-
-    @classmethod
-    def secret_escape(cls) -> ConfigError:
-        """Create an error when a resolved secret path escapes its base directory."""
-        return cls("invalid MCP secret path: escapes XDG_DATA_HOME")
 
     @classmethod
     def unreadable_secret(cls, path: Path, detail: str) -> ConfigError:
@@ -161,12 +157,8 @@ def _validate_declared_secret_path(declared: str) -> str | None:
 
 
 def _lexical_child(base: Path, rel_path: str) -> Path:
-    norm_base = Path(os.path.normpath(base))
     # Use normpath (not resolve) because sops-nix links ~/.local/share secrets into /run/user.
-    candidate = Path(os.path.normpath(norm_base / rel_path))
-    if not candidate.is_relative_to(norm_base):
-        raise ConfigError.secret_escape()
-    return candidate
+    return Path(os.path.normpath(Path(os.path.normpath(base)) / rel_path))
 
 
 def _resolve_secret_path(secret_header: SecretHeader) -> Path:
@@ -283,6 +275,10 @@ def _parse_server_spec(name: str, raw: dict[str, object], path: Path) -> ServerS
             path, f"server '{name}' has invalid transport {transport!r}"
         )
 
+    enabled_raw = raw.get("enabled", True)
+    if not isinstance(enabled_raw, bool):
+        raise ConfigError.invalid_manifest(path, f"server '{name}' field 'enabled' must be boolean")
+
     url = raw.get("url")
     command = raw.get("command")
     if transport == "http" and (not isinstance(url, str) or not url):
@@ -309,7 +305,7 @@ def _parse_server_spec(name: str, raw: dict[str, object], path: Path) -> ServerS
         name=name,
         alias=make_alias(name),
         transport=str(transport),
-        enabled_by_default=bool(raw.get("enabled", True)),
+        enabled_by_default=enabled_raw,
         primary_use=str(raw.get("primaryUse", "")),
         access_notes=str(raw.get("accessNotes", "")),
         url=url if isinstance(url, str) else None,
@@ -360,11 +356,18 @@ type OverridePair = tuple[list[str], list[str]]
 def _parse_override_pair(data: dict[str, object], path: Path, scope: str) -> OverridePair:
     enable_list = as_list(data.get("enable", []))
     disable_list = as_list(data.get("disable", []))
-    if enable_list is None or disable_list is None:
+    if (
+        enable_list is None
+        or disable_list is None
+        or not all(isinstance(item, str) for item in enable_list)
+        or not all(isinstance(item, str) for item in disable_list)
+    ):
         raise ConfigError.invalid_override(
             path, f"{scope}: 'enable' and 'disable' must be arrays of strings"
         )
-    return [str(x) for x in enable_list], [str(x) for x in disable_list]
+    return [item for item in enable_list if isinstance(item, str)], [
+        item for item in disable_list if isinstance(item, str)
+    ]
 
 
 def _normalize_project_key(proj_dir: str) -> str:
@@ -430,6 +433,19 @@ def _apply_toggle_names(
     return sorted(enable_set), sorted(disable_set)
 
 
+def _write_private_atomic(path: Path, content: str) -> None:
+    tmp_path = path.with_suffix(f".tmp.{os.getpid()}.{threading.get_ident()}")
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, OVERRIDES_FILE_MODE)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        tmp_path.replace(path)
+    except Exception:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink()
+        raise
+
+
 def update_override_file(
     path: Path,
     *,
@@ -479,26 +495,24 @@ def update_override_file(
                     if p_en or p_dis
                 }
 
-            tmp_path = path.with_suffix(f".tmp.{os.getpid()}.{threading.get_ident()}")
-            tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-            tmp_path.chmod(OVERRIDES_FILE_MODE)
-            tmp_path.replace(path)
+            _write_private_atomic(path, json.dumps(payload, indent=2) + "\n")
             return updated
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def active_project_overrides(cwd: Path) -> list[str]:
-    """Return ordered project override directories matching cwd from outermost ancestor down."""
-    user_path = user_overrides_path()
-    if not user_path.is_file():
-        return []
-    _, _, projects = _read_override_file(user_path)
+def _matching_project_entries(
+    projects: dict[str, OverridePair],
+    cwd: Path,
+) -> list[tuple[str, OverridePair]]:
     resolved = cwd.resolve()
-    candidates = [resolved, *resolved.parents]
-    return [
-        str(parent) for parent in reversed(candidates) if os.path.normpath(str(parent)) in projects
-    ]
+    matched: list[tuple[str, OverridePair]] = []
+    for parent in reversed([resolved, *resolved.parents]):
+        key = os.path.normpath(str(parent))
+        pair = projects.get(key)
+        if pair is not None:
+            matched.append((key, pair))
+    return matched
 
 
 def read_override_summary(cwd: Path) -> dict[str, object]:
@@ -506,13 +520,10 @@ def read_override_summary(cwd: Path) -> dict[str, object]:
     user_path = user_overrides_path()
     project_dir = cwd.resolve()
     user_enable, user_disable, projects = _read_override_file(user_path)
-    candidates = [project_dir, *project_dir.parents]
-    matching: list[dict[str, object]] = []
-    for parent in reversed(candidates):
-        key = os.path.normpath(str(parent))
-        pair = projects.get(key)
-        if pair is not None:
-            matching.append({"dir": key, "enable": pair[0], "disable": pair[1]})
+    matching = [
+        {"dir": key, "enable": pair[0], "disable": pair[1]}
+        for key, pair in _matching_project_entries(projects, project_dir)
+    ]
     return {
         "userOverrides": str(user_path),
         "userOverridesExists": user_path.is_file(),
@@ -562,12 +573,8 @@ def _apply_file_overrides(
     u_en, u_dis, projects = _read_override_file(user_path)
     if u_en or u_dis:
         _apply_override_layer(manifest, outcomes, (u_en, u_dis), str(user_path))
-    work_dir = cwd.resolve()
-    for parent in reversed([work_dir, *work_dir.parents]):
-        proj_key = os.path.normpath(str(parent))
-        entry = projects.get(proj_key)
-        if entry is not None:
-            _apply_override_layer(manifest, outcomes, entry, f"{user_path} ({proj_key})")
+    for proj_key, entry in _matching_project_entries(projects, cwd):
+        _apply_override_layer(manifest, outcomes, entry, f"{user_path} ({proj_key})")
 
 
 def resolve_enabled_servers(

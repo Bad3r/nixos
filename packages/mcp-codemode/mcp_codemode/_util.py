@@ -8,14 +8,14 @@ import math
 import os
 import signal
 import subprocess
-from typing import cast
+from typing import TypeGuard, cast
 
 from . import __version__
 
 PROTOCOL_VERSION = "2025-03-26"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({"2024-11-05", "2025-03-26", "2025-06-18"})
-CLIENT_INFO = {"name": "mcp-codemode", "version": __version__}
-SERVER_INFO = {"name": "mcp-codemode", "version": __version__}
+PACKAGE_INFO = {"name": "mcp-codemode", "version": __version__}
+RPC_METHOD_NOT_FOUND = -32601
 
 
 def as_dict(value: object) -> dict[str, object] | None:
@@ -44,6 +44,15 @@ def as_dict_list(value: object) -> list[dict[str, object]]:
         if item_dict is not None:
             out.append(item_dict)
     return out
+
+
+def is_valid_rpc_id(value: object) -> TypeGuard[str | int | float]:
+    """Return True when value is a hashable JSON-RPC 2.0 request ID (string or finite number)."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (str, int)):
+        return True
+    return isinstance(value, float) and math.isfinite(value)
 
 
 def parse_positive_timeout(value: object) -> float | None:

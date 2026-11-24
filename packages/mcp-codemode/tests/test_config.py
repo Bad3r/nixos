@@ -319,6 +319,16 @@ class ConfigTest(unittest.TestCase):
                         }
                     },
                 },
+                {
+                    "client": "claude",
+                    "servers": {
+                        "a": {
+                            "transport": "http",
+                            "url": "https://example.invalid/a",
+                            "enabled": "false",
+                        }
+                    },
+                },
             ]
             bad_headers = (
                 {"name": "Authorization", "prefix": 123, "relativePath": "cloudflare/api-key"},
@@ -356,3 +366,8 @@ class ConfigTest(unittest.TestCase):
                 bad_path.write_text(json.dumps(payload), encoding="utf-8")
                 with self.assertRaises(ConfigError):
                     load_manifest(bad_path)
+
+            bad_override = root / "bad-overrides.json"
+            bad_override.write_text(json.dumps({"enable": [123]}), encoding="utf-8")
+            with self.assertRaises(ConfigError):
+                update_override_file(bad_override, enable_names=["a"])

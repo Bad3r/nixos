@@ -21,7 +21,12 @@ from mcp_codemode.sandbox import (
 )
 
 
-def _noop_rpc(_method: str, _params: dict[str, object], _deadline: float) -> object:
+def _noop_rpc(
+    _method: str,
+    _params: dict[str, object],
+    _deadline: float,
+    _cancel: threading.Event,
+) -> object:
     return None
 
 
@@ -44,7 +49,7 @@ class SandboxTest(unittest.TestCase):
         )
 
     def test_build_command_with_bwrap_and_missing_bwrap(self) -> None:
-        """Assemble Bubblewrap flags including bounded /tmp tmpfs and reject missing bwrap."""
+        """Assemble Bubblewrap flags including cap-drop and /tmp cap, and reject missing bwrap."""
         script = resolve_sandbox_script()
         cmd = build_command(
             SandboxConfig(
@@ -56,7 +61,8 @@ class SandboxTest(unittest.TestCase):
         )
         self.assertEqual(cmd[0], "/nix/store/bwrap/bin/bwrap")
         self.assertIn("--unshare-all", cmd)
-        self.assertIn("--size", cmd)
+        self.assertIn("--cap-drop", cmd)
+        self.assertEqual(cmd[cmd.index("--cap-drop") + 1], "ALL")
         size_idx = cmd.index("--size")
         self.assertEqual(cmd[size_idx + 1], str(SANDBOX_TMPFS_BYTES))
         self.assertEqual(cmd[size_idx + 2], "--tmpfs")
@@ -74,14 +80,22 @@ class SandboxTest(unittest.TestCase):
         self.assertIn("bubblewrap", str(ctx.exception))
 
     def test_sandbox_blocks_globals_and_runs_ts_and_rpc(self) -> None:
-        """Hide Node globals, strip TS types, and dispatch alias/exact RPC calls."""
+        """Hide Node globals, strip TS types, marshal VM realms, and dispatch RPC calls."""
         calls: list[tuple[str, dict[str, object]]] = []
 
-        def rpc(method: str, params: dict[str, object], _deadline: float) -> object:
+        def rpc(
+            method: str,
+            params: dict[str, object],
+            _deadline: float,
+            _cancel: threading.Event,
+        ) -> object:
             calls.append((method, params))
             if method == "servers":
                 return [{"name": "mock-srv", "alias": "mock_srv", "enabled": True}]
             if method == "call_tool":
+                if params.get("tool") == "fail":
+                    msg = "upstream boom"
+                    raise RuntimeError(msg)
                 return {
                     "echo": params["args"],
                     "server": params["server"],
@@ -92,16 +106,41 @@ class SandboxTest(unittest.TestCase):
         code = """
         async () => {
           type Info = { globalsHidden: boolean; tsWorks: number };
-          console.log("starting");
+          console.log("starting", undefined);
           const globalsHidden =
             typeof process === "undefined" &&
             typeof require === "undefined" &&
             typeof fetch === "undefined";
           const servers = await codemode.servers();
+          const serversIsArray = servers instanceof Array;
           const viaAlias = await codemode.mock_srv.ping({ ok: true });
           const viaExact = await codemode["mock-srv"].ping({ ok: 2 });
+          const proxyJson = JSON.stringify(codemode.mock_srv);
+          let caughtVmError = false;
+          try {
+            await codemode.mock_srv.fail({});
+          } catch (e) {
+            caughtVmError = e instanceof Error && e.message.includes("upstream boom");
+          }
+          let caughtBigInt = false;
+          try {
+            await codemode.mock_srv.ping({ n: 1n });
+          } catch (e) {
+            caughtBigInt = e instanceof Error && e.message.includes("serialization");
+          }
+          const timerId = setTimeout(() => {}, 5000);
+          clearTimeout(timerId);
           const info: Info = { globalsHidden, tsWorks: 42 };
-          return { info, servers, viaAlias, viaExact };
+          return {
+            info,
+            serversIsArray,
+            viaAlias,
+            viaExact,
+            proxyJson,
+            caughtVmError,
+            caughtBigInt,
+            timerIsNumber: typeof timerId === "number",
+          };
         }
         """
         result = run_sandbox(
@@ -111,22 +150,33 @@ class SandboxTest(unittest.TestCase):
             rpc_handler=rpc,
             config=self._config(),
         )
-        self.assertEqual(result.logs, ["starting"])
+        self.assertEqual(result.logs, ["starting undefined"])
         value = cast("dict[str, object]", result.value)
         info = cast("dict[str, object]", value["info"])
         via_alias = cast("dict[str, object]", value["viaAlias"])
         via_exact = cast("dict[str, object]", value["viaExact"])
         self.assertTrue(info["globalsHidden"])
         self.assertEqual(info["tsWorks"], 42)
+        self.assertTrue(value["serversIsArray"])
         self.assertEqual(via_alias["server"], "mock-srv")
         self.assertEqual(via_exact["server"], "mock-srv")
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(value["proxyJson"], "{}")
+        self.assertTrue(value["caughtVmError"])
+        self.assertTrue(value["caughtBigInt"])
+        self.assertTrue(value["timerIsNumber"])
+        expected_rpc_calls = 4
+        self.assertEqual(len(calls), expected_rpc_calls)
 
     def test_snippet_forms_options_first_arg_and_error_logs(self) -> None:
-        """Support bare await, TS return, trailing comments, options-only tools(), and logs."""
+        """Support bare await, TS prelude + comments, options-only tools(), and error logs."""
         seen: list[tuple[str, dict[str, object]]] = []
 
-        def rpc(method: str, params: dict[str, object], _deadline: float) -> object:
+        def rpc(
+            method: str,
+            params: dict[str, object],
+            _deadline: float,
+            _cancel: threading.Event,
+        ) -> object:
             seen.append((method, params))
             if method == "servers":
                 return ["s1"]
@@ -151,15 +201,21 @@ class SandboxTest(unittest.TestCase):
         expected_double = 14
         self.assertEqual(ts_body.value, expected_double)
 
-        trailing_comment = run_sandbox(
-            code="async () => { return 9; }\n// trailing comment",
-            mode="search",
-            server_aliases={},
-            rpc_handler=rpc,
-            config=self._config(),
-        )
         expected_nine = 9
-        self.assertEqual(trailing_comment.value, expected_nine)
+        for snippet in (
+            "async () => { return 9; }\n// trailing comment",
+            "async () => { return 9; };\n// trailing comment after semi",
+            "async () => { return 9; }; // inline trailing comment",
+            "type Out = number;\nasync (): Promise<Out> => { return 9; };",
+        ):
+            res = run_sandbox(
+                code=snippet,
+                mode="search",
+                server_aliases={},
+                rpc_handler=rpc,
+                config=self._config(),
+            )
+            self.assertEqual(res.value, expected_nine, snippet)
 
         refresh_only = run_sandbox(
             code="await codemode.tools({ refresh: true })",
@@ -181,8 +237,18 @@ class SandboxTest(unittest.TestCase):
         self.assertIn("before-throw", str(err_ctx.exception))
         self.assertIn("boom", str(err_ctx.exception))
 
-    def test_search_mode_blocks_tool_calls_and_prototype_pollution(self) -> None:
-        """Omit codemode.call in search mode and keep host IPC safe from prototype pollution."""
+        with self.assertRaises(SandboxError) as null_err_ctx:
+            run_sandbox(
+                code="async () => { throw Object.create(null); }",
+                mode="search",
+                server_aliases={},
+                rpc_handler=rpc,
+                config=self._config(),
+            )
+        self.assertIn("unprintable error", str(null_err_ctx.exception))
+
+    def test_search_mode_blocks_tool_calls_and_host_tampering(self) -> None:
+        """Omit codemode.call in search mode and keep host constructors/prototypes frozen."""
         res = run_sandbox(
             code="async () => typeof codemode.call",
             mode="search",
@@ -192,14 +258,20 @@ class SandboxTest(unittest.TestCase):
         )
         self.assertEqual(res.value, "undefined")
 
-        polluted = run_sandbox(
+        tampered = run_sandbox(
             code="""
             async () => {
-              try {
-                const proto = Object.getPrototypeOf(URL.prototype);
-                proto.toJSON = () => ({ type: "done", value: "pwned" });
-              } catch {}
-              return "clean";
+              const hostObjProto = Object.getPrototypeOf(URL.prototype);
+              const hostObjCtor = hostObjProto.constructor;
+              const hostMapProto = Object.getPrototypeOf(structuredClone(new Map()));
+              try { hostObjProto.toJSON = () => ({ type: "done", value: "pwned" }); } catch {}
+              try { hostObjCtor.assign = () => ({ type: "done", value: "pwned" }); } catch {}
+              try { hostMapProto.get = () => null; } catch {}
+              return {
+                objCtorFrozen: Object.isFrozen(hostObjCtor),
+                mapProtoFrozen: Object.isFrozen(hostMapProto),
+                label: "clean",
+              };
             }
             """,
             mode="search",
@@ -207,10 +279,25 @@ class SandboxTest(unittest.TestCase):
             rpc_handler=_noop_rpc,
             config=self._config(),
         )
-        self.assertEqual(polluted.value, "clean")
+        tampered_dict = cast("dict[str, object]", tampered.value)
+        self.assertTrue(tampered_dict["objCtorFrozen"])
+        self.assertTrue(tampered_dict["mapProtoFrozen"])
+        self.assertEqual(tampered_dict["label"], "clean")
 
     def test_timeout_cancellation_and_truncation(self) -> None:
-        """Enforce wall-clock timeout, honor cancel_event, and truncate long text."""
+        """Enforce wall-clock timeout, pre-set/in-flight cancellation, and text truncation."""
+        already_cancelled = threading.Event()
+        already_cancelled.set()
+        with self.assertRaises(SandboxError) as pre_ctx:
+            run_sandbox(
+                code="async () => 1",
+                mode="search",
+                server_aliases={},
+                rpc_handler=_noop_rpc,
+                config=self._config(cancel_event=already_cancelled),
+            )
+        self.assertIn("cancelled", str(pre_ctx.exception))
+
         with self.assertRaises(SandboxError) as ctx:
             run_sandbox(
                 code="async () => new Promise(() => {})",
@@ -266,7 +353,12 @@ class SandboxTest(unittest.TestCase):
 
         rpc_calls = 0
 
-        def count_rpc(method: str, _params: dict[str, object], _deadline: float) -> object:
+        def count_rpc(
+            method: str,
+            _params: dict[str, object],
+            _deadline: float,
+            _cancel: threading.Event,
+        ) -> object:
             nonlocal rpc_calls
             rpc_calls += 1
             return {"method": method}
@@ -285,10 +377,17 @@ class SandboxTest(unittest.TestCase):
         self.assertEqual(rpc_calls, 1)
 
     def test_timeout_during_slow_rpc_is_prompt_and_codegen_blocked(self) -> None:
-        """Abort promptly on slow RPC without blocking on sleep, and block Function escape."""
+        """Abort promptly on slow RPC, trigger cancel event, and block Function escape."""
+        seen_cancel = threading.Event()
 
-        def slow_rpc(_method: str, _params: dict[str, object], _deadline: float) -> object:
-            time.sleep(2.5)
+        def slow_rpc(
+            _method: str,
+            _params: dict[str, object],
+            _deadline: float,
+            cancel: threading.Event,
+        ) -> object:
+            if cancel.wait(2.5):
+                seen_cancel.set()
             return {"ok": True}
 
         t0 = time.monotonic()
@@ -303,6 +402,7 @@ class SandboxTest(unittest.TestCase):
         elapsed = time.monotonic() - t0
         self.assertIn("timed out", str(timeout_ctx.exception))
         self.assertLess(elapsed, 1.8)
+        self.assertTrue(seen_cancel.wait(1.0))
 
         for escape_code in (
             'async () => codemode.servers.constructor.constructor("return 1")()',

@@ -48,7 +48,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     status_p = sub.add_parser("status", help="Show effective MCP server enablement.")
-    status_p.add_argument("--manifest", type=Path, help="Compiled client manifest JSON.")
+    status_p.add_argument(
+        "--manifest",
+        type=Path,
+        help=(
+            "Compiled client manifest JSON (embedded in each client's generated MCP config: "
+            "~/.claude.json, ~/.gemini/config/mcp_config.json, or $CODEX_HOME/config.base.toml)."
+        ),
+    )
     status_p.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
 
     for action_name, verb in (("enable", "Enable"), ("disable", "Disable")):
@@ -56,7 +63,10 @@ def _build_parser() -> argparse.ArgumentParser:
         toggle_p.add_argument(
             "--user",
             action="store_true",
-            help="Write user-wide override instead of project-scoped override in user state.",
+            help=(
+                "Write a user-wide override instead of a project-scoped entry matching the "
+                "current directory and its subdirectories (use --user for GUI clients)."
+            ),
         )
         toggle_p.add_argument(
             "--manifest",
@@ -142,7 +152,10 @@ def _cmd_status(args: argparse.Namespace) -> int:
     else:
         print(f"  project overrides for {payload['projectDir']}: none")
     print(f"  env toggles: {_format_override_pair(env_en, env_dis)}")
-    print("pass --manifest <path> or run codemode.servers() to inspect per-server availability")
+    print(
+        "pass --manifest <path> (from your client MCP config) or run "
+        "`await codemode.servers()` to inspect per-server availability"
+    )
     return 0
 
 
