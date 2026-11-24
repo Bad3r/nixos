@@ -47,6 +47,7 @@ Themes without semantic UI scopes retain the packaged defaults.
 Both default to off.
 Code mode adds `codex-code-mode-host`, which runs JavaScript on a prebuilt V8 library.
 Codex starts that host only when the `code_mode` flag in the [feature flags](../../../modules/agents/codex/_features.nix) is also on.
+That built-in Codex runtime is separate from the `codemode` MCP gateway (`mcp-codemode`) registered under `mcp_servers`.
 Voice adds `codex-voice-host` and the GStreamer runtime it loads, on Linux only.
 The [songbird host](../../../modules/hosts/songbird/codex.nix) enables both helpers.
 
@@ -122,6 +123,7 @@ codex --strict-config app-server --stdio < /dev/null
 The command exits nonzero and names the first unknown field.
 Fix its Nix producer, rebuild, and launch again.
 Codex infers MCP transport from `command` or `url`; the shared registry compiles each client's representation separately.
+Standard servers multiplex behind the single `codemode` stdio entry (`env_vars` forwards `MCP_CODEMODE_ENABLE`, `MCP_CODEMODE_DISABLE`, `XDG_STATE_HOME`, and `XDG_DATA_HOME`), while local servers needing native confirmation routing or VM TTL timeouts (`node_repl` and `sbx`, when enabled) register directly alongside it.
 
 Recognized feature flags can still be removed no-ops.
 Desktop browser and computer-use gates belong to administrator requirements, which user config cannot override.

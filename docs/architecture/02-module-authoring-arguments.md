@@ -18,23 +18,21 @@ Every NixOS module reached through the host closure can take each of these:
 Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `home-manager.extraSpecialArgs`, set in `modules/home-manager/nixos.nix`, as in this consumer:
 
 ```nix
-# modules/home/context7-secrets.nix (excerpt)
+# modules/home/_mk-sops-api-key-secret.nix (excerpt)
+{ optionName, sopsSecretName, sopsFileName, relativePath, ... }:
+{ lib, config, metaOwner, secretsRoot, ... }:
+let
+  cfg = config.home.${optionName};
+  secretFile = secretsRoot + "/${sopsFileName}";
+in
 {
-  flake.homeManagerModules.context7Secrets =
-    { lib, config, metaOwner, secretsRoot, ... }:
-    let
-      cfg = config.home.context7Secrets;
-      ctxFile = secretsRoot + "/context7.yaml";
-    in
-    {
-      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
-        sops.secrets."context7/api-key" = {
-          sopsFile = ctxFile;
-          path = "/home/${metaOwner.username}/.local/share/context7/api-key";
-          # ...
-        };
-      };
+  config = lib.mkIf (cfg.enable && builtins.pathExists secretFile) {
+    sops.secrets.${sopsSecretName} = {
+      sopsFile = secretFile;
+      path = "/home/${metaOwner.username}/.local/share/${relativePath}";
+      # ...
     };
+  };
 }
 ```
 
