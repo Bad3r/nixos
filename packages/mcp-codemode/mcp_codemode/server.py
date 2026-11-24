@@ -292,7 +292,8 @@ class CodeModeServer:
         self._tools = _build_tool_definitions(manifest)
         self._stdout_lock = threading.Lock()
         self._cancel_lock = threading.Lock()
-        self._active_cancels: dict[str | int | float, threading.Event] = {}
+        self._inflight_cancels: set[threading.Event] = set()
+        self._active_cancels: dict[str | int | float, list[threading.Event]] = {}
 
     def _current_states(self) -> tuple[dict[str, bool], dict[str, str]]:
         states, sources = resolve_enabled_servers(self.manifest, self.cwd)
@@ -633,12 +634,29 @@ class CodeModeServer:
             error = {"code": RPC_METHOD_NOT_FOUND, "message": f"Method not found: {method}"}
         return result, error
 
+    def _register_cancel(self, msg_id: object, cancel_event: threading.Event) -> None:
+        with self._cancel_lock:
+            self._inflight_cancels.add(cancel_event)
+            if is_valid_rpc_id(msg_id):
+                self._active_cancels.setdefault(msg_id, []).append(cancel_event)
+
+    def _unregister_cancel(self, msg_id: object, cancel_event: threading.Event) -> None:
+        with self._cancel_lock:
+            self._inflight_cancels.discard(cancel_event)
+            if is_valid_rpc_id(msg_id):
+                bucket = self._active_cancels.get(msg_id)
+                if bucket is not None:
+                    with contextlib.suppress(ValueError):
+                        bucket.remove(cancel_event)
+                    if not bucket:
+                        self._active_cancels.pop(msg_id, None)
+
     def _cancel_request(self, request_id: object) -> None:
         if not is_valid_rpc_id(request_id):
             return
         with self._cancel_lock:
-            cancel_event = self._active_cancels.get(request_id)
-        if cancel_event is not None:
+            events = list(self._active_cancels.get(request_id, ()))
+        for cancel_event in events:
             cancel_event.set()
 
     def handle_message(
@@ -698,9 +716,8 @@ class CodeModeServer:
                 else None
             )
         finally:
-            if is_valid_rpc_id(msg_id) and cancel_event is not None:
-                with self._cancel_lock:
-                    self._active_cancels.pop(msg_id, None)
+            if cancel_event is not None:
+                self._unregister_cancel(msg_id, cancel_event)
         if reply is not None:
             self._write_reply(reply)
 
@@ -722,9 +739,11 @@ class CodeModeServer:
         workers: list[threading.Thread],
     ) -> None:
         with self._cancel_lock:
-            for ev in self._active_cancels.values():
-                ev.set()
+            events = list(self._inflight_cancels)
+            self._inflight_cancels.clear()
             self._active_cancels.clear()
+        for ev in events:
+            ev.set()
         while True:
             try:
                 work_queue.get_nowait()
@@ -746,15 +765,11 @@ class CodeModeServer:
     ) -> None:
         cancel_event = threading.Event()
         msg_id = msg.get("id")
-        if is_valid_rpc_id(msg_id):
-            with self._cancel_lock:
-                self._active_cancels[msg_id] = cancel_event
+        self._register_cancel(msg_id, cancel_event)
         try:
             work_queue.put_nowait((msg, cancel_event))
         except queue.Full:
-            if is_valid_rpc_id(msg_id):
-                with self._cancel_lock:
-                    self._active_cancels.pop(msg_id, None)
+            self._unregister_cancel(msg_id, cancel_event)
             if msg_id is not None:
                 self._write_reply(
                     {

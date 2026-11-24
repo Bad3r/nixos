@@ -581,6 +581,14 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                     return
             self._initialize_locked(ctx)
 
+    def _record_response_session(self, resp: HTTPResponse) -> None:
+        new_session = resp.headers.get("Mcp-Session-Id")
+        with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
+            if new_session:
+                self._session_id = new_session
+
     def _post(
         self,
         payload: dict[str, object],
@@ -594,6 +602,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         method = str(payload.get("method", "request"))
         if call_ctx.cancel_event is not None and call_ctx.cancel_event.is_set():
             raise UpstreamError.cancelled(self.spec.name, method)
+        with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
         effective_timeout = _remaining_timeout(self.spec.name, method, timeout, call_ctx.deadline)
         raw_id = payload.get("id") if expect_reply else None
         target_id = raw_id if isinstance(raw_id, int) else None
@@ -609,10 +620,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             ) as resp:
                 token = self._register_inflight(resp, call_ctx.cancel_event)
                 try:
-                    new_session = resp.headers.get("Mcp-Session-Id")
-                    if new_session:
-                        with self._lock:
-                            self._session_id = new_session
+                    self._record_response_session(resp)
                     if not expect_reply:
                         return {}
                     if resp.status in NO_BODY_STATUSES:
@@ -648,6 +656,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         ) as exc:
             if call_ctx.cancel_event is not None and call_ctx.cancel_event.is_set():
                 raise UpstreamError.cancelled(self.spec.name, method) from None
+            with self._lock:
+                if self._closed:
+                    raise UpstreamError.closed(self.spec.name) from None
             raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
 
     @override
@@ -792,6 +803,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         self._command = spec.command
         self._lock = threading.Lock()
         self._init_lock = threading.Lock()
+        self._teardown_lock = threading.Lock()
         self._write_lock = threading.Lock()
         self._proc: subprocess.Popen[str] | None = None
         self._next_id = 1
@@ -1041,30 +1053,32 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         return _extract_rpc_result(self.spec.name, waiter.response)
 
     def _stop_process(self, *, mark_closed: bool) -> None:
-        with self._lock:
-            if mark_closed:
+        if mark_closed:
+            with self._lock:
                 self._closed = True
-            proc = self._proc
-            self._proc = None
-            self._initialized = False
-            pending_waiters = list(self._pending.values())
-            self._pending.clear()
-        for waiter in pending_waiters:
-            waiter.error = UpstreamError.closed(self.spec.name)
-            waiter.event.set()
-        if proc is None:
-            return
-        # Acquire _write_lock with a short timeout so a blocked write cannot deadlock teardown.
-        acquired = self._write_lock.acquire(timeout=0.1)
-        try:
-            if acquired and proc.stdin is not None:
-                with contextlib.suppress(OSError, ValueError, RuntimeError):
-                    proc.stdin.close()
-        finally:
-            if acquired:
-                self._write_lock.release()
-        terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
-        self._close_proc_handles(proc)
+        with self._teardown_lock:
+            with self._lock:
+                proc = self._proc
+                self._proc = None
+                self._initialized = False
+                pending_waiters = list(self._pending.values())
+                self._pending.clear()
+            for waiter in pending_waiters:
+                waiter.error = UpstreamError.closed(self.spec.name)
+                waiter.event.set()
+            if proc is None:
+                return
+            # Acquire _write_lock with a short timeout so a blocked write cannot deadlock teardown.
+            acquired = self._write_lock.acquire(timeout=0.1)
+            try:
+                if acquired and proc.stdin is not None:
+                    with contextlib.suppress(OSError, ValueError, RuntimeError):
+                        proc.stdin.close()
+            finally:
+                if acquired:
+                    self._write_lock.release()
+            terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
+            self._close_proc_handles(proc)
 
     @override
     def ensure_initialized(
@@ -1120,11 +1134,14 @@ class UpstreamSupervisor:
         """Initialize the supervisor for a compiled manifest."""
         self.manifest = manifest
         self._lock = threading.Lock()
+        self._closed = False
         self._clients: dict[str, _BaseUpstreamClient] = {}
         self._tools_cache: dict[str, list[dict[str, object]]] = {}
 
     def _get_client(self, name: str) -> _BaseUpstreamClient:
         with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(name)
             existing = self._clients.get(name)
             if existing is not None:
                 return existing
@@ -1145,12 +1162,15 @@ class UpstreamSupervisor:
     ) -> list[dict[str, object]]:
         """Return cached or freshly fetched tool definitions for one server."""
         with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(name)
             if not refresh and name in self._tools_cache:
                 return list(self._tools_cache[name])
         client = self._get_client(name)
         tools = client.list_tools(deadline=deadline, cancel_event=cancel_event)
         with self._lock:
-            self._tools_cache[name] = list(tools)
+            if not self._closed and self._clients.get(name) is client:
+                self._tools_cache[name] = list(tools)
         return tools
 
     def call_tool(
@@ -1193,8 +1213,9 @@ class UpstreamSupervisor:
                 client.close()
 
     def close_all(self) -> None:
-        """Close every active upstream client."""
+        """Close every active upstream client and prevent new clients from starting."""
         with self._lock:
+            self._closed = True
             clients = list(self._clients.values())
             self._clients.clear()
             self._tools_cache.clear()
