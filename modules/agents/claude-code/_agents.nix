@@ -24,7 +24,7 @@
   guardrails-observer = {
     description = "Background observer only; never invoke it for a task. Paired with an agent through that agent's `observer` field, it reads the agent's activity digests and reports unapproved irreversible actions, claims without evidence, suppressed failures, and drift from the user's request.";
     model = "opus";
-    effort = "medium";
+    effort = "high";
     disallowedTools = [
       "Edit"
       "Write"

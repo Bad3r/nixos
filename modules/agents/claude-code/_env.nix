@@ -1,12 +1,12 @@
 /*
   Claude Code environment variables. Every entry in `vars` reaches
-  ~/.claude/settings.json `env` (launchOnly names excepted), the
-  ~/.local/bin/claude launcher, login shells (Home Manager sessionVariables),
-  and the Nix-installed binary. Uncomment a line and set its value to enable
-  it; commenting it out again removes it on the next switch (login shells at
-  the next login). `vars` lists https://code.claude.com/docs/en/env-vars as
-  of 2.1.222, then names only the 2.1.222 binary reads, then unresolved
-  identifiers.
+  ~/.claude/settings.json `env` (launchOnly and callerOverridable names
+  excepted), the ~/.local/bin/claude launcher, login shells (Home Manager
+  sessionVariables), and the Nix-installed binary. Uncomment a line and set its
+  value to enable it; commenting it out again removes it on the next switch
+  (login shells at the next login). `vars` lists
+  https://code.claude.com/docs/en/env-vars as of 2.1.222, then names only the
+  2.1.222 binary reads, then unresolved identifiers.
 */
 {
   # Exported by the launchers unless launchOnlyEscape is set, never written to
@@ -18,10 +18,16 @@
   ];
   # Read only by this repo's launchers; Claude Code never looks at it.
   launchOnlyEscape = "CLAUDE_CODE_ALLOW_FEATURE_FLAGS";
-  # Exported by the launchers only when the caller left them unset, so a
-  # per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 is how the
-  # binary says to start a session with Chrome or computer use.
-  callerOverridable = [ "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE" ];
+  # Exported by the launchers only when the caller left them unset, and omitted
+  # from settings.json `env` (which otherwise overwrites process.env at
+  # startup), so a per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0
+  # is how the binary says to start a session with Chrome or computer use, and
+  # CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 turns observers off (allowing
+  # /steward and /ship watches).
+  callerOverridable = [
+    "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"
+    "CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS"
+  ];
 
   vars = {
     # Authentication and providers

@@ -35,32 +35,8 @@
 
       # Baked into the binary so a bare claude that bypasses ~/.local/bin/claude
       # still gets every _env.nix var.
-      claudeEnv = import ./_env.nix;
       claudeSettings = import ./_settings.nix;
-      setFlags = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value:
-          let
-            flag = if lib.elem name claudeEnv.callerOverridable then "--set-default" else "--set";
-          in
-          "${flag} ${name} ${lib.escapeShellArg value}"
-        ) (builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly)
-      );
-      # Guarded, not --set: claude-rc lifts these for one launch, and a plain
-      # --set here would be applied in-process where no outer wrapper reaches.
-      launchOnlyRun = lib.optionalString (claudeEnv.launchOnly != [ ]) (
-        "--run "
-        + lib.escapeShellArg (
-          "if [ -z \""
-          + "$"
-          + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export "
-          + lib.concatStringsSep " " (
-            map (name: "${name}=${lib.escapeShellArg claudeEnv.vars.${name}}") claudeEnv.launchOnly
-          )
-          + "; else unset ${lib.concatStringsSep " " claudeEnv.launchOnly} ${claudeEnv.launchOnlyEscape}; fi"
-        )
-      );
-      strippedNames = lib.attrNames claudeEnv.vars ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
+      nixWrapFlags = import ./_wrap-flags.nix { inherit lib; };
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
@@ -73,17 +49,17 @@
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
           fi
-          for name in ${lib.escapeShellArgs strippedNames}; do
+          for name in ${lib.escapeShellArgs nixWrapFlags.strippedNames}; do
             sed -i "/^export $name=/d" "$out/bin/claude"
           done
-          for name in ${lib.escapeShellArgs strippedNames}; do
+          for name in ${lib.escapeShellArgs nixWrapFlags.strippedNames}; do
             if grep -qF "$name=" "$out/bin/claude"; then
               echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
               exit 1
             fi
           done
           wrapProgram $out/bin/claude \
-            ${setFlags} ${launchOnlyRun}
+            ${nixWrapFlags.setFlags} ${nixWrapFlags.launchOnlyRun}
         '';
       });
     in

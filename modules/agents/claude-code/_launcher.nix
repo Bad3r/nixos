@@ -146,6 +146,25 @@ let
     ${envExports}
     ${launchOnlyBlock}
 
+    # Leading launcher-only flags for per-session observer control (shared by
+    # claude and claude-rc). Stop at the first non-matching argument so `--`
+    # and Claude Code option values pass through untouched.
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --observer)
+          export CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=1
+          shift
+          ;;
+        --no-observer)
+          export CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0
+          shift
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+
     # Scratch root for Claude's own temp; its shell tool narrows TMPDIR per session.
     tmpDir=${lib.escapeShellArg scratchDir}
     mkdir -p "$tmpDir"

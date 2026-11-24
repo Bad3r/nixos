@@ -41,8 +41,9 @@
         _theme.nix             ~/.claude/themes/<slug>.json, the `theme` in _settings.nix
         _agents.nix            ~/.claude/agents/<name>.md custom agent definitions
       Plumbing: _activation.nix (jq merge, optional bun install, and the
-      bun binary's REPL wall clock patch through repl-wall-clock.mjs) and
-      _launcher.nix (launcher environment and binary selection).
+      bun binary's REPL wall clock patch through repl-wall-clock.mjs),
+      _wrap-flags.nix (wrapper env flags shared by nixos.nix and checks.nix),
+      and _launcher.nix (launcher environment and binary selection).
 */
 
 _: {
@@ -134,7 +135,9 @@ _: {
           mcpAutoApproved = agents.mcp.clients.claude.autoApproved osConfig;
         })
         (import ./_hooks.nix { inherit agents pkgs; })
-        { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
+        {
+          env = builtins.removeAttrs claudeEnv.vars (claudeEnv.launchOnly ++ claudeEnv.callerOverridable);
+        }
       ];
       claudeJson = mergeParts [
         (import ./_claude-json.nix)
@@ -161,7 +164,7 @@ _: {
       launcherDir = "${config.home.homeDirectory}/${launcherRelDir}";
 
       # Each attribute renders to ~/.claude/agents/<name>.md: `prompt` is the
-      # body, every other key a frontmatter field (JSON scalars are valid YAML).
+      # body, every other key a frontmatter field (JSON values are valid YAML).
       claudeAgentFiles = lib.mapAttrs' (
         name: agent:
         let
