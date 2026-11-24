@@ -198,11 +198,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795521972,
-        "narHash": "sha256-YMBSDz8GSJuKlUxVhnNjabi2Y7CpCeMNxF8NBl7ZFLo=",
+        "lastModified": 1795541179,
+        "narHash": "sha256-rvKOlqTrrOfkCeshGnoQKb+QIqckgeBEiTsszkICLBo=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "f22325c8caa974e867876771e7d3ac7536581fa3",
+        "rev": "88d52fe59821e40cb1c6ea908ec52d39e8b651a5",
         "type": "github"
       },
       "original": {
@@ -595,11 +595,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795381358,
-        "narHash": "sha256-vzd7YFupRYGqEzClBNv2+1cdnm1fiUSoWGBUAXmmWtA=",
+        "lastModified": 1795543135,
+        "narHash": "sha256-BhQE1MO2hHWxtZoejtR52ExCEiuwOaSkZIOnEgf6/cM=",
         "owner": "Bad3r",
         "repo": "home-manager",
-        "rev": "00877854f87497a60173bbdf55bbb02c5e09ec6b",
+        "rev": "e06cfeb8e3dac06832c22530120b2f8e2ce5abaf",
         "type": "github"
       },
       "original": {
@@ -685,11 +685,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795521840,
-        "narHash": "sha256-IelvBu+epEvkxamv6AN/JaVUP2cskpUVjLlkEoL7RwU=",
+        "lastModified": 1795538336,
+        "narHash": "sha256-rJl82afLsu1MTdUnbMu5BaC9S6kv7B333nruSD7Jx6k=",
         "ref": "refs/heads/master",
-        "rev": "4c92c5bfb7cab395af9fc0fe0939e34ae5083345",
-        "revCount": 12695,
+        "rev": "0ce7f213b0749fa4dee4e87d8ae7bf63e621c1ad",
+        "revCount": 12714,
         "type": "git",
         "url": "https://github.com/ggml-org/llama.cpp"
       },
@@ -711,11 +711,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795503862,
-        "narHash": "sha256-S/MF5gJZSy01bUUtAEhZWCgMW4fgpHVuoE+3TChAvtY=",
+        "lastModified": 1795543147,
+        "narHash": "sha256-9Lk1DzF33lZ7pDFRlMNyeoFS1EpMKeplIlVNg3UGyVE=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "bd6c527ed016a455defddc1d9a3b75fb7d2ef49a",
+        "rev": "a6b8b3ca6aa8316245d8c2476719c43241870892",
         "type": "github"
       },
       "original": {
@@ -809,11 +809,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795387629,
-        "narHash": "sha256-+bXH64eCZhRm6MaMlB4lwTjUjax2aDy6yWsfTSCZlas=",
+        "lastModified": 1795490956,
+        "narHash": "sha256-ZExeqyTk0uCPbR7u2GGbNgjne+F3tanByxr/aS+8rdk=",
         "owner": "xddxdd",
         "repo": "nix-cachyos-kernel",
-        "rev": "306480b9096055a06503167f975c027e244dd839",
+        "rev": "920a3823872b21640181fe8065a5fb35fcb06e3f",
         "type": "github"
       },
       "original": {
@@ -879,11 +879,11 @@
         "opam-repository": "opam-repository"
       },
       "locked": {
-        "lastModified": 1795418989,
-        "narHash": "sha256-eiEJjDtj7PSSqHlezDZJgnfTThcGNMet+AXfRUtakgk=",
+        "lastModified": 1795522925,
+        "narHash": "sha256-mbLdgjqJUy9oGePE9VC9RPpN0LitqUEgC75ghSt9rHw=",
         "owner": "Bad3r",
         "repo": "nix-logseq-git-flake",
-        "rev": "0826c6b83967c19c6d2e8f716de315b3602948c6",
+        "rev": "6e17fed6010c98f3949cddce6a46e41a68a3951e",
         "type": "github"
       },
       "original": {
@@ -1115,11 +1115,11 @@
     "opam-repository": {
       "flake": false,
       "locked": {
-        "lastModified": 1795418680,
-        "narHash": "sha256-zfAfpFK8h5rzDWODECWny1PcI5UYbpeswXqo6+iSTXY=",
+        "lastModified": 1795467385,
+        "narHash": "sha256-n1sWu1KjEO+pY47cdcEg8I1IsDqbBedvgD8I35gcRog=",
         "owner": "ocaml",
         "repo": "opam-repository",
-        "rev": "9cc2d8bcfe7cd05aee3c55d134ce7503064e43fe",
+        "rev": "b5c50c368321f13c9f9bd53cdd802ac61f435ef8",
         "type": "github"
       },
       "original": {
@@ -1455,11 +1455,11 @@
     "tinted-schemes": {
       "flake": false,
       "locked": {
-        "lastModified": 1795312022,
-        "narHash": "sha256-Z+kOYkVcBdZIhdmogKRt5E66bg6KrF4D3pW73mznooU=",
+        "lastModified": 1795525971,
+        "narHash": "sha256-uVXKeyL4KzuGSm66xO5jx0FGIzQSnrFvF41IMs1zviA=",
         "owner": "tinted-theming",
         "repo": "schemes",
-        "rev": "dc265204c014922f11e2cbea72b8fc40aba4f8ee",
+        "rev": "fde4a9bbdf33e2acdb997b4a4edaaf0cd27ce7de",
         "type": "github"
       },
       "original": {

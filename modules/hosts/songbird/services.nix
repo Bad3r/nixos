@@ -324,20 +324,12 @@ in
             (old: {
               # ggml-cuda.cu includes nvml.h and dlopens NVML; upstream's package.nix lacks the header.
               buildInputs = old.buildInputs ++ [ cudaPackages.cuda_nvml_dev ];
-              # brand-favicons.ts copies the read-only store favicons twice (light and dark PWA
-              # configs); the second copy fails on the first copy's 0444 mode.
-              webui = old.webui.overrideAttrs (webui: {
+              webui = old.webui.overrideAttrs {
                 # Upstream versions it with the build number, so every llama.cpp commit rebuilt
                 # it; a fixed version leaves only ui/, its npm lock, and nixpkgs as rebuild causes.
                 version = "0";
                 __intentionallyOverridingVersion = true;
-                postPatch = (webui.postPatch or "") + ''
-                  substituteInPlace scripts/brand-favicons.ts \
-                    --replace-fail 'import { copyFileSync,' 'import { chmodSync, copyFileSync,' \
-                    --replace-fail 'copyFileSync(require.resolve(specifier), resolve(outDir, fileName));' \
-                      'copyFileSync(require.resolve(specifier), resolve(outDir, fileName)); chmodSync(resolve(outDir, fileName), 0o644);'
-                '';
-              });
+              };
               cmakeFlags = old.cmakeFlags ++ [
                 # The source has no .git, so CMake would report build 0, commit unknown.
                 (lib.cmakeFeature "LLAMA_BUILD_NUMBER" buildNumber)
