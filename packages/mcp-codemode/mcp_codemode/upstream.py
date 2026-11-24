@@ -5,31 +5,42 @@
 from __future__ import annotations
 
 import contextlib
-import gzip
+import http.client
 import json
 import os
-import signal
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast, override
 
+from ._util import (
+    CLIENT_INFO,
+    PROTOCOL_VERSION,
+    as_dict,
+    as_dict_list,
+    terminate_process_group,
+)
 from .config import ConfigError, Manifest, ServerSpec, format_secret_header
 
 if TYPE_CHECKING:
     from http.client import HTTPResponse
+    from typing import IO
 
-PROTOCOL_VERSION = "2025-03-26"
-CLIENT_INFO = {"name": "mcp-codemode", "version": "0.1.0"}
 ALLOWED_SCHEMES = ("http", "https")
 NO_BODY_STATUSES = (202, 204)
 HTTP_NOT_FOUND = 404
 CLOSE_TIMEOUT_SEC = 5.0
 STDIO_TERM_GRACE_SEC = 2.0
+MAX_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024
+HTTP_READ_CHUNK_BYTES = 16 * 1024
+MAX_TOOL_PAGES = 100
+RPC_METHOD_NOT_FOUND = -32601
+MIN_EFFECTIVE_TIMEOUT_SEC = 0.05
 
 
 class UpstreamError(RuntimeError):
@@ -53,38 +64,290 @@ class UpstreamError(RuntimeError):
     @classmethod
     def timed_out(cls, server: str, method: str, timeout: float) -> UpstreamError:
         """Create an error when an upstream request exceeds its timeout."""
-        return cls(f"upstream '{server}' timed out on {method} after {timeout:.0f}s")
-
-
-def _as_dict(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    raw = cast("dict[object, object]", value)
-    return {str(k): v for k, v in raw.items()}
-
-
-def _as_dict_list(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    out: list[dict[str, object]] = []
-    for item in cast("list[object]", value):
-        item_dict = _as_dict(item)
-        if item_dict is not None:
-            out.append(item_dict)
-    return out
+        return cls(f"upstream '{server}' timed out on {method} after {timeout:.1f}s")
 
 
 def _extract_rpc_result(server: str, response: dict[str, object]) -> dict[str, object]:
     err_obj = response.get("error")
     if err_obj is not None:
-        err_dict = _as_dict(err_obj)
+        err_dict = as_dict(err_obj)
         msg = str(err_dict.get("message", err_dict)) if err_dict is not None else str(err_obj)
         raise UpstreamError.rpc_error(server, msg)
-    result = _as_dict(response.get("result"))
+    result = as_dict(response.get("result"))
     return result if result is not None else {}
 
 
-class HttpUpstreamClient:
+def _is_jsonrpc_response(msg: dict[str, object]) -> bool:
+    return "method" not in msg and ("result" in msg or "error" in msg)
+
+
+def _remaining_timeout(
+    server: str,
+    method: str,
+    base_timeout: float,
+    deadline: float | None,
+) -> float:
+    if deadline is None:
+        return base_timeout
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise UpstreamError.timed_out(server, method, 0.0)
+    return min(base_timeout, max(MIN_EFFECTIVE_TIMEOUT_SEC, remaining))
+
+
+class _SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Allow redirects only when scheme and host:port match the configured origin."""
+
+    def __init__(self, expected_origin: tuple[str, str]) -> None:
+        super().__init__()
+        self._expected_origin = expected_origin
+
+    @override
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: http.client.HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        resolved = urllib.parse.urljoin(req.full_url, newurl)
+        parsed = urllib.parse.urlsplit(resolved)
+        target_origin = (parsed.scheme.lower(), parsed.netloc.lower())
+        if target_origin != self._expected_origin:
+            raise urllib.error.HTTPError(
+                resolved,
+                code,
+                f"refused cross-origin redirect to {parsed.scheme}://{parsed.netloc}",
+                headers,
+                fp,
+            )
+        return super().redirect_request(req, fp, code, msg, headers, resolved)
+
+
+def _read_bounded_bytes(
+    resp: HTTPResponse,
+    server: str,
+    *,
+    is_gzip: bool,
+    deadline: float | None,
+) -> bytes:
+    decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS) if is_gzip else None
+    out = bytearray()
+    raw_total = 0
+    while True:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise UpstreamError.timed_out(server, "http_read", 0.0)
+        chunk = resp.read(HTTP_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        raw_total += len(chunk)
+        if raw_total > MAX_HTTP_RESPONSE_BYTES:
+            msg = f"HTTP response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
+            raise UpstreamError.rpc_error(server, msg)
+        if decompressor is not None:
+            piece = decompressor.decompress(chunk, MAX_HTTP_RESPONSE_BYTES - len(out) + 1)
+            out.extend(piece)
+            if len(out) > MAX_HTTP_RESPONSE_BYTES or decompressor.unconsumed_tail:
+                msg = f"decompressed response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
+                raise UpstreamError.rpc_error(server, msg)
+        else:
+            out.extend(chunk)
+    if decompressor is not None:
+        tail = decompressor.flush(MAX_HTTP_RESPONSE_BYTES - len(out) + 1)
+        out.extend(tail)
+        if len(out) > MAX_HTTP_RESPONSE_BYTES:
+            msg = f"decompressed response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
+            raise UpstreamError.rpc_error(server, msg)
+    return bytes(out)
+
+
+class _SseEventScanner:
+    """Incremental SSE event parser returning as soon as target_id matches."""
+
+    def __init__(self, target_id: int | None) -> None:
+        self._target_id = target_id
+        self._data_lines: list[str] = []
+        self._line_buf = ""
+
+    def _flush_event(self) -> dict[str, object] | None:
+        if not self._data_lines:
+            return None
+        raw_event = "\n".join(self._data_lines)
+        self._data_lines.clear()
+        if not raw_event.strip():
+            return None
+        try:
+            parsed_obj: object = json.loads(raw_event)
+        except json.JSONDecodeError:
+            return None
+        parsed = as_dict(parsed_obj)
+        if parsed is None or not _is_jsonrpc_response(parsed):
+            return None
+        if self._target_id is None or parsed.get("id") == self._target_id:
+            return parsed
+        return None
+
+    def _feed_line(self, line: str) -> dict[str, object] | None:
+        clean = line.removesuffix("\r")
+        if clean == "":
+            return self._flush_event()
+        if clean.startswith("data:"):
+            self._data_lines.append(clean[5:].removeprefix(" "))
+        return None
+
+    def feed(self, text: str) -> dict[str, object] | None:
+        """Feed decoded UTF-8 text and return the first matching JSON-RPC response."""
+        self._line_buf += text
+        while "\n" in self._line_buf:
+            line, self._line_buf = self._line_buf.split("\n", 1)
+            matched = self._feed_line(line)
+            if matched is not None:
+                return matched
+        return None
+
+    def finish(self) -> dict[str, object] | None:
+        """Flush any trailing buffered line or event at EOF."""
+        if self._line_buf:
+            matched = self._feed_line(self._line_buf)
+            self._line_buf = ""
+            if matched is not None:
+                return matched
+        return self._flush_event()
+
+
+class _Decompressor(Protocol):
+    @property
+    def unconsumed_tail(self) -> bytes: ...
+
+    def decompress(self, data: bytes, /, max_length: int = ...) -> bytes: ...
+
+
+def _decode_sse_chunk(
+    raw_chunk: bytes,
+    server: str,
+    decompressor: _Decompressor | None,
+    decoded_total: int,
+) -> tuple[bytes, int]:
+    if decompressor is None:
+        return raw_chunk, decoded_total
+    data = decompressor.decompress(raw_chunk, MAX_HTTP_RESPONSE_BYTES - decoded_total + 1)
+    new_total = decoded_total + len(data)
+    if new_total > MAX_HTTP_RESPONSE_BYTES or decompressor.unconsumed_tail:
+        msg = f"decompressed SSE response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
+        raise UpstreamError.rpc_error(server, msg)
+    return data, new_total
+
+
+def _read_sse_response(
+    resp: HTTPResponse,
+    server: str,
+    target_id: int | None,
+    *,
+    is_gzip: bool,
+    deadline: float | None,
+) -> dict[str, object]:
+    scanner = _SseEventScanner(target_id)
+    decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS) if is_gzip else None
+    raw_total = 0
+    decoded_total = 0
+
+    while True:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise UpstreamError.timed_out(server, "sse_read", 0.0)
+        raw_chunk = resp.read1(HTTP_READ_CHUNK_BYTES)
+        if not raw_chunk:
+            break
+        raw_total += len(raw_chunk)
+        if raw_total > MAX_HTTP_RESPONSE_BYTES:
+            msg = f"SSE response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
+            raise UpstreamError.rpc_error(server, msg)
+        data, decoded_total = _decode_sse_chunk(raw_chunk, server, decompressor, decoded_total)
+        matched = scanner.feed(data.decode("utf-8", errors="replace"))
+        if matched is not None:
+            return matched
+
+    if decompressor is not None:
+        tail = decompressor.flush(MAX_HTTP_RESPONSE_BYTES - decoded_total + 1)
+        matched = scanner.feed(tail.decode("utf-8", errors="replace")) if tail else None
+        if matched is not None:
+            return matched
+
+    final = scanner.finish()
+    if final is None:
+        msg = "empty SSE response"
+        raise UpstreamError.rpc_error(server, msg)
+    return final
+
+
+class _BaseUpstreamClient:
+    """Shared MCP pagination and tool invocation built atop transport-specific RPCs."""
+
+    spec: ServerSpec
+
+    def ensure_initialized(self, deadline: float | None = None) -> None:
+        raise NotImplementedError
+
+    def _rpc_call(
+        self,
+        method: str,
+        params: dict[str, object],
+        timeout: float,
+        *,
+        deadline: float | None = None,
+    ) -> dict[str, object]:
+        raise NotImplementedError
+
+    def list_tools(self, deadline: float | None = None) -> list[dict[str, object]]:
+        """Fetch all tools from the upstream server with cursor cycle protection."""
+        self.ensure_initialized(deadline=deadline)
+        tools: list[dict[str, object]] = []
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        for _ in range(MAX_TOOL_PAGES):
+            params: dict[str, object] = {}
+            if cursor is not None:
+                params["cursor"] = cursor
+            result = self._rpc_call(
+                "tools/list",
+                params,
+                self.spec.startup_timeout_sec,
+                deadline=deadline,
+            )
+            tools.extend(as_dict_list(result.get("tools")))
+            next_cursor = result.get("nextCursor")
+            if not isinstance(next_cursor, str) or not next_cursor:
+                return tools
+            if next_cursor in seen_cursors:
+                msg = f"repeated pagination cursor '{next_cursor}' in tools/list"
+                raise UpstreamError.rpc_error(self.spec.name, msg)
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+        msg = f"tools/list exceeded {MAX_TOOL_PAGES} pages"
+        raise UpstreamError.rpc_error(self.spec.name, msg)
+
+    def call_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, object],
+        *,
+        deadline: float | None = None,
+    ) -> dict[str, object]:
+        """Invoke a single tool on the upstream server."""
+        self.ensure_initialized(deadline=deadline)
+        return self._rpc_call(
+            "tools/call",
+            {"name": tool_name, "arguments": arguments},
+            self.spec.tool_timeout_sec,
+            deadline=deadline,
+        )
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+
+class HttpUpstreamClient(_BaseUpstreamClient):
     """Streamable HTTP MCP client supporting SSE, gzip, sessions, and secret headers."""
 
     def __init__(self, spec: ServerSpec) -> None:
@@ -92,11 +355,15 @@ class HttpUpstreamClient:
         if spec.url is None:
             msg = "missing URL"
             raise UpstreamError.rpc_error(spec.name, msg)
-        scheme = urllib.parse.urlsplit(spec.url).scheme.lower()
+        parsed = urllib.parse.urlsplit(spec.url)
+        scheme = parsed.scheme.lower()
         if scheme not in ALLOWED_SCHEMES:
             raise UpstreamError.invalid_scheme(spec.name, scheme)
         self.spec = spec
         self.url = spec.url
+        self._opener = urllib.request.build_opener(
+            _SameOriginRedirectHandler((scheme, parsed.netloc.lower()))
+        )
         self._lock = threading.Lock()
         self._next_id = 1
         self._session_id: str | None = None
@@ -117,14 +384,14 @@ class HttpUpstreamClient:
         data: bytes | None = None,
         timeout: float,
     ) -> HTTPResponse:
-        # self.url is restricted to http/https in __init__.
+        # self.url is restricted to http/https and redirects are same-origin guarded.
         req = urllib.request.Request(  # noqa: S310
             self.url,
             data=data,
             headers=headers,
             method=method,
         )
-        return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310
+        return cast("HTTPResponse", self._opener.open(req, timeout=timeout))
 
     def _headers(self) -> dict[str, str]:
         headers = {
@@ -145,65 +412,55 @@ class HttpUpstreamClient:
                 headers["MCP-Protocol-Version"] = self._protocol_version
         return headers
 
-    def _parse_sse(self, body: bytes, target_id: int | None) -> dict[str, object] | None:
-        data_lines: list[str] = []
-        matched: dict[str, object] | None = None
-
-        def flush() -> None:
-            nonlocal matched
-            if not data_lines:
-                return
-            raw_event = "\n".join(data_lines)
-            data_lines.clear()
-            if not raw_event.strip():
-                return
-            try:
-                parsed_obj: object = json.loads(raw_event)
-            except json.JSONDecodeError:
-                return
-            parsed = _as_dict(parsed_obj)
-            if parsed is not None and (target_id is None or parsed.get("id") == target_id):
-                matched = parsed
-
-        for line in body.decode("utf-8", errors="replace").splitlines():
-            if line == "":
-                flush()
-            elif line.startswith("data:"):
-                data_lines.append(line[5:].removeprefix(" "))
-        flush()
-        return matched
-
     def _decode_response_body(
         self,
         resp: HTTPResponse,
         target_id: int | None,
+        deadline: float | None,
     ) -> dict[str, object]:
-        body = resp.read()
-        if "gzip" in (resp.headers.get("Content-Encoding") or "").lower():
-            body = gzip.decompress(body)
+        is_gzip = "gzip" in (resp.headers.get("Content-Encoding") or "").lower()
         content_type = (resp.headers.get("Content-Type") or "").lower()
         if "text/event-stream" in content_type:
-            reply = self._parse_sse(body, target_id)
-            if reply is None:
-                msg = "empty SSE response"
-                raise UpstreamError.rpc_error(self.spec.name, msg)
-            return reply
+            return _read_sse_response(
+                resp,
+                self.spec.name,
+                target_id,
+                is_gzip=is_gzip,
+                deadline=deadline,
+            )
+
+        body = _read_bounded_bytes(resp, self.spec.name, is_gzip=is_gzip, deadline=deadline)
         text = body.decode("utf-8").strip()
         if not text:
             msg = "empty JSON response"
             raise UpstreamError.rpc_error(self.spec.name, msg)
         parsed_obj: object = json.loads(text)
         if isinstance(parsed_obj, list):
-            for item in _as_dict_list(cast("object", parsed_obj)):
-                if item.get("id") == target_id:
+            for item in as_dict_list(cast("object", parsed_obj)):
+                if _is_jsonrpc_response(item) and item.get("id") == target_id:
                     return item
             msg = "missing matching id in batch"
             raise UpstreamError.rpc_error(self.spec.name, msg)
-        parsed_dict = _as_dict(parsed_obj)
+        parsed_dict = as_dict(parsed_obj)
         if parsed_dict is None:
             msg = "non-object JSON-RPC reply"
             raise UpstreamError.rpc_error(self.spec.name, msg)
         return parsed_dict
+
+    def _should_retry_session(
+        self,
+        code: int,
+        *,
+        had_session: bool,
+        allow_session_retry: bool,
+        method: object,
+    ) -> bool:
+        return (
+            code == HTTP_NOT_FOUND
+            and had_session
+            and allow_session_retry
+            and method not in ("initialize", "notifications/initialized")
+        )
 
     def _post(
         self,
@@ -212,7 +469,10 @@ class HttpUpstreamClient:
         *,
         expect_reply: bool,
         allow_session_retry: bool = True,
+        deadline: float | None = None,
     ) -> dict[str, object]:
+        method = str(payload.get("method", "request"))
+        effective_timeout = _remaining_timeout(self.spec.name, method, timeout, deadline)
         raw_id = payload.get("id") if expect_reply else None
         target_id = raw_id if isinstance(raw_id, int) else None
         raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -223,39 +483,71 @@ class HttpUpstreamClient:
                 method="POST",
                 headers=headers,
                 data=raw,
-                timeout=timeout,
+                timeout=effective_timeout,
             ) as resp:
                 new_session = resp.headers.get("Mcp-Session-Id")
                 if new_session:
                     with self._lock:
                         self._session_id = new_session
-                if not expect_reply or resp.status in NO_BODY_STATUSES:
+                if not expect_reply:
                     return {}
-                return self._decode_response_body(resp, target_id)
+                if resp.status in NO_BODY_STATUSES:
+                    msg = f"unexpected HTTP {resp.status} for request expecting reply"
+                    raise UpstreamError.rpc_error(self.spec.name, msg)
+                return self._decode_response_body(resp, target_id, deadline)
         except urllib.error.HTTPError as exc:
             exc.close()
-            if (
-                exc.code == HTTP_NOT_FOUND
-                and had_session
-                and allow_session_retry
-                and payload.get("method") != "initialize"
+            if self._should_retry_session(
+                exc.code,
+                had_session=had_session,
+                allow_session_retry=allow_session_retry,
+                method=payload.get("method"),
             ):
                 with self._lock:
                     self._session_id = None
                     self._protocol_version = None
                     self._initialized = False
-                self.ensure_initialized()
+                self.ensure_initialized(deadline=deadline)
                 return self._post(
                     payload,
                     timeout,
                     expect_reply=expect_reply,
                     allow_session_retry=False,
+                    deadline=deadline,
                 )
             raise UpstreamError.rpc_error(self.spec.name, f"HTTP {exc.code} {exc.reason}") from None
-        except (urllib.error.URLError, OSError, json.JSONDecodeError, zlib.error) as exc:
+        except (
+            urllib.error.URLError,
+            http.client.HTTPException,
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            zlib.error,
+        ) as exc:
             raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
 
-    def ensure_initialized(self) -> None:
+    def _rpc_call(
+        self,
+        method: str,
+        params: dict[str, object],
+        timeout: float,
+        *,
+        deadline: float | None = None,
+    ) -> dict[str, object]:
+        reply = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": self._allocate_id(),
+                "method": method,
+                "params": params,
+            },
+            timeout,
+            expect_reply=True,
+            deadline=deadline,
+        )
+        return _extract_rpc_result(self.spec.name, reply)
+
+    def ensure_initialized(self, deadline: float | None = None) -> None:
         """Run MCP initialize handshake once per session."""
         with self._lock:
             if self._initialized:
@@ -270,7 +562,13 @@ class HttpUpstreamClient:
                 "clientInfo": CLIENT_INFO,
             },
         }
-        reply = self._post(init_req, self.spec.startup_timeout_sec, expect_reply=True)
+        reply = self._post(
+            init_req,
+            self.spec.startup_timeout_sec,
+            expect_reply=True,
+            allow_session_retry=False,
+            deadline=deadline,
+        )
         result = _extract_rpc_result(self.spec.name, reply)
         negotiated = result.get("protocolVersion")
         if isinstance(negotiated, str) and negotiated:
@@ -280,63 +578,29 @@ class HttpUpstreamClient:
             {"jsonrpc": "2.0", "method": "notifications/initialized"},
             self.spec.startup_timeout_sec,
             expect_reply=False,
+            allow_session_retry=False,
+            deadline=deadline,
         )
         with self._lock:
             self._initialized = True
-
-    def list_tools(self) -> list[dict[str, object]]:
-        """Fetch all tools from the upstream server, following pagination cursors."""
-        self.ensure_initialized()
-        tools: list[dict[str, object]] = []
-        cursor: str | None = None
-        while True:
-            params: dict[str, object] = {}
-            if cursor is not None:
-                params["cursor"] = cursor
-            reply = self._post(
-                {
-                    "jsonrpc": "2.0",
-                    "id": self._allocate_id(),
-                    "method": "tools/list",
-                    "params": params,
-                },
-                self.spec.startup_timeout_sec,
-                expect_reply=True,
-            )
-            result = _extract_rpc_result(self.spec.name, reply)
-            tools.extend(_as_dict_list(result.get("tools")))
-            next_cursor = result.get("nextCursor")
-            if not isinstance(next_cursor, str) or not next_cursor:
-                break
-            cursor = next_cursor
-        return tools
-
-    def call_tool(self, tool_name: str, arguments: dict[str, object]) -> dict[str, object]:
-        """Invoke a single tool on the upstream HTTP server."""
-        self.ensure_initialized()
-        reply = self._post(
-            {
-                "jsonrpc": "2.0",
-                "id": self._allocate_id(),
-                "method": "tools/call",
-                "params": {"name": tool_name, "arguments": arguments},
-            },
-            self.spec.tool_timeout_sec,
-            expect_reply=True,
-        )
-        return _extract_rpc_result(self.spec.name, reply)
 
     def close(self) -> None:
         """Best-effort HTTP session termination."""
         with self._lock:
             session_id = self._session_id
+            self._session_id = None
+            self._protocol_version = None
             self._initialized = False
         if not session_id:
             return
-        with contextlib.suppress(urllib.error.URLError, OSError, RuntimeError):
+        with contextlib.suppress(
+            urllib.error.URLError, http.client.HTTPException, OSError, RuntimeError
+        ):
+            headers = self._headers()
+            headers["Mcp-Session-Id"] = session_id
             self._open(
                 method="DELETE",
-                headers=self._headers(),
+                headers=headers,
                 timeout=min(self.spec.startup_timeout_sec, CLOSE_TIMEOUT_SEC),
             ).close()
 
@@ -349,7 +613,7 @@ class _PendingCall:
         self.error: Exception | None = None
 
 
-class StdioUpstreamClient:
+class StdioUpstreamClient(_BaseUpstreamClient):
     """Managed stdio MCP client with background response demultiplexing."""
 
     def __init__(self, spec: ServerSpec) -> None:
@@ -370,16 +634,29 @@ class StdioUpstreamClient:
         env.update(self.spec.env)
         return env
 
+    @staticmethod
+    def _close_proc_handles(proc: subprocess.Popen[str]) -> None:
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            if stream is not None:
+                with contextlib.suppress(OSError):
+                    stream.close()
+
     def _start_process_locked(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
             return
+        old_proc = self._proc
+        self._proc = None
         self._initialized = False
+        if old_proc is not None:
+            with contextlib.suppress(OSError):
+                old_proc.wait(timeout=0.1)
+            self._close_proc_handles(old_proc)
+
         if self.spec.command is None:
             msg = "missing command"
             raise UpstreamError.rpc_error(self.spec.name, msg)
         cmd = [self.spec.command, *self.spec.args]
         try:
-            # New process group ensures clean teardown of wrapper + child trees.
             proc = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
@@ -395,8 +672,10 @@ class StdioUpstreamClient:
         except OSError as exc:
             raise UpstreamError.rpc_error(self.spec.name, f"failed to spawn: {exc}") from None
 
+        pending: dict[int, _PendingCall] = {}
         self._proc = proc
-        threading.Thread(target=self._read_stdout, args=(proc,), daemon=True).start()
+        self._pending = pending
+        threading.Thread(target=self._read_stdout, args=(proc, pending), daemon=True).start()
         threading.Thread(target=self._read_stderr, args=(proc,), daemon=True).start()
 
     def _read_stderr(self, proc: subprocess.Popen[str]) -> None:
@@ -407,7 +686,51 @@ class StdioUpstreamClient:
                 sys.stderr.write(f"[mcp-codemode:{self.spec.name}] {line}")
                 sys.stderr.flush()
 
-    def _read_stdout(self, proc: subprocess.Popen[str]) -> None:
+    def _reply_server_request(
+        self,
+        proc: subprocess.Popen[str],
+        msg_id: object,
+        method: str,
+    ) -> None:
+        if method == "ping":
+            reply: dict[str, object] = {"jsonrpc": "2.0", "id": msg_id, "result": {}}
+        else:
+            reply = {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {
+                    "code": RPC_METHOD_NOT_FOUND,
+                    "message": f"Unsupported server request: {method}",
+                },
+            }
+        with contextlib.suppress(UpstreamError, OSError):
+            self._send_raw_to(proc, reply)
+
+    def _handle_stdout_message(
+        self,
+        proc: subprocess.Popen[str],
+        pending: dict[int, _PendingCall],
+        msg: dict[str, object],
+    ) -> None:
+        msg_id = msg.get("id")
+        method = msg.get("method")
+        if isinstance(method, str):
+            if msg_id is not None:
+                self._reply_server_request(proc, msg_id, method)
+            return
+        if not isinstance(msg_id, int) or isinstance(msg_id, bool) or not _is_jsonrpc_response(msg):
+            return
+        with self._lock:
+            waiter = pending.pop(msg_id, None)
+        if waiter is not None:
+            waiter.response = msg
+            waiter.event.set()
+
+    def _read_stdout(
+        self,
+        proc: subprocess.Popen[str],
+        pending: dict[int, _PendingCall],
+    ) -> None:
         if proc.stdout is None:
             return
         try:
@@ -420,29 +743,20 @@ class StdioUpstreamClient:
                         parsed: object = json.loads(stripped)
                     except json.JSONDecodeError:
                         continue
-                    msg = _as_dict(parsed)
-                    if msg is None:
-                        continue
-                    msg_id = msg.get("id")
-                    if not isinstance(msg_id, int):
-                        continue
-                    with self._lock:
-                        waiter = self._pending.pop(msg_id, None)
-                    if waiter is not None:
-                        waiter.response = msg
-                        waiter.event.set()
+                    msg = as_dict(parsed)
+                    if msg is not None:
+                        self._handle_stdout_message(proc, pending, msg)
         finally:
             with self._lock:
-                for waiter in self._pending.values():
+                for waiter in pending.values():
                     waiter.error = UpstreamError.closed(self.spec.name)
                     waiter.event.set()
-                self._pending.clear()
+                pending.clear()
                 if self._proc is proc:
                     self._initialized = False
 
-    def _send_raw(self, payload: dict[str, object]) -> None:
-        proc = self._proc
-        if proc is None or proc.stdin is None or proc.poll() is not None:
+    def _send_raw_to(self, proc: subprocess.Popen[str], payload: dict[str, object]) -> None:
+        if proc.stdin is None or proc.poll() is not None:
             raise UpstreamError.closed(self.spec.name)
         line = json.dumps(payload, separators=(",", ":")) + "\n"
         try:
@@ -452,86 +766,80 @@ class StdioUpstreamClient:
         except OSError as exc:
             raise UpstreamError.rpc_error(self.spec.name, f"write failed: {exc}") from None
 
-    def _request(
+    def _send_raw(self, payload: dict[str, object]) -> None:
+        with self._lock:
+            proc = self._proc
+        if proc is None:
+            raise UpstreamError.closed(self.spec.name)
+        self._send_raw_to(proc, payload)
+
+    def _rpc_call(
         self,
         method: str,
         params: dict[str, object],
         timeout: float,
+        *,
+        deadline: float | None = None,
     ) -> dict[str, object]:
+        effective_timeout = _remaining_timeout(self.spec.name, method, timeout, deadline)
         waiter = _PendingCall()
         with self._lock:
+            proc = self._proc
+            pending = self._pending
+            if proc is None:
+                raise UpstreamError.closed(self.spec.name)
             msg_id = self._next_id
             self._next_id += 1
-            self._pending[msg_id] = waiter
+            pending[msg_id] = waiter
         try:
-            self._send_raw(
+            self._send_raw_to(
+                proc,
                 {
                     "jsonrpc": "2.0",
                     "id": msg_id,
                     "method": method,
                     "params": params,
-                }
+                },
             )
         except Exception:
             with self._lock:
-                self._pending.pop(msg_id, None)
+                pending.pop(msg_id, None)
             raise
 
-        if not waiter.event.wait(timeout):
+        if not waiter.event.wait(effective_timeout):
             with self._lock:
-                self._pending.pop(msg_id, None)
-            raise UpstreamError.timed_out(self.spec.name, method, timeout)
+                pending.pop(msg_id, None)
+            raise UpstreamError.timed_out(self.spec.name, method, effective_timeout)
         if waiter.error is not None:
             raise waiter.error
         if waiter.response is None:
             raise UpstreamError.closed(self.spec.name)
         return _extract_rpc_result(self.spec.name, waiter.response)
 
-    def ensure_initialized(self) -> None:
+    def ensure_initialized(self, deadline: float | None = None) -> None:
         """Spawn the subprocess and perform the MCP handshake once."""
         with self._lock:
             if self._initialized and self._proc is not None and self._proc.poll() is None:
                 return
             self._start_process_locked()
 
-        self._request(
-            "initialize",
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": CLIENT_INFO,
-            },
-            self.spec.startup_timeout_sec,
-        )
-        self._send_raw({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        try:
+            self._rpc_call(
+                "initialize",
+                {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": CLIENT_INFO,
+                },
+                self.spec.startup_timeout_sec,
+                deadline=deadline,
+            )
+            self._send_raw({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        except Exception:
+            self.close()
+            raise
         with self._lock:
             self._initialized = True
-
-    def list_tools(self) -> list[dict[str, object]]:
-        """List all tools from the stdio server."""
-        self.ensure_initialized()
-        tools: list[dict[str, object]] = []
-        cursor: str | None = None
-        while True:
-            params: dict[str, object] = {}
-            if cursor is not None:
-                params["cursor"] = cursor
-            result = self._request("tools/list", params, self.spec.startup_timeout_sec)
-            tools.extend(_as_dict_list(result.get("tools")))
-            next_cursor = result.get("nextCursor")
-            if not isinstance(next_cursor, str) or not next_cursor:
-                break
-            cursor = next_cursor
-        return tools
-
-    def call_tool(self, tool_name: str, arguments: dict[str, object]) -> dict[str, object]:
-        """Call one tool on the stdio server."""
-        self.ensure_initialized()
-        return self._request(
-            "tools/call",
-            {"name": tool_name, "arguments": arguments},
-            self.spec.tool_timeout_sec,
-        )
 
     def close(self) -> None:
         """Terminate the upstream process group cleanly."""
@@ -544,23 +852,8 @@ class StdioUpstreamClient:
         if proc.stdin is not None:
             with contextlib.suppress(OSError):
                 proc.stdin.close()
-        if proc.poll() is None:
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except OSError:
-                proc.terminate()
-            try:
-                proc.wait(timeout=STDIO_TERM_GRACE_SEC)
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except OSError:
-                    proc.kill()
-                proc.wait()
-        for stream in (proc.stdout, proc.stderr):
-            if stream is not None:
-                with contextlib.suppress(OSError):
-                    stream.close()
+        terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
+        self._close_proc_handles(proc)
 
 
 class UpstreamSupervisor:
@@ -570,28 +863,34 @@ class UpstreamSupervisor:
         """Initialize the supervisor for a compiled manifest."""
         self.manifest = manifest
         self._lock = threading.Lock()
-        self._clients: dict[str, HttpUpstreamClient | StdioUpstreamClient] = {}
+        self._clients: dict[str, _BaseUpstreamClient] = {}
         self._tools_cache: dict[str, list[dict[str, object]]] = {}
 
-    def _get_client(self, name: str) -> HttpUpstreamClient | StdioUpstreamClient:
+    def _get_client(self, name: str) -> _BaseUpstreamClient:
         with self._lock:
             existing = self._clients.get(name)
             if existing is not None:
                 return existing
             spec = self.manifest.servers[name]
-            client: HttpUpstreamClient | StdioUpstreamClient = (
+            client: _BaseUpstreamClient = (
                 HttpUpstreamClient(spec) if spec.transport == "http" else StdioUpstreamClient(spec)
             )
             self._clients[name] = client
             return client
 
-    def get_tools(self, name: str, *, refresh: bool = False) -> list[dict[str, object]]:
+    def get_tools(
+        self,
+        name: str,
+        *,
+        refresh: bool = False,
+        deadline: float | None = None,
+    ) -> list[dict[str, object]]:
         """Return cached or freshly fetched tool definitions for one server."""
         with self._lock:
             if not refresh and name in self._tools_cache:
                 return list(self._tools_cache[name])
         client = self._get_client(name)
-        tools = client.list_tools()
+        tools = client.list_tools(deadline=deadline)
         with self._lock:
             self._tools_cache[name] = list(tools)
         return tools
@@ -601,10 +900,25 @@ class UpstreamSupervisor:
         name: str,
         tool_name: str,
         arguments: dict[str, object],
+        *,
+        deadline: float | None = None,
     ) -> dict[str, object]:
         """Invoke a tool on the named upstream server."""
         client = self._get_client(name)
-        return client.call_tool(tool_name, arguments)
+        return client.call_tool(tool_name, arguments, deadline=deadline)
+
+    def close_disabled(self, states: dict[str, bool]) -> None:
+        """Close and evict cached state for any server currently disabled."""
+        to_close: list[_BaseUpstreamClient] = []
+        with self._lock:
+            for name, enabled in states.items():
+                if not enabled:
+                    self._tools_cache.pop(name, None)
+                    client = self._clients.pop(name, None)
+                    if client is not None:
+                        to_close.append(client)
+        for client in to_close:
+            client.close()
 
     def close_all(self) -> None:
         """Close every active upstream client."""

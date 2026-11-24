@@ -6,14 +6,16 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
-import signal
+import queue
 import subprocess
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
+
+from ._util import as_dict, terminate_process_group
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,10 +26,13 @@ TRUNCATION_MARKER = "\n--- TRUNCATED ---"
 NODE_MAX_HEAP_MB = 256
 KILL_GRACE_SEC = 1.0
 SANDBOX_TMP_MOUNT = "/tmp"  # noqa: S108
+SANDBOX_TMPFS_BYTES = 16 * 1024 * 1024
+MAX_CONCURRENT_RPCS = 8
+WAIT_POLL_SEC = 0.05
 
 
 class SandboxError(RuntimeError):
-    """Raised when the JS sandbox fails to start, times out, or throws."""
+    """Raised when the JS sandbox fails to start, times out, is cancelled, or throws."""
 
     @classmethod
     def startup_failed(cls, detail: str) -> SandboxError:
@@ -45,8 +50,15 @@ class SandboxError(RuntimeError):
         return cls(f"codemode execution timed out after {timeout_sec:.0f}s")
 
     @classmethod
-    def execution_failed(cls, detail: str) -> SandboxError:
+    def cancelled(cls) -> SandboxError:
+        """Create an error when the client cancels an in-flight execution."""
+        return cls("codemode execution cancelled")
+
+    @classmethod
+    def execution_failed(cls, detail: str, logs: list[str] | None = None) -> SandboxError:
         """Create an error when model-written code throws an uncaught error."""
+        if logs:
+            return cls("Console output:\n" + "\n".join(logs) + f"\n\n{detail}")
         return cls(detail)
 
 
@@ -59,6 +71,7 @@ class SandboxConfig:
     sandbox_script: Path
     use_bwrap: bool = True
     timeout_sec: float = DEFAULT_EXEC_TIMEOUT_SEC
+    cancel_event: threading.Event | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -69,10 +82,11 @@ class SandboxResult:
     logs: list[str] = field(default_factory=list[str])
 
 
-type RpcHandler = Callable[[str, dict[str, object]], object]
+type RpcHandler = Callable[[str, dict[str, object], float], object]
 
 
-def _build_command(config: SandboxConfig) -> list[str]:
+def build_command(config: SandboxConfig) -> list[str]:
+    """Build the Node 24 (+ optional Bubblewrap) command line for a sandbox run."""
     script_str = str(config.sandbox_script.resolve())
     node_args = [
         config.node_bin,
@@ -103,6 +117,8 @@ def _build_command(config: SandboxConfig) -> list[str]:
         "/dev",
         "--proc",
         "/proc",
+        "--size",
+        str(SANDBOX_TMPFS_BYTES),
         "--tmpfs",
         SANDBOX_TMP_MOUNT,
         "--chdir",
@@ -115,23 +131,6 @@ def _build_command(config: SandboxConfig) -> list[str]:
     return bwrap_args
 
 
-def _terminate_proc(proc: subprocess.Popen[str]) -> None:
-    if proc.poll() is not None:
-        return
-    try:
-        os.killpg(proc.pid, signal.SIGTERM)
-    except OSError:
-        proc.terminate()
-    try:
-        proc.wait(timeout=KILL_GRACE_SEC)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except OSError:
-            proc.kill()
-        proc.wait()
-
-
 def _drain_stderr(proc: subprocess.Popen[str], chunks: list[str]) -> None:
     if proc.stderr is None:
         return
@@ -139,93 +138,173 @@ def _drain_stderr(proc: subprocess.Popen[str], chunks: list[str]) -> None:
         chunks.extend(proc.stderr)
 
 
-def _as_dict(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    raw = cast("dict[object, object]", value)
-    return {str(k): v for k, v in raw.items()}
-
-
-def _dispatch_rpc(
-    msg: dict[str, object],
-    rpc_handler: RpcHandler,
-    send_message: Callable[[dict[str, object]], None],
-) -> bool:
-    req_id = msg.get("id")
-    method = str(msg.get("method", ""))
-    params = _as_dict(msg.get("params")) or {}
-    try:
-        rpc_result = rpc_handler(method, params)
-        reply: dict[str, object] = {
-            "type": "rpc_result",
-            "id": req_id,
-            "ok": True,
-            "result": rpc_result,
-        }
-    except Exception as exc:  # noqa: BLE001
-        reply = {"type": "rpc_result", "id": req_id, "ok": False, "error": str(exc)}
-    try:
-        send_message(reply)
-    except BrokenPipeError, OSError, ValueError:
-        return False
-    return True
-
-
-def _parse_done(msg: dict[str, object]) -> SandboxResult:
+def _extract_logs(msg: dict[str, object]) -> list[str]:
     raw_logs = msg.get("logs")
-    logs: list[str] = []
-    if isinstance(raw_logs, list):
-        logs = [str(entry) for entry in cast("list[object]", raw_logs)]
-    return SandboxResult(value=msg.get("value"), logs=logs)
+    if not isinstance(raw_logs, list):
+        return []
+    return [str(entry) for entry in cast("list[object]", raw_logs)]
 
 
-def _read_sandbox_loop(
-    proc: subprocess.Popen[str],
-    rpc_handler: RpcHandler,
-    send_message: Callable[[dict[str, object]], None],
-) -> tuple[SandboxResult | None, str | None]:
-    if proc.stdout is None:
-        return None, None
-    for raw_line in proc.stdout:
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
+class _SandboxSession:
+    """Coordinates non-blocking stdin/stdout IPC, concurrent RPC dispatch, and deadline teardown."""
+
+    def __init__(
+        self,
+        proc: subprocess.Popen[str],
+        rpc_handler: RpcHandler,
+        deadline: float,
+    ) -> None:
+        self.proc = proc
+        self.rpc_handler = rpc_handler
+        self.deadline = deadline
+        self._state_lock = threading.Lock()
+        self._done_event = threading.Event()
+        self._write_queue: queue.Queue[dict[str, object] | None] = queue.Queue()
+        self._executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_RPCS)
+        self.result: SandboxResult | None = None
+        self.error: tuple[str, list[str]] | None = None
+        self.eof = False
+        self.timed_out = False
+        self.cancelled = False
+
+    def enqueue_write(self, msg: dict[str, object]) -> None:
+        """Queue one JSON message for the dedicated stdin writer thread."""
+        self._write_queue.put(msg)
+
+    def _writer_loop(self) -> None:
+        stdin = self.proc.stdin
+        if stdin is None:
+            return
+        while True:
+            msg = self._write_queue.get()
+            if msg is None:
+                return
+            line = json.dumps(msg, separators=(",", ":")) + "\n"
+            try:
+                stdin.write(line)
+                stdin.flush()
+            except BrokenPipeError, OSError, ValueError:
+                return
+
+    def _run_rpc_task(self, req_id: object, method: str, params: dict[str, object]) -> None:
+        if self._done_event.is_set():
+            return
         try:
-            parsed: object = json.loads(stripped)
-        except json.JSONDecodeError:
-            continue
-        msg = _as_dict(parsed)
-        if msg is None:
-            continue
+            rpc_result = self.rpc_handler(method, params, self.deadline)
+            reply: dict[str, object] = {
+                "type": "rpc_result",
+                "id": req_id,
+                "ok": True,
+                "result": rpc_result,
+            }
+        except Exception as exc:  # noqa: BLE001
+            reply = {"type": "rpc_result", "id": req_id, "ok": False, "error": str(exc)}
+        if not self._done_event.is_set():
+            self.enqueue_write(reply)
+
+    def _reader_loop(self) -> None:
+        stdout = self.proc.stdout
+        if stdout is None:
+            self._finish_eof()
+            return
+        try:
+            with contextlib.suppress(OSError, ValueError):
+                for raw_line in stdout:
+                    stripped = raw_line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        parsed: object = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        continue
+                    msg = as_dict(parsed)
+                    if msg is not None and self._handle_message(msg):
+                        return
+        finally:
+            self._finish_eof()
+
+    def _handle_message(self, msg: dict[str, object]) -> bool:
         msg_type = msg.get("type")
         if msg_type == "rpc":
-            if not _dispatch_rpc(msg, rpc_handler, send_message):
-                return None, None
-        elif msg_type == "done":
-            return _parse_done(msg), None
-        elif msg_type == "error":
-            return None, str(msg.get("error", "sandbox execution error"))
-    return None, None
+            req_id = msg.get("id")
+            method = str(msg.get("method", ""))
+            params = as_dict(msg.get("params")) or {}
+            if not self._done_event.is_set():
+                with contextlib.suppress(RuntimeError):
+                    self._executor.submit(self._run_rpc_task, req_id, method, params)
+            return False
+        if msg_type == "done":
+            with self._state_lock:
+                if not self._done_event.is_set():
+                    self.result = SandboxResult(value=msg.get("value"), logs=_extract_logs(msg))
+                    self._done_event.set()
+            return True
+        if msg_type == "error":
+            with self._state_lock:
+                if not self._done_event.is_set():
+                    self.error = (
+                        str(msg.get("error", "sandbox execution error")),
+                        _extract_logs(msg),
+                    )
+                    self._done_event.set()
+            return True
+        return False
 
+    def _finish_eof(self) -> None:
+        with self._state_lock:
+            if not self._done_event.is_set():
+                self.eof = True
+                self._done_event.set()
 
-def _cleanup_sandbox_proc(
-    proc: subprocess.Popen[str],
-    timer: threading.Timer,
-    stderr_thread: threading.Thread,
-) -> None:
-    timer.cancel()
-    if proc.stdin is not None and not proc.stdin.closed:
-        with contextlib.suppress(OSError):
-            proc.stdin.close()
-    deadline = time.monotonic() + KILL_GRACE_SEC
-    while proc.poll() is None and time.monotonic() < deadline:
-        time.sleep(0.01)
-    _terminate_proc(proc)
-    for stream in (proc.stdout, proc.stderr):
-        if stream is not None:
-            with contextlib.suppress(OSError):
-                stream.close()
-    stderr_thread.join(timeout=KILL_GRACE_SEC)
+    def abort(self, *, timed_out: bool = False, cancelled: bool = False) -> None:
+        """Mark the session aborted and immediately terminate the sandbox process group."""
+        should_kill = False
+        with self._state_lock:
+            if not self._done_event.is_set():
+                self.timed_out = timed_out
+                self.cancelled = cancelled
+                self._done_event.set()
+                should_kill = True
+        if should_kill:
+            terminate_process_group(self.proc, KILL_GRACE_SEC)
+
+    def run_and_wait(
+        self,
+        init_msg: dict[str, object],
+        cancel_event: threading.Event | None,
+    ) -> None:
+        """Run sandbox I/O threads and wait until done, cancelled, or expired."""
+        writer = threading.Thread(target=self._writer_loop, daemon=True)
+        reader = threading.Thread(target=self._reader_loop, daemon=True)
+        writer.start()
+        reader.start()
+        self.enqueue_write(init_msg)
+        try:
+            while not self._done_event.is_set():
+                if cancel_event is not None and cancel_event.is_set():
+                    self.abort(cancelled=True)
+                    break
+                remaining = self.deadline - time.monotonic()
+                if remaining <= 0:
+                    self.abort(timed_out=True)
+                    break
+                self._done_event.wait(timeout=min(remaining, WAIT_POLL_SEC))
+        finally:
+            self._write_queue.put(None)
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            if self.proc.stdin is not None and not self.proc.stdin.closed:
+                with contextlib.suppress(OSError):
+                    self.proc.stdin.close()
+            wait_until = time.monotonic() + KILL_GRACE_SEC
+            while self.proc.poll() is None and time.monotonic() < wait_until:
+                time.sleep(0.01)
+            terminate_process_group(self.proc, KILL_GRACE_SEC)
+            for stream in (self.proc.stdout, self.proc.stderr):
+                if stream is not None:
+                    with contextlib.suppress(OSError):
+                        stream.close()
+            reader.join(timeout=KILL_GRACE_SEC)
+            writer.join(timeout=KILL_GRACE_SEC)
 
 
 def run_sandbox(
@@ -237,7 +316,7 @@ def run_sandbox(
     config: SandboxConfig,
 ) -> SandboxResult:
     """Run model-written JS/TS inside an isolated Node 24 sandbox with stdin/stdout RPC."""
-    cmd = _build_command(config)
+    cmd = build_command(config)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -258,49 +337,33 @@ def run_sandbox(
     stderr_thread = threading.Thread(target=_drain_stderr, args=(proc, stderr_chunks), daemon=True)
     stderr_thread.start()
 
-    timed_out = threading.Event()
-    timer = threading.Timer(
-        config.timeout_sec,
-        lambda: (timed_out.set(), _terminate_proc(proc)),
-    )
-    timer.daemon = True
-    timer.start()
-
-    write_lock = threading.Lock()
-
-    def send_message(msg: dict[str, object]) -> None:
-        line = json.dumps(msg, separators=(",", ":")) + "\n"
-        with write_lock:
-            if proc.stdin is not None and not proc.stdin.closed:
-                proc.stdin.write(line)
-                proc.stdin.flush()
-
-    final_result: SandboxResult | None = None
-    final_error: str | None = None
-
+    deadline = time.monotonic() + config.timeout_sec
+    session = _SandboxSession(proc, rpc_handler, deadline)
     try:
-        with contextlib.suppress(BrokenPipeError, OSError):
-            send_message(
-                {
-                    "type": "run",
-                    "code": code,
-                    "mode": mode,
-                    "serverAliases": server_aliases,
-                }
-            )
-            final_result, final_error = _read_sandbox_loop(proc, rpc_handler, send_message)
+        session.run_and_wait(
+            {
+                "type": "run",
+                "code": code,
+                "mode": mode,
+                "serverAliases": server_aliases,
+            },
+            config.cancel_event,
+        )
     finally:
-        _cleanup_sandbox_proc(proc, timer, stderr_thread)
+        stderr_thread.join(timeout=KILL_GRACE_SEC)
 
-    if timed_out.is_set():
+    if session.cancelled:
+        raise SandboxError.cancelled()
+    if session.timed_out:
         raise SandboxError.timed_out(config.timeout_sec)
-    if final_error is not None:
-        raise SandboxError.execution_failed(final_error)
-    if final_result is None:
+    if session.error is not None:
+        detail, err_logs = session.error
+        raise SandboxError.execution_failed(detail, err_logs)
+    if session.result is None:
         stderr_text = "".join(stderr_chunks).strip()
         detail = stderr_text or f"sandbox exited with code {proc.returncode}"
         raise SandboxError.startup_failed(detail)
-    return final_result
+    return session.result
 
 
 def truncate_text(text: str, limit: int = MAX_TEXT_CHARS) -> str:

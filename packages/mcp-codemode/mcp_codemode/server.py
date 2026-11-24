@@ -7,8 +7,18 @@ from __future__ import annotations
 import json
 import signal
 import sys
-from typing import TYPE_CHECKING, cast
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from typing import TYPE_CHECKING
 
+from ._util import (
+    PROTOCOL_VERSION,
+    SERVER_INFO,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    as_dict,
+    as_dict_list,
+)
 from .config import (
     DISABLE_ENV_VAR,
     ENABLE_ENV_VAR,
@@ -17,7 +27,6 @@ from .config import (
     user_overrides_path,
 )
 from .sandbox import (
-    DEFAULT_EXEC_TIMEOUT_SEC,
     SandboxConfig,
     SandboxError,
     run_sandbox,
@@ -29,12 +38,14 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "mcp-codemode", "version": "0.1.0"}
 NON_TEXT_BLOCK_TYPES = frozenset({"image", "audio", "resource", "resource_link"})
 RPC_METHOD_NOT_FOUND = -32601
 RPC_INVALID_PARAMS = -32602
 RPC_INTERNAL_ERROR = -32603
+DEFAULT_SEARCH_TIMEOUT_SEC = 60.0
+MAX_ATTACHMENTS = 16
+MAX_CONCURRENT_REQUESTS = 8
+MAX_DISCOVERY_WORKERS = 6
 
 
 class ToolDispatchError(RuntimeError):
@@ -51,8 +62,8 @@ class ToolDispatchError(RuntimeError):
         return cls(
             f"MCP server '{server}' is disabled. Enable it without restarting via "
             f"`mcp-codemode enable {server}` (project-scoped in {user_overrides_path()}) or "
-            f"`mcp-codemode enable --user {server}` (user-wide), or launch the client with "
-            f"`{ENABLE_ENV_VAR}={server}`."
+            f"`mcp-codemode enable --user {server}` (user-wide; required for GUI clients), "
+            f"or launch the client with `{ENABLE_ENV_VAR}={server}`."
         )
 
     @classmethod
@@ -71,36 +82,21 @@ class ToolDispatchError(RuntimeError):
         return cls(f"{server}.{tool}: {detail}")
 
 
-def _as_dict(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    raw = cast("dict[object, object]", value)
-    return {str(k): v for k, v in raw.items()}
-
-
-def _as_dict_list(value: object) -> list[dict[str, object]]:
-    if not isinstance(value, list):
-        return []
-    out: list[dict[str, object]] = []
-    for item in cast("list[object]", value):
-        item_dict = _as_dict(item)
-        if item_dict is not None:
-            out.append(item_dict)
-    return out
-
-
 def _collect_blocks(
     raw_content: object,
     attachments: list[dict[str, object]],
+    attachments_lock: threading.Lock,
 ) -> tuple[list[str], list[dict[str, object]]]:
     text_parts: list[str] = []
     non_text_meta: list[dict[str, object]] = []
-    for block in _as_dict_list(raw_content):
+    for block in as_dict_list(raw_content):
         btype = block.get("type")
         if btype == "text":
             text_parts.append(str(block.get("text", "")))
         elif isinstance(btype, str) and btype in NON_TEXT_BLOCK_TYPES:
-            attachments.append(block)
+            with attachments_lock:
+                if len(attachments) < MAX_ATTACHMENTS:
+                    attachments.append(block)
             meta: dict[str, object] = {"type": btype}
             if "mimeType" in block:
                 meta["mimeType"] = block["mimeType"]
@@ -123,8 +119,11 @@ def _parse_text_or_json(joined: str) -> object:
 def _unwrap_upstream_result(
     result: dict[str, object],
     attachments: list[dict[str, object]],
+    attachments_lock: threading.Lock,
 ) -> object:
-    text_parts, non_text_meta = _collect_blocks(result.get("content"), attachments)
+    text_parts, non_text_meta = _collect_blocks(
+        result.get("content"), attachments, attachments_lock
+    )
     structured = result.get("structuredContent")
 
     if structured is not None and not non_text_meta:
@@ -149,7 +148,7 @@ def _unwrap_upstream_result(
 def _extract_error_text(result: dict[str, object]) -> str:
     parts = [
         str(block.get("text", ""))
-        for block in _as_dict_list(result.get("content"))
+        for block in as_dict_list(result.get("content"))
         if block.get("type") == "text"
     ]
     joined = "\n".join(part for part in parts if part)
@@ -185,19 +184,21 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
     search_desc = (
         "Inspect available MCP servers and their tool schemas in a read-only JS/TS sandbox "
         f"without loading all tool schemas into context. Configured servers: {server_list}. "
-        "Write `async () => { ... }` using `codemode.servers()` "
+        "Write `async () => { ... }` using `await codemode.servers()` "
         "(lists servers, aliases, and enabled/disabled status), "
-        "`await codemode.tools(server?, { refresh? })` (compact tool names and descriptions), "
+        "`await codemode.tools(server?, { refresh? })` (compact tool names and descriptions; "
+        "prefer passing a specific `server` to avoid launching unrelated servers), "
         "and `await codemode.spec(server?, { refresh? })` (full JSON input schemas)."
     )
     exec_desc = (
         "Execute JS/TS in an isolated zero-network, zero-filesystem sandbox with access to "
         "enabled MCP servers via `codemode.<server>.<tool>(args)` or "
-        "`codemode.call(server, tool, args)`, plus `codemode.servers()`, `codemode.tools()`, "
-        "and `codemode.spec()`. Use `search` first to inspect schemas. Return only the filtered "
-        "result you need; output past 24,000 chars is truncated. Toggle opt-in servers without "
-        "restarting the client via `mcp-codemode enable <server>` "
-        f"(project-scoped in {user_overrides_path()}) or `mcp-codemode enable --user <server>`, "
+        "`codemode.call(server, tool, args)`, plus `await codemode.servers()`, "
+        "`await codemode.tools()`, and `await codemode.spec()`. Use `search` first to inspect "
+        "schemas. Return only the filtered result you need; output past 24,000 chars is "
+        "truncated. Toggle opt-in servers without restarting the client via "
+        f"`mcp-codemode enable <server>` (project-scoped in {user_overrides_path()}) or "
+        "`mcp-codemode enable --user <server>` (user-wide; required for GUI clients), "
         f"or set `{ENABLE_ENV_VAR}` / `{DISABLE_ENV_VAR}` before launching the client."
     )
     return [
@@ -219,7 +220,7 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
                 "readOnlyHint": True,
                 "destructiveHint": False,
                 "idempotentHint": True,
-                "openWorldHint": False,
+                "openWorldHint": True,
             },
         },
         {
@@ -262,11 +263,15 @@ class CodeModeServer:
         self.sandbox_config = sandbox_config
         self.cwd = cwd
         self.supervisor = UpstreamSupervisor(manifest)
-        self._alias_map = {spec.alias: spec.name for spec in manifest.servers.values()}
         self._tools = _build_tool_definitions(manifest)
+        self._stdout_lock = threading.Lock()
+        self._cancel_lock = threading.Lock()
+        self._active_cancels: dict[object, threading.Event] = {}
 
     def _current_states(self) -> tuple[dict[str, bool], dict[str, str]]:
-        return resolve_enabled_servers(self.manifest, self.cwd)
+        states, sources = resolve_enabled_servers(self.manifest, self.cwd)
+        self.supervisor.close_disabled(states)
+        return states, sources
 
     def _handle_servers_rpc(self) -> list[dict[str, object]]:
         states, sources = self._current_states()
@@ -290,6 +295,7 @@ class CodeModeServer:
         enabled: bool,
         refresh: bool,
         compact: bool,
+        deadline: float | None,
     ) -> dict[str, object]:
         spec = self.manifest.servers[name]
         if not enabled:
@@ -301,7 +307,7 @@ class CodeModeServer:
                 "error": str(ToolDispatchError.disabled_server(spec.name)),
             }
         try:
-            tools = self.supervisor.get_tools(spec.name, refresh=refresh)
+            tools = self.supervisor.get_tools(spec.name, refresh=refresh, deadline=deadline)
         except UpstreamError as exc:
             return {
                 "server": spec.name,
@@ -323,6 +329,7 @@ class CodeModeServer:
         params: dict[str, object],
         *,
         compact: bool,
+        deadline: float,
     ) -> dict[str, object]:
         states, _ = self._current_states()
         refresh = bool(params.get("refresh", False))
@@ -336,17 +343,14 @@ class CodeModeServer:
                 enabled=states[canonical],
                 refresh=refresh,
                 compact=compact,
+                deadline=deadline,
             )
 
         out: dict[str, object] = {}
+        enabled_names: list[str] = []
         for name, spec in self.manifest.servers.items():
             if states[name]:
-                out[name] = self._inspect_server_tools(
-                    name,
-                    enabled=True,
-                    refresh=refresh,
-                    compact=compact,
-                )
+                enabled_names.append(name)
             else:
                 out[name] = {
                     "server": name,
@@ -354,16 +358,36 @@ class CodeModeServer:
                     "enabled": False,
                     "tools": [],
                 }
+        if not enabled_names:
+            return out
+
+        workers = min(len(enabled_names), MAX_DISCOVERY_WORKERS)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                name: pool.submit(
+                    self._inspect_server_tools,
+                    name,
+                    enabled=True,
+                    refresh=refresh,
+                    compact=compact,
+                    deadline=deadline,
+                )
+                for name in enabled_names
+            }
+            for name, fut in futures.items():
+                out[name] = fut.result()
         return out
 
     def _handle_call_tool_rpc(
         self,
         params: dict[str, object],
         attachments: list[dict[str, object]],
+        attachments_lock: threading.Lock,
+        deadline: float,
     ) -> object:
         raw_server = str(params.get("server", ""))
         tool_name = str(params.get("tool", ""))
-        arguments = _as_dict(params.get("args")) or {}
+        arguments = as_dict(params.get("args")) or {}
 
         if not raw_server or not tool_name:
             raise ToolDispatchError.missing_server_or_tool()
@@ -376,36 +400,43 @@ class CodeModeServer:
         if not states[canonical]:
             raise ToolDispatchError.disabled_server(canonical)
 
-        result = self.supervisor.call_tool(canonical, tool_name, arguments)
+        result = self.supervisor.call_tool(canonical, tool_name, arguments, deadline=deadline)
         if result.get("isError"):
             raise ToolDispatchError.upstream_tool_error(
                 canonical,
                 tool_name,
                 _extract_error_text(result),
             )
-        return _unwrap_upstream_result(result, attachments)
+        return _unwrap_upstream_result(result, attachments, attachments_lock)
 
     def _make_rpc_handler(
         self,
         tool_name: str,
         attachments: list[dict[str, object]],
-    ) -> Callable[[str, dict[str, object]], object]:
-        def rpc_handler(method: str, params: dict[str, object]) -> object:
+        attachments_lock: threading.Lock,
+    ) -> Callable[[str, dict[str, object], float], object]:
+        def rpc_handler(method: str, params: dict[str, object], deadline: float) -> object:
             if method == "servers":
                 return self._handle_servers_rpc()
             if method == "tools":
-                return self._handle_discovery_rpc(params, compact=True)
+                return self._handle_discovery_rpc(params, compact=True, deadline=deadline)
             if method == "spec":
-                return self._handle_discovery_rpc(params, compact=False)
+                return self._handle_discovery_rpc(params, compact=False, deadline=deadline)
             if method == "call_tool":
                 if tool_name != "execute":
                     raise ToolDispatchError.unsupported_method(tool_name, method)
-                return self._handle_call_tool_rpc(params, attachments)
+                return self._handle_call_tool_rpc(params, attachments, attachments_lock, deadline)
             raise ToolDispatchError.unsupported_method(tool_name, method)
 
         return rpc_handler
 
-    def run_tool(self, tool_name: str, arguments: dict[str, object]) -> dict[str, object]:
+    def run_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, object],
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, object]:
         """Execute a downstream `search` or `execute` tool call and return an MCP result."""
         if tool_name not in ("search", "execute"):
             return {
@@ -423,15 +454,26 @@ class CodeModeServer:
             }
 
         attachments: list[dict[str, object]] = []
-        rpc_handler = self._make_rpc_handler(tool_name, attachments)
+        attachments_lock = threading.Lock()
+        rpc_handler = self._make_rpc_handler(tool_name, attachments, attachments_lock)
+        effective_timeout = (
+            min(self.sandbox_config.timeout_sec, DEFAULT_SEARCH_TIMEOUT_SEC)
+            if tool_name == "search"
+            else self.sandbox_config.timeout_sec
+        )
+        effective_config = replace(
+            self.sandbox_config,
+            timeout_sec=effective_timeout,
+            cancel_event=cancel_event,
+        )
 
         try:
             outcome = run_sandbox(
                 code=code,
                 mode=tool_name,
-                server_aliases=self._alias_map,
+                server_aliases=self.manifest.alias_to_name,
                 rpc_handler=rpc_handler,
-                config=self.sandbox_config,
+                config=effective_config,
             )
         except SandboxError as exc:
             return {
@@ -452,16 +494,24 @@ class CodeModeServer:
         content.extend(attachments)
         return {"content": content}
 
+    def _negotiate_protocol_version(self, params: dict[str, object]) -> str:
+        requested = params.get("protocolVersion")
+        if isinstance(requested, str) and requested in SUPPORTED_PROTOCOL_VERSIONS:
+            return requested
+        return PROTOCOL_VERSION
+
     def _dispatch_request(
         self,
         method: str,
         params: dict[str, object],
+        *,
+        cancel_event: threading.Event | None = None,
     ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
         result: dict[str, object] | None = None
         error: dict[str, object] | None = None
         if method == "initialize":
             result = {
-                "protocolVersion": PROTOCOL_VERSION,
+                "protocolVersion": self._negotiate_protocol_version(params),
                 "capabilities": {"tools": {}},
                 "serverInfo": SERVER_INFO,
             }
@@ -471,30 +521,83 @@ class CodeModeServer:
             result = {"tools": self._tools}
         elif method == "tools/call":
             name = params.get("name")
-            args = _as_dict(params.get("arguments")) or {}
+            args = as_dict(params.get("arguments")) or {}
             if not isinstance(name, str):
                 error = {"code": RPC_INVALID_PARAMS, "message": "tools/call missing 'name'"}
             else:
-                result = self.run_tool(name, args)
+                result = self.run_tool(name, args, cancel_event=cancel_event)
         else:
             error = {"code": RPC_METHOD_NOT_FOUND, "message": f"Method not found: {method}"}
         return result, error
 
-    def handle_message(self, msg: dict[str, object]) -> dict[str, object] | None:
+    def _cancel_request(self, request_id: object) -> None:
+        with self._cancel_lock:
+            cancel_event = self._active_cancels.get(request_id)
+        if cancel_event is not None:
+            cancel_event.set()
+
+    def handle_message(
+        self,
+        msg: dict[str, object],
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, object] | None:
         """Process one JSON-RPC 2.0 request or notification."""
         msg_id = msg.get("id")
         method = msg.get("method")
-        params = _as_dict(msg.get("params")) or {}
+        params = as_dict(msg.get("params")) or {}
 
         if not isinstance(method, str) or method == "notifications/initialized":
             return None
+        if method == "notifications/cancelled":
+            request_id = params.get("requestId")
+            if request_id is not None:
+                self._cancel_request(request_id)
+            return None
 
-        result, error = self._dispatch_request(method, params)
+        result, error = self._dispatch_request(method, params, cancel_event=cancel_event)
         if msg_id is None:
             return None
         if error is not None:
             return {"jsonrpc": "2.0", "id": msg_id, "error": error}
         return {"jsonrpc": "2.0", "id": msg_id, "result": result}
+
+    def _write_reply(self, reply: dict[str, object]) -> None:
+        line = json.dumps(reply, separators=(",", ":")) + "\n"
+        with self._stdout_lock:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+
+    def _run_message_safe(
+        self,
+        msg: dict[str, object],
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> None:
+        msg_id = msg.get("id")
+        try:
+            reply = self.handle_message(msg, cancel_event=cancel_event)
+        except Exception as exc:  # noqa: BLE001
+            sys.stderr.write(f"mcp-codemode: internal error handling message: {exc}\n")
+            sys.stderr.flush()
+            reply = (
+                {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "error": {
+                        "code": RPC_INTERNAL_ERROR,
+                        "message": f"Internal error: {exc}",
+                    },
+                }
+                if msg_id is not None
+                else None
+            )
+        finally:
+            if msg_id is not None and cancel_event is not None:
+                with self._cancel_lock:
+                    self._active_cancels.pop(msg_id, None)
+        if reply is not None:
+            self._write_reply(reply)
 
     def serve_stdio(self) -> int:
         """Run the newline-delimited JSON-RPC loop on stdin/stdout until EOF."""
@@ -504,6 +607,7 @@ class CodeModeServer:
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
         previous_sigint = signal.signal(signal.SIGINT, _handle_signal)
+        executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS)
         try:
             for raw_line in sys.stdin:
                 stripped = raw_line.strip()
@@ -515,50 +619,25 @@ class CodeModeServer:
                     sys.stderr.write(f"mcp-codemode: ignoring invalid JSON on stdin: {exc}\n")
                     sys.stderr.flush()
                     continue
-                msg = _as_dict(parsed)
+                msg = as_dict(parsed)
                 if msg is None:
                     continue
-                try:
-                    reply = self.handle_message(msg)
-                except Exception as exc:  # noqa: BLE001
-                    sys.stderr.write(f"mcp-codemode: internal error handling message: {exc}\n")
-                    sys.stderr.flush()
+                if msg.get("method") == "tools/call":
+                    cancel_event = threading.Event()
                     msg_id = msg.get("id")
-                    reply = (
-                        {
-                            "jsonrpc": "2.0",
-                            "id": msg_id,
-                            "error": {
-                                "code": RPC_INTERNAL_ERROR,
-                                "message": f"Internal error: {exc}",
-                            },
-                        }
-                        if msg_id is not None
-                        else None
-                    )
-                if reply is not None:
-                    sys.stdout.write(json.dumps(reply, separators=(",", ":")) + "\n")
-                    sys.stdout.flush()
+                    if msg_id is not None:
+                        with self._cancel_lock:
+                            self._active_cancels[msg_id] = cancel_event
+                    executor.submit(self._run_message_safe, msg, cancel_event=cancel_event)
+                else:
+                    self._run_message_safe(msg)
         finally:
+            with self._cancel_lock:
+                for ev in self._active_cancels.values():
+                    ev.set()
+                self._active_cancels.clear()
+            executor.shutdown(wait=True, cancel_futures=True)
             signal.signal(signal.SIGTERM, previous_sigterm)
             signal.signal(signal.SIGINT, previous_sigint)
             self.supervisor.close_all()
         return 0
-
-
-def build_sandbox_config(
-    *,
-    node_bin: str,
-    bwrap_bin: str | None,
-    sandbox_script: Path,
-    use_bwrap: bool = True,
-    timeout_sec: float = DEFAULT_EXEC_TIMEOUT_SEC,
-) -> SandboxConfig:
-    """Construct a SandboxConfig from resolved runtime binaries."""
-    return SandboxConfig(
-        node_bin=node_bin,
-        bwrap_bin=bwrap_bin,
-        sandbox_script=sandbox_script,
-        use_bwrap=use_bwrap,
-        timeout_sec=timeout_sec,
-    )

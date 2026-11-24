@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import http.server
+import io
 import json
 import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from typing import cast
@@ -17,7 +19,12 @@ from unittest import mock
 
 from mcp_codemode._paths import resolve_node_bin, resolve_sandbox_script
 from mcp_codemode.config import load_manifest, update_override_file, user_overrides_path
-from mcp_codemode.server import CodeModeServer, build_sandbox_config
+from mcp_codemode.sandbox import SandboxConfig
+from mcp_codemode.server import (
+    RPC_INVALID_PARAMS,
+    RPC_METHOD_NOT_FOUND,
+    CodeModeServer,
+)
 
 STDIO_TOOL_SERVER = """
 import json, sys
@@ -102,7 +109,7 @@ def _make_handler(header_value: str) -> type[http.server.BaseHTTPRequestHandler]
 
 
 class ServerTest(unittest.TestCase):
-    """Covers downstream initialize, tools/list, search, execute, attachments, and live opt-in."""
+    """Covers downstream MCP methods, concurrency, cancellation, attachments, and live opt-in."""
 
     def _call_tool(
         self, server: CodeModeServer, msg_id: int, tool: str, code: str
@@ -133,6 +140,23 @@ class ServerTest(unittest.TestCase):
         tools_res = cast("dict[str, object]", tools_reply["result"])
         tools_list = cast("list[dict[str, object]]", tools_res["tools"])
         self.assertEqual([t["name"] for t in tools_list], ["search", "execute"])
+        search_ann = cast("dict[str, object]", tools_list[0]["annotations"])
+        self.assertTrue(search_ann["openWorldHint"])
+
+        bad_method = server.handle_message({"jsonrpc": "2.0", "id": 20, "method": "unknown/method"})
+        self.assertIsNotNone(bad_method)
+        if bad_method is not None:
+            self.assertEqual(
+                cast("dict[str, object]", bad_method["error"])["code"], RPC_METHOD_NOT_FOUND
+            )
+        bad_params = server.handle_message(
+            {"jsonrpc": "2.0", "id": 21, "method": "tools/call", "params": {}}
+        )
+        self.assertIsNotNone(bad_params)
+        if bad_params is not None:
+            self.assertEqual(
+                cast("dict[str, object]", bad_params["error"])["code"], RPC_INVALID_PARAMS
+            )
 
         blocked_code = (
             'async () => await codemode.google_developer_knowledge.search_documents({ query: "x" })'
@@ -151,18 +175,36 @@ class ServerTest(unittest.TestCase):
             enable_names=["google-developer-knowledge"],
         )
 
-        search_res = self._call_tool(server, 4, "search", "async () => await codemode.tools()")
+        search_res = self._call_tool(
+            server,
+            4,
+            "search",
+            """
+            async () => ({
+              servers: await codemode.servers(),
+              tools: await codemode.tools(),
+              spec: await codemode.spec("google-developer-knowledge"),
+            })
+            """,
+        )
         search_blocks = cast("list[dict[str, object]]", search_res["content"])
-        discovered = cast("dict[str, dict[str, object]]", json.loads(str(search_blocks[0]["text"])))
+        discovery_bundle = cast("dict[str, object]", json.loads(str(search_blocks[0]["text"])))
+        discovered = cast("dict[str, dict[str, object]]", discovery_bundle["tools"])
         self.assertTrue(discovered["google-developer-knowledge"]["enabled"])
         gdk_tools = cast(
             "list[dict[str, object]]", discovered["google-developer-knowledge"]["tools"]
         )
         self.assertEqual(gdk_tools[0]["name"], "search_documents")
+        gdk_spec = cast("dict[str, object]", discovery_bundle["spec"])
+        self.assertEqual(gdk_spec["server"], "google-developer-knowledge")
 
         exec_code = """
         async () => {
-          const docs = await codemode.google_developer_knowledge.search_documents({ query: "mcp" });
+          const docs = await codemode.call(
+            "google-developer-knowledge",
+            "search_documents",
+            { query: "mcp" },
+          );
           const shot = await codemode.mock_browser.snap({});
           let caught = "";
           try {
@@ -232,7 +274,7 @@ class ServerTest(unittest.TestCase):
                     encoding="utf-8",
                 )
                 manifest = load_manifest(manifest_path)
-                sandbox_cfg = build_sandbox_config(
+                sandbox_cfg = SandboxConfig(
                     node_bin=resolve_node_bin(),
                     bwrap_bin=None,
                     sandbox_script=resolve_sandbox_script(),
@@ -254,8 +296,8 @@ class ServerTest(unittest.TestCase):
             srv.shutdown()
             srv.server_close()
 
-    def test_missing_secret_isolated_and_slow_timeout_keeps_gateway_alive(self) -> None:
-        """Keep healthy tools discoverable on missing secret and survive timed-out RPC calls."""
+    def test_missing_secret_isolated_and_slow_timeout_is_prompt(self) -> None:
+        """Isolate missing secrets, time out promptly on slow upstream, and keep gateway alive."""
         slow_stdio = """
 import json, sys, time
 for line in sys.stdin:
@@ -274,7 +316,7 @@ for line in sys.stdin:
             ]
         }
     elif method == "tools/call":
-        time.sleep(1.5)
+        time.sleep(3.0)
         res = {"content": [{"type": "text", "text": "done"}]}
     else:
         continue
@@ -314,7 +356,7 @@ for line in sys.stdin:
                 encoding="utf-8",
             )
             manifest = load_manifest(manifest_path)
-            sandbox_cfg = build_sandbox_config(
+            sandbox_cfg = SandboxConfig(
                 node_bin=resolve_node_bin(),
                 bwrap_bin=None,
                 sandbox_script=resolve_sandbox_script(),
@@ -343,17 +385,86 @@ for line in sys.stdin:
                     )
                     self.assertIn("error", discovered["cloudflare-api"])
 
+                    t0 = time.monotonic()
                     timed_out = self._call_tool(
                         server,
                         2,
                         "execute",
                         "async () => await codemode.slow_stdio.slow({})",
                     )
+                    elapsed = time.monotonic() - t0
                     self.assertTrue(timed_out["isError"])
                     timeout_blocks = cast("list[dict[str, object]]", timed_out["content"])
                     self.assertIn("timed out", str(timeout_blocks[0]["text"]))
+                    self.assertLess(elapsed, 2.0)
 
                     ping = server.handle_message({"jsonrpc": "2.0", "id": 3, "method": "ping"})
                     self.assertEqual(ping, {"jsonrpc": "2.0", "id": 3, "result": {}})
                 finally:
                     server.supervisor.close_all()
+
+    def test_serve_stdio_concurrent_ping_and_cancellation(self) -> None:
+        """Answer ping immediately and cancel in-flight tools/call via notifications/cancelled."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps({"client": "claude", "servers": {}}),
+                encoding="utf-8",
+            )
+            manifest = load_manifest(manifest_path)
+            sandbox_cfg = SandboxConfig(
+                node_bin=resolve_node_bin(),
+                bwrap_bin=None,
+                sandbox_script=resolve_sandbox_script(),
+                use_bwrap=False,
+                timeout_sec=10.0,
+            )
+            server = CodeModeServer(manifest, sandbox_cfg, cwd=root)
+
+            requests = "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 10,
+                            "method": "tools/call",
+                            "params": {
+                                "name": "search",
+                                "arguments": {"code": "async () => new Promise(() => {})"},
+                            },
+                        }
+                    ),
+                    json.dumps({"jsonrpc": "2.0", "id": 11, "method": "ping"}),
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "notifications/cancelled",
+                            "params": {"requestId": 10},
+                        }
+                    ),
+                ]
+            )
+            fake_in = io.StringIO(requests + "\n")
+            fake_out = io.StringIO()
+            t0 = time.monotonic()
+            with (
+                mock.patch.object(sys, "stdin", fake_in),
+                mock.patch.object(sys, "stdout", fake_out),
+            ):
+                rc = server.serve_stdio()
+            elapsed = time.monotonic() - t0
+            self.assertEqual(rc, 0)
+            self.assertLess(elapsed, 3.0)
+
+            replies = [
+                cast("dict[str, object]", json.loads(line))
+                for line in fake_out.getvalue().splitlines()
+                if line.strip()
+            ]
+            by_id = {reply["id"]: reply for reply in replies}
+            self.assertEqual(by_id[11]["result"], {})
+            cancelled_res = cast("dict[str, object]", by_id[10]["result"])
+            self.assertTrue(cancelled_res["isError"])
+            cancelled_blocks = cast("list[dict[str, object]]", cancelled_res["content"])
+            self.assertIn("cancelled", str(cancelled_blocks[0]["text"]))

@@ -8,19 +8,20 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ._paths import resolve_bwrap_bin, resolve_node_bin, resolve_sandbox_script
+from ._util import parse_positive_timeout
 from .config import (
     ConfigError,
-    active_project_overrides,
     load_manifest,
+    read_override_summary,
     resolve_enabled_servers,
     update_override_file,
     user_overrides_path,
 )
-from .sandbox import DEFAULT_EXEC_TIMEOUT_SEC
-from .server import CodeModeServer, build_sandbox_config
+from .sandbox import DEFAULT_EXEC_TIMEOUT_SEC, SandboxConfig
+from .server import CodeModeServer
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -50,36 +51,48 @@ def _build_parser() -> argparse.ArgumentParser:
     status_p.add_argument("--manifest", type=Path, help="Compiled client manifest JSON.")
     status_p.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
 
-    enable_p = sub.add_parser("enable", help="Enable one or more opt-in MCP servers.")
-    enable_p.add_argument(
-        "--user",
-        action="store_true",
-        help="Write user-wide override instead of project-scoped override in user state.",
-    )
-    enable_p.add_argument("servers", nargs="+", help="Server name(s) or aliases to enable.")
-
-    disable_p = sub.add_parser("disable", help="Disable one or more MCP servers.")
-    disable_p.add_argument(
-        "--user",
-        action="store_true",
-        help="Write user-wide override instead of project-scoped override in user state.",
-    )
-    disable_p.add_argument("servers", nargs="+", help="Server name(s) or aliases to disable.")
+    for action_name, verb in (("enable", "Enable"), ("disable", "Disable")):
+        toggle_p = sub.add_parser(action_name, help=f"{verb} one or more MCP servers.")
+        toggle_p.add_argument(
+            "--user",
+            action="store_true",
+            help="Write user-wide override instead of project-scoped override in user state.",
+        )
+        toggle_p.add_argument(
+            "--manifest",
+            type=Path,
+            help="Optional client manifest JSON to validate and canonicalize server names.",
+        )
+        toggle_p.add_argument(
+            "servers", nargs="+", help=f"Server name(s) or aliases to {action_name}."
+        )
 
     return parser
 
 
 def _cmd_serve(args: argparse.Namespace) -> int:
+    timeout_sec = parse_positive_timeout(args.timeout)
+    if timeout_sec is None:
+        raise ConfigError.invalid_timeout()
     manifest = load_manifest(args.manifest)
-    sandbox_config = build_sandbox_config(
+    sandbox_config = SandboxConfig(
         node_bin=resolve_node_bin(),
         bwrap_bin=resolve_bwrap_bin(),
         sandbox_script=resolve_sandbox_script(),
         use_bwrap=not args.no_bwrap,
-        timeout_sec=args.timeout,
+        timeout_sec=timeout_sec,
     )
     server = CodeModeServer(manifest, sandbox_config)
     return server.serve_stdio()
+
+
+def _format_override_pair(enable: list[str], disable: list[str]) -> str:
+    parts: list[str] = []
+    if enable:
+        parts.append(f"enable=[{', '.join(enable)}]")
+    if disable:
+        parts.append(f"disable=[{', '.join(disable)}]")
+    return " ".join(parts) if parts else "none"
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
@@ -105,43 +118,58 @@ def _cmd_status(args: argparse.Namespace) -> int:
                 print(f"{row['name']}\t{flag}\t({row['source']})")
         return 0
 
-    user_path = user_overrides_path()
-    project_dir = cwd.resolve()
-    matching_projects = active_project_overrides(project_dir)
-    payload = {
-        "userOverrides": str(user_path),
-        "userOverridesExists": user_path.is_file(),
-        "projectDir": str(project_dir),
-        "projectOverrides": matching_projects,
-        "projectOverridesExist": bool(matching_projects),
-    }
+    payload = read_override_summary(cwd)
     if args.json:
         print(json.dumps(payload, indent=2))
+        return 0
+
+    user_en = cast("list[str]", payload["userEnable"])
+    user_dis = cast("list[str]", payload["userDisable"])
+    env_en = cast("list[str]", payload["envEnable"])
+    env_dis = cast("list[str]", payload["envDisable"])
+    entries = cast("list[dict[str, Any]]", payload["projectOverrideEntries"])
+
+    state_label = "present" if payload["userOverridesExists"] else "absent"
+    print(f"user overrides: {payload['userOverrides']} ({state_label})")
+    print(f"  user toggles: {_format_override_pair(user_en, user_dis)}")
+    if entries:
+        for entry in entries:
+            pair_str = _format_override_pair(
+                cast("list[str]", entry["enable"]),
+                cast("list[str]", entry["disable"]),
+            )
+            print(f"  project {entry['dir']}: {pair_str}")
     else:
-        print(f"user overrides: {user_path} ({'present' if user_path.is_file() else 'absent'})")
-        proj_summary = ", ".join(matching_projects) if matching_projects else "none"
-        print(f"project overrides for {project_dir}: {proj_summary}")
+        print(f"  project overrides for {payload['projectDir']}: none")
+    print(f"  env toggles: {_format_override_pair(env_en, env_dis)}")
+    print("pass --manifest <path> or run codemode.servers() to inspect per-server availability")
     return 0
 
 
+def _resolve_toggle_names(raw_names: list[str], manifest_path: Path | None) -> list[str]:
+    if manifest_path is None:
+        return list(raw_names)
+    manifest = load_manifest(manifest_path)
+    resolved: list[str] = []
+    for name in raw_names:
+        canonical = manifest.resolve_name(name)
+        if canonical is None:
+            raise ConfigError.unknown_server(name, manifest_path)
+        resolved.append(canonical)
+    return resolved
+
+
 def _cmd_toggle(args: argparse.Namespace, *, enable: bool) -> int:
+    names = _resolve_toggle_names(list(args.servers), args.manifest)
     target = user_overrides_path()
     project_dir = None if args.user else Path.cwd().resolve()
     if enable:
-        update_override_file(
-            target,
-            enable_names=list(args.servers),
-            project_dir=project_dir,
-        )
+        update_override_file(target, enable_names=names, project_dir=project_dir)
     else:
-        update_override_file(
-            target,
-            disable_names=list(args.servers),
-            project_dir=project_dir,
-        )
+        update_override_file(target, disable_names=names, project_dir=project_dir)
     scope = "user" if project_dir is None else f"project {project_dir}"
     action = "enabled" if enable else "disabled"
-    print(f"Updated {target} ({scope}): {action} {', '.join(args.servers)}")
+    print(f"Updated {target} ({scope}): {action} {', '.join(names)}")
     return 0
 
 

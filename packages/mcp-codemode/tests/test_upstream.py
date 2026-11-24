@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from typing import cast
@@ -52,6 +53,8 @@ for line in sys.stdin:
         name = msg["params"]["name"]
         args = msg["params"]["arguments"]
         if name == "echo":
+            # Send a server-initiated ping with colliding id before answering the tool call.
+            print(json.dumps({"jsonrpc": "2.0", "id": mid, "method": "ping"}), flush=True)
             payload = {"echoed": args.get("msg"), "env": os.environ.get("MOCK_ENV", "")}
             reply = {"content": [{"type": "text", "text": json.dumps(payload)}]}
         else:
@@ -71,6 +74,11 @@ class _HttpEdgeState:
         self.fail_next_404 = False
         self.corrupt_gzip_next = False
         self.sse_done_next = False
+        self.sse_keep_open_next = False
+        self.return_202_on_call = False
+        self.init_notify_404 = False
+        self.redirect_cross_origin = False
+        self.repeat_cursor = False
 
 
 class _EdgeHttpHandler(http.server.BaseHTTPRequestHandler):
@@ -93,6 +101,11 @@ class _EdgeHttpHandler(http.server.BaseHTTPRequestHandler):
         body = cast("dict[str, object]", json.loads(self.rfile.read(length).decode("utf-8")))
         method = body.get("method")
         msg_id = body.get("id")
+        if self.state.redirect_cross_origin:
+            self.send_response(307)
+            self.send_header("Location", "https://attacker.invalid/mcp")
+            self.end_headers()
+            return
         if method == "initialize":
             sid = self.state.sessions.pop(0) if self.state.sessions else "sess-extra"
             payload = json.dumps(
@@ -104,13 +117,39 @@ class _EdgeHttpHandler(http.server.BaseHTTPRequestHandler):
             ).encode("utf-8")
             self._send_json(payload, headers={"Mcp-Session-Id": sid})
         elif method == "notifications/initialized":
-            self.send_response(202)
+            status = 404 if self.state.init_notify_404 else 202
+            self.send_response(status)
             self.end_headers()
+        elif method == "tools/list":
+            page: dict[str, object] = {"tools": [{"name": "a", "description": "A"}]}
+            if self.state.repeat_cursor:
+                page["nextCursor"] = "loop"
+            payload = json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": page}).encode("utf-8")
+            self._send_json(payload)
         elif method == "tools/call":
             self._handle_tools_call(msg_id)
 
+    def _send_sse_keep_open(self, msg_id: object) -> None:
+        ev = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {"content": [{"type": "text", "text": "streamed-early"}]},
+            }
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        self.wfile.write(f"data: {ev}\n\n".encode())
+        self.wfile.flush()
+        time.sleep(2.0)
+
     def _handle_tools_call(self, msg_id: object) -> None:
         self.state.tool_calls_seen += 1
+        if self.state.return_202_on_call:
+            self.send_response(202)
+            self.end_headers()
+            return
         if self.state.fail_next_404 or (
             not self.state.expired_once and self.headers.get("Mcp-Session-Id") == "sess-1"
         ):
@@ -120,6 +159,9 @@ class _EdgeHttpHandler(http.server.BaseHTTPRequestHandler):
             return
         if self.state.corrupt_gzip_next:
             self._send_json(b"not-valid-gzip", headers={"Content-Encoding": "gzip"})
+            return
+        if self.state.sse_keep_open_next:
+            self._send_sse_keep_open(msg_id)
             return
         if self.state.sse_done_next:
             ev = json.dumps(
@@ -160,7 +202,7 @@ def _make_edge_handler(edge_state: _HttpEdgeState) -> type[http.server.BaseHTTPR
 
 
 class UpstreamTest(unittest.TestCase):
-    """Covers HTTP SSE/gzip/session/secret headers and stdio pagination/teardown."""
+    """Covers HTTP SSE/gzip/session/redirect/secret headers and stdio pagination/teardown."""
 
     def test_http_upstream_sse_gzip_secret_and_close(self) -> None:
         """Handle SSE, gzip, pagination, secret headers, non-leak errors, and DELETE."""
@@ -380,8 +422,8 @@ class UpstreamTest(unittest.TestCase):
             srv.shutdown()
             srv.server_close()
 
-    def test_stdio_upstream_and_supervisor(self) -> None:
-        """Paginate stdio tools, forward manifest env, and close cleanly."""
+    def test_stdio_upstream_server_ping_and_supervisor(self) -> None:
+        """Paginate stdio tools, handle server-initiated ping without id collision, and close."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             script = root / "mock_stdio.py"
@@ -422,6 +464,7 @@ class UpstreamTest(unittest.TestCase):
                 added = supervisor.call_tool("mock-stdio", "add", {"a": 2, "b": 3})
                 added_content = cast("list[dict[str, object]]", added["content"])
                 self.assertEqual(added_content[0]["text"], "5")
+                supervisor.close_disabled({"mock-stdio": False})
             finally:
                 supervisor.close_all()
 
@@ -444,8 +487,8 @@ class UpstreamTest(unittest.TestCase):
                 with self.assertRaises(UpstreamError):
                     client.list_tools()
 
-    def test_http_session_reinit_on_404_corrupt_gzip_and_non_json_sse(self) -> None:
-        """Renew expired 404 sessions once, reject bad gzip as UpstreamError, skip non-JSON SSE."""
+    def test_http_session_reinit_and_incremental_sse(self) -> None:
+        """Renew expired 404 sessions once, stream SSE without EOF, and cap 404 retries."""
         state = _HttpEdgeState()
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _make_edge_handler(state))
         port = srv.server_address[1]
@@ -468,10 +511,14 @@ class UpstreamTest(unittest.TestCase):
             sse_content = cast("list[dict[str, object]]", sse_res["content"])
             self.assertEqual(sse_content[0]["text"], "after-done")
 
-            state.corrupt_gzip_next = True
-            with self.assertRaises(UpstreamError):
-                client.call_tool("ping", {})
-            state.corrupt_gzip_next = False
+            state.sse_keep_open_next = True
+            t0 = time.monotonic()
+            early_res = client.call_tool("ping", {})
+            elapsed = time.monotonic() - t0
+            state.sse_keep_open_next = False
+            self.assertLess(elapsed, 1.0)
+            early_content = cast("list[dict[str, object]]", early_res["content"])
+            self.assertEqual(early_content[0]["text"], "streamed-early")
 
             before_calls = state.tool_calls_seen
             state.fail_next_404 = True
@@ -480,6 +527,57 @@ class UpstreamTest(unittest.TestCase):
             self.assertIn("404", str(ctx.exception))
             max_retry_calls = 2
             self.assertEqual(state.tool_calls_seen - before_calls, max_retry_calls)
+            state.fail_next_404 = False
+            client.close()
+
+            # 404 on notifications/initialized must raise UpstreamError, never RecursionError.
+            state.init_notify_404 = True
+            fresh_client = HttpUpstreamClient(spec)
+            with self.assertRaises(UpstreamError) as init_ctx:
+                fresh_client.ensure_initialized()
+            self.assertIn("404", str(init_ctx.exception))
+            state.init_notify_404 = False
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_http_rejects_bad_202_gzip_redirect_and_cursor_loop(self) -> None:
+        """Reject HTTP 202 replies, corrupt gzip, cross-origin redirects, and cursor loops."""
+        state = _HttpEdgeState()
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _make_edge_handler(state))
+        port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            spec = ServerSpec(
+                name="mock-http",
+                alias="mock_http",
+                transport="http",
+                url=f"http://127.0.0.1:{port}/mcp",
+            )
+            client = HttpUpstreamClient(spec)
+            client.ensure_initialized()
+
+            state.return_202_on_call = True
+            with self.assertRaises(UpstreamError):
+                client.call_tool("ping", {})
+            state.return_202_on_call = False
+
+            state.corrupt_gzip_next = True
+            with self.assertRaises(UpstreamError):
+                client.call_tool("ping", {})
+            state.corrupt_gzip_next = False
+
+            state.repeat_cursor = True
+            with self.assertRaises(UpstreamError) as cursor_ctx:
+                client.list_tools()
+            self.assertIn("repeated pagination cursor", str(cursor_ctx.exception))
+            state.repeat_cursor = False
+
+            state.redirect_cross_origin = True
+            with self.assertRaises(UpstreamError) as redir_ctx:
+                client.call_tool("ping", {})
+            self.assertIn("cross-origin", str(redir_ctx.exception))
+            state.redirect_cross_origin = False
             client.close()
         finally:
             srv.shutdown()

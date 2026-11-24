@@ -12,17 +12,62 @@ import readline from "node:readline";
 import vm from "node:vm";
 
 const MAX_LOG_LINES = 200;
+const MAX_LOG_BYTES = 64 * 1024;
 const logs = [];
+let logBytes = 0;
 const pending = new Map();
 let nextRpcId = 1;
+let finished = false;
+
+const safeJsonStringify = JSON.stringify;
+
+// Seal host-realm prototypes reachable through bridged objects before user code runs.
+for (const proto of [
+	Object.prototype,
+	Array.prototype,
+	Function.prototype,
+	Promise.prototype,
+	URL.prototype,
+	URLSearchParams.prototype,
+	TextEncoder.prototype,
+	TextDecoder.prototype,
+]) {
+	Object.freeze(proto);
+}
+for (const errProto of [
+	Error.prototype,
+	TypeError.prototype,
+	RangeError.prototype,
+	SyntaxError.prototype,
+	ReferenceError.prototype,
+	URIError.prototype,
+	EvalError.prototype,
+]) {
+	Object.preventExtensions(errProto);
+}
+
+function serializeEnvelope(msg) {
+	const envelope = Object.assign(Object.create(null), msg);
+	try {
+		return safeJsonStringify(envelope);
+	} catch (err) {
+		const reason = err instanceof Error ? err.message : String(err);
+		const fallback = Object.assign(Object.create(null), {
+			type: "error",
+			error: `sandbox result serialization failed: ${reason}`,
+			logs,
+		});
+		return safeJsonStringify(fallback);
+	}
+}
 
 function sendHost(msg) {
-	process.stdout.write(`${JSON.stringify(msg)}\n`);
+	process.stdout.write(`${serializeEnvelope(msg)}\n`);
 }
 
 function sendHostAndWait(msg) {
 	return new Promise((resolve, reject) => {
-		process.stdout.write(`${JSON.stringify(msg)}\n`, (err) => {
+		process.stdout.write(`${serializeEnvelope(msg)}\n`, (err) => {
 			if (err) {
 				reject(err);
 			} else {
@@ -43,31 +88,45 @@ function rpcCall(method, params = {}) {
 function formatLogArg(arg) {
 	if (typeof arg === "string") return arg;
 	try {
-		return JSON.stringify(arg);
+		return safeJsonStringify(arg);
 	} catch {
 		return String(arg);
 	}
 }
 
 function appendLog(level, args) {
-	if (logs.length >= MAX_LOG_LINES) return;
+	if (logs.length >= MAX_LOG_LINES || logBytes >= MAX_LOG_BYTES) return;
 	const prefix = level === "log" ? "" : `[${level}] `;
-	logs.push(`${prefix}${args.map(formatLogArg).join(" ")}`);
+	let line = `${prefix}${args.map(formatLogArg).join(" ")}`;
+	const remaining = MAX_LOG_BYTES - logBytes;
+	if (line.length > remaining) {
+		line = `${line.slice(0, Math.max(0, remaining - 3))}...`;
+	}
+	logBytes += line.length;
+	logs.push(line);
+}
+
+function normalizeDiscoveryParams(server, options) {
+	if (server && typeof server === "object") {
+		return { ...server };
+	}
+	return {
+		...(server ? { server: String(server) } : {}),
+		...(options && typeof options === "object" ? options : {}),
+	};
+}
+
+function resolveCanonicalServer(serverAliases, key) {
+	return Object.hasOwn(serverAliases, key) ? serverAliases[key] : key;
 }
 
 function buildCodemode(mode, serverAliases) {
 	const base = {
 		servers: () => rpcCall("servers"),
 		tools: (server, options) =>
-			rpcCall("tools", {
-				...(server ? { server: String(server) } : {}),
-				...(options && typeof options === "object" ? options : {}),
-			}),
+			rpcCall("tools", normalizeDiscoveryParams(server, options)),
 		spec: (server, options) =>
-			rpcCall("spec", {
-				...(server ? { server: String(server) } : {}),
-				...(options && typeof options === "object" ? options : {}),
-			}),
+			rpcCall("spec", normalizeDiscoveryParams(server, options)),
 	};
 
 	if (mode !== "execute") {
@@ -76,7 +135,7 @@ function buildCodemode(mode, serverAliases) {
 
 	const serverCache = new Map();
 	const makeServerProxy = (serverKey) => {
-		const canonical = serverAliases[serverKey] ?? serverKey;
+		const canonical = resolveCanonicalServer(serverAliases, serverKey);
 		if (serverCache.has(canonical)) return serverCache.get(canonical);
 		const proxy = new Proxy(Object.create(null), {
 			get(_target, toolProp) {
@@ -99,7 +158,7 @@ function buildCodemode(mode, serverAliases) {
 		...base,
 		call: (server, tool, args = {}) =>
 			rpcCall("call_tool", {
-				server: serverAliases[String(server)] ?? String(server),
+				server: resolveCanonicalServer(serverAliases, String(server)),
 				tool: String(tool),
 				args: args ?? {},
 			}),
@@ -126,21 +185,28 @@ function stripTypesIfPossible(source) {
 }
 
 function compileUserCode(source, context) {
-	const cleaned = stripTypesIfPossible(source).trim();
-	const exprCandidate = cleaned.replace(/;+\s*$/, "");
+	const trimmed = source.trim();
+	const exprCandidate = trimmed.replace(/;+\s*$/, "");
 	let exprScript = null;
-	try {
-		exprScript = new vm.Script(`(${exprCandidate})`);
-	} catch {
-		exprScript = null;
+	if (exprCandidate) {
+		const wrappedExpr = stripTypesIfPossible(
+			`(async () => (\n${exprCandidate}\n))`,
+		);
+		try {
+			exprScript = new vm.Script(wrappedExpr);
+		} catch {
+			exprScript = null;
+		}
 	}
 	if (exprScript !== null) {
+		const outer = exprScript.runInContext(context);
 		return async () => {
-			const value = exprScript.runInContext(context);
-			return typeof value === "function" ? await value() : await value;
+			const value = await outer();
+			return typeof value === "function" ? await value() : value;
 		};
 	}
-	const bodyScript = new vm.Script(`(async () => {\n${cleaned}\n})`);
+	const wrappedBody = stripTypesIfPossible(`(async () => {\n${trimmed}\n})`);
+	const bodyScript = new vm.Script(wrappedBody);
 	return bodyScript.runInContext(context);
 }
 
@@ -169,23 +235,41 @@ function makeSandboxContext(codemode) {
 	});
 }
 
+async function finishWith(msg) {
+	if (finished) return;
+	finished = true;
+	try {
+		await sendHostAndWait(msg);
+	} finally {
+		rl.close();
+		process.exit(0);
+	}
+}
+
+process.on("uncaughtException", (err) => {
+	const message = err instanceof Error ? err.message : String(err);
+	void finishWith({ type: "error", error: message, logs });
+});
+
+process.on("unhandledRejection", (reason) => {
+	const message = reason instanceof Error ? reason.message : String(reason);
+	void finishWith({ type: "error", error: message, logs });
+});
+
 async function runCode(msg) {
 	try {
 		const codemode = buildCodemode(msg.mode, msg.serverAliases || {});
 		const context = makeSandboxContext(codemode);
 		const fn = compileUserCode(String(msg.code || ""), context);
 		const value = await fn();
-		await sendHostAndWait({
+		await finishWith({
 			type: "done",
 			value: value === undefined ? null : value,
 			logs,
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		await sendHostAndWait({ type: "error", error: message, logs });
-	} finally {
-		rl.close();
-		process.exit(0);
+		await finishWith({ type: "error", error: message, logs });
 	}
 }
 

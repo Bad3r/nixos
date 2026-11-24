@@ -4,18 +4,22 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+
+from ._util import as_dict, as_list, parse_positive_timeout
 
 USER_OVERRIDES_RELPATH = Path("mcp-codemode") / "overrides.json"
 ENABLE_ENV_VAR = "MCP_CODEMODE_ENABLE"
 DISABLE_ENV_VAR = "MCP_CODEMODE_DISABLE"
 DEFAULT_TIMEOUT_SEC = 60.0
 DEFAULT_TOOL_TIMEOUT_SEC = 180.0
+OVERRIDES_FILE_MODE = 0o600
 
 
 class ConfigError(RuntimeError):
@@ -38,7 +42,7 @@ class ConfigError(RuntimeError):
 
     @classmethod
     def secret_escape(cls) -> ConfigError:
-        """Create an error when a resolved secret path escapes XDG_DATA_HOME."""
+        """Create an error when a resolved secret path escapes its base directory."""
         return cls("invalid MCP secret path: escapes XDG_DATA_HOME")
 
     @classmethod
@@ -51,14 +55,25 @@ class ConfigError(RuntimeError):
         """Create an error when a secret file is empty."""
         return cls(f"MCP secret file is empty: {path}")
 
+    @classmethod
+    def invalid_timeout(cls) -> ConfigError:
+        """Create an error for a non-positive or non-finite CLI timeout."""
+        return cls("invalid timeout: --timeout must be a positive finite number")
+
+    @classmethod
+    def unknown_server(cls, server: str, manifest_path: Path) -> ConfigError:
+        """Create an error when a CLI toggle names a server missing from a manifest."""
+        return cls(f"unknown server '{server}' in manifest {manifest_path}")
+
 
 @dataclass(frozen=True)
 class SecretHeader:
-    """Reference to an HTTP header value stored under XDG_DATA_HOME."""
+    """Reference to an HTTP header value stored under XDG_DATA_HOME or a declared SOPS path."""
 
     name: str
     relative_path: str
     prefix: str = ""
+    declared_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,20 +151,58 @@ def _validate_relative_secret_path(rel_path: str) -> str | None:
     return None
 
 
-def read_secret(secret_header: SecretHeader) -> str:
-    """Read and trim an API key from XDG_DATA_HOME without exposing its value in errors."""
+def _validate_declared_secret_path(declared: str) -> str | None:
+    if not declared or "\r" in declared or "\n" in declared:
+        return "secretHeader.path must be a single-line absolute path"
+    candidate = Path(declared)
+    if not candidate.is_absolute() or ".." in candidate.parts:
+        return "secretHeader.path must be a clean absolute path"
+    return None
+
+
+def _lexical_child(base: Path, rel_path: str) -> Path:
+    norm_base = Path(os.path.normpath(base))
+    # Use normpath (not resolve) because sops-nix links ~/.local/share secrets into /run/user.
+    candidate = Path(os.path.normpath(norm_base / rel_path))
+    if not candidate.is_relative_to(norm_base):
+        raise ConfigError.secret_escape()
+    return candidate
+
+
+def _resolve_secret_path(secret_header: SecretHeader) -> Path:
+    if secret_header.declared_path is not None:
+        invalid_decl = _validate_declared_secret_path(secret_header.declared_path)
+        if invalid_decl is not None:
+            raise ConfigError.invalid_secret_path(invalid_decl)
+        declared = Path(os.path.normpath(secret_header.declared_path))
+        if declared.exists():
+            return declared
+
     invalid_detail = _validate_relative_secret_path(secret_header.relative_path)
     if invalid_detail is not None:
         raise ConfigError.invalid_secret_path(invalid_detail)
-    base = Path(os.path.normpath(xdg_data_home()))
-    # Use normpath (not resolve) because sops-nix links ~/.local/share secrets into /run/user.
-    path = Path(os.path.normpath(base / secret_header.relative_path))
-    if not path.is_relative_to(base):
-        raise ConfigError.secret_escape()
+
+    primary = _lexical_child(xdg_data_home(), secret_header.relative_path)
+    if primary.exists():
+        return primary
+
+    # Fall back to ~/.local/share when a client sets a custom XDG_DATA_HOME while
+    # Home Manager sops-nix rendered the secret into the default location.
+    default_share = Path.home() / ".local" / "share"
+    fallback = _lexical_child(default_share, secret_header.relative_path)
+    if fallback != primary and fallback.exists():
+        return fallback
+    return primary
+
+
+def read_secret(secret_header: SecretHeader) -> str:
+    """Read and trim an API key without exposing its value in errors."""
+    path = _resolve_secret_path(secret_header)
     try:
         value = path.read_text(encoding="utf-8").replace("\r", "").replace("\n", "")
-    except OSError as exc:
-        raise ConfigError.unreadable_secret(path, exc.strerror or str(exc)) from None
+    except (OSError, UnicodeDecodeError) as exc:
+        detail = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+        raise ConfigError.unreadable_secret(path, detail) from None
     if not value:
         raise ConfigError.empty_secret(path)
     return value
@@ -160,28 +213,16 @@ def format_secret_header(secret_header: SecretHeader) -> str:
     return f"{secret_header.prefix}{read_secret(secret_header)}"
 
 
-def _as_object_dict(value: object) -> dict[str, object] | None:
-    if not isinstance(value, dict):
-        return None
-    raw_items = cast("dict[object, object]", value)
-    return {str(k): v for k, v in raw_items.items()}
-
-
-def _as_object_list(value: object) -> list[object] | None:
-    if not isinstance(value, list):
-        return None
-    return list(cast("list[object]", value))
-
-
 def _parse_secret_header(name: str, raw_secret: object, path: Path) -> SecretHeader | None:
     if raw_secret is None:
         return None
-    secret_dict = _as_object_dict(raw_secret)
+    secret_dict = as_dict(raw_secret)
     if secret_dict is None:
         raise ConfigError.invalid_manifest(path, f"server '{name}' has invalid 'secretHeader'")
     header_name = secret_dict.get("name")
     rel_path = secret_dict.get("relativePath")
     raw_prefix = secret_dict.get("prefix", "")
+    raw_declared = secret_dict.get("path")
     if (
         not isinstance(header_name, str)
         or not header_name
@@ -200,7 +241,39 @@ def _parse_secret_header(name: str, raw_secret: object, path: Path) -> SecretHea
         raise ConfigError.invalid_manifest(
             path, f"server '{name}' has invalid 'secretHeader.prefix'"
         )
-    return SecretHeader(name=header_name, relative_path=rel_path, prefix=raw_prefix)
+    declared_path: str | None = None
+    if raw_declared is not None:
+        if not isinstance(raw_declared, str):
+            raise ConfigError.invalid_manifest(
+                path, f"server '{name}' has invalid 'secretHeader.path'"
+            )
+        decl_error = _validate_declared_secret_path(raw_declared)
+        if decl_error is not None:
+            raise ConfigError.invalid_manifest(path, f"server '{name}' {decl_error}")
+        declared_path = raw_declared
+    return SecretHeader(
+        name=header_name,
+        relative_path=rel_path,
+        prefix=raw_prefix,
+        declared_path=declared_path,
+    )
+
+
+def _parse_manifest_timeout(
+    raw: dict[str, object],
+    field_name: str,
+    default: float,
+    server_name: str,
+    path: Path,
+) -> float:
+    if field_name not in raw or raw[field_name] is None:
+        return default
+    parsed = parse_positive_timeout(raw[field_name])
+    if parsed is None:
+        raise ConfigError.invalid_manifest(
+            path, f"server '{server_name}' has invalid '{field_name}'"
+        )
+    return parsed
 
 
 def _parse_server_spec(name: str, raw: dict[str, object], path: Path) -> ServerSpec:
@@ -220,18 +293,16 @@ def _parse_server_spec(name: str, raw: dict[str, object], path: Path) -> ServerS
         )
 
     secret_header = _parse_secret_header(name, raw.get("secretHeader"), path)
-    args_list = _as_object_list(raw.get("args"))
+    args_list = as_list(raw.get("args"))
     args = tuple(str(item) for item in args_list) if args_list is not None else ()
-    env_dict = _as_object_dict(raw.get("env"))
+    env_dict = as_dict(raw.get("env"))
     env = {k: str(v) for k, v in env_dict.items()} if env_dict is not None else {}
 
-    startup_raw = raw.get("startupTimeoutSec", DEFAULT_TIMEOUT_SEC)
-    tool_raw = raw.get("toolTimeoutSec", DEFAULT_TOOL_TIMEOUT_SEC)
-    startup_timeout = (
-        float(startup_raw) if isinstance(startup_raw, (int, float)) else DEFAULT_TIMEOUT_SEC
+    startup_timeout = _parse_manifest_timeout(
+        raw, "startupTimeoutSec", DEFAULT_TIMEOUT_SEC, name, path
     )
-    tool_timeout = (
-        float(tool_raw) if isinstance(tool_raw, (int, float)) else DEFAULT_TOOL_TIMEOUT_SEC
+    tool_timeout = _parse_manifest_timeout(
+        raw, "toolTimeoutSec", DEFAULT_TOOL_TIMEOUT_SEC, name, path
     )
 
     return ServerSpec(
@@ -255,11 +326,11 @@ def load_manifest(path: Path) -> Manifest:
     """Load and validate a compiled Code Mode manifest JSON file."""
     try:
         parsed: object = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ConfigError.invalid_manifest(path, str(exc)) from None
 
-    root = _as_object_dict(parsed)
-    servers_obj = _as_object_dict(root.get("servers")) if root is not None else None
+    root = as_dict(parsed)
+    servers_obj = as_dict(root.get("servers")) if root is not None else None
     if root is None or servers_obj is None:
         raise ConfigError.invalid_manifest(path, "expected object with 'servers' map")
 
@@ -267,10 +338,16 @@ def load_manifest(path: Path) -> Manifest:
     servers: dict[str, ServerSpec] = {}
     alias_to_name: dict[str, str] = {}
     for name, entry in sorted(servers_obj.items()):
-        entry_dict = _as_object_dict(entry)
+        entry_dict = as_dict(entry)
         if entry_dict is None:
             raise ConfigError.invalid_manifest(path, f"server '{name}' must be an object")
         spec = _parse_server_spec(name, entry_dict, path)
+        existing = alias_to_name.get(spec.alias)
+        if existing is not None:
+            raise ConfigError.invalid_manifest(
+                path,
+                f"server '{spec.name}' alias '{spec.alias}' collides with '{existing}'",
+            )
         servers[spec.name] = spec
         alias_to_name[spec.alias] = spec.name
 
@@ -281,8 +358,8 @@ type OverridePair = tuple[list[str], list[str]]
 
 
 def _parse_override_pair(data: dict[str, object], path: Path, scope: str) -> OverridePair:
-    enable_list = _as_object_list(data.get("enable", []))
-    disable_list = _as_object_list(data.get("disable", []))
+    enable_list = as_list(data.get("enable", []))
+    disable_list = as_list(data.get("disable", []))
     if enable_list is None or disable_list is None:
         raise ConfigError.invalid_override(
             path, f"{scope}: 'enable' and 'disable' must be arrays of strings"
@@ -290,14 +367,21 @@ def _parse_override_pair(data: dict[str, object], path: Path, scope: str) -> Ove
     return [str(x) for x in enable_list], [str(x) for x in disable_list]
 
 
+def _normalize_project_key(proj_dir: str) -> str:
+    candidate = Path(proj_dir)
+    if candidate.exists():
+        return os.path.normpath(str(candidate.resolve()))
+    return os.path.normpath(proj_dir)
+
+
 def _read_override_file(path: Path) -> tuple[list[str], list[str], dict[str, OverridePair]]:
     if not path.is_file():
         return [], [], {}
     try:
         parsed: object = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ConfigError.invalid_override(path, str(exc)) from None
-    data = _as_object_dict(parsed)
+    data = as_dict(parsed)
     if data is None:
         raise ConfigError.invalid_override(path, "expected JSON object")
     user_enable, user_disable = _parse_override_pair(data, path, "user")
@@ -305,19 +389,26 @@ def _read_override_file(path: Path) -> tuple[list[str], list[str], dict[str, Ove
     projects: dict[str, OverridePair] = {}
     raw_projects = data.get("projects")
     if raw_projects is not None:
-        projects_dict = _as_object_dict(raw_projects)
+        projects_dict = as_dict(raw_projects)
         if projects_dict is None:
             raise ConfigError.invalid_override(path, "'projects' must be an object")
         for proj_dir, entry in projects_dict.items():
-            entry_dict = _as_object_dict(entry)
+            entry_dict = as_dict(entry)
             if entry_dict is None:
                 raise ConfigError.invalid_override(
                     path, f"project entry '{proj_dir}' must be an object"
                 )
-            norm_dir = os.path.normpath(proj_dir)
+            norm_dir = _normalize_project_key(proj_dir)
             projects[norm_dir] = _parse_override_pair(entry_dict, path, f"project '{proj_dir}'")
 
     return user_enable, user_disable, projects
+
+
+def _discard_matching_aliases(names: set[str], target: str) -> None:
+    target_alias = make_alias(target)
+    stale = [item for item in names if item == target or make_alias(item) == target_alias]
+    for item in stale:
+        names.discard(item)
 
 
 def _apply_toggle_names(
@@ -329,11 +420,13 @@ def _apply_toggle_names(
     enable_set = set(existing[0])
     disable_set = set(existing[1])
     for name in enable_names or []:
+        _discard_matching_aliases(enable_set, name)
+        _discard_matching_aliases(disable_set, name)
         enable_set.add(name)
-        disable_set.discard(name)
     for name in disable_names or []:
+        _discard_matching_aliases(enable_set, name)
+        _discard_matching_aliases(disable_set, name)
         disable_set.add(name)
-        enable_set.discard(name)
     return sorted(enable_set), sorted(disable_set)
 
 
@@ -344,48 +437,55 @@ def update_override_file(
     disable_names: list[str] | None = None,
     project_dir: Path | None = None,
 ) -> OverridePair:
-    """Atomically update user or project-scoped overrides inside overrides.json."""
-    user_enable, user_disable, projects = _read_override_file(path)
-
-    if project_dir is None:
-        updated = _apply_toggle_names(
-            (user_enable, user_disable),
-            enable_names=enable_names,
-            disable_names=disable_names,
-        )
-        user_enable, user_disable = updated
-    else:
-        proj_key = os.path.normpath(str(project_dir.resolve()))
-        updated = _apply_toggle_names(
-            projects.get(proj_key, ([], [])),
-            enable_names=enable_names,
-            disable_names=disable_names,
-        )
-        if updated[0] or updated[1]:
-            projects[proj_key] = updated
-        else:
-            projects.pop(proj_key, None)
-
-    payload: dict[str, object] = {}
-    if user_enable:
-        payload["enable"] = user_enable
-    if user_disable:
-        payload["disable"] = user_disable
-    if projects:
-        payload["projects"] = {
-            proj_key: {
-                **({"enable": p_en} if p_en else {}),
-                **({"disable": p_dis} if p_dis else {}),
-            }
-            for proj_key, (p_en, p_dis) in sorted(projects.items())
-            if p_en or p_dis
-        }
-
+    """Serialize and atomically update user or project-scoped overrides inside overrides.json."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(f".tmp.{os.getpid()}")
-    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    tmp_path.replace(path)
-    return updated
+    lock_path = path.with_name(f".{path.name}.lock")
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            user_enable, user_disable, projects = _read_override_file(path)
+
+            if project_dir is None:
+                updated = _apply_toggle_names(
+                    (user_enable, user_disable),
+                    enable_names=enable_names,
+                    disable_names=disable_names,
+                )
+                user_enable, user_disable = updated
+            else:
+                proj_key = os.path.normpath(str(project_dir.resolve()))
+                updated = _apply_toggle_names(
+                    projects.get(proj_key, ([], [])),
+                    enable_names=enable_names,
+                    disable_names=disable_names,
+                )
+                if updated[0] or updated[1]:
+                    projects[proj_key] = updated
+                else:
+                    projects.pop(proj_key, None)
+
+            payload: dict[str, object] = {}
+            if user_enable:
+                payload["enable"] = user_enable
+            if user_disable:
+                payload["disable"] = user_disable
+            if projects:
+                payload["projects"] = {
+                    proj_key: {
+                        **({"enable": p_en} if p_en else {}),
+                        **({"disable": p_dis} if p_dis else {}),
+                    }
+                    for proj_key, (p_en, p_dis) in sorted(projects.items())
+                    if p_en or p_dis
+                }
+
+            tmp_path = path.with_suffix(f".tmp.{os.getpid()}.{threading.get_ident()}")
+            tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            tmp_path.chmod(OVERRIDES_FILE_MODE)
+            tmp_path.replace(path)
+            return updated
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def active_project_overrides(cwd: Path) -> list[str]:
@@ -399,6 +499,32 @@ def active_project_overrides(cwd: Path) -> list[str]:
     return [
         str(parent) for parent in reversed(candidates) if os.path.normpath(str(parent)) in projects
     ]
+
+
+def read_override_summary(cwd: Path) -> dict[str, object]:
+    """Return structured override and environment toggle state for bare `status` output."""
+    user_path = user_overrides_path()
+    project_dir = cwd.resolve()
+    user_enable, user_disable, projects = _read_override_file(user_path)
+    candidates = [project_dir, *project_dir.parents]
+    matching: list[dict[str, object]] = []
+    for parent in reversed(candidates):
+        key = os.path.normpath(str(parent))
+        pair = projects.get(key)
+        if pair is not None:
+            matching.append({"dir": key, "enable": pair[0], "disable": pair[1]})
+    return {
+        "userOverrides": str(user_path),
+        "userOverridesExists": user_path.is_file(),
+        "userEnable": user_enable,
+        "userDisable": user_disable,
+        "projectDir": str(project_dir),
+        "projectOverrides": [str(item["dir"]) for item in matching],
+        "projectOverrideEntries": matching,
+        "projectOverridesExist": bool(matching),
+        "envEnable": sorted(_split_env_list(ENABLE_ENV_VAR)),
+        "envDisable": sorted(_split_env_list(DISABLE_ENV_VAR)),
+    }
 
 
 def _split_env_list(var_name: str) -> set[str]:

@@ -1,12 +1,14 @@
 # Copyright (c) 2026 Bad3r
 
-"""Tests for manifest parsing, override precedence, and secret reading."""
+"""Tests for manifest parsing, override precedence, locking, and secret reading."""
 
 from __future__ import annotations
 
 import json
 import os
+import stat
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -27,7 +29,7 @@ from mcp_codemode.config import (
 
 
 class ConfigTest(unittest.TestCase):
-    """Covers manifest loading, alias generation, overrides, and secret reading."""
+    """Covers manifest loading, alias generation, overrides, locking, and secret reading."""
 
     def test_make_alias(self) -> None:
         """Normalize server names into JS-safe identifiers."""
@@ -35,14 +37,16 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(make_alias("google-developer-knowledge"), "google_developer_knowledge")
         self.assertEqual(make_alias("9server"), "_9server")
 
-    def test_override_precedence(self) -> None:
-        """Apply default < user < ancestor < project < env enablement precedence."""
+    def test_override_precedence_and_alias_normalization(self) -> None:
+        """Apply precedence, normalize mixed alias toggles, and honor symlinked project keys."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             state_dir = root / "state"
             ancestor = root / "work"
             project = ancestor / "app"
             project.mkdir(parents=True)
+            symlink_project = root / "app-link"
+            symlink_project.symlink_to(project)
 
             manifest_path = root / "manifest.json"
             manifest_path.write_text(
@@ -85,8 +89,15 @@ class ConfigTest(unittest.TestCase):
 
                 update_override_file(
                     user_overrides_path(),
+                    disable_names=["google_developer_knowledge"],
+                )
+                update_override_file(
+                    user_overrides_path(),
                     enable_names=["google-developer-knowledge", "beta"],
                 )
+                mode = stat.S_IMODE(user_overrides_path().stat().st_mode)
+                self.assertEqual(mode, 0o600)
+
                 states, sources = resolve_enabled_servers(manifest, project)
                 self.assertTrue(states["google-developer-knowledge"])
                 self.assertTrue(states["beta"])
@@ -112,6 +123,14 @@ class ConfigTest(unittest.TestCase):
                 self.assertTrue(states["beta"])
                 self.assertEqual(sources["beta"], f"{user_overrides_path()} ({project.resolve()})")
 
+                # Hand-edited symlinked project key must still match cwd.resolve().
+                user_overrides_path().write_text(
+                    json.dumps({"projects": {str(symlink_project): {"disable": ["alpha"]}}}),
+                    encoding="utf-8",
+                )
+                states, _ = resolve_enabled_servers(manifest, project)
+                self.assertFalse(states["alpha"])
+
                 with mock.patch.dict(
                     os.environ,
                     {DISABLE_ENV_VAR: "google_developer_knowledge"},
@@ -121,21 +140,81 @@ class ConfigTest(unittest.TestCase):
                     self.assertFalse(states["google-developer-knowledge"])
                     self.assertEqual(sources["google-developer-knowledge"], "env")
 
-    def test_read_secret_and_errors(self) -> None:
-        """Read trimmed secrets and reject missing or empty secret files."""
+    def test_concurrent_override_updates_preserve_all_projects(self) -> None:
+        """Serialize concurrent update_override_file calls via flock."""
         with tempfile.TemporaryDirectory() as tmp:
-            data_dir = Path(tmp)
+            root = Path(tmp)
+            overrides = root / "state" / "overrides.json"
+            projects = [root / f"proj-{idx}" for idx in range(6)]
+            for proj in projects:
+                proj.mkdir()
+
+            barrier = threading.Barrier(len(projects))
+
+            def worker(idx: int) -> None:
+                barrier.wait()
+                update_override_file(
+                    overrides,
+                    enable_names=[f"srv-{idx}"],
+                    project_dir=projects[idx],
+                )
+
+            threads = [threading.Thread(target=worker, args=(idx,)) for idx in range(len(projects))]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            saved = json.loads(overrides.read_text(encoding="utf-8"))
+            self.assertEqual(len(saved["projects"]), len(projects))
+            for idx, proj in enumerate(projects):
+                self.assertEqual(
+                    saved["projects"][str(proj.resolve())]["enable"],
+                    [f"srv-{idx}"],
+                )
+
+    def test_read_secret_and_errors(self) -> None:
+        """Read declared/XDG/fallback secrets and reject missing, binary, or escaping paths."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / "custom-data"
+            fake_home = root / "home"
+            fake_home.mkdir()
             secret = SecretHeader(
                 name="X-Goog-Api-Key",
                 relative_path="google-developer-knowledge/api-key",
             )
-            with mock.patch.dict(os.environ, {"XDG_DATA_HOME": str(data_dir)}, clear=False):
+            with mock.patch.dict(
+                os.environ,
+                {"XDG_DATA_HOME": str(data_dir), "HOME": str(fake_home)},
+                clear=False,
+            ):
                 with self.assertRaises(ConfigError):
                     read_secret(secret)
+
+                # Fallback to ~/.local/share when custom XDG_DATA_HOME lacks the SOPS secret.
+                home_fallback = fake_home / ".local" / "share" / secret.relative_path
+                home_fallback.parent.mkdir(parents=True, exist_ok=True)
+                home_fallback.write_text("from-home-fallback\n", encoding="utf-8")
+                self.assertEqual(read_secret(secret), "from-home-fallback")
+
+                # Declared SOPS path takes precedence over XDG_DATA_HOME.
+                declared_file = root / "sops-declared-key"
+                declared_file.write_text("from-declared-path\n", encoding="utf-8")
+                declared_secret = SecretHeader(
+                    name="X-Goog-Api-Key",
+                    relative_path=secret.relative_path,
+                    declared_path=str(declared_file),
+                )
+                self.assertEqual(read_secret(declared_secret), "from-declared-path")
 
                 target = data_dir / secret.relative_path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("\r\n", encoding="utf-8")
+                with self.assertRaises(ConfigError):
+                    read_secret(secret)
+
+                target.write_bytes(b"\xff\xfe\xfd")
                 with self.assertRaises(ConfigError):
                     read_secret(secret)
 
@@ -152,7 +231,7 @@ class ConfigTest(unittest.TestCase):
                 self.assertEqual(format_secret_header(bearer), "Bearer dummy-value")
 
                 # Sops-nix links ~/.local/share/<app>/api-key into /run/user/<uid>/secrets/...
-                external_dir = Path(tmp) / "run_secrets"
+                external_dir = root / "run_secrets"
                 external_dir.mkdir(parents=True, exist_ok=True)
                 external_secret = external_dir / "key"
                 external_secret.write_text("symlinked-secret\n", encoding="utf-8")
@@ -166,8 +245,8 @@ class ConfigTest(unittest.TestCase):
                     with self.assertRaises(ConfigError):
                         read_secret(SecretHeader(name="X-Api-Key", relative_path=bad_rel))
 
-    def test_secret_header_prefix_validation(self) -> None:
-        """Parse optional secretHeader.prefix and reject unsafe headers or paths."""
+    def test_manifest_validation_edge_cases(self) -> None:
+        """Validate secretHeader fields, reject alias collisions, and reject invalid timeouts."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             valid_manifest = root / "valid.json"
@@ -183,6 +262,7 @@ class ConfigTest(unittest.TestCase):
                                     "name": "Authorization",
                                     "prefix": "Bearer ",
                                     "relativePath": "cloudflare/api-key",
+                                    "path": "/home/test/.local/share/cloudflare/api-key",
                                 },
                             },
                             "gdk": {
@@ -205,10 +285,42 @@ class ConfigTest(unittest.TestCase):
             self.assertIsNotNone(gdk_secret)
             if cf_secret is not None:
                 self.assertEqual(cf_secret.prefix, "Bearer ")
+                self.assertEqual(
+                    cf_secret.declared_path, "/home/test/.local/share/cloudflare/api-key"
+                )
             if gdk_secret is not None:
                 self.assertEqual(gdk_secret.prefix, "")
 
-            bad_headers: list[dict[str, object]] = [
+            bad_manifests: list[dict[str, object]] = [
+                {
+                    "client": "claude",
+                    "servers": {
+                        "foo-bar": {"transport": "http", "url": "https://example.invalid/a"},
+                        "foo_bar": {"transport": "http", "url": "https://example.invalid/b"},
+                    },
+                },
+                {
+                    "client": "claude",
+                    "servers": {
+                        "a": {
+                            "transport": "http",
+                            "url": "https://example.invalid/a",
+                            "toolTimeoutSec": True,
+                        }
+                    },
+                },
+                {
+                    "client": "claude",
+                    "servers": {
+                        "a": {
+                            "transport": "http",
+                            "url": "https://example.invalid/a",
+                            "startupTimeoutSec": 0,
+                        }
+                    },
+                },
+            ]
+            bad_headers = (
                 {"name": "Authorization", "prefix": 123, "relativePath": "cloudflare/api-key"},
                 {
                     "name": "Authorization",
@@ -219,23 +331,28 @@ class ConfigTest(unittest.TestCase):
                 {"name": "X-Bad\r\nHeader", "relativePath": "cloudflare/api-key"},
                 {"name": "Authorization", "relativePath": "/abs/secret"},
                 {"name": "Authorization", "relativePath": "../escape"},
-            ]
-            for bad_header in bad_headers:
-                bad_manifest = root / "bad.json"
-                bad_manifest.write_text(
-                    json.dumps(
-                        {
-                            "client": "claude",
-                            "servers": {
-                                "cloudflare-api": {
-                                    "transport": "http",
-                                    "url": "https://mcp.cloudflare.com/mcp",
-                                    "secretHeader": bad_header,
-                                }
-                            },
+                {
+                    "name": "Authorization",
+                    "relativePath": "cloudflare/api-key",
+                    "path": "relative/path",
+                },
+            )
+            bad_manifests.extend(
+                {
+                    "client": "claude",
+                    "servers": {
+                        "cloudflare-api": {
+                            "transport": "http",
+                            "url": "https://mcp.cloudflare.com/mcp",
+                            "secretHeader": bad_header,
                         }
-                    ),
-                    encoding="utf-8",
-                )
+                    },
+                }
+                for bad_header in bad_headers
+            )
+
+            for payload in bad_manifests:
+                bad_path = root / "bad.json"
+                bad_path.write_text(json.dumps(payload), encoding="utf-8")
                 with self.assertRaises(ConfigError):
-                    load_manifest(bad_manifest)
+                    load_manifest(bad_path)

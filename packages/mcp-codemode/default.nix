@@ -2,7 +2,7 @@
   lib,
   stdenvNoCC,
   python314,
-  nodejs,
+  nodejs_24,
   bubblewrap,
 }:
 stdenvNoCC.mkDerivation {
@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
     install -d $out/lib/mcp-codemode $out/bin
     cp -r mcp_codemode sandbox.mjs $out/lib/mcp-codemode/
     substituteInPlace $out/lib/mcp-codemode/mcp_codemode/_paths.py \
-      --replace-fail "@node@" "${lib.getExe nodejs}" \
+      --replace-fail "@node@" "${lib.getExe nodejs_24}" \
       --replace-fail "@bwrap@" "${lib.getExe bubblewrap}" \
       --replace-fail "@sandbox@" "$out/lib/mcp-codemode/sandbox.mjs"
     cat > $out/bin/mcp-codemode <<EOF
