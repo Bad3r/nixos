@@ -16,7 +16,8 @@
     -o <file>: Write program output to a file.
 
   Notes:
-    * Loading eBPF programs needs `CAP_BPF` and `CAP_PERFMON`, so run it with `sudo`; no wrapper grants them, because a user-controlled probe script would inherit the capabilities.
+    * Loading eBPF programs needs root. No capability wrapper exists, because bpftrace also demands `CAP_DAC_OVERRIDE` and `CAP_DAC_READ_SEARCH`, and `-c` and `--unsafe` would hand them to a child process.
+    * A `NOPASSWD` sudo-rs rule lets `wheel` users run it as root without a password; the rule grants root, since `--unsafe` allows `system()`.
 */
 _:
 let
@@ -43,6 +44,18 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.sudo-rs.extraRules = [
+          {
+            commands = [
+              {
+                command = "${cfg.package}/bin/bpftrace";
+                options = [ "NOPASSWD" ];
+              }
+            ];
+            groups = [ "wheel" ];
+          }
+        ];
       };
     };
 in

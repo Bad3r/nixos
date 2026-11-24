@@ -11,6 +11,7 @@ Scope:
   - `modules/security/polkit.nix`
 - sudo-rs rules:
   - `modules/hosts/common/sudo.nix`
+  - `modules/apps/bpftrace.nix`
 - kernel setting affecting `dmesg`:
   - `modules/hosts/common/boot.nix`
 
@@ -79,6 +80,11 @@ Scope:
 
 - `sudo systemctl suspend`, `sudo reboot`, `sudo poweroff`
   - Granted by `NOPASSWD` wheel rule in `security.sudo-rs.extraRules`.
+- `sudo bpftrace ...`
+  - Granted by a `NOPASSWD` wheel rule in `modules/apps/bpftrace.nix`, present only where the app is enabled.
+  - The rule matches the binary with any arguments and runs it as root.
+    `-c <cmd>` and `--unsafe` (`system()`) start root commands, so the rule is a passwordless root for `wheel` users.
+  - No capability wrapper exists, because bpftrace refuses to start without `CAP_DAC_OVERRIDE` and `CAP_DAC_READ_SEARCH` on top of `CAP_BPF` and `CAP_PERFMON`, and `-c` and `--unsafe` would pass them to a child process.
 
 ## Related
 
@@ -99,6 +105,7 @@ Scope:
       The common host baseline disables the optional wheel systemd
       unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
+    - lists the power rule and, where bpftrace is enabled, the `bpftrace` rule.
   - `tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true` as a non-root caller
     - should exit non-zero with `-z is refused by the capability wrapper`.
       A started capture means the argv filter was lost from
