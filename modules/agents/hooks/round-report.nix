@@ -275,6 +275,41 @@ in
             [ ! -e "$PWD/escape" ]
             [ ! -e "$ROUND_REPORT_SCRATCH/sessions/hooks" ]
             [ ! -e "$ROUND_REPORT_SCRATCH/sessions/victim" ]
+
+            # Non-UTF-8 filenames do not break snapshots, nested-repo hashing, or JSON output.
+            bad_name=$(printf 'bad\xff')
+            touch "$repo/$bad_name"
+            mkdir -p "$repo/nested-bad"
+            git init -q "$repo/nested-bad"
+            touch "$repo/nested-bad/$bad_name"
+            start_out=$(payload '{}' | hook round-start)
+            [ -z "$start_out" ]
+            [ -z "$(stop done)" ]
+            payload '{}' | hook round-start
+            echo changed >> "$repo/$bad_name"
+            got=$(stop done)
+            echo "$got" | jq -e '.decision == "block" and (.systemMessage | startswith("Round report")) and (.systemMessage | contains("bad"))' > /dev/null
+            python3 -c 'import json, sys; raw = sys.stdin.read(); assert "\\udc" not in raw.lower(); json.loads(raw)' <<< "$got"
+            stop done true > /dev/null
+            rm -rf "$repo/$bad_name" "$repo/nested-bad"
+
+            # repo_path refuses paths that escape the repository root.
+            python3 -c '
+            import importlib.util, sys
+            from pathlib import Path
+            spec = importlib.util.spec_from_file_location("round_report", "${./round-report.py}")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            top = Path(sys.argv[1])
+            assert mod.repo_path(top, "a/b.txt") == top / "a/b.txt"
+            for bad in ("../escape", "/etc/passwd", "."):
+                try:
+                    mod.repo_path(top, bad)
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError(f"accepted {bad!r}")
+            ' "$repo"
             touch "$out"
           '';
     };

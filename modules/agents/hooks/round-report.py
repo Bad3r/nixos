@@ -68,7 +68,8 @@ def git(cwd: Path, *args: str) -> str | None:
         result = subprocess.run(
             ["git", "--no-optional-locks", "-C", str(cwd), *args],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="surrogateescape",
             timeout=GIT_TIMEOUT_S,
             check=False,
         )
@@ -97,17 +98,17 @@ def porcelain_entries(status: str) -> tuple[dict[str, str], list[str]]:
     return tracked, untracked
 
 
-def _read_untracked_stream(fd: int, deadline: float) -> list[str] | None:
-    """Read NUL-separated paths from fd until EOF, cap, or deadline; None on cap/timeout."""
+def _read_untracked_stream(stdout: IO[bytes], deadline: float) -> list[str] | None:
+    """Read NUL-separated paths from unbuffered stdout until EOF, cap, or deadline."""
     members: list[str] = []
     pending = b""
     with selectors.DefaultSelector() as selector:
-        selector.register(fd, selectors.EVENT_READ)
+        selector.register(stdout, selectors.EVENT_READ)
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0 or not selector.select(remaining):
                 return None
-            chunk = os.read(fd, 1 << 16)
+            chunk = stdout.read(1 << 16)
             if not chunk:
                 break
             *names, pending = (pending + chunk).split(b"\0")
@@ -137,9 +138,15 @@ def untracked_members(top: Path, entry: str) -> list[str] | None:
         entry,
     ]
     deadline = time.monotonic() + GIT_TIMEOUT_S
-    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as proc:
-        fd = cast("IO[bytes]", proc.stdout).fileno()
-        members = _read_untracked_stream(fd, deadline)
+    # Unbuffered stdout ensures one read() syscall per selector wakeup.
+    with subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        bufsize=0,
+    ) as proc:
+        stdout = cast("IO[bytes]", proc.stdout)
+        members = _read_untracked_stream(stdout, deadline)
         if members is None:
             proc.kill()
             return None
@@ -184,6 +191,16 @@ def past_cutoff(path: str, cutoff: str | None) -> bool:
     return path.encode("utf-8", "surrogateescape") > cutoff.encode("utf-8", "surrogateescape")
 
 
+def repo_path(top: Path, rel: str) -> Path:
+    """Resolve a repository-relative path under top, refusing paths that leave it."""
+    root = os.path.normpath(top)
+    target = os.path.normpath(top / rel)
+    if not target.startswith(root + os.sep) and not (root == os.sep and target != os.sep):
+        message = f"repo path {rel!r} leaves {root}"
+        raise ValueError(message)
+    return Path(target)
+
+
 def path_state(path: Path, *, hash_content: bool = True) -> str:
     """Fingerprint one dirty path: content hash, size and mtime, link target, or nested repo."""
     try:
@@ -192,7 +209,8 @@ def path_state(path: Path, *, hash_content: bool = True) -> str:
         if path.is_dir():
             nested = git(path, "status", "--porcelain=v1", "-z") or ""
             head = git(path, "rev-parse", "HEAD") or ""
-            return "dir:" + hashlib.sha256((head + nested).encode()).hexdigest()
+            digest = hashlib.sha256((head + nested).encode("utf-8", "surrogateescape")).hexdigest()
+            return "dir:" + digest
         if path.is_file():
             info = path.stat()
             if not hash_content or info.st_size > HASH_MAX_BYTES:
@@ -214,7 +232,7 @@ def _recheck_known(
     """Record round-start paths and collapsed trees missing from files after cap truncation."""
     for p in known or ():
         if p not in files:
-            files[p] = path_state(top / p, hash_content=use_hash)
+            files[p] = path_state(repo_path(top, p), hash_content=use_hash)
     for entry in known_trees or ():
         if entry not in files and untracked_members(top, entry) is None:
             files[entry] = f"tree:>{UNTRACKED_DIR_CAP}"
@@ -255,7 +273,7 @@ def snapshot(
         if known is not None and p not in known:
             files[p] = f"{prefix}new"
         else:
-            files[p] = f"{prefix}{path_state(top / p, hash_content=use_hash)}"
+            files[p] = f"{prefix}{path_state(repo_path(top, p), hash_content=use_hash)}"
     for entry, tree_state in collapsed.items():
         if (
             known_trees is not None
@@ -543,6 +561,11 @@ def path_mentioned(path: str, message: str, top: str | None = None) -> bool:
     )
 
 
+def display_path(path: str) -> str:
+    """Replace surrogate-escaped non-UTF-8 bytes so JSON output stays valid Unicode."""
+    return path.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+
+
 def round_output(
     payload: Json,
     files: list[str],
@@ -555,21 +578,25 @@ def round_output(
     if not files and not failures:
         return None
 
+    display_files = [display_path(f) for f in files]
+    display_top = display_path(top) if top else None
     failure_lines = [
         f"{e.get('agent')} {e.get('tool')}: {e.get('input')} -> {e.get('error') or 'failed'}"
         for e in failures
     ]
     shown: list[str] = []
-    if files:
-        shown.append(f"Files changed this round ({len(files)}):")
-        shown += [f"  {f}" for f in capped(files)]
+    if display_files:
+        shown.append(f"Files changed this round ({len(display_files)}):")
+        shown += [f"  {f}" for f in capped(display_files)]
     if failures:
-        shown.append(f"Failed tool calls this round ({len(failures)}), log {log_path}:")
+        shown.append(
+            f"Failed tool calls this round ({len(failures)}), log {display_path(str(log_path))}:",
+        )
         shown += [f"  {f}" for f in capped(failure_lines)]
     output: Json = {"systemMessage": "Round report\n" + "\n".join(shown)}
 
     message = str(payload.get("last_assistant_message") or "")
-    unmentioned = [f for f in files if not path_mentioned(f, message, top)]
+    unmentioned = [f for f in display_files if not path_mentioned(f, message, display_top)]
     if not payload.get("stop_hook_active") and (unmentioned or failures):
         output["decision"] = "block"
         output["reason"] = block_reason(unmentioned, failure_lines)
