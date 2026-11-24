@@ -6,7 +6,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 ## Choose the owning file
 
 - [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
-- [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell, sets the Hub server port, and draws the tray icon from [the Stylix template](../../../modules/stylix/icons/antigravity-tray.svg.mustache).
+- [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell, sets the Hub server port, and draws the window and tray icons from [the Stylix template](../../../modules/stylix/icons/antigravity.svg.mustache).
 - [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
