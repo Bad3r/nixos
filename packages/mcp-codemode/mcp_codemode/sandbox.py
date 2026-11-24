@@ -220,16 +220,20 @@ class _SandboxSession:
             if not self._done_event.is_set() and not self._abort_event.is_set():
                 self.enqueue_write(reply)
 
-    def _ensure_rpc_worker(self) -> None:
+    def _ensure_rpc_worker(self) -> bool:
         with self._state_lock:
+            if self._abort_event.is_set() or self._done_event.is_set():
+                return False
             if self._rpc_workers_started >= MAX_CONCURRENT_RPCS:
-                return
+                return True
             self._rpc_workers_started += 1
         # Fixed daemon pool caps OS threads and avoids atexit hangs on aborted RPCs.
         threading.Thread(target=self._rpc_worker_loop, daemon=True).start()
+        return True
 
     def _submit_rpc(self, req_id: object, method: str, params: dict[str, object]) -> None:
-        self._ensure_rpc_worker()
+        if not self._ensure_rpc_worker():
+            return
         try:
             self._rpc_queue.put_nowait((req_id, method, params))
         except queue.Full:
@@ -360,7 +364,6 @@ class _SandboxSession:
                 with contextlib.suppress(Exception):
                     self._on_abort()
             self._write_queue.put(None)
-            self._stop_rpc_workers()
             # Only grant a graceful wait when the script finished cleanly; otherwise kill first
             # to prevent a stdout-blocked child from deadlocking stdin/writer teardown.
             if self.result is not None:
@@ -369,7 +372,8 @@ class _SandboxSession:
             terminate_process_group(self.proc, KILL_GRACE_SEC)
             writer.join(timeout=KILL_GRACE_SEC)
             reader.join(timeout=KILL_GRACE_SEC)
-            for stream in (self.proc.stdin, self.proc.stdout, self.proc.stderr):
+            self._stop_rpc_workers()
+            for stream in (self.proc.stdin, self.proc.stdout):
                 if stream is not None:
                     with contextlib.suppress(OSError, ValueError, RuntimeError):
                         stream.close()
@@ -421,6 +425,9 @@ def run_sandbox(
         )
     finally:
         stderr_thread.join(timeout=KILL_GRACE_SEC)
+        if proc.stderr is not None:
+            with contextlib.suppress(OSError, ValueError, RuntimeError):
+                proc.stderr.close()
 
     if session.cancelled:
         raise SandboxError.cancelled()

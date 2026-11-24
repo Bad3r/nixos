@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import queue
 import signal
 import sys
 import threading
@@ -48,6 +50,7 @@ UNFILTERED_DISCOVERY_TIMEOUT_SEC = 45.0
 SHUTDOWN_JOIN_SEC = 2.0
 MAX_ATTACHMENTS = 16
 MAX_CONCURRENT_REQUESTS = 8
+MAX_PENDING_REQUESTS = 64
 MAX_DISCOVERY_WORKERS = 6
 
 
@@ -666,7 +669,7 @@ class CodeModeServer:
 
     def _write_reply(self, reply: dict[str, object]) -> None:
         line = json.dumps(reply, separators=(",", ":")) + "\n"
-        with self._stdout_lock:
+        with self._stdout_lock, contextlib.suppress(BrokenPipeError, OSError, ValueError):
             sys.stdout.write(line)
             sys.stdout.flush()
 
@@ -715,20 +718,56 @@ class CodeModeServer:
 
     def _shutdown_workers(
         self,
-        active_threads: set[threading.Thread],
-        threads_lock: threading.Lock,
+        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None],
+        workers: list[threading.Thread],
     ) -> None:
         with self._cancel_lock:
             for ev in self._active_cancels.values():
                 ev.set()
             self._active_cancels.clear()
-        with threads_lock:
-            pending_threads = list(active_threads)
+        while True:
+            try:
+                work_queue.get_nowait()
+            except queue.Empty:
+                break
+        for _ in workers:
+            with contextlib.suppress(queue.Full):
+                work_queue.put_nowait(None)
         join_deadline = time.monotonic() + SHUTDOWN_JOIN_SEC
-        for thread in pending_threads:
+        for thread in workers:
             remaining = join_deadline - time.monotonic()
             if remaining > 0:
                 thread.join(timeout=remaining)
+
+    def _enqueue_tool_call(
+        self,
+        msg: dict[str, object],
+        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None],
+    ) -> None:
+        cancel_event = threading.Event()
+        msg_id = msg.get("id")
+        if is_valid_rpc_id(msg_id):
+            with self._cancel_lock:
+                self._active_cancels[msg_id] = cancel_event
+        try:
+            work_queue.put_nowait((msg, cancel_event))
+        except queue.Full:
+            if is_valid_rpc_id(msg_id):
+                with self._cancel_lock:
+                    self._active_cancels.pop(msg_id, None)
+            if msg_id is not None:
+                self._write_reply(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": msg_id,
+                        "error": {
+                            "code": RPC_INTERNAL_ERROR,
+                            "message": (
+                                f"Too many queued tool calls (limit: {MAX_PENDING_REQUESTS})"
+                            ),
+                        },
+                    }
+                )
 
     def serve_stdio(self) -> int:
         """Run the newline-delimited JSON-RPC loop on stdin/stdout until EOF."""
@@ -740,39 +779,37 @@ class CodeModeServer:
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
         previous_sigint = signal.signal(signal.SIGINT, _handle_signal)
-        request_sem = threading.Semaphore(MAX_CONCURRENT_REQUESTS)
-        active_threads: set[threading.Thread] = set()
-        threads_lock = threading.Lock()
+        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None] = queue.Queue(
+            maxsize=MAX_PENDING_REQUESTS
+        )
 
-        def _worker(msg: dict[str, object], cancel_event: threading.Event) -> None:
-            try:
-                with request_sem:
-                    self._run_message_safe(msg, cancel_event=cancel_event)
-            finally:
-                with threads_lock:
-                    active_threads.discard(threading.current_thread())
+        def _worker() -> None:
+            while True:
+                item = work_queue.get()
+                if item is None:
+                    return
+                msg, cancel_event = item
+                self._run_message_safe(msg, cancel_event=cancel_event)
+
+        workers = [
+            threading.Thread(target=_worker, daemon=True) for _ in range(MAX_CONCURRENT_REQUESTS)
+        ]
+        for thread in workers:
+            thread.start()
 
         try:
             for raw_line in sys.stdin:
                 msg = self._parse_stdin_message(raw_line)
                 if msg is None:
                     continue
-                if msg.get("method") != "tools/call":
+                if msg.get("method") == "tools/call":
+                    self._enqueue_tool_call(msg, work_queue)
+                else:
                     self._run_message_safe(msg)
-                    continue
-                cancel_event = threading.Event()
-                msg_id = msg.get("id")
-                if is_valid_rpc_id(msg_id):
-                    with self._cancel_lock:
-                        self._active_cancels[msg_id] = cancel_event
-                thread = threading.Thread(target=_worker, args=(msg, cancel_event), daemon=True)
-                with threads_lock:
-                    active_threads.add(thread)
-                thread.start()
         finally:
             shutting_down = True
             try:
-                self._shutdown_workers(active_threads, threads_lock)
+                self._shutdown_workers(work_queue, workers)
             finally:
                 self.supervisor.close_all()
                 signal.signal(signal.SIGTERM, previous_sigterm)

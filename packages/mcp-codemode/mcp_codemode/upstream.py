@@ -447,6 +447,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         self._session_id: str | None = None
         self._protocol_version: str | None = None
         self._initialized = False
+        self._closed = False
 
     def _allocate_id(self) -> int:
         with self._lock:
@@ -547,6 +548,8 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         cancel_event: threading.Event | None,
     ) -> int:
         with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
             token = self._next_inflight_id
             self._next_inflight_id += 1
             self._inflight[token] = (resp, cancel_event)
@@ -568,6 +571,8 @@ class HttpUpstreamClient(_BaseUpstreamClient):
     def _renew_expired_session(self, sent_session_id: str, ctx: _CallContext) -> None:
         with self._acquire_init_lock(ctx.deadline, ctx.cancel_event):
             with self._lock:
+                if self._closed:
+                    raise UpstreamError.closed(self.spec.name)
                 if self._session_id == sent_session_id:
                     self._session_id = None
                     self._protocol_version = None
@@ -709,6 +714,10 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 self._initialized = False
             raise
         with self._lock:
+            if self._closed:
+                self._session_id = None
+                self._protocol_version = None
+                raise UpstreamError.closed(self.spec.name)
             self._initialized = True
 
     @override
@@ -719,10 +728,14 @@ class HttpUpstreamClient(_BaseUpstreamClient):
     ) -> None:
         """Run MCP initialize handshake once per session."""
         with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
             if self._initialized:
                 return
         with self._acquire_init_lock(deadline, cancel_event):
             with self._lock:
+                if self._closed:
+                    raise UpstreamError.closed(self.spec.name)
                 if self._initialized:
                     return
             self._initialize_locked(_CallContext(deadline=deadline, cancel_event=cancel_event))
@@ -731,6 +744,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
     def close(self) -> None:
         """Abort active responses and send best-effort HTTP session termination."""
         with self._lock:
+            self._closed = True
             session_id = self._session_id
             protocol_version = self._protocol_version
             self._session_id = None
@@ -745,7 +759,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         with contextlib.suppress(
             urllib.error.URLError, http.client.HTTPException, OSError, RuntimeError
         ):
-            headers = self._headers()
+            headers = self._headers(include_session=False)
             headers["Mcp-Session-Id"] = session_id
             if protocol_version:
                 headers["MCP-Protocol-Version"] = protocol_version
@@ -783,6 +797,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         self._next_id = 1
         self._pending: dict[int, _PendingCall] = {}
         self._initialized = False
+        self._closed = False
 
     def _build_env(self) -> dict[str, str]:
         env = dict(os.environ)
@@ -793,10 +808,12 @@ class StdioUpstreamClient(_BaseUpstreamClient):
     def _close_proc_handles(proc: subprocess.Popen[str]) -> None:
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             if stream is not None:
-                with contextlib.suppress(OSError):
+                with contextlib.suppress(OSError, ValueError, RuntimeError):
                     stream.close()
 
     def _start_process_locked(self) -> None:
+        if self._closed:
+            raise UpstreamError.closed(self.spec.name)
         if self._proc is not None and self._proc.poll() is None:
             return
         old_proc = self._proc
@@ -986,7 +1003,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         with self._lock:
             proc = self._proc
             pending = self._pending
-            if proc is None:
+            if self._closed or proc is None:
                 raise UpstreamError.closed(self.spec.name)
             msg_id = self._next_id
             self._next_id += 1
@@ -1023,6 +1040,32 @@ class StdioUpstreamClient(_BaseUpstreamClient):
             raise UpstreamError.closed(self.spec.name)
         return _extract_rpc_result(self.spec.name, waiter.response)
 
+    def _stop_process(self, *, mark_closed: bool) -> None:
+        with self._lock:
+            if mark_closed:
+                self._closed = True
+            proc = self._proc
+            self._proc = None
+            self._initialized = False
+            pending_waiters = list(self._pending.values())
+            self._pending.clear()
+        for waiter in pending_waiters:
+            waiter.error = UpstreamError.closed(self.spec.name)
+            waiter.event.set()
+        if proc is None:
+            return
+        # Acquire _write_lock with a short timeout so a blocked write cannot deadlock teardown.
+        acquired = self._write_lock.acquire(timeout=0.1)
+        try:
+            if acquired and proc.stdin is not None:
+                with contextlib.suppress(OSError, ValueError, RuntimeError):
+                    proc.stdin.close()
+        finally:
+            if acquired:
+                self._write_lock.release()
+        terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
+        self._close_proc_handles(proc)
+
     @override
     def ensure_initialized(
         self,
@@ -1031,10 +1074,14 @@ class StdioUpstreamClient(_BaseUpstreamClient):
     ) -> None:
         """Spawn the subprocess and perform the MCP handshake once."""
         with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
             if self._initialized and self._proc is not None and self._proc.poll() is None:
                 return
         with self._acquire_init_lock(deadline, cancel_event):
             with self._lock:
+                if self._closed:
+                    raise UpstreamError.closed(self.spec.name)
                 if self._initialized and self._proc is not None and self._proc.poll() is None:
                     return
                 self._start_process_locked()
@@ -1053,26 +1100,17 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                 )
                 self._send_raw({"jsonrpc": "2.0", "method": "notifications/initialized"})
             except Exception:
-                self.close()
+                self._stop_process(mark_closed=False)
                 raise
             with self._lock:
+                if self._closed:
+                    raise UpstreamError.closed(self.spec.name)
                 self._initialized = True
 
     @override
     def close(self) -> None:
-        """Terminate the upstream process group cleanly."""
-        with self._lock:
-            proc = self._proc
-            self._proc = None
-            self._initialized = False
-        if proc is None:
-            return
-        with self._write_lock:
-            if proc.stdin is not None:
-                with contextlib.suppress(OSError):
-                    proc.stdin.close()
-        terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
-        self._close_proc_handles(proc)
+        """Permanently close the client and terminate its process group."""
+        self._stop_process(mark_closed=True)
 
 
 class UpstreamSupervisor:
@@ -1151,7 +1189,8 @@ class UpstreamSupervisor:
                     if client is not None:
                         to_close.append(client)
         for client in to_close:
-            client.close()
+            with contextlib.suppress(Exception):
+                client.close()
 
     def close_all(self) -> None:
         """Close every active upstream client."""
@@ -1160,4 +1199,5 @@ class UpstreamSupervisor:
             self._clients.clear()
             self._tools_cache.clear()
         for client in clients:
-            client.close()
+            with contextlib.suppress(Exception):
+                client.close()
