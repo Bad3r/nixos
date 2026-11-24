@@ -6,14 +6,14 @@ Home Manager modules use an aggregator namespace and a shared app-loading mechan
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                                 | Type             | Description                                                                  |
-| ------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
-| `gui`                                                               | Deferred module  | Reserved GUI aggregation point                                               |
-| `apps.<name>`                                                       | Deferred module  | Individual app modules, all loaded on every host                             |
-| `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
-| `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
-| `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
+| Key                                                                                      | Type             | Description                                                                  |
+| ---------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `base`                                                                                   | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
+| `gui`                                                                                    | Deferred module  | Reserved GUI aggregation point                                               |
+| `apps.<name>`                                                                            | Deferred module  | Individual app modules, all loaded on every host                             |
+| `browsers.<name>`                                                                        | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
+| `sopsRuntime`                                                                            | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
+| `cloudflareSecrets`, `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
 ## Contributing to Namespaces
 
@@ -59,6 +59,7 @@ that diverge. The common baseline sets these HM toggles:
 
 | HM toggle           | Default                                | Notes                                                                                                                                                |
 | ------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflareSecrets` | `mkDefault true`                       | Cloudflare API key rendering.                                                                                                                        |
 | `context7Secrets`   | `mkDefault true`                       | Context7 API key rendering.                                                                                                                          |
 | `geckoSecrets`      | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for every host; rendering still requires the secret file.                                |
 | `virustotalSecrets` | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                        |

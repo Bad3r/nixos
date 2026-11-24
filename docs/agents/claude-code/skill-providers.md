@@ -11,9 +11,8 @@ Standalone skills and plugin skills use different controls.
   The plugin enablement entry controls the skills and any MCP servers bundled by that plugin.
 - MCP servers in `modules/agents/mcp/servers.nix` remain independent unless a plugin manifest bundles the same provider.
 
-The Cloudflare plugin is declared as `cloudflare@claude-plugins-official`, whose marketplace entry clones the whole `cloudflare/skills` repository.
-It bundles Cloudflare skills and its API MCP server, so the individual upstream skills are not copied into the Nix skill registry.
-Its plugin entry is enabled in Claude Code and Codex.
+The Cloudflare skills (`cloudflare-skills`) and Modern Web Guidance (`modern-web-guidance`) come from pinned flake inputs in `modules/agents/skills/packs.nix` and link into Antigravity, Claude Code, and Codex.
+Their marketplace plugins remain disabled in `modules/agents/_plugins.nix`, and `cloudflare-api` in `modules/agents/mcp/servers.nix` supplies the authenticated Cloudflare API MCP server through `codemode`.
 
 ## Default Availability
 
@@ -35,4 +34,4 @@ Plugin-owned skill bundles follow `programs.claude-code.extended.plugins`, which
 `chrome-devtools-plugins` stays sparse to `.claude-plugin` because its plugin provides only an MCP server.
 Use the shared MCP registry's wrapper to keep DevTools privacy options consistent across clients.
 
-Cloudflare's [Claude Code plugin](https://github.com/cloudflare/skills) documents the bundled skills and MCP server.
+Cloudflare's [skills repository](https://github.com/cloudflare/skills) and [Modern Web Guidance](https://github.com/GoogleChrome/modern-web-guidance) document those bundled skills.
