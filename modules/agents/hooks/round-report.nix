@@ -176,6 +176,57 @@ in
             stop done true > /dev/null
             rm -f "$repo"/u*
 
+            # A collapsed untracked directory pushed past UNTRACKED_CAP is not flagged, while deleting it is.
+            python3 -c '
+            from pathlib import Path
+            import sys
+            repo = Path(sys.argv[1])
+            for i in range(490):
+                (repo / f"u{i:03d}").write_text("", encoding="utf-8")
+            big = repo / "zzz-big"
+            big.mkdir()
+            for i in range(205):
+                (big / f"f{i:03d}.txt").write_text("x\n", encoding="utf-8")
+            ' "$repo"
+            payload '{}' | hook round-start
+            jq -e '.starts.main.files["zzz-big/"] == "tree:>200"' "$ROUND_REPORT_SCRATCH/sessions/s/hooks/round-report/state.json" > /dev/null
+            for i in $(seq -w 0 9); do echo new > "$repo/a${"$"}{i}new"; done
+            got=$(stop 'Created a0new a1new a2new a3new a4new a5new a6new a7new a8new a9new.')
+            echo "$got" | jq -e '(has("decision") | not) and (.systemMessage | contains("Files changed this round (10)") and contains("a0new") and (contains("zzz-big") | not))' > /dev/null
+            rm -f "$repo"/a*new
+            payload '{}' | hook round-start
+            rm -rf "$repo/zzz-big"
+            got=$(stop done)
+            echo "$got" | jq -e '.decision == "block" and (.reason | contains("zzz-big/"))' > /dev/null
+            stop done true > /dev/null
+            rm -f "$repo"/u*
+
+            # A stalled git ls-files scan in untracked_members times out cleanly.
+            stub_bin=$PWD/stub-bin
+            mkdir -p "$stub_bin"
+            real_git=$(command -v git)
+            cat > "$stub_bin/git" <<EOF
+            #!${pkgs.runtimeShell}
+            for arg in "\$@"; do
+              if [ "\$arg" = "ls-files" ]; then
+                exec sleep 30
+              fi
+            done
+            exec "$real_git" "\$@"
+            EOF
+            chmod +x "$stub_bin/git"
+            PATH="$stub_bin:$PATH" python3 -c '
+            import importlib.util, sys, time
+            from pathlib import Path
+            spec = importlib.util.spec_from_file_location("round_report", "${./round-report.py}")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.GIT_TIMEOUT_S = 0.2
+            started = time.monotonic()
+            assert mod.untracked_members(Path(sys.argv[1]), "slow/") is None
+            assert time.monotonic() - started < 2.0
+            ' "$repo"
+
             # Staging an already-modified file is detected; interrupted failures do
             # not carry over to the next round; substring paths do not satisfy short names;
             # ./, ~/, repo-rooted absolute, and file:// paths satisfy them, while mismatched prefixes do not.

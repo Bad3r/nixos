@@ -15,8 +15,10 @@ import hashlib
 import json
 import os
 import re
+import selectors
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import IO, cast
@@ -95,6 +97,30 @@ def porcelain_entries(status: str) -> tuple[dict[str, str], list[str]]:
     return tracked, untracked
 
 
+def _read_untracked_stream(fd: int, deadline: float) -> list[str] | None:
+    """Read NUL-separated paths from fd until EOF, cap, or deadline; None on cap/timeout."""
+    members: list[str] = []
+    pending = b""
+    with selectors.DefaultSelector() as selector:
+        selector.register(fd, selectors.EVENT_READ)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not selector.select(remaining):
+                return None
+            chunk = os.read(fd, 1 << 16)
+            if not chunk:
+                break
+            *names, pending = (pending + chunk).split(b"\0")
+            members += [name.decode(errors="surrogateescape") for name in names if name]
+            if len(members) > UNTRACKED_DIR_CAP:
+                return None
+    if pending:
+        members.append(pending.decode(errors="surrogateescape"))
+        if len(members) > UNTRACKED_DIR_CAP:
+            return None
+    return members
+
+
 def untracked_members(top: Path, entry: str) -> list[str] | None:
     """Untracked, non-ignored files under a directory; None past UNTRACKED_DIR_CAP."""
     command = [
@@ -110,16 +136,18 @@ def untracked_members(top: Path, entry: str) -> list[str] | None:
         "--",
         entry,
     ]
-    members: list[str] = []
-    pending = b""
+    deadline = time.monotonic() + GIT_TIMEOUT_S
     with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as proc:
-        stdout = cast("IO[bytes]", proc.stdout)
-        while chunk := stdout.read(1 << 16):
-            *names, pending = (pending + chunk).split(b"\0")
-            members += [name.decode(errors="surrogateescape") for name in names if name]
-            if len(members) > UNTRACKED_DIR_CAP:
-                proc.kill()
-                return None
+        fd = cast("IO[bytes]", proc.stdout).fileno()
+        members = _read_untracked_stream(fd, deadline)
+        if members is None:
+            proc.kill()
+            return None
+        try:
+            proc.wait(timeout=max(0.0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            return None
     if proc.returncode != 0:
         return [entry]
     return members
@@ -175,6 +203,23 @@ def path_state(path: Path, *, hash_content: bool = True) -> str:
     return "absent"
 
 
+def _recheck_known(
+    top: Path,
+    files: dict[str, str],
+    known: set[str] | None,
+    known_trees: set[str] | None,
+    *,
+    use_hash: bool,
+) -> None:
+    """Record round-start paths and collapsed trees missing from files after cap truncation."""
+    for p in known or ():
+        if p not in files:
+            files[p] = path_state(top / p, hash_content=use_hash)
+    for entry in known_trees or ():
+        if entry not in files and untracked_members(top, entry) is None:
+            files[entry] = f"tree:>{UNTRACKED_DIR_CAP}"
+
+
 def snapshot(
     cwd: Path,
     *,
@@ -219,11 +264,9 @@ def snapshot(
         ):
             continue
         files[entry] = tree_state
-    # Paths dirty at round start get a state even when clean or past the
-    # untracked cap now, so a cap window that shifts reports nothing.
-    for p in known or ():
-        if p not in files:
-            files[p] = path_state(top / p, hash_content=use_hash)
+    # Paths and collapsed trees dirty at round start get re-checked even when
+    # clean or pushed past the untracked cap now, so a cap shift reports nothing.
+    _recheck_known(top, files, known, known_trees, use_hash=use_hash)
     return {
         "top": str(top),
         "head": head,
@@ -295,9 +338,15 @@ def read_state(path: Path) -> Json:
 
 def write_state(path: Path, value: Json) -> None:
     """Replace the state file atomically."""
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(value), encoding="utf-8")
-    tmp.replace(path)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(value, handle)
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def first_line(text: object, limit: int = 200) -> str:
