@@ -6,9 +6,10 @@
   ~/.gemini/antigravity-cli/settings.json (when CLI is enabled), and
   ${XDG_CONFIG_HOME:-$HOME/.config}/Antigravity/app_storage.json (when Hub is
   enabled) while leaving runtime state (installedFrom plugin provenance,
-  sidecars, custom themes, model choices, trustedWorkspaces, and UI storage)
-  intact. The record lives in ~/.gemini/config/.nix-managed.json so entries
-  dropped from Nix are removed on the next switch.
+  sidecars, model choices, trustedWorkspaces, and UI storage) intact. With the
+  Hub enabled, Stylix owns the theme mode and seeds. The record lives in
+  ~/.gemini/config/.nix-managed.json so entries dropped from Nix are removed on
+  the next switch.
 
   Also removes artifacts left behind by an earlier migrated-settings import and
   a manual `herdr integration install` block without clobbering unrelated entries.
@@ -19,7 +20,7 @@
   mcpServersFile,
   hooksFile,
   pluginsFile,
-  permissionsFile,
+  userSettingsFile,
   stateFile,
   cliSettingsFile ? null,
   hubStorageFile ? null,
@@ -47,7 +48,7 @@ let
       mcp_template=''${1:-}
       hooks_template=''${2:-}
       plugins_template=''${3:-}
-      permissions_template=''${4:-}
+      user_settings_template=''${4:-}
       state_template=''${5:-}
       cli_settings_template=''${6:-}
       hub_storage_template=''${7:-}
@@ -84,6 +85,7 @@ let
                   [.mcpServers, .hooks, .plugins, .cliSettings]
                   | all(type == "array" and all(.[]; type == "string"))
                 )
+                and ((.userSettings // []) | type == "array" and all(.[]; type == "string"))
                 and (
                   if has("hubStorageByTarget") then
                     (.hubStorageByTarget | type == "object" and all(.[]; type == "array" and all(.[]; type == "string")))
@@ -100,7 +102,7 @@ let
       else
         previous=$(mktemp)
         tmp_files+=("$previous")
-        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"hubStorageByTarget":{}}' >"$previous"
+        printf '%s\n' '{"version":1,"mcpServers":[],"hooks":[],"plugins":[],"cliSettings":[],"userSettings":[],"hubStorageByTarget":{}}' >"$previous"
       fi
 
       validate_target() {
@@ -236,16 +238,19 @@ let
               )
             )
         )
+        | $extra[0] as $declared
         | .userSettings = (
             (.userSettings // {})
             | if type == "object" then . else error("userSettings is not an object") end
+            | reduce ((($state[0].userSettings // []) - ($declared | keys))[]) as $key (.; del(.[$key]))
             | .globalPermissionGrants = (
                 (.globalPermissionGrants // {})
                 | if type == "object" then . else error("globalPermissionGrants is not an object") end
-                | . + $extra[0]
+                | . + $declared.globalPermissionGrants
               )
+            | . + ($declared | del(.globalPermissionGrants))
           )
-      ' "$permissions_template"
+      ' "$user_settings_template"
 
       if [ -n "$cli_settings_template" ]; then
         stage_merge "$cli_settings" "$cli_settings_template" '
@@ -378,7 +383,7 @@ in
               ${mcpServersFile} \
               ${hooksFile} \
               ${pluginsFile} \
-              ${permissionsFile} \
+              ${userSettingsFile} \
               ${stateFile} \
               ${lib.escapeShellArg cliArg} \
               ${lib.escapeShellArg hubArg} \

@@ -20,7 +20,7 @@ in
         mcpServersFile = null;
         hooksFile = null;
         pluginsFile = null;
-        permissionsFile = null;
+        userSettingsFile = null;
         stateFile = null;
         hubStorageFile = null;
       };
@@ -70,10 +70,18 @@ in
         egm = false;
         swarm = true;
       };
-      permissionsTemplate = json "permissions-template.json" {
-        allow = [ "command(git)" ];
-        ask = [ "command(git push --force)" ];
-        deny = [ "command(/bin/rm)" ];
+      userSettingsTemplate = json "user-settings-template.json" {
+        globalPermissionGrants = {
+          allow = [ "command(git)" ];
+          ask = [ "command(git push --force)" ];
+          deny = [ "command(/bin/rm)" ];
+        };
+        themeMode = "THEME_MODE_DARK";
+        customThemeSeedsDark = {
+          background = "#121314";
+          foregroundOverride = "#bbbebf";
+          primary = "#3994bc";
+        };
       };
       cliSettingsTemplate = json "cli-settings-template.json" {
         agentMode = "auto";
@@ -105,6 +113,10 @@ in
           "permissions"
           "toolPermission"
         ];
+        userSettings = [
+          "customThemeSeedsDark"
+          "themeMode"
+        ];
       };
 
       reducedMcpTemplate = json "mcp-reduced.json" {
@@ -128,6 +140,9 @@ in
             }
           ];
         };
+      };
+      reducedUserSettingsTemplate = json "user-settings-reduced.json" {
+        globalPermissionGrants.allow = [ "command(git)" ];
       };
       reducedPluginsTemplate = json "plugins-reduced.json" {
         cloudflare = true;
@@ -179,7 +194,11 @@ in
         };
         sidecars."swarm/swarm_board".projectId = "6d5a6539-3b2c-4eee-8a29-dfbef460159a";
         userSettings = {
-          customThemeSeedsDark.primary = "#3994bc";
+          customThemeSeedsDark = {
+            primary = "#007acc";
+            codeForegroundOverride = "#ffffff";
+          };
+          customThemeSeedsLight.primary = "#007acc";
           globalPermissionGrants.allow = [ "stale_rule" ];
         };
       };
@@ -211,7 +230,7 @@ in
                   ${mcpTemplate} \
                   ${hooksTemplate} \
                   ${pluginsTemplate} \
-                  ${permissionsTemplate} \
+                  ${userSettingsTemplate} \
                   ${stateTemplate} \
                   ${cliSettingsTemplate} \
                   ${hubStorageTemplate}
@@ -293,7 +312,9 @@ in
               check "$cfg" '.plugins.egm.enabled' false
               check "$cfg" '.plugins.swarm.enabled' true
               check "$cfg" '.sidecars["swarm/swarm_board"].projectId' '"6d5a6539-3b2c-4eee-8a29-dfbef460159a"'
-              check "$cfg" '.userSettings.customThemeSeedsDark.primary' '"#3994bc"'
+              check "$cfg" '.userSettings.customThemeSeedsDark' '{"background":"#121314","foregroundOverride":"#bbbebf","primary":"#3994bc"}'
+              check "$cfg" '.userSettings.customThemeSeedsLight.primary' '"#007acc"'
+              check "$cfg" '.userSettings.themeMode' '"THEME_MODE_DARK"'
               check "$cfg" '.userSettings.globalPermissionGrants.allow' '["command(git)"]'
 
               check "$cli" '.agentMode' '"auto"'
@@ -354,7 +375,7 @@ in
                 ${reducedMcpTemplate} \
                 ${reducedHooksTemplate} \
                 ${reducedPluginsTemplate} \
-                ${permissionsTemplate} \
+                ${reducedUserSettingsTemplate} \
                 ${reducedStateTemplate} \
                 ${reducedCliTemplate} \
                 ${reducedHubTemplate}
@@ -365,6 +386,10 @@ in
               check "$cfg" '.plugins | has("swarm")' false
               check "$cfg" '.plugins | has("egm")' false
               check "$cfg" '.plugins.cloudflare.enabled' true
+              check "$cfg" '.userSettings | has("customThemeSeedsDark")' false
+              check "$cfg" '.userSettings | has("themeMode")' false
+              check "$cfg" '.userSettings.customThemeSeedsLight.primary' '"#007acc"'
+              check "$cfg" '.userSettings.globalPermissionGrants.allow' '["command(git)"]'
               check "$cli" 'has("toolPermission")' false
               check "$cli" '.model' '"Orchestrator (Neon)"'
               check "$hub" 'has("autoCheckForUpdates")' false
@@ -378,7 +403,7 @@ in
                 ${mcpTemplate} \
                 ${hooksTemplate} \
                 ${pluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${stateTemplate} \
                 "" \
                 ${hubStorageTemplate}
@@ -394,7 +419,7 @@ in
                 ${mcpTemplate} \
                 ${hooksTemplate} \
                 ${pluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${stateTemplate} \
                 "" \
                 ${hubStorageTemplate} \
@@ -407,7 +432,7 @@ in
                 ${mcpTemplate} \
                 ${hooksTemplate} \
                 ${pluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${stateTemplate} \
                 ${cliSettingsTemplate} \
                 ${hubStorageTemplate}
@@ -415,7 +440,7 @@ in
                 ${mcpTemplate} \
                 ${hooksTemplate} \
                 ${pluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${reducedStateTemplate} \
                 "" \
                 ""
@@ -425,7 +450,7 @@ in
                 ${reducedMcpTemplate} \
                 ${reducedHooksTemplate} \
                 ${reducedPluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${reducedStateTemplate} \
                 ${reducedCliTemplate} \
                 ${reducedHubTemplate}
@@ -449,7 +474,7 @@ in
                 ${mcpTemplate} \
                 ${hooksTemplate} \
                 ${pluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${stateTemplate} \
                 ${cliSettingsTemplate} \
                 ${hubStorageTemplate} \
@@ -459,7 +484,7 @@ in
                 ${reducedMcpTemplate} \
                 ${reducedHooksTemplate} \
                 ${reducedPluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${reducedStateTemplate} \
                 ${reducedCliTemplate} \
                 ${reducedHubTemplate} \
@@ -470,7 +495,7 @@ in
                 ${reducedMcpTemplate} \
                 ${reducedHooksTemplate} \
                 ${reducedPluginsTemplate} \
-                ${permissionsTemplate} \
+                ${userSettingsTemplate} \
                 ${reducedStateTemplate} \
                 ${reducedCliTemplate} \
                 ${reducedHubTemplate} \
