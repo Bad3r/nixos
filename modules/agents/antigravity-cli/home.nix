@@ -44,7 +44,10 @@ _: {
           null;
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
-      mcpServers = agents.mcp.clients.antigravity.servers { inherit pkgs osConfig; };
+      mcpServers = agents.mcp.clients.antigravity.servers {
+        inherit pkgs osConfig;
+        sopsSecrets = config.sops.secrets or { };
+      };
       hooks = agents.hooks.clients.antigravity pkgs;
 
       enabledPlugins = lib.attrByPath [
@@ -97,6 +100,7 @@ _: {
         homeDir = config.home.homeDirectory;
         inherit (agents) scratchDir;
         sbx = sbxEnabled;
+        mcpAutoApproved = agents.mcp.clients.antigravity.autoApproved osConfig;
       };
 
       colors = config.lib.stylix.colors.withHashtag;

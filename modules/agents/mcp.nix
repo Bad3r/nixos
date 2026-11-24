@@ -18,6 +18,8 @@ let
   registry = import ./_registry.nix { inherit lib; };
   inherit (registry) validClients;
   validateAllowedFields = registry.validateAllowedFields "MCP";
+  validateNonEmptyString = registry.validateNonEmptyString "MCP server";
+  validateClients = registry.validateClients "MCP server";
 
   docClientOrder = [
     "codex"
@@ -64,13 +66,6 @@ let
       "toolTimeout"
     ];
   };
-
-  validateNonEmptyString =
-    serverName: field: value:
-    if builtins.isString value && value != "" then
-      value
-    else
-      throw "Agent MCP server '${serverName}' requires non-empty string field '${field}'";
 
   validateDocs =
     serverName: docs:
@@ -164,25 +159,6 @@ let
         inherit (validated) prefix;
       };
 
-  validateClients =
-    serverName: clients:
-    let
-      normalizedClients = builtins.sort builtins.lessThan clients;
-      unknownClients = lib.filter (client: !(lib.elem client validClients)) normalizedClients;
-    in
-    if !builtins.isList clients then
-      throw "Agent MCP server '${serverName}' requires list field 'clients'"
-    else if !lib.all builtins.isString normalizedClients then
-      throw "Agent MCP server '${serverName}' requires all 'clients' entries to be strings"
-    else if unknownClients != [ ] then
-      throw ''
-        Agent MCP server '${serverName}' has unknown clients: ${lib.concatStringsSep ", " unknownClients}
-
-        Valid clients: ${lib.concatStringsSep ", " validClients}
-      ''
-    else
-      lib.unique normalizedClients;
-
   validateServer =
     serverName: rawServer:
     let
@@ -197,6 +173,8 @@ let
         "docs"
         "network"
         "disabled"
+        "direct"
+        "autoApprove"
       ]
       ++ required
       ++ optional;
@@ -208,6 +186,8 @@ let
         ]
         ++ required
       );
+      direct = validatedServer.direct or false;
+      autoApprove = validatedServer.autoApprove or false;
     in
     if !validSource then
       throw "Agent MCP server '${serverName}' has invalid source '${source}'. Valid: ${toString validSources}"
@@ -223,11 +203,18 @@ let
       throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps or browsers entry"
     else if validatedServer ? disabled && !builtins.isBool validatedServer.disabled then
       throw "Agent MCP server '${serverName}' requires boolean field 'disabled'"
+    else if validatedServer ? direct && !builtins.isBool validatedServer.direct then
+      throw "Agent MCP server '${serverName}' requires boolean field 'direct'"
+    else if validatedServer ? autoApprove && !builtins.isBool validatedServer.autoApprove then
+      throw "Agent MCP server '${serverName}' requires boolean field 'autoApprove'"
+    else if autoApprove && !direct then
+      throw "Agent MCP server '${serverName}' sets 'autoApprove = true' without 'direct = true'"
     else
       validatedServer
       // {
         name = serverName;
         disabled = validatedServer.disabled or false;
+        inherit direct autoApprove;
         clients = validateClients serverName validatedServer.clients;
         docs = validateDocs serverName validatedServer.docs;
         network =
@@ -246,6 +233,7 @@ let
   validatedServers = lib.mapAttrs validateServer rawServers;
 
   defaultTimeoutSec = 60;
+  defaultToolTimeoutSec = 180;
 
   mkTimeouts = sec: {
     startup_timeout_sec = sec;
@@ -523,21 +511,37 @@ let
       pkgs,
       osConfig,
       serverOverrides ? { },
+      sopsSecrets ? { },
     }:
     enabled:
     let
-      rawServers = mkServers { inherit pkgs osConfig; } enabled;
+      codemodeNames = lib.filter (name: !validatedServers.${name}.direct) enabled;
+      rawServers = mkServers { inherit pkgs osConfig; } codemodeNames;
       servers = lib.mapAttrs (
         name: server:
         let
           meta = validatedServers.${name};
           override = serverOverrides.${name} or { };
+          declaredSecretPath =
+            if meta ? secretHeader then
+              lib.attrByPath [ meta.secretHeader.relativePath "path" ] null sopsSecrets
+            else
+              null;
+          secretHeader =
+            if meta ? secretHeader then
+              meta.secretHeader
+              // lib.optionalAttrs (declaredSecretPath != null) {
+                path = declaredSecretPath;
+              }
+            else
+              null;
           baseFields = {
             enabled = !meta.disabled;
             primaryUse = meta.docs.primaryUse;
             accessNotes = meta.docs.accessNotes;
             startupTimeoutSec = server.startup_timeout_sec or defaultTimeoutSec;
-            toolTimeoutSec = server.tool_timeout_sec or (server.startup_timeout_sec or 180);
+            toolTimeoutSec =
+              server.tool_timeout_sec or (lib.max defaultToolTimeoutSec (server.startup_timeout_sec or 0));
           };
         in
         if server ? url then
@@ -546,8 +550,8 @@ let
             transport = "http";
             inherit (server) url;
           }
-          // lib.optionalAttrs (meta ? secretHeader) {
-            inherit (meta) secretHeader;
+          // lib.optionalAttrs (secretHeader != null) {
+            inherit secretHeader;
           }
         else
           baseFields
@@ -565,75 +569,143 @@ let
       inherit client servers;
     };
 
-  mkClientServers =
+  mkDirectClientServers =
     client:
     {
       pkgs,
       osConfig,
       serverOverrides ? { },
     }:
-    enabled:
-    if enabled == [ ] then
-      { }
-    else
-      let
-        manifestData = mkClientManifestData {
-          inherit
-            client
-            pkgs
-            osConfig
-            serverOverrides
-            ;
-        } enabled;
-        manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
-        codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
-        envVars = lib.unique (
-          [
-            "MCP_CODEMODE_ENABLE"
-            "MCP_CODEMODE_DISABLE"
+    directNames:
+    let
+      rawDirect = mkServers { inherit pkgs osConfig; } directNames;
+      mergedDirect = lib.mapAttrs (name: server: server // (serverOverrides.${name} or { })) rawDirect;
+    in
+    if client == "codex" then
+      lib.mapAttrs (
+        name: server:
+        builtins.removeAttrs server [
+          "type"
+          "startup_timeout_ms"
+          "timeout"
+        ]
+        // lib.optionalAttrs validatedServers.${name}.autoApprove {
+          default_tools_approval_mode = "approve";
+        }
+      ) mergedDirect
+    else if client == "antigravity" then
+      lib.mapAttrs (
+        _name: server:
+        let
+          effectiveTimeoutSec = lib.max (server.startup_timeout_sec or 0) (server.tool_timeout_sec or 0);
+          timeoutAttr = lib.optionalAttrs (effectiveTimeoutSec > 180) {
+            timeoutSeconds = effectiveTimeoutSec;
+          };
+        in
+        if server ? url then
+          { serverUrl = server.url; } // timeoutAttr
+        else
+          builtins.removeAttrs server [
+            "type"
+            "startup_timeout_sec"
+            "startup_timeout_ms"
+            "tool_timeout_sec"
+            "timeout"
           ]
-          ++ lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) enabled
-        );
-        maxToolTimeoutSec = lib.foldl' lib.max 180 (
-          map (name: manifestData.servers.${name}.toolTimeoutSec) enabled
-        );
-        baseEntry = {
-          command = codemodeBin;
-          args = [
-            "serve"
-            "--manifest"
-            "${manifestFile}"
-            "--timeout"
-            (toString maxToolTimeoutSec)
-          ];
-        };
-      in
-      {
-        codemode =
-          if client == "codex" then
-            baseEntry
-            // {
-              startup_timeout_sec = defaultTimeoutSec;
-              tool_timeout_sec = maxToolTimeoutSec;
-            }
-            // lib.optionalAttrs (envVars != [ ]) {
-              env_vars = envVars;
-            }
-          else if client == "antigravity" then
-            baseEntry
-            // lib.optionalAttrs (maxToolTimeoutSec > 180) {
-              timeoutSeconds = maxToolTimeoutSec;
-            }
-          else
-            baseEntry
-            // {
-              type = "stdio";
-              startup_timeout_sec = defaultTimeoutSec;
-              startup_timeout_ms = defaultTimeoutSec * 1000;
-              tool_timeout_sec = maxToolTimeoutSec;
-              timeout = maxToolTimeoutSec * 1000;
+          // timeoutAttr
+      ) mergedDirect
+    else
+      lib.mapAttrs (
+        _name: server:
+        builtins.removeAttrs server [
+          "startup_timeout_sec"
+          "tool_timeout_sec"
+        ]
+      ) mergedDirect;
+
+  mkClientServers =
+    client:
+    {
+      pkgs,
+      osConfig,
+      serverOverrides ? { },
+      sopsSecrets ? { },
+    }:
+    enabled:
+    let
+      partitioned = lib.partition (name: validatedServers.${name}.direct) enabled;
+      directNames = partitioned.right;
+      codemodeNames = partitioned.wrong;
+      directEntries = mkDirectClientServers client {
+        inherit
+          pkgs
+          osConfig
+          serverOverrides
+          ;
+      } directNames;
+      codemodeEntry =
+        if codemodeNames == [ ] then
+          { }
+        else
+          let
+            manifestData = mkClientManifestData {
+              inherit
+                client
+                pkgs
+                osConfig
+                serverOverrides
+                sopsSecrets
+                ;
+            } codemodeNames;
+            manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
+            codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
+            envVars = lib.unique (
+              [
+                "MCP_CODEMODE_ENABLE"
+                "MCP_CODEMODE_DISABLE"
+                "XDG_STATE_HOME"
+                "XDG_DATA_HOME"
+              ]
+              ++ lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) codemodeNames
+            );
+            maxToolTimeoutSec = lib.foldl' lib.max defaultToolTimeoutSec (
+              map (name: manifestData.servers.${name}.toolTimeoutSec) codemodeNames
+            );
+            baseEntry = {
+              command = codemodeBin;
+              args = [
+                "serve"
+                "--manifest"
+                "${manifestFile}"
+                "--timeout"
+                (toString maxToolTimeoutSec)
+              ];
             };
-      };
+          in
+          {
+            codemode =
+              if client == "codex" then
+                baseEntry
+                // {
+                  startup_timeout_sec = defaultTimeoutSec;
+                  tool_timeout_sec = maxToolTimeoutSec;
+                  env_vars = envVars;
+                }
+              else if client == "antigravity" then
+                baseEntry
+                // lib.optionalAttrs (maxToolTimeoutSec > 180) {
+                  timeoutSeconds = maxToolTimeoutSec;
+                }
+              else
+                baseEntry
+                // {
+                  type = "stdio";
+                  startup_timeout_ms = defaultTimeoutSec * 1000;
+                  timeout = maxToolTimeoutSec * 1000;
+                };
+          };
+    in
+    directEntries // codemodeEntry;
 
   clientServerNames =
     client:
@@ -654,6 +726,7 @@ let
           pkgs,
           osConfig,
           serverOverrides ? { },
+          sopsSecrets ? { },
         }:
         mkClientManifestData {
           inherit
@@ -661,6 +734,7 @@ let
             pkgs
             osConfig
             serverOverrides
+            sopsSecrets
             ;
         } (enabledNames osConfig);
       servers =
@@ -668,14 +742,22 @@ let
           pkgs,
           osConfig,
           serverOverrides ? { },
+          sopsSecrets ? { },
         }:
         mkClientServers client {
           inherit
             pkgs
             osConfig
             serverOverrides
+            sopsSecrets
             ;
         } (enabledNames osConfig);
+      # Claude Code and Antigravity approve direct MCP tools through permission rules.
+      autoApproved =
+        osConfig:
+        lib.filter (name: validatedServers.${name}.direct && validatedServers.${name}.autoApprove) (
+          enabledNames osConfig
+        );
     }
   );
 
@@ -750,7 +832,7 @@ let
       [
         "# MCP Tools"
         ""
-        "Generated from `flake.lib.agents.mcp.servers`. Every Nix-managed client connects through the single `codemode` gateway (`search` and `execute`), which supervises these upstream servers lazily. `Default Clients` shows which clients include each server out of the box. Use `mcp-codemode status` or `search` (`codemode.servers()`) to inspect runtime availability."
+        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>` (`mcp-codemode status` prints active override entries)."
         ""
         (renderTableRow tableHeaders)
         renderRule

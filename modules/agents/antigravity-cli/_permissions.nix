@@ -12,6 +12,7 @@
   homeDir,
   scratchDir,
   sbx,
+  mcpAutoApproved,
 }:
 let
   command = cmd: "command(${cmd})";
@@ -79,7 +80,7 @@ let
   ];
 in
 {
-  allow = fileWebAllow ++ map command commandAllow;
+  allow = fileWebAllow ++ map command commandAllow ++ map (name: "mcp(${name}/*)") mcpAutoApproved;
   ask = map command commandAsk;
   deny = fileDeny ++ map command commandDeny;
 }

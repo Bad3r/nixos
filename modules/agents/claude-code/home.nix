@@ -81,7 +81,10 @@ _: {
       ) agents.skills.list;
 
       # MCP servers via compiled agents.mcp client profile
-      mcpServers = agents.mcp.clients.claude.servers { inherit pkgs osConfig; };
+      mcpServers = agents.mcp.clients.claude.servers {
+        inherit pkgs osConfig;
+        sopsSecrets = config.sops.secrets or { };
+      };
 
       # Merges parts that must not declare the same top-level key.
       mergeParts =
@@ -132,6 +135,7 @@ _: {
         (import ./_permissions.nix {
           inherit (agents) scratchDir;
           sbx = sbxEnabled;
+          mcpAutoApproved = agents.mcp.clients.claude.autoApproved osConfig;
         })
         (import ./_hooks.nix { inherit agents pkgs; })
         {

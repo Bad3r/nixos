@@ -221,7 +221,7 @@
 - [reference/local-mirrors-troubleshooting.md](reference/local-mirrors-troubleshooting.md)
   - Failed mirror syncs and docs runs, by the line they log.
 - [reference/mcp-tools.md](reference/mcp-tools.md)
-  - Quick reference for available MCP tools including context7, cloudflare-api, cfbrowser, and deepwiki.
+  - Quick reference for available MCP tools including context7, cloudflare-api, google-developer-knowledge, and deepwiki.
 - [reference/secrets-guard.md](reference/secrets-guard.md)
   - Scan that stops `path:` references from copying untracked secrets into the store: what it matches, how to override a hit, which trees it owns, and why it aborts.
 - [reference/stash-prune.md](reference/stash-prune.md)

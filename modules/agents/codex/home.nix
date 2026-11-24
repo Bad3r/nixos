@@ -84,6 +84,7 @@
         inherit configDir;
         inherit (config.xdg) cacheHome;
         inherit (config.home) profileDirectory;
+        sopsSecrets = config.sops.secrets or { };
         inherit
           agents
           codexNotify

@@ -52,45 +52,52 @@ in
         };
       };
 
+      sampleSopsSecrets = {
+        "cloudflare/api-key".path = "/home/test/.local/share/cloudflare/api-key";
+        "google-developer-knowledge/api-key".path =
+          "/home/test/.local/share/google-developer-knowledge/api-key";
+      };
+
       codexServers = agents.mcp.clients.codex.servers {
         inherit pkgs;
         osConfig = fullOsConfig;
         serverOverrides = nodeReplOverrides;
+        sopsSecrets = sampleSopsSecrets;
       };
       antigravityServers = agents.mcp.clients.antigravity.servers {
         inherit pkgs;
         osConfig = emptyOsConfig;
+        sopsSecrets = sampleSopsSecrets;
       };
       claudeServers = agents.mcp.clients.claude.servers {
         inherit pkgs;
         osConfig = emptyOsConfig;
+        sopsSecrets = sampleSopsSecrets;
       };
 
       codexManifest = agents.mcp.clients.codex.manifest {
         inherit pkgs;
         osConfig = fullOsConfig;
         serverOverrides = nodeReplOverrides;
+        sopsSecrets = sampleSopsSecrets;
       };
       antigravityManifest = agents.mcp.clients.antigravity.manifest {
         inherit pkgs;
         osConfig = emptyOsConfig;
+        sopsSecrets = sampleSopsSecrets;
       };
       claudeManifest = agents.mcp.clients.claude.manifest {
         inherit pkgs;
         osConfig = emptyOsConfig;
+        sopsSecrets = sampleSopsSecrets;
       };
 
-      allClientServers = [
-        codexServers
-        antigravityServers
-        claudeServers
-      ];
       allManifests = [
         codexManifest
         antigravityManifest
         claudeManifest
       ];
-      hasOnlyCodemode = servers: lib.attrNames servers == [ "codemode" ];
+      codemodePkg = pkgs.callPackage ../../../packages/mcp-codemode { };
       gdkMeta = agents.mcp.servers.google-developer-knowledge;
       cfApiMeta = agents.mcp.servers.cloudflare-api;
       expectedPackSkills = [
@@ -107,77 +114,119 @@ in
     in
     {
       checks."agents/mcp/codemode" =
-        assert lib.assertMsg (lib.all hasOnlyCodemode allClientServers)
-          "every managed client must expose only the single `codemode` MCP server";
         assert lib.assertMsg (
-          !(agents.mcp.servers ? cfdocs)
-        ) "retired cfdocs MCP server must be removed from servers.nix";
-        assert lib.assertMsg (
-          codexServers.codemode.tool_timeout_sec == 3600
-        ) "codex codemode tool_timeout_sec must reflect enabled sbx maxTtl";
-        assert lib.assertMsg (
-          codexServers.codemode.args == [
-            "serve"
-            "--manifest"
-            (builtins.elemAt codexServers.codemode.args 2)
-            "--timeout"
-            "3600"
+          lib.attrNames codexServers == [
+            "codemode"
+            "node_repl"
+            "sbx"
           ]
-          &&
-            antigravityServers.codemode.args == [
-              "serve"
-              "--manifest"
-              (builtins.elemAt antigravityServers.codemode.args 2)
-              "--timeout"
-              "240"
-            ]
-          &&
-            claudeServers.codemode.args == [
-              "serve"
-              "--manifest"
-              (builtins.elemAt claudeServers.codemode.args 2)
-              "--timeout"
-              "240"
-            ]
-        ) "client codemode args must pass --timeout matching maxToolTimeoutSec";
+          && lib.attrNames antigravityServers == [ "codemode" ]
+          && lib.attrNames claudeServers == [ "codemode" ]
+        ) "clients must expose `codemode` alongside direct-only local servers (`node_repl`, `sbx`)";
+        assert lib.assertMsg
+          (lib.all (name: !(agents.mcp.servers ? ${name})) [
+            "cfdocs"
+            "cfbrowser"
+            "cfbuilds"
+            "cfobservability"
+            "cfbindings"
+            "cfradar"
+            "cfcontainers"
+            "cfgraphql"
+          ])
+          "retired separate Cloudflare MCP servers must be removed from servers.nix in favor of cloudflare-api";
         assert lib.assertMsg (
-          lib.elem "BROWSER_USE_ACCESS_PIPE_PATH" (codexServers.codemode.env_vars or [ ])
-          && lib.elem "MCP_CODEMODE_ENABLE" (codexServers.codemode.env_vars or [ ])
-          && lib.elem "MCP_CODEMODE_DISABLE" (codexServers.codemode.env_vars or [ ])
-        ) "codex codemode entry must forward node_repl env_vars and MCP_CODEMODE_* toggles";
+          codexServers.sbx.tool_timeout_sec == 3600
+          && codexServers.sbx.default_tools_approval_mode == "approve"
+          && agents.mcp.clients.antigravity.autoApproved fullOsConfig == [ "sbx" ]
+          && agents.mcp.clients.claude.autoApproved fullOsConfig == [ "sbx" ]
+        ) "direct sbx must preserve TTL timeout and auto-approval without auto-approving codemode";
         assert lib.assertMsg (
-          codexManifest.servers.node_repl.env.BROWSER_USE_CODEX_APP_VERSION == "1.2.3"
-          && !(codexManifest.servers.node_repl ? envVars)
-        ) "codex manifest must carry _node-repl.nix env without dead envVars field";
-        assert lib.assertMsg (lib.all
+          codexServers.node_repl.env.BROWSER_USE_CODEX_APP_VERSION == "1.2.3"
+          && lib.elem "BROWSER_USE_ACCESS_PIPE_PATH" codexServers.node_repl.env_vars
+          && !(lib.elem "BROWSER_USE_ACCESS_PIPE_PATH" codexServers.codemode.env_vars)
+          && !(codexManifest.servers ? node_repl)
+          && !(codexManifest.servers ? sbx)
+        ) "direct servers must stay out of codemode manifests and keep node_repl IPC env isolated";
+        assert lib.assertMsg
           (
+            codexServers.codemode.tool_timeout_sec == 240
+            && antigravityServers.codemode.timeoutSeconds == 240
+            && claudeServers.codemode.timeout == 240000
+            && !(claudeServers.codemode ? tool_timeout_sec)
+            && !(claudeServers.codemode ? startup_timeout_sec)
+            &&
+              codexServers.codemode.args == [
+                "serve"
+                "--manifest"
+                (builtins.elemAt codexServers.codemode.args 2)
+                "--timeout"
+                "240"
+              ]
+            &&
+              antigravityServers.codemode.args == [
+                "serve"
+                "--manifest"
+                (builtins.elemAt antigravityServers.codemode.args 2)
+                "--timeout"
+                "240"
+              ]
+            &&
+              claudeServers.codemode.args == [
+                "serve"
+                "--manifest"
+                (builtins.elemAt claudeServers.codemode.args 2)
+                "--timeout"
+                "240"
+              ]
+          )
+          "client codemode entries must stay bounded at 240s (independent of sbx) with client-native timeout keys";
+        assert lib.assertMsg (
+          lib.elem "MCP_CODEMODE_ENABLE" codexServers.codemode.env_vars
+          && lib.elem "MCP_CODEMODE_DISABLE" codexServers.codemode.env_vars
+          && lib.elem "XDG_STATE_HOME" codexServers.codemode.env_vars
+          && lib.elem "XDG_DATA_HOME" codexServers.codemode.env_vars
+        ) "codex codemode entry must forward MCP_CODEMODE_* and XDG_* env_vars";
+        assert lib.assertMsg
+          (lib.all (
             m:
             m.servers ? cloudflare-api
             && m.servers.cloudflare-api.enabled == true
             && m.servers.cloudflare-api.url == cfApiMeta.url
-            && m.servers.cloudflare-api.secretHeader == cfApiMeta.secretHeader
+            && m.servers.cloudflare-api.toolTimeoutSec == 180
+            && m.servers.cloudflare-api.secretHeader.name == cfApiMeta.secretHeader.name
             && m.servers.cloudflare-api.secretHeader.prefix == "Bearer "
-          )
-          allManifests
-        ) "every client manifest must include enabled cloudflare-api with Bearer secretHeader";
-        assert lib.assertMsg (lib.all (
-          m: m.servers ? context7 && m.servers.context7.enabled == true
-        ) allManifests) "every client manifest (including claude) must include enabled context7";
+            && m.servers.cloudflare-api.secretHeader.path == "/home/test/.local/share/cloudflare/api-key"
+          ) allManifests)
+          "every client manifest must include enabled cloudflare-api with 180s toolTimeoutSec and declared secret path";
         assert lib.assertMsg (lib.all
           (
+            m:
+            m.servers ? context7
+            && m.servers.context7.enabled == true
+            && m.servers.context7.toolTimeoutSec == 180
+          )
+          allManifests
+        ) "every client manifest (including claude) must include enabled context7 with 180s toolTimeoutSec";
+        assert lib.assertMsg
+          (lib.all (
             m:
             m.servers ? google-developer-knowledge
             && m.servers.google-developer-knowledge.enabled == false
             && m.servers.google-developer-knowledge.url == gdkMeta.url
-            && m.servers.google-developer-knowledge.secretHeader == gdkMeta.secretHeader
-          )
-          allManifests
-        ) "every client manifest must include disabled google-developer-knowledge with secretHeader";
+            && m.servers.google-developer-knowledge.toolTimeoutSec == 180
+            && m.servers.google-developer-knowledge.secretHeader.name == gdkMeta.secretHeader.name
+            &&
+              m.servers.google-developer-knowledge.secretHeader.path
+              == "/home/test/.local/share/google-developer-knowledge/api-key"
+          ) allManifests)
+          "every client manifest must include disabled google-developer-knowledge with 180s toolTimeoutSec and declared secret path";
         assert lib.assertMsg (
           antigravityManifest.servers.deepwiki.enabled == true
+          && antigravityManifest.servers.deepwiki.toolTimeoutSec == 180
           && claudeManifest.servers.deepwiki.enabled == true
           && codexManifest.servers.deepwiki.enabled == true
-        ) "default-enabled servers must remain enabled in every client manifest";
+        ) "default-enabled servers must remain enabled with 180s toolTimeoutSec in every client manifest";
         assert lib.assertMsg
           (
             plugins."cloudflare@claude-plugins-official".claude-code == false
@@ -206,15 +255,20 @@ in
         pkgs.runCommandLocal "agents-mcp-codemode-check"
           {
             passthru.runtimeCheck = true;
-            nativeBuildInputs = [ pkgs.jq ];
+            nativeBuildInputs = [
+              pkgs.jq
+              codemodePkg
+            ];
           }
           ''
             set -euo pipefail
+            export XDG_STATE_HOME="$TMPDIR/state"
             for manifest in \
               ${pkgs.writeText "codex-manifest.json" (builtins.toJSON codexManifest)} \
               ${pkgs.writeText "antigravity-manifest.json" (builtins.toJSON antigravityManifest)} \
               ${pkgs.writeText "claude-manifest.json" (builtins.toJSON claudeManifest)}; do
               jq empty "$manifest"
+              mcp-codemode status --manifest "$manifest" --json >/dev/null
             done
             touch "$out"
           '';

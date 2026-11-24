@@ -44,7 +44,7 @@ The `antigravity-cli/no-google-telemetry` check pins `agy` flag support against 
 Override plugins per host under `programs."antigravity-cli".extended.plugins`.
 On activation, when `antigravity-cli` is enabled and Google endpoints respond, missing non-builtin plugins install via `agy plugin install`.
 `plugins.<name>.enabled` then merges into `~/.gemini/config/config.json` without overwriting `.installedFrom`.
-[The MCP compiler](../../../modules/agents/mcp.nix) writes remote servers under `serverUrl`, sets `timeoutSeconds` only past 180 seconds, and strips client-specific keys.
+[The MCP compiler](../../../modules/agents/mcp.nix) multiplexes standard servers behind a single `codemode` stdio entry, keeps direct local servers (`sbx` when enabled) registered alongside it, writes any direct remote server under `serverUrl`, sets `timeoutSeconds` only past 180 seconds, and strips client-specific keys.
 
 ## Controlled shell and permissions
 

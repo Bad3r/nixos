@@ -9,6 +9,8 @@ let
   registry = import ./_registry.nix { inherit lib; };
   inherit (registry) validClients;
   validateAllowedFields = registry.validateAllowedFields "skill";
+  validateNonEmptyString = registry.validateNonEmptyString "skill";
+  validatePackClients = registry.validateClients "skill pack";
 
   rawSkills = config.flake.lib.agents._internal.skills.raw;
 
@@ -41,13 +43,6 @@ let
         body
       ]
     );
-
-  validateNonEmptyString =
-    skillName: field: value:
-    if builtins.isString value && value != "" then
-      value
-    else
-      throw "Agent skill '${skillName}' requires non-empty string field '${field}'";
 
   validateOpenaiInterface =
     skillName: interface:
@@ -316,39 +311,17 @@ let
 
   rawPacks = config.flake.lib.agents._internal.skills.packs;
 
-  validatePackClients =
-    packName: clients:
-    let
-      normalizedClients = builtins.sort builtins.lessThan clients;
-      unknownClients = lib.filter (client: !(lib.elem client validClients)) normalizedClients;
-    in
-    if !builtins.isList clients then
-      throw "Agent skill pack '${packName}' requires list field 'clients'"
-    else if !lib.all builtins.isString normalizedClients then
-      throw "Agent skill pack '${packName}' requires all 'clients' entries to be strings"
-    else if unknownClients != [ ] then
-      throw "Agent skill pack '${packName}' has unknown clients: ${lib.concatStringsSep ", " unknownClients}"
-    else
-      lib.unique normalizedClients;
-
   compilePack =
     packName: rawPack:
     let
       validatedPack = validateAllowedFields "pack '${packName}'" [
         "src"
         "clients"
-        "app"
       ] rawPack;
       src = validatedPack.src or (throw "Agent skill pack '${packName}' requires field 'src'");
       clients = validatePackClients packName (
         validatedPack.clients or (throw "Agent skill pack '${packName}' requires field 'clients'")
       );
-      app = if validatedPack ? app then validateNonEmptyString packName "app" validatedPack.app else null;
-      _appCheck =
-        if app != null && !(config.flake.lib.nixos.hasApp app) then
-          throw "Agent skill pack '${packName}' names app '${app}', which has no flake.nixosModules.apps entry"
-        else
-          true;
       entries = builtins.readDir src;
       skillNames = builtins.sort builtins.lessThan (
         lib.filter (name: entries.${name} == "directory" && builtins.pathExists "${src}/${name}/SKILL.md") (
@@ -358,7 +331,6 @@ let
       reservedCollisions = lib.filter (name: lib.elem name reservedPublicSkillNames) skillNames;
       rawCollisions = lib.filter (name: rawSkills ? ${name}) skillNames;
     in
-    assert _appCheck;
     assert lib.assertMsg (
       skillNames != [ ]
     ) "Agent skill pack '${packName}' contains no '<name>/SKILL.md' directories";
@@ -373,17 +345,15 @@ let
         skillNames
         ;
       dirs = lib.genAttrs skillNames (skillName: "${src}/${skillName}");
-      enabledOn =
-        osConfig: app == null || lib.attrByPath [ "programs" app "extended" "enable" ] false osConfig;
     };
 
   compiledPacks = lib.mapAttrs compilePack rawPacks;
 
   packDirsFor =
-    client: osConfig:
+    client: _osConfig:
     let
       matchingPacks = lib.attrValues (
-        lib.filterAttrs (_: pack: lib.elem client pack.clients && pack.enabledOn osConfig) compiledPacks
+        lib.filterAttrs (_: pack: lib.elem client pack.clients) compiledPacks
       );
       mergePack =
         acc: pack:
