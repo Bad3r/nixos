@@ -19,6 +19,7 @@ let
     "cloudflare-warp" = true;
     "warp-devices" = true;
     activitywatch = true;
+    "antigravity-manager" = true;
     assetripper = true;
     "protonmail-bridge" = true;
     lact = true;

@@ -393,6 +393,8 @@
 
 - [apps/activitywatch/README.md](apps/activitywatch/README.md)
   - The `activitywatch.internal` web UI, the user services, how the name resolves, and what the watchers record.
+- [apps/antigravity-manager/README.md](apps/antigravity-manager/README.md)
+  - The account-pooling API proxy, its web UI, the Claude Code launcher, the Codex profile, and Antigravity account switching.
 
 ### browser-fetch
 
