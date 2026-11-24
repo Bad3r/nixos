@@ -15,6 +15,9 @@
     -q: Start quietly without the banner.
     -p <pid>: Attach to an already running process by PID.
     -c <core>: Analyze a core dump alongside the original executable.
+
+  Notes:
+    * A `NOPASSWD` sudo-rs rule lets `wheel` users run `gdb`, `gdbserver`, `gcore` as root, which attaches to processes that `kernel.yama.ptrace_scope = 1` shields from the owner.
 */
 _:
 let
@@ -41,6 +44,26 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.sudo-rs.extraRules = [
+          {
+            commands = [
+              {
+                command = "${cfg.package}/bin/gdb";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/gdbserver";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/gcore";
+                options = [ "NOPASSWD" ];
+              }
+            ];
+            groups = [ "wheel" ];
+          }
+        ];
       };
     };
 in

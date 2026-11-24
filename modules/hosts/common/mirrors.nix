@@ -91,6 +91,7 @@ let
             "better-auth/better-auth"
             "cloudflare/workers-sdk"
             "duplicati/duplicati"
+            "lbjlaq/Antigravity-Manager"
             "logseq/logseq"
             "mpv-player/mpv"
             "mbnuqw/sidebery"

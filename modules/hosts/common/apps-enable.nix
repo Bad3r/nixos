@@ -64,6 +64,7 @@ let
       blackboxprotobuf.extended.enable = lib.mkOverride 1100 false;
       bloaty.extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
+      bpftrace.extended.enable = lib.mkOverride 1100 false;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
       "browser-fetch".extended.enable = lib.mkOverride 1100 false;
@@ -169,6 +170,7 @@ let
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
+      freerdp.extended.enable = lib.mkOverride 1100 false;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;

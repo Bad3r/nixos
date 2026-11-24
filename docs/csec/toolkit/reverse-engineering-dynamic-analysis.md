@@ -14,6 +14,11 @@
   - Repo.: <https://github.com/google/bloaty>
   - Docs.: <https://github.com/google/bloaty/blob/main/doc/using.md>
   - Desc.: Size profiler that attributes ELF, Mach-O, PE, and WebAssembly file and VM size to sections, symbols, or compile units, and diffs two builds.
+- bpftrace
+  - run..: `sudo bpftrace -e 'tracepoint:syscalls:sys_enter_openat { printf("%s %s\n", comm, str(args.filename)); }'`
+  - Repo.: <https://github.com/bpftrace/bpftrace>
+  - Docs.: <https://github.com/bpftrace/bpftrace/blob/master/man/adoc/bpftrace.adoc>
+  - Desc.: High-level eBPF tracing language that attaches one-liners and scripts to kprobes, uprobes, tracepoints, USDT probes, and perf events. Loading programs needs root.
 - capstone
   - run..: `cstool x64 "55 48 89 e5"`
   - Repo.: <https://github.com/capstone-engine/capstone>

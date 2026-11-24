@@ -35,12 +35,15 @@ let
     asar = true;
     blackboxprotobuf = true;
     bloaty = true;
+    bpftrace = true;
+    strace = true;
     buf = true;
     goresym = true;
     pbtk = true;
     protobuf = true;
     redress = true;
     upx = true;
+    freerdp = true;
     delve = true;
     discordo = true;
     go = true;
