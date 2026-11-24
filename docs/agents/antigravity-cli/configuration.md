@@ -6,7 +6,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 ## Choose the owning file
 
 - [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
-- [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell and sets the Hub server port.
+- [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell, sets the Hub server port, and draws the tray icon from [the Stylix template](../../../modules/stylix/icons/antigravity-tray.svg.mustache).
 - [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
@@ -26,6 +26,11 @@ Enabling `antigravity-hub` without `antigravity-cli` writes that shared root and
 `~/.gemini/config/.nix-managed.json` tracks Nix-owned keys across all managed JSON targets.
 Dropping a Nix declaration removes its tracked entry on the next switch while leaving user entries, model picks, and `installedFrom` metadata intact.
 Activation also deletes leftover `migrated-settings` directories and manual `herdr` hook blocks that conflict with declarative ownership.
+
+## Hub theme
+
+With `antigravity-hub` enabled, Stylix owns `userSettings.themeMode` and the seeds for its polarity in `config.json`.`app_storage.json` pins `jetski.typeface` to `system`, so the Hub renders with the fontconfig sans-serif face.
+A preset or color picked in Settings > Appearance lasts until the next switch.
 
 ## Telemetry and update checks
 

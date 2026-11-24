@@ -9,6 +9,7 @@
     * Shared customization root ~/.gemini/config/ serves both antigravity-cli (`agy`) and antigravity-hub (`antigravity`).
     * CLI-specific settings (~/.gemini/antigravity-cli/settings.json) are merged only when antigravity-cli is enabled.
     * Hub UI storage (~/.config/Antigravity/app_storage.json) disables background update checks when antigravity-hub is enabled.
+    * Hub theme seeds, theme mode, and typeface follow Stylix when antigravity-hub is enabled.
     * MCP servers come from flake.lib.agents.mcp (modules/agents/mcp.nix).
     * Agent skills come from flake.lib.agents.skills (modules/agents/skills.nix).
     * Hooks come from flake.lib.agents.hooks (modules/agents/hooks.nix).
@@ -99,6 +100,23 @@ _: {
         mcpAutoApproved = agents.mcp.clients.antigravity.autoApproved osConfig;
       };
 
+      colors = config.lib.stylix.colors.withHashtag;
+      light = config.stylix.polarity == "light";
+      # The Hub's Default preset draws its palette from these seeds.
+      hubTheme = lib.optionalAttrs hubEnabled {
+        themeMode = if light then "THEME_MODE_LIGHT" else "THEME_MODE_DARK";
+        ${if light then "customThemeSeedsLight" else "customThemeSeedsDark"} = {
+          background = colors.base00;
+          foregroundOverride = colors.base05;
+          primary = (import ../../stylix/_vscode-dark-2026.nix)."statusBarItem.prominentBackground";
+        };
+      };
+      # "system" renders with system-ui, the fontconfig sans-serif face, instead
+      # of Google Sans from fonts.googleapis.com.
+      hubStorage = telemetry.hubStorage // {
+        "jetski.typeface" = "system";
+      };
+
       cliSettingsJson = (import ./_settings.nix) // {
         inherit permissions;
       };
@@ -106,7 +124,9 @@ _: {
       mcpServersFile = pkgs.writeText "antigravity-mcp-servers.json" (builtins.toJSON mcpServers);
       hooksFile = pkgs.writeText "antigravity-hooks.json" (builtins.toJSON hooks);
       pluginsFile = pkgs.writeText "antigravity-plugins.json" (builtins.toJSON pluginsByDir);
-      permissionsFile = pkgs.writeText "antigravity-permissions.json" (builtins.toJSON permissions);
+      userSettingsFile = pkgs.writeText "antigravity-user-settings.json" (
+        builtins.toJSON ({ globalPermissionGrants = permissions; } // hubTheme)
+      );
       cliSettingsFile =
         if cliEnabled then
           pkgs.writeText "antigravity-cli-settings.json" (builtins.toJSON cliSettingsJson)
@@ -114,7 +134,7 @@ _: {
           null;
       hubStorageFile =
         if hubEnabled then
-          pkgs.writeText "antigravity-hub-storage.json" (builtins.toJSON telemetry.hubStorage)
+          pkgs.writeText "antigravity-hub-storage.json" (builtins.toJSON hubStorage)
         else
           null;
 
@@ -125,6 +145,7 @@ _: {
           hooks = lib.attrNames hooks;
           plugins = lib.attrNames pluginsByDir;
           cliSettings = lib.optionals cliEnabled (lib.attrNames cliSettingsJson);
+          userSettings = lib.attrNames hubTheme;
         }
       );
 
@@ -135,7 +156,7 @@ _: {
           mcpServersFile
           hooksFile
           pluginsFile
-          permissionsFile
+          userSettingsFile
           stateFile
           cliSettingsFile
           hubStorageFile

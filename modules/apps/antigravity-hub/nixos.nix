@@ -9,6 +9,10 @@
     * Provides the `antigravity` desktop app for running Google Antigravity agents across separate projects.
     * Ships the Electron app from the llm-agents.nix package, patched for NixOS.
     * Serves the Hub on a fixed port that Mesh peers reach through the firewall, with Language Server telemetry disabled.
+
+  Notes:
+    * Draws the tray icon as the Antigravity mark in the bar's status text color.
+    * Theme seeds and typeface come from Stylix through the Home Manager module (modules/agents/antigravity-cli/home.nix).
 */
 { config, inputs, ... }:
 let
@@ -33,15 +37,39 @@ let
           name: value: "--set ${lib.escapeShellArg name} ${lib.escapeShellArg value}"
         ) telemetry.sharedEnv
       );
-      basePkg = cfg.package.override {
-        # The language server binds either localhost or 0.0.0.0; the firewall
-        # limits the wildcard to loopback and Mesh.
-        languageServerFlags = [
-          "--https_server_port=${toString cfg.port}"
-          "--remote_accessible"
-        ]
-        ++ telemetry.languageServerFlags;
+      trayIcon = config.lib.stylix.colors {
+        template = builtins.readFile ../../stylix/icons/antigravity-tray.svg.mustache;
+        extension = ".svg";
       };
+      basePkg =
+        (cfg.package.override {
+          # The language server binds either localhost or 0.0.0.0; the firewall
+          # limits the wildcard to loopback and Mesh.
+          languageServerFlags = [
+            "--https_server_port=${toString cfg.port}"
+            "--remote_accessible"
+          ]
+          ++ telemetry.languageServerFlags;
+        }).overrideAttrs
+          (old: {
+            postInstall = (old.postInstall or "") + ''
+              resources="$out/share/antigravity/resources"
+              size=256
+              glyphSize="$((size * 11 / 16))"
+              offset="$(((size - glyphSize) / 2))"
+              ${pkgs.librsvg}/bin/rsvg-convert \
+                --page-width "$size" \
+                --page-height "$size" \
+                --width "$glyphSize" \
+                --height "$glyphSize" \
+                --left "$offset" \
+                --top "$offset" \
+                --keep-aspect-ratio \
+                ${trayIcon} > "$resources/antigravity-tray.png"
+              ${pkgs.python3.interpreter} -I ${./_tray-icon.py} \
+                "$resources/app.asar" antigravity-tray.png
+            '';
+          });
     in
     {
       options.programs."antigravity-hub".extended = {
@@ -54,7 +82,7 @@ let
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
-          description = "The antigravity-hub package with the configured language server flags and controlled agent shell.";
+          description = "The antigravity-hub package with the configured language server flags, tray icon, and controlled agent shell.";
         };
 
         package = lib.mkOption {
