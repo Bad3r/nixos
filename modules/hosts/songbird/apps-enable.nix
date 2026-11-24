@@ -15,6 +15,8 @@
 { config, ... }:
 let
   appEnable = {
+    "antigravity-acp" = true;
+    "antigravity-ide" = true;
     mitmproxy = true;
     "cloudflare-warp" = true;
     "warp-devices" = true;
