@@ -36,7 +36,7 @@ let
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
   # GrowthBook evaluation Remote Control requires. The Nix package's own
-  # wrapper repeats this guard (launchOnlyRun in nixos.nix) and clears the
+  # wrapper repeats this guard (launchOnlyRun in _wrap-flags.nix) and clears the
   # escape itself, so it must still see the variable.
   targetReadsEscape = !installMethods.bun.enable && installMethods.nix.enable;
   launchOnlyBlock = lib.optionalString (claudeEnv.launchOnly != [ ]) ''
