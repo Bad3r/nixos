@@ -1136,6 +1136,7 @@ class UpstreamSupervisor:
         self._lock = threading.Lock()
         self._closed = False
         self._clients: dict[str, _BaseUpstreamClient] = {}
+        self._closing: set[_BaseUpstreamClient] = set()
         self._tools_cache: dict[str, list[dict[str, object]]] = {}
 
     def _get_client(self, name: str) -> _BaseUpstreamClient:
@@ -1207,16 +1208,21 @@ class UpstreamSupervisor:
                     self._tools_cache.pop(name, None)
                     client = self._clients.pop(name, None)
                     if client is not None:
+                        self._closing.add(client)
                         to_close.append(client)
         for client in to_close:
-            with contextlib.suppress(Exception):
-                client.close()
+            try:
+                with contextlib.suppress(Exception):
+                    client.close()
+            finally:
+                with self._lock:
+                    self._closing.discard(client)
 
     def close_all(self) -> None:
-        """Close every active upstream client and prevent new clients from starting."""
+        """Close every active or in-flight-closing upstream client and prevent new starts."""
         with self._lock:
             self._closed = True
-            clients = list(self._clients.values())
+            clients = [*self._clients.values(), *self._closing]
             self._clients.clear()
             self._tools_cache.clear()
         for client in clients:
