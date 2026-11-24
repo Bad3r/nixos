@@ -31,23 +31,33 @@ _: {
       network.allowedDomains = [ "context7.com" ];
       clients = [
         "antigravity"
+        "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
-        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits. Scoped to Codex and Antigravity: Claude Code consumes the claude.ai Context7 connector instead, so the local server is dropped there to avoid a duplicate registration.";
+        accessNotes = "Works without an API key; provision `~/.local/share/context7/api-key` for higher rate limits. Shared across Codex, Antigravity, and Claude Code, where `claude.ai Context7` is denied so every client routes through `codemode`.";
         example = "`context7 resolve-library-id --name <library>`";
       };
     };
 
-    cfdocs = {
+    cloudflare-api = {
       source = "http";
-      url = "https://docs.mcp.cloudflare.com/mcp";
-      clients = [ ];
+      url = "https://mcp.cloudflare.com/mcp";
+      secretHeader = {
+        name = "Authorization";
+        prefix = "Bearer ";
+        relativePath = "cloudflare/api-key";
+      };
+      clients = [
+        "antigravity"
+        "claude"
+        "codex"
+      ];
       docs = {
-        primaryUse = "Search Cloudflare documentation.";
-        accessNotes = "Use for Workers, R2, Zero Trust, and other Cloudflare services through the streamable HTTP endpoint.";
-        example = "`cfdocs search --query \"Workers KV\"`";
+        primaryUse = "Search Cloudflare docs and run authenticated Cloudflare API actions through Cloudflare's Code Mode MCP server.";
+        accessNotes = "Authenticates host-side with the SOPS-provisioned Bearer token at `~/.local/share/cloudflare/api-key` (`CF_MCP_API_KEY` from `secrets/cloudflare.yaml`). User API tokens (`cfut_*`) require `User Details: Read` and `Account Settings: Read`; account API tokens (`cfat_*`) require `Account Resources: Read`. Replaces the retired `cfdocs` endpoint and the marketplace Cloudflare plugins so all clients route through `codemode`.";
+        example = "Use `codemode` `search` for `cloudflare_api` tools (`docs`, `search`, `execute`, `whoami`).";
       };
     };
 
@@ -157,6 +167,26 @@ _: {
         primaryUse = "Search public GitHub code indexed by grep.app.";
         accessNotes = "Enabled by default for Codex, Claude Code, and Antigravity through the remote grep.app HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `gh_grep` tools.";
+      };
+    };
+
+    google-developer-knowledge = {
+      source = "http";
+      url = "https://developerknowledge.googleapis.com/mcp";
+      disabled = true;
+      secretHeader = {
+        name = "X-Goog-Api-Key";
+        relativePath = "google-developer-knowledge/api-key";
+      };
+      clients = [
+        "antigravity"
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Search and retrieve official Google developer documentation.";
+        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key`. Enable on demand via `mcp-codemode enable google-developer-knowledge` (writes `.mcp-codemode.json`), `mcp-codemode enable --user google-developer-knowledge`, or `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
+        example = "`mcp-codemode enable google-developer-knowledge`";
       };
     };
 

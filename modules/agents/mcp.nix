@@ -49,7 +49,10 @@ let
 
   optionalFields = {
     nix = [ "secretEnvVar" ];
-    http = [ "timeout" ];
+    http = [
+      "timeout"
+      "secretHeader"
+    ];
     sse = [ "timeout" ];
     npx = [
       "timeout"
@@ -124,6 +127,44 @@ let
     else
       throw "Agent MCP server '${serverName}' has invalid network.mode '${mode}'. Valid: ${toString validNetworkModes}";
 
+  validateSecretHeader =
+    serverName: secretHeader:
+    let
+      validated =
+        if builtins.isAttrs secretHeader then
+          validateAllowedFields "'${serverName}'.secretHeader'" [
+            "name"
+            "relativePath"
+            "prefix"
+          ] secretHeader
+        else
+          throw "Agent MCP server '${serverName}' requires attrset field 'secretHeader'";
+      missingFields = lib.filter (field: !(validated ? ${field})) [
+        "name"
+        "relativePath"
+      ];
+      headerName = validateNonEmptyString serverName "secretHeader.name" validated.name;
+      relativePath = validateNonEmptyString serverName "secretHeader.relativePath" validated.relativePath;
+    in
+    if missingFields != [ ] then
+      throw "Agent MCP server '${serverName}' missing secretHeader fields: ${lib.concatStringsSep ", " missingFields}"
+    else if builtins.match ".*[\r\n].*" headerName != null then
+      throw "Agent MCP server '${serverName}' secretHeader.name must not contain newlines"
+    else if validated ? prefix && !builtins.isString validated.prefix then
+      throw "Agent MCP server '${serverName}' secretHeader.prefix must be a string"
+    else if validated ? prefix && builtins.match ".*[\r\n].*" validated.prefix != null then
+      throw "Agent MCP server '${serverName}' secretHeader.prefix must not contain newlines"
+    else if lib.hasPrefix "/" relativePath || lib.hasInfix ".." relativePath then
+      throw "Agent MCP server '${serverName}' secretHeader.relativePath must be a clean XDG_DATA_HOME-relative path"
+    else
+      {
+        name = headerName;
+        inherit relativePath;
+      }
+      // lib.optionalAttrs (validated ? prefix) {
+        inherit (validated) prefix;
+      };
+
   validateClients =
     serverName: clients:
     let
@@ -156,6 +197,7 @@ let
         "clients"
         "docs"
         "network"
+        "disabled"
       ]
       ++ required
       ++ optional;
@@ -180,11 +222,14 @@ let
       )
     then
       throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps or browsers entry"
+    else if validatedServer ? disabled && !builtins.isBool validatedServer.disabled then
+      throw "Agent MCP server '${serverName}' requires boolean field 'disabled'"
     else
       validatedServer
       // {
         name = serverName;
         autoApprove = validatedServer.autoApprove or false;
+        disabled = validatedServer.disabled or false;
         clients = validateClients serverName validatedServer.clients;
         docs = validateDocs serverName validatedServer.docs;
         network =
@@ -195,6 +240,9 @@ let
               mode = "limited";
               allowedDomains = [ ];
             };
+      }
+      // lib.optionalAttrs (validatedServer ? secretHeader) {
+        secretHeader = validateSecretHeader serverName validatedServer.secretHeader;
       };
 
   validatedServers = lib.mapAttrs validateServer rawServers;
@@ -464,49 +512,125 @@ let
     else
       result;
 
-  mkClientServers =
-    client: args: enabled:
+  codemodePkgFor =
+    pkgs: osConfig:
     let
-      servers = mkServers args enabled;
+      configured = lib.attrByPath [ "programs" "mcp-codemode" "extended" "package" ] null osConfig;
     in
-    # Codex infers transport from command/url and uses seconds for timeouts.
-    if client == "codex" then
-      lib.mapAttrs (
+    if configured != null then configured else pkgs.callPackage ../../packages/mcp-codemode { };
+
+  mkClientManifestData =
+    {
+      client,
+      pkgs,
+      osConfig,
+      serverOverrides ? { },
+    }:
+    enabled:
+    let
+      rawServers = mkServers { inherit pkgs osConfig; } enabled;
+      servers = lib.mapAttrs (
         name: server:
-        builtins.removeAttrs server [
-          "type"
-          "startup_timeout_ms"
-          "timeout"
-        ]
-        // lib.optionalAttrs validatedServers.${name}.autoApprove {
-          default_tools_approval_mode = "approve";
-        }
-      ) servers
-    else if client == "antigravity" then
-      # Antigravity uses serverUrl for Streamable HTTP, drops type/per-ms keys,
-      # and uses one timeoutSeconds field (default 300s connect / 180s call).
-      lib.mapAttrs (
-        _name: server:
         let
-          effectiveTimeoutSec = lib.max (server.startup_timeout_sec or 0) (server.tool_timeout_sec or 0);
-          timeoutAttr = lib.optionalAttrs (effectiveTimeoutSec > 180) {
-            timeoutSeconds = effectiveTimeoutSec;
+          meta = validatedServers.${name};
+          override = serverOverrides.${name} or { };
+          baseFields = {
+            enabled = !meta.disabled;
+            primaryUse = meta.docs.primaryUse;
+            accessNotes = meta.docs.accessNotes;
+            startupTimeoutSec = server.startup_timeout_sec or defaultTimeoutSec;
+            toolTimeoutSec = server.tool_timeout_sec or (server.startup_timeout_sec or 180);
           };
         in
         if server ? url then
-          { serverUrl = server.url; } // timeoutAttr
+          baseFields
+          // {
+            transport = "http";
+            inherit (server) url;
+          }
+          // lib.optionalAttrs (meta ? secretHeader) {
+            inherit (meta) secretHeader;
+          }
         else
-          builtins.removeAttrs server [
-            "type"
-            "startup_timeout_sec"
-            "startup_timeout_ms"
-            "tool_timeout_sec"
-            "timeout"
-          ]
-          // timeoutAttr
-      ) servers
+          baseFields
+          // {
+            transport = "stdio";
+            inherit (server) command;
+            args = server.args or [ ];
+          }
+          // lib.optionalAttrs (override ? env) {
+            inherit (override) env;
+          }
+          // lib.optionalAttrs (override ? env_vars) {
+            envVars = override.env_vars;
+          }
+      ) rawServers;
+    in
+    {
+      inherit client servers;
+    };
+
+  mkClientServers =
+    client:
+    {
+      pkgs,
+      osConfig,
+      serverOverrides ? { },
+    }:
+    enabled:
+    if enabled == [ ] then
+      { }
     else
-      servers;
+      let
+        manifestData = mkClientManifestData {
+          inherit
+            client
+            pkgs
+            osConfig
+            serverOverrides
+            ;
+        } enabled;
+        manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
+        codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
+        envVars = lib.unique (lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) enabled);
+        maxToolTimeoutSec = lib.foldl' lib.max 180 (
+          map (name: manifestData.servers.${name}.toolTimeoutSec) enabled
+        );
+        baseEntry = {
+          command = codemodeBin;
+          args = [
+            "serve"
+            "--manifest"
+            "${manifestFile}"
+          ];
+        };
+      in
+      {
+        codemode =
+          if client == "codex" then
+            baseEntry
+            // {
+              startup_timeout_sec = defaultTimeoutSec;
+              tool_timeout_sec = maxToolTimeoutSec;
+            }
+            // lib.optionalAttrs (envVars != [ ]) {
+              env_vars = envVars;
+            }
+          else if client == "antigravity" then
+            baseEntry
+            // lib.optionalAttrs (maxToolTimeoutSec > 180) {
+              timeoutSeconds = maxToolTimeoutSec;
+            }
+          else
+            baseEntry
+            // {
+              type = "stdio";
+              startup_timeout_sec = defaultTimeoutSec;
+              startup_timeout_ms = defaultTimeoutSec * 1000;
+              tool_timeout_sec = maxToolTimeoutSec;
+              timeout = maxToolTimeoutSec * 1000;
+            };
+      };
 
   clientServerNames =
     client:
@@ -522,23 +646,50 @@ let
     in
     {
       inherit names enabledNames;
+      manifest =
+        {
+          pkgs,
+          osConfig,
+          serverOverrides ? { },
+        }:
+        mkClientManifestData {
+          inherit
+            client
+            pkgs
+            osConfig
+            serverOverrides
+            ;
+        } (enabledNames osConfig);
       servers =
-        { pkgs, osConfig }: mkClientServers client { inherit pkgs osConfig; } (enabledNames osConfig);
-      # Claude Code approves MCP tools through permission rules, not server entries.
-      autoApproved =
-        osConfig: lib.filter (name: validatedServers.${name}.autoApprove) (enabledNames osConfig);
+        {
+          pkgs,
+          osConfig,
+          serverOverrides ? { },
+        }:
+        mkClientServers client {
+          inherit
+            pkgs
+            osConfig
+            serverOverrides
+            ;
+        } (enabledNames osConfig);
+      # Never blanket-approve `codemode`, which multiplexes privileged servers.
+      autoApproved = _osConfig: [ ];
     }
   );
 
   renderClientList =
-    clients:
+    server:
     let
-      orderedClients = lib.filter (client: lib.elem client clients) docClientOrder;
+      orderedClients = lib.filter (client: lib.elem client server.clients) docClientOrder;
+      labels = lib.concatStringsSep ", " (map (client: clientLabels.${client}) orderedClients);
     in
     if orderedClients == [ ] then
       "None"
+    else if server.disabled then
+      "None (opt-in: ${labels})"
     else
-      lib.concatStringsSep ", " (map (client: clientLabels.${client}) orderedClients);
+      labels;
 
   escapeTableCell = value: lib.replaceStrings [ "|" "\n" ] [ "\\|" " " ] value;
 
@@ -567,7 +718,7 @@ let
         in
         [
           "`${escapeTableCell server.name}`"
-          (escapeTableCell (renderClientList server.clients))
+          (escapeTableCell (renderClientList server))
           (escapeTableCell server.docs.primaryUse)
           (escapeTableCell server.docs.accessNotes)
           (escapeTableCell server.docs.example)
@@ -598,7 +749,7 @@ let
       [
         "# MCP Tools"
         ""
-        "Generated from `flake.lib.agents.mcp.servers`. `Default Clients` shows which Nix-managed clients enable each server out of the box. Use `/mcp` to inspect current runtime availability."
+        "Generated from `flake.lib.agents.mcp.servers`. Every Nix-managed client connects through the single `codemode` gateway (`search` and `execute`), which supervises these upstream servers lazily. `Default Clients` shows which clients include each server out of the box. Use `mcp-codemode status` or `search` (`codemode.servers()`) to inspect runtime availability."
         ""
         (renderTableRow tableHeaders)
         renderRule

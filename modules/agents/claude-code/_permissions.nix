@@ -137,6 +137,7 @@ in
   # renamed on claude.ai, or suffixed " (N)" after a collision, needs updating.
   deniedMcpServers = map (serverName: { inherit serverName; }) [
     "claude.ai Cloudflare Developer Platform"
+    "claude.ai Context7"
     "claude.ai Gmail"
     "claude.ai Google Calendar"
     "claude.ai Google Drive"
