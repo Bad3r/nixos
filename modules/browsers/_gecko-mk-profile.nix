@@ -50,7 +50,15 @@ let
     "path"
   ] null config;
 
-  policies = lib.recursiveUpdate (lib.recursiveUpdate geckoPolicies.policies geckoBookmarks.policies) geckoExtensions.extensionPolicies;
+  # HTTPS-Only exempts loopback addresses, not names that resolve to them.
+  loopbackSites = lib.attrNames (lib.attrByPath [ "networking" "loopbackSites" ] { } osConfig);
+  httpAllowlist = lib.optionalAttrs (loopbackSites != [ ]) {
+    HttpAllowlist = map (name: "http://${name}") loopbackSites;
+  };
+
+  policies =
+    lib.recursiveUpdate (lib.recursiveUpdate geckoPolicies.policies geckoBookmarks.policies) geckoExtensions.extensionPolicies
+    // httpAllowlist;
 
   mkProfile =
     {

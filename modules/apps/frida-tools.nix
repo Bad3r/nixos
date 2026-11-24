@@ -8,6 +8,9 @@
   Summary:
     * Injects JavaScript into native apps on Windows, macOS, Linux, iOS, Android, and QNX.
     * Hooks functions, traces calls, and modifies behavior at runtime without source code.
+
+  Notes:
+    * A `NOPASSWD` sudo-rs rule lets `wheel` users run `frida`, `frida-trace`, `frida-strace`, `frida-itrace`, `frida-discover` as root, which attaches to processes that `kernel.yama.ptrace_scope = 1` shields from the owner.
 */
 _:
 let
@@ -34,6 +37,34 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.sudo-rs.extraRules = [
+          {
+            commands = [
+              {
+                command = "${cfg.package}/bin/frida";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/frida-trace";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/frida-strace";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/frida-itrace";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "${cfg.package}/bin/frida-discover";
+                options = [ "NOPASSWD" ];
+              }
+            ];
+            groups = [ "wheel" ];
+          }
+        ];
       };
     };
 in

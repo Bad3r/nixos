@@ -14,6 +14,9 @@
     -f: Follow forked processes.
     -e trace=<syscall_set>: Filter system calls (e.g. `trace=network,file`).
     -tt -T: Print timestamps and syscall durations.
+
+  Notes:
+    * A `NOPASSWD` sudo-rs rule lets `wheel` users run `strace` as root, which attaches to processes that `kernel.yama.ptrace_scope = 1` shields from the owner.
 */
 _:
 let
@@ -40,6 +43,18 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.sudo-rs.extraRules = [
+          {
+            commands = [
+              {
+                command = "${cfg.package}/bin/strace";
+                options = [ "NOPASSWD" ];
+              }
+            ];
+            groups = [ "wheel" ];
+          }
+        ];
       };
     };
 in

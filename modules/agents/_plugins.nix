@@ -123,4 +123,22 @@
   "template-creator@openai-primary-runtime" = {
     codex = true;
   };
+  "swarm@builtin" = {
+    "antigravity-cli" = true;
+  };
+  "cloudflare@antigravity-plugins-partners" = {
+    "antigravity-cli" = true;
+  };
+  "egm@antigravity-plugins-official" = {
+    "antigravity-cli" = true;
+  };
+  "gdrive@antigravity-plugins-official" = {
+    "antigravity-cli" = true;
+  };
+  "google-developer-knowledge@antigravity-plugins-official" = {
+    "antigravity-cli" = true;
+  };
+  "modern-web-guidance-plugin@antigravity-plugins-official" = {
+    "antigravity-cli" = true;
+  };
 }

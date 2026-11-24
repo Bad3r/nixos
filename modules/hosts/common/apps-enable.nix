@@ -40,6 +40,7 @@ let
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      asar.extended.enable = lib.mkOverride 1100 false;
       assetripper.extended.enable = lib.mkOverride 1100 false;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
@@ -60,11 +61,15 @@ let
       biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
+      blackboxprotobuf.extended.enable = lib.mkOverride 1100 false;
+      bloaty.extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
+      bpftrace.extended.enable = lib.mkOverride 1100 false;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
       "browser-fetch".extended.enable = lib.mkOverride 1100 false;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
+      buf.extended.enable = lib.mkOverride 1100 false;
       "build-sh-completion".extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;
@@ -146,6 +151,7 @@ let
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
       ethtool.extended.enable = lib.mkOverride 1100 true;
+      "evil-winrm".extended.enable = lib.mkOverride 1100 true;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
@@ -164,6 +170,7 @@ let
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
+      freerdp.extended.enable = lib.mkOverride 1100 false;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
@@ -194,6 +201,7 @@ let
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
       gopass.extended.enable = lib.mkOverride 1100 false;
       gopls.extended.enable = lib.mkOverride 1100 false;
+      goresym.extended.enable = lib.mkOverride 1100 false;
       gowitness.extended.enable = lib.mkOverride 1100 true;
       gparted.extended.enable = lib.mkOverride 1100 true;
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
@@ -375,6 +383,7 @@ let
       patchelf.extended.enable = lib.mkOverride 1100 true;
       patchutils.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
+      pbtk.extended.enable = lib.mkOverride 1100 false;
       pciutils.extended.enable = lib.mkOverride 1100 true;
       "pentesting-devshell".extended.enable = lib.mkOverride 1100 false;
       picom.extended.enable = lib.mkOverride 1100 true;
@@ -393,6 +402,7 @@ let
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
       projectlibre.extended.enable = lib.mkOverride 1100 false;
+      protobuf.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
@@ -415,6 +425,7 @@ let
       rclone.extended.protonDrive.enable = lib.mkOverride 1100 true;
       readpdf.extended.enable = lib.mkOverride 1100 true;
       realforce-connect.extended.enable = lib.mkOverride 1100 false;
+      redress.extended.enable = lib.mkOverride 1100 false;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restic.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
@@ -509,6 +520,7 @@ let
       unrar.extended.enable = lib.mkOverride 1100 false;
       unzip.extended.enable = lib.mkOverride 1100 true;
       upscayl.extended.enable = lib.mkOverride 1100 true;
+      upx.extended.enable = lib.mkOverride 1100 false;
       usbutils.extended.enable = lib.mkOverride 1100 true;
       "util-linux".extended.enable = lib.mkOverride 1100 true;
       uv.extended.enable = lib.mkOverride 1100 true;
@@ -589,6 +601,7 @@ let
 
     # Services-based apps (use services.<name>.extended namespace)
     services = {
+      activitywatch.extended.enable = lib.mkOverride 1100 false;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;

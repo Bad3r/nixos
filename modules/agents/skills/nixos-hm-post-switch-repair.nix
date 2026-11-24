@@ -121,6 +121,8 @@ in
     description = "Reapply integrated Home Manager activation and recover drifted user systemd units or symlinks after a NixOS switch.";
     body = skillBody;
 
+    antigravity = { };
+
     codex = {
       openaiYaml.interface = {
         display_name = "HM Post-Switch Repair";

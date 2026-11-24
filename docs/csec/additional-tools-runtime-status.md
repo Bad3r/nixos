@@ -11,9 +11,9 @@ that time, and the inventory and summary below were reconciled on 2026-08-01
 against the companion reference without re-executing anything.
 
 The only entries re-run since are the nine the 2026-05-04 snapshot recorded
-under "build or evaluation error"; all 118 others still carry their 2026-05-04
-result. Those nine were re-run in two batches. Five cleared and one was
-reclassified, taking the group from nine entries to three and "run as
+under "build or evaluation error"; every other entry still carries its
+2026-05-04 result. Those nine were re-run in two batches. Five cleared and one
+was reclassified, taking the group from nine entries to three and "run as
 documented" from 95 to 100.
 
 `mitm6` and `maigret` were re-verified on 2026-07-23 under Python 3.14.6 and
@@ -39,14 +39,13 @@ own category.
 
 `arwen` was added to the reference on 2026-08-05 and smoke-tested the same day
 against the pin current then (`arwen 0.0.5-unstable-2026-04-07`). It runs as
-documented, taking "run as documented" from 100 to 101 and the reference total
-from 127 to 128.
+documented.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 101     |
+| ✅ Run as documented                                             | 99      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 3       |
 | ⚠️ Blocked by the unfree license gate                            | 1       |
@@ -56,15 +55,14 @@ from 127 to 128.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **128** |
+| **Total entries in the reference**                               | **126** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
-The five tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
-nikto, and wafw00f) are intentionally absent from this report because they are
-no longer entries in the companion reference.
+katana, gau, gowitness, nikto, wafw00f, evil-winrm, and upx are documented in
+`docs/csec/toolkit.md`, not in the companion reference, and are not listed here.
 
 ## ✅ Tools that run as documented
 
@@ -81,7 +79,6 @@ no longer entries in the companion reference.
 - ✅ adidnsdump
 - ✅ ldapdomaindump
 - ✅ donpapi
-- ✅ evil-winrm (`-h` writes usage only to a TTY; piped or redirected it exits 0 silently)
 
 ### Network Reconnaissance and Enumeration
 
@@ -149,7 +146,6 @@ no longer entries in the companion reference.
 - ✅ ropper (uvx)
 - ✅ gef (gdb plugin; help command shows gdb usage)
 - ✅ python3Packages.ropgadget
-- ✅ upx
 - ✅ arwen (verified 2026-08-05; `elf print-interpreter` and `elf print-needed` both return real data on a store binary)
 
 ### Forensics, Recovery and Imaging

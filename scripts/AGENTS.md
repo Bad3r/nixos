@@ -9,6 +9,7 @@ Additions to the root `AGENTS.md` for `scripts/`.
 - `hooks/`: Git hook installation and pre-commit config sync for the dev shell.
 - `lib/`: function libraries sourced by `build.sh` and `cache-coverage.sh`,
   never executed.
+- `windows/`: PowerShell run on Windows hosts, not from the repository root.
 - `updater/`: shared Python helpers (HTTP, hashes, Nix, npm, versions) for
   `packages/*/update.py`; reuse them rather than reimplementing.
 - `check-kernel-reboot-required.sh`: compares the activated and booted kernels
