@@ -37,7 +37,7 @@ _: {
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
         accessNotes = "Works without an API key; provision `~/.local/share/context7/api-key` for higher rate limits. Shared across Codex, Antigravity, and Claude Code, where `claude.ai Context7` is denied so every client routes through `codemode`.";
-        example = "Use `codemode` `search` (`await codemode.tools(\"context7\")`) or `execute` (`await codemode.context7.resolve_library_id(...)`).";
+        example = "Use `codemode` `search` (`await codemode.tools(\"context7\")`) or `execute` (`await codemode.context7[\"resolve-library-id\"](...)`).";
       };
     };
 

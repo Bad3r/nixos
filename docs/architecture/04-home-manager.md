@@ -57,15 +57,15 @@ The shared HM base and secret defaults live in
 `modules/hosts/common/imports.nix`; host-owned modules add only the overrides
 that diverge. The common baseline sets these HM toggles:
 
-| HM toggle                         | Default                                | Notes                                                                                                                                                |
-| --------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cloudflareSecrets`               | `mkDefault true`                       | Cloudflare API key rendering.                                                                                                                        |
-| `context7Secrets`                 | `mkDefault true`                       | Context7 API key rendering.                                                                                                                          |
-| `geckoSecrets`                    | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for every host; rendering still requires the secret file.                                |
-| `googleDeveloperKnowledgeSecrets` | `mkDefault true`                       | Google Developer Knowledge MCP API key rendering.                                                                                                    |
-| `virustotalSecrets`               | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                        |
-| `r2Secrets`                       | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on. |
-| `repoGpg`                         | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.    |
+| HM toggle                         | Default          | Notes                                                                                                                                                    |
+| --------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflareSecrets`               | `mkDefault true` | Cloudflare API key rendering.                                                                                                                            |
+| `context7Secrets`                 | `mkDefault true` | Context7 API key rendering.                                                                                                                              |
+| `geckoSecrets`                    | `mkDefault true` | The common baseline enables Gecko bookmark secret rendering for every host; rendering still requires the secret file.                                    |
+| `googleDeveloperKnowledgeSecrets` | `mkDefault true` | Google Developer Knowledge MCP API key rendering.                                                                                                        |
+| `virustotalSecrets`               | `mkDefault true` | VirusTotal API key rendering.                                                                                                                            |
+| `r2Secrets`                       | `mkDefault true` | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on.     |
+| `repoGpg`                         | `false`          | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` when present and leaves `home.repoGpg.enable` at its `false` default. |
 
 On the NixOS side, every host defaults `security.repoSecrets.enable` and
 `security.r2CloudSecrets.enable` to `mkDefault true`, so the repo-managed SOPS

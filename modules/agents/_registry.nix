@@ -35,7 +35,7 @@ in
     in
     if !builtins.isList clients then
       throw "Agent ${kind} '${name}' requires list field 'clients'"
-    else if !lib.all builtins.isString normalizedClients then
+    else if !lib.all builtins.isString clients then
       throw "Agent ${kind} '${name}' requires all 'clients' entries to be strings"
     else if unknownClients != [ ] then
       throw ''

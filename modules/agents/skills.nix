@@ -48,7 +48,7 @@ let
     skillName: interface:
     let
       validatedInterface =
-        validateAllowedFields "'${skillName}'.codex.openaiYaml.interface'" requiredFields
+        validateAllowedFields "'${skillName}'.codex.openaiYaml.interface" requiredFields
           interface;
       requiredFields = [
         "display_name"
@@ -93,12 +93,12 @@ let
           ];
         }
         .${client};
-      validatedClientSpec = validateAllowedFields "'${skillName}'.${client}'" allowedFields clientSpec;
+      validatedClientSpec = validateAllowedFields "'${skillName}'.${client}" allowedFields clientSpec;
     in
     if client == "codex" then
       let
         openaiYaml = validatedClientSpec.openaiYaml or { };
-        validatedOpenaiYaml = validateAllowedFields "'${skillName}'.codex.openaiYaml'" [
+        validatedOpenaiYaml = validateAllowedFields "'${skillName}'.codex.openaiYaml" [
           "interface"
         ] openaiYaml;
         interface = validateOpenaiInterface skillName (validatedOpenaiYaml.interface or { });

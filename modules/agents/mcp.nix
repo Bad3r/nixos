@@ -67,7 +67,7 @@ let
   validateDocs =
     serverName: docs:
     let
-      validatedDocs = validateAllowedFields "'${serverName}'.docs'" [
+      validatedDocs = validateAllowedFields "'${serverName}'.docs" [
         "primaryUse"
         "accessNotes"
         "example"
@@ -98,7 +98,7 @@ let
     let
       validatedNetwork =
         if builtins.isAttrs network then
-          validateAllowedFields "'${serverName}'.network'" [
+          validateAllowedFields "'${serverName}'.network" [
             "mode"
             "allowedDomains"
           ] network
@@ -123,7 +123,7 @@ let
     let
       validated =
         if builtins.isAttrs secretHeader then
-          validateAllowedFields "'${serverName}'.secretHeader'" [
+          validateAllowedFields "'${serverName}'.secretHeader" [
             "name"
             "relativePath"
             "prefix"
@@ -828,7 +828,7 @@ let
       [
         "# MCP Tools"
         ""
-        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>`, using the manifest store path from `~/.claude.json`, `~/.gemini/config/mcp_config.json`, or `$CODEX_HOME/config.base.toml` (`mcp-codemode status` alone prints active override entries). Project-scoped toggles (`mcp-codemode enable <server>`) match the gateway's working directory and its descendants; GUI clients launch outside the open workspace and require `--user`."
+        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>`, using the manifest store path from `~/.claude.json`, `~/.gemini/config/mcp_config.json`, or `$CODEX_HOME/config.base.toml` (`mcp-codemode status` alone prints active override entries). Project-scoped toggles (`mcp-codemode enable <server>`) apply to the directory where the command ran and its descendants; GUI clients launch outside the open workspace and require `--user`."
         ""
         (renderTableRow tableHeaders)
         renderRule
