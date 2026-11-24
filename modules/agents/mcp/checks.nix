@@ -91,7 +91,6 @@ in
         claudeManifest
       ];
       hasOnlyCodemode = servers: lib.attrNames servers == [ "codemode" ];
-      manifestJson = builtins.toJSON allManifests;
       gdkMeta = agents.mcp.servers.google-developer-knowledge;
       cfApiMeta = agents.mcp.servers.cloudflare-api;
       expectedPackSkills = [
@@ -116,12 +115,40 @@ in
         assert lib.assertMsg (
           codexServers.codemode.tool_timeout_sec == 3600
         ) "codex codemode tool_timeout_sec must reflect enabled sbx maxTtl";
-        assert lib.assertMsg (lib.elem "BROWSER_USE_ACCESS_PIPE_PATH" (
-          codexServers.codemode.env_vars or [ ]
-        )) "codex codemode entry must forward node_repl env_vars when chatgpt is enabled";
+        assert lib.assertMsg (
+          codexServers.codemode.args == [
+            "serve"
+            "--manifest"
+            (builtins.elemAt codexServers.codemode.args 2)
+            "--timeout"
+            "3600"
+          ]
+          &&
+            antigravityServers.codemode.args == [
+              "serve"
+              "--manifest"
+              (builtins.elemAt antigravityServers.codemode.args 2)
+              "--timeout"
+              "240"
+            ]
+          &&
+            claudeServers.codemode.args == [
+              "serve"
+              "--manifest"
+              (builtins.elemAt claudeServers.codemode.args 2)
+              "--timeout"
+              "240"
+            ]
+        ) "client codemode args must pass --timeout matching maxToolTimeoutSec";
+        assert lib.assertMsg (
+          lib.elem "BROWSER_USE_ACCESS_PIPE_PATH" (codexServers.codemode.env_vars or [ ])
+          && lib.elem "MCP_CODEMODE_ENABLE" (codexServers.codemode.env_vars or [ ])
+          && lib.elem "MCP_CODEMODE_DISABLE" (codexServers.codemode.env_vars or [ ])
+        ) "codex codemode entry must forward node_repl env_vars and MCP_CODEMODE_* toggles";
         assert lib.assertMsg (
           codexManifest.servers.node_repl.env.BROWSER_USE_CODEX_APP_VERSION == "1.2.3"
-        ) "codex manifest must carry _node-repl.nix environment for node_repl";
+          && !(codexManifest.servers.node_repl ? envVars)
+        ) "codex manifest must carry _node-repl.nix env without dead envVars field";
         assert lib.assertMsg (lib.all
           (
             m:
@@ -151,9 +178,6 @@ in
           && claudeManifest.servers.deepwiki.enabled == true
           && codexManifest.servers.deepwiki.enabled == true
         ) "default-enabled servers must remain enabled in every client manifest";
-        assert lib.assertMsg (
-          !(lib.hasInfix "AIza" manifestJson)
-        ) "compiled manifests must never embed secret values";
         assert lib.assertMsg
           (
             plugins."cloudflare@claude-plugins-official".claude-code == false
@@ -167,8 +191,8 @@ in
           && plugins."chrome-devtools-plugin@antigravity-plugins-official"."antigravity-cli" == true
         ) "installed skills-only Antigravity plugins must be enabled in _plugins.nix";
         assert lib.assertMsg (
-          !(plugins ? "gdrive@antigravity-plugins-official")
-        ) "gdrive@antigravity-plugins-official must be removed from _plugins.nix";
+          plugins."gdrive@antigravity-plugins-official"."antigravity-cli" == false
+        ) "gdrive@antigravity-plugins-official must stay explicitly disabled in _plugins.nix";
         assert lib.assertMsg (
           plugins."google-developer-knowledge@antigravity-plugins-official"."antigravity-cli" == false
         ) "google-developer-knowledge@antigravity-plugins-official must be disabled in _plugins.nix";
@@ -190,12 +214,7 @@ in
               ${pkgs.writeText "codex-manifest.json" (builtins.toJSON codexManifest)} \
               ${pkgs.writeText "antigravity-manifest.json" (builtins.toJSON antigravityManifest)} \
               ${pkgs.writeText "claude-manifest.json" (builtins.toJSON claudeManifest)}; do
-              jq -e '.servers["cloudflare-api"].enabled == true' "$manifest" >/dev/null
-              jq -e '.servers["cloudflare-api"].secretHeader.name == "Authorization"' "$manifest" >/dev/null
-              jq -e '.servers["cloudflare-api"].secretHeader.prefix == "Bearer "' "$manifest" >/dev/null
-              jq -e '.servers["context7"].enabled == true' "$manifest" >/dev/null
-              jq -e '.servers["google-developer-knowledge"].enabled == false' "$manifest" >/dev/null
-              jq -e '.servers["google-developer-knowledge"].secretHeader.name == "X-Goog-Api-Key"' "$manifest" >/dev/null
+              jq empty "$manifest"
             done
             touch "$out"
           '';

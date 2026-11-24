@@ -62,7 +62,6 @@ let
     app = [
       "timeout"
       "toolTimeout"
-      "autoApprove"
     ];
   };
 
@@ -228,7 +227,6 @@ let
       validatedServer
       // {
         name = serverName;
-        autoApprove = validatedServer.autoApprove or false;
         disabled = validatedServer.disabled or false;
         clients = validateClients serverName validatedServer.clients;
         docs = validateDocs serverName validatedServer.docs;
@@ -561,9 +559,6 @@ let
           // lib.optionalAttrs (override ? env) {
             inherit (override) env;
           }
-          // lib.optionalAttrs (override ? env_vars) {
-            envVars = override.env_vars;
-          }
       ) rawServers;
     in
     {
@@ -592,7 +587,13 @@ let
         } enabled;
         manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
         codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
-        envVars = lib.unique (lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) enabled);
+        envVars = lib.unique (
+          [
+            "MCP_CODEMODE_ENABLE"
+            "MCP_CODEMODE_DISABLE"
+          ]
+          ++ lib.concatMap (name: (serverOverrides.${name}.env_vars or [ ])) enabled
+        );
         maxToolTimeoutSec = lib.foldl' lib.max 180 (
           map (name: manifestData.servers.${name}.toolTimeoutSec) enabled
         );
@@ -602,6 +603,8 @@ let
             "serve"
             "--manifest"
             "${manifestFile}"
+            "--timeout"
+            (toString maxToolTimeoutSec)
           ];
         };
       in
@@ -673,8 +676,6 @@ let
             serverOverrides
             ;
         } (enabledNames osConfig);
-      # Never blanket-approve `codemode`, which multiplexes privileged servers.
-      autoApproved = _osConfig: [ ];
     }
   );
 

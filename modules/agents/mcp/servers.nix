@@ -185,7 +185,7 @@ _: {
       ];
       docs = {
         primaryUse = "Search and retrieve official Google developer documentation.";
-        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key`. Enable on demand via `mcp-codemode enable google-developer-knowledge` (writes `.mcp-codemode.json`), `mcp-codemode enable --user google-developer-knowledge`, or `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
+        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key`. Enable without restarting via `mcp-codemode enable google-developer-knowledge` (project-scoped in `~/.local/state/mcp-codemode/overrides.json`) or `mcp-codemode enable --user google-developer-knowledge`, or launch the client with `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
         example = "`mcp-codemode enable google-developer-knowledge`";
       };
     };
@@ -289,7 +289,6 @@ _: {
       program = "sbx-mcp";
       # A call lasts up to a sandbox's longest TTL; Codex stops waiting after 300 s by default.
       toolTimeout = cfg: cfg.limits.maxTtl * 3600;
-      autoApprove = true;
       clients = [
         "antigravity"
         "claude"

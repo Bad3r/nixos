@@ -97,7 +97,6 @@ _: {
         homeDir = config.home.homeDirectory;
         inherit (agents) scratchDir;
         sbx = sbxEnabled;
-        mcpAutoApproved = agents.mcp.clients.antigravity.autoApproved osConfig;
       };
 
       colors = config.lib.stylix.colors.withHashtag;

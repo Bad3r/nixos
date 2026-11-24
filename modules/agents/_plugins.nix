@@ -140,6 +140,10 @@
   "egm@antigravity-plugins-official" = {
     "antigravity-cli" = true;
   };
+  # Explicitly disabled so activation writes `enabled: false` on existing installs.
+  "gdrive@antigravity-plugins-official" = {
+    "antigravity-cli" = false;
+  };
   # The shared MCP registry supplies Google Developer Knowledge with API-key auth and opt-in enablement.
   "google-developer-knowledge@antigravity-plugins-official" = {
     "antigravity-cli" = false;

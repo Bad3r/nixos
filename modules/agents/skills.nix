@@ -1,6 +1,10 @@
 { config, lib, ... }:
 let
-  reservedPublicSkillNames = [ "list" ];
+  reservedPublicSkillNames = [
+    "list"
+    "packDirsFor"
+    "packs"
+  ];
 
   registry = import ./_registry.nix { inherit lib; };
   inherit (registry) validClients;

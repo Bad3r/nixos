@@ -132,7 +132,6 @@ _: {
         (import ./_permissions.nix {
           inherit (agents) scratchDir;
           sbx = sbxEnabled;
-          mcpAutoApproved = agents.mcp.clients.claude.autoApproved osConfig;
         })
         (import ./_hooks.nix { inherit agents pkgs; })
         {

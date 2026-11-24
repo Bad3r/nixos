@@ -8,7 +8,6 @@
 {
   scratchDir,
   sbx,
-  mcpAutoApproved,
 }:
 let
   # Canonical Bash prefix rule; the trailing ` *` keeps a word boundary, so
@@ -174,8 +173,7 @@ in
 
   # Set allow, ask, and deny rules and the starting permission mode
   permissions = {
-    # `mcp__<server>` covers every tool of that server.
-    allow = fileWebAllow ++ map bash bashAllow ++ map (name: "mcp__${name}") mcpAutoApproved;
+    allow = fileWebAllow ++ map bash bashAllow;
     ask = map bash bashAsk;
     deny = map bash bashDeny;
     additionalDirectories = [ scratchDir ];
