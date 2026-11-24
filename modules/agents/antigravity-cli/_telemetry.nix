@@ -4,12 +4,13 @@ let
   # External root `agy` builds compile out `--disable_telemetry`.
   languageServerFlags = [ "--disable_telemetry" ];
 
-  # Disable implicit config watch, usage statistics, and npm update checks in
-  # `chrome-devtools-mcp` child processes spawned by Antigravity.
+  # Disable implicit config watch, usage statistics, npm update checks in
+  # `chrome-devtools-mcp` child processes, and telemetry in `modern-web-guidance`.
   sharedEnv = {
     CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY = "1";
     CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS = "1";
     CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS = "1";
+    DISABLE_TELEMETRY = "1";
   };
 
   # Nix manages CLI updates, so disable 15-minute `--bg-updater` checks.

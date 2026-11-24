@@ -19,9 +19,10 @@
     claude-code = true;
     codex = true;
   };
+  # The shared MCP registry supplies Cloudflare API through codemode, and modules/agents/skills/packs.nix installs Cloudflare skills.
   "cloudflare@claude-plugins-official" = {
-    claude-code = true;
-    codex = true;
+    claude-code = false;
+    codex = false;
   };
   "code-review@claude-plugins-official" = {
     claude-code = true;
@@ -126,19 +127,25 @@
   "swarm@builtin" = {
     "antigravity-cli" = true;
   };
-  "cloudflare@antigravity-plugins-partners" = {
+  "android-cli-plugin@antigravity-plugins-official" = {
     "antigravity-cli" = true;
+  };
+  "chrome-devtools-plugin@antigravity-plugins-official" = {
+    "antigravity-cli" = true;
+  };
+  # Replaced by `cloudflare-api` in codemode and the declarative `cloudflare-skills` pack.
+  "cloudflare@antigravity-plugins-partners" = {
+    "antigravity-cli" = false;
   };
   "egm@antigravity-plugins-official" = {
     "antigravity-cli" = true;
   };
-  "gdrive@antigravity-plugins-official" = {
-    "antigravity-cli" = true;
-  };
+  # The shared MCP registry supplies Google Developer Knowledge with API-key auth and opt-in enablement.
   "google-developer-knowledge@antigravity-plugins-official" = {
-    "antigravity-cli" = true;
+    "antigravity-cli" = false;
   };
+  # Replaced by the declarative `modern-web-guidance` skill pack across all clients.
   "modern-web-guidance-plugin@antigravity-plugins-official" = {
-    "antigravity-cli" = true;
+    "antigravity-cli" = false;
   };
 }

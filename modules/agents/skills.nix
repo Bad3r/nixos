@@ -309,13 +309,104 @@ let
     };
 
   compiledSkills = lib.mapAttrs compileSkill rawSkills;
+
+  rawPacks = config.flake.lib.agents._internal.skills.packs;
+
+  validatePackClients =
+    packName: clients:
+    let
+      normalizedClients = builtins.sort builtins.lessThan clients;
+      unknownClients = lib.filter (client: !(lib.elem client validClients)) normalizedClients;
+    in
+    if !builtins.isList clients then
+      throw "Agent skill pack '${packName}' requires list field 'clients'"
+    else if !lib.all builtins.isString normalizedClients then
+      throw "Agent skill pack '${packName}' requires all 'clients' entries to be strings"
+    else if unknownClients != [ ] then
+      throw "Agent skill pack '${packName}' has unknown clients: ${lib.concatStringsSep ", " unknownClients}"
+    else
+      lib.unique normalizedClients;
+
+  compilePack =
+    packName: rawPack:
+    let
+      validatedPack = validateAllowedFields "pack '${packName}'" [
+        "src"
+        "clients"
+        "app"
+      ] rawPack;
+      src = validatedPack.src or (throw "Agent skill pack '${packName}' requires field 'src'");
+      clients = validatePackClients packName (
+        validatedPack.clients or (throw "Agent skill pack '${packName}' requires field 'clients'")
+      );
+      app = if validatedPack ? app then validateNonEmptyString packName "app" validatedPack.app else null;
+      _appCheck =
+        if app != null && !(config.flake.lib.nixos.hasApp app) then
+          throw "Agent skill pack '${packName}' names app '${app}', which has no flake.nixosModules.apps entry"
+        else
+          true;
+      entries = builtins.readDir src;
+      skillNames = builtins.sort builtins.lessThan (
+        lib.filter (name: entries.${name} == "directory" && builtins.pathExists "${src}/${name}/SKILL.md") (
+          lib.attrNames entries
+        )
+      );
+      reservedCollisions = lib.filter (name: lib.elem name reservedPublicSkillNames) skillNames;
+      rawCollisions = lib.filter (name: rawSkills ? ${name}) skillNames;
+    in
+    assert _appCheck;
+    assert lib.assertMsg (
+      skillNames != [ ]
+    ) "Agent skill pack '${packName}' contains no '<name>/SKILL.md' directories";
+    assert lib.assertMsg (reservedCollisions == [ ])
+      "Agent skill pack '${packName}' uses reserved skill name(s): ${lib.concatStringsSep ", " reservedCollisions}";
+    assert lib.assertMsg (rawCollisions == [ ])
+      "Agent skill pack '${packName}' collides with standalone skill(s): ${lib.concatStringsSep ", " rawCollisions}";
+    {
+      inherit
+        clients
+        src
+        skillNames
+        ;
+      dirs = lib.genAttrs skillNames (skillName: "${src}/${skillName}");
+      enabledOn =
+        osConfig: app == null || lib.attrByPath [ "programs" app "extended" "enable" ] false osConfig;
+    };
+
+  compiledPacks = lib.mapAttrs compilePack rawPacks;
+
+  packDirsFor =
+    client: osConfig:
+    let
+      matchingPacks = lib.attrValues (
+        lib.filterAttrs (_: pack: lib.elem client pack.clients && pack.enabledOn osConfig) compiledPacks
+      );
+      mergePack =
+        acc: pack:
+        lib.foldl' (
+          innerAcc: skillName:
+          assert lib.assertMsg (
+            !(innerAcc ? ${skillName})
+          ) "Agent skill '${skillName}' is declared by more than one skill pack for client '${client}'";
+          innerAcc // { ${skillName} = pack.dirs.${skillName}; }
+        ) acc pack.skillNames;
+    in
+    lib.foldl' mergePack { } matchingPacks;
 in
 {
   options.flake.lib.agents = {
-    _internal.skills.raw = lib.mkOption {
-      type = lib.types.attrsOf lib.types.anything;
-      default = { };
-      description = "Canonical raw skill specifications compiled into public client outputs.";
+    _internal.skills = {
+      raw = lib.mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        default = { };
+        description = "Canonical raw skill specifications compiled into public client outputs.";
+      };
+
+      packs = lib.mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        default = { };
+        description = "Directory-based third-party skill packs linked into selected agent clients.";
+      };
     };
 
     skills = lib.mkOption {
@@ -327,5 +418,7 @@ in
 
   config.flake.lib.agents.skills = compiledSkills // {
     list = compiledSkills;
+    packs = compiledPacks;
+    inherit packDirsFor;
   };
 }

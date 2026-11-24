@@ -182,6 +182,14 @@ _: {
         name: skill:
         lib.nameValuePair ".gemini/config/skills/${name}/SKILL.md" { text = skill.antigravity; }
       ) registryAntigravitySkills;
+
+      packAntigravitySkillFiles = lib.mapAttrs' (
+        name: dir:
+        lib.nameValuePair ".gemini/config/skills/${name}" {
+          source = dir;
+          recursive = true;
+        }
+      ) (agents.skills.packDirsFor "antigravity" osConfig);
     in
     {
       config = lib.mkIf anyEnabled {
@@ -189,7 +197,8 @@ _: {
           file = {
             ".gemini/config/AGENTS.md".text = antigravityInstructions;
           }
-          // antigravitySkillFiles;
+          // antigravitySkillFiles
+          // packAntigravitySkillFiles;
 
           inherit (activationResult) activation;
         };
