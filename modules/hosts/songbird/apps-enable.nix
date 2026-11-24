@@ -41,6 +41,7 @@ let
     protobuf = true;
     redress = true;
     upx = true;
+    freerdp = true;
     delve = true;
     discordo = true;
     go = true;
