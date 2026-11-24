@@ -63,6 +63,102 @@ for line in sys.stdin:
 """
 
 
+class _HttpEdgeState:
+    def __init__(self) -> None:
+        self.sessions = ["sess-1", "sess-2"]
+        self.expired_once = False
+        self.tool_calls_seen = 0
+        self.fail_next_404 = False
+        self.corrupt_gzip_next = False
+        self.sse_done_next = False
+
+
+class _EdgeHttpHandler(http.server.BaseHTTPRequestHandler):
+    state: _HttpEdgeState
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        del format, args
+
+    def _send_json(self, payload: bytes, *, headers: dict[str, str] | None = None) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        body = cast("dict[str, object]", json.loads(self.rfile.read(length).decode("utf-8")))
+        method = body.get("method")
+        msg_id = body.get("id")
+        if method == "initialize":
+            sid = self.state.sessions.pop(0) if self.state.sessions else "sess-extra"
+            payload = json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {"protocolVersion": "2025-03-26"},
+                }
+            ).encode("utf-8")
+            self._send_json(payload, headers={"Mcp-Session-Id": sid})
+        elif method == "notifications/initialized":
+            self.send_response(202)
+            self.end_headers()
+        elif method == "tools/call":
+            self._handle_tools_call(msg_id)
+
+    def _handle_tools_call(self, msg_id: object) -> None:
+        self.state.tool_calls_seen += 1
+        if self.state.fail_next_404 or (
+            not self.state.expired_once and self.headers.get("Mcp-Session-Id") == "sess-1"
+        ):
+            self.state.expired_once = True
+            self.send_response(404)
+            self.end_headers()
+            return
+        if self.state.corrupt_gzip_next:
+            self._send_json(b"not-valid-gzip", headers={"Content-Encoding": "gzip"})
+            return
+        if self.state.sse_done_next:
+            ev = json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {"content": [{"type": "text", "text": "after-done"}]},
+                }
+            )
+            payload = f"data: {ev}\n\ndata: [DONE]\n\n".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+        payload = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {
+                    "content": [{"type": "text", "text": str(self.headers.get("Mcp-Session-Id"))}]
+                },
+            }
+        ).encode("utf-8")
+        self._send_json(payload)
+
+    def do_DELETE(self) -> None:
+        self.send_response(204)
+        self.end_headers()
+
+
+def _make_edge_handler(edge_state: _HttpEdgeState) -> type[http.server.BaseHTTPRequestHandler]:
+    class BoundHandler(_EdgeHttpHandler):
+        state = edge_state
+
+    return BoundHandler
+
+
 class UpstreamTest(unittest.TestCase):
     """Covers HTTP SSE/gzip/session/secret headers and stdio pagination/teardown."""
 
@@ -328,3 +424,63 @@ class UpstreamTest(unittest.TestCase):
                 self.assertEqual(added_content[0]["text"], "5")
             finally:
                 supervisor.close_all()
+
+    def test_http_missing_secret_raises_upstream_error(self) -> None:
+        """Surface missing secret files as UpstreamError rather than ConfigError."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec = ServerSpec(
+                name="cloudflare-api",
+                alias="cloudflare_api",
+                transport="http",
+                url="http://127.0.0.1:9/mcp",
+                secret_header=SecretHeader(
+                    name="Authorization",
+                    relative_path="cloudflare/missing",
+                    prefix="Bearer ",
+                ),
+            )
+            with mock.patch.dict(os.environ, {"XDG_DATA_HOME": tmp}, clear=False):
+                client = HttpUpstreamClient(spec)
+                with self.assertRaises(UpstreamError):
+                    client.list_tools()
+
+    def test_http_session_reinit_on_404_corrupt_gzip_and_non_json_sse(self) -> None:
+        """Renew expired 404 sessions once, reject bad gzip as UpstreamError, skip non-JSON SSE."""
+        state = _HttpEdgeState()
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _make_edge_handler(state))
+        port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            spec = ServerSpec(
+                name="mock-http",
+                alias="mock_http",
+                transport="http",
+                url=f"http://127.0.0.1:{port}/mcp",
+            )
+            client = HttpUpstreamClient(spec)
+            res = client.call_tool("ping", {})
+            content = cast("list[dict[str, object]]", res["content"])
+            self.assertEqual(content[0]["text"], "sess-2")
+
+            state.sse_done_next = True
+            sse_res = client.call_tool("ping", {})
+            state.sse_done_next = False
+            sse_content = cast("list[dict[str, object]]", sse_res["content"])
+            self.assertEqual(sse_content[0]["text"], "after-done")
+
+            state.corrupt_gzip_next = True
+            with self.assertRaises(UpstreamError):
+                client.call_tool("ping", {})
+            state.corrupt_gzip_next = False
+
+            before_calls = state.tool_calls_seen
+            state.fail_next_404 = True
+            with self.assertRaises(UpstreamError) as ctx:
+                client.call_tool("ping", {})
+            self.assertIn("404", str(ctx.exception))
+            max_retry_calls = 2
+            self.assertEqual(state.tool_calls_seen - before_calls, max_retry_calls)
+            client.close()
+        finally:
+            srv.shutdown()
+            srv.server_close()

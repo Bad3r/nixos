@@ -15,9 +15,10 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from typing import TYPE_CHECKING, cast
 
-from .config import Manifest, ServerSpec, format_secret_header
+from .config import ConfigError, Manifest, ServerSpec, format_secret_header
 
 if TYPE_CHECKING:
     from http.client import HTTPResponse
@@ -26,6 +27,7 @@ PROTOCOL_VERSION = "2025-03-26"
 CLIENT_INFO = {"name": "mcp-codemode", "version": "0.1.0"}
 ALLOWED_SCHEMES = ("http", "https")
 NO_BODY_STATUSES = (202, 204)
+HTTP_NOT_FOUND = 404
 CLOSE_TIMEOUT_SEC = 5.0
 STDIO_TERM_GRACE_SEC = 2.0
 
@@ -130,7 +132,12 @@ class HttpUpstreamClient:
             "Accept": "application/json, text/event-stream",
         }
         if self.spec.secret_header is not None:
-            headers[self.spec.secret_header.name] = format_secret_header(self.spec.secret_header)
+            try:
+                headers[self.spec.secret_header.name] = format_secret_header(
+                    self.spec.secret_header
+                )
+            except ConfigError as exc:
+                raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
         with self._lock:
             if self._session_id:
                 headers["Mcp-Session-Id"] = self._session_id
@@ -150,7 +157,10 @@ class HttpUpstreamClient:
             data_lines.clear()
             if not raw_event.strip():
                 return
-            parsed_obj: object = json.loads(raw_event)
+            try:
+                parsed_obj: object = json.loads(raw_event)
+            except json.JSONDecodeError:
+                return
             parsed = _as_dict(parsed_obj)
             if parsed is not None and (target_id is None or parsed.get("id") == target_id):
                 matched = parsed
@@ -201,14 +211,17 @@ class HttpUpstreamClient:
         timeout: float,
         *,
         expect_reply: bool,
+        allow_session_retry: bool = True,
     ) -> dict[str, object]:
         raw_id = payload.get("id") if expect_reply else None
         target_id = raw_id if isinstance(raw_id, int) else None
         raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        headers = self._headers()
+        had_session = "Mcp-Session-Id" in headers
         try:
             with self._open(
                 method="POST",
-                headers=self._headers(),
+                headers=headers,
                 data=raw,
                 timeout=timeout,
             ) as resp:
@@ -221,8 +234,25 @@ class HttpUpstreamClient:
                 return self._decode_response_body(resp, target_id)
         except urllib.error.HTTPError as exc:
             exc.close()
+            if (
+                exc.code == HTTP_NOT_FOUND
+                and had_session
+                and allow_session_retry
+                and payload.get("method") != "initialize"
+            ):
+                with self._lock:
+                    self._session_id = None
+                    self._protocol_version = None
+                    self._initialized = False
+                self.ensure_initialized()
+                return self._post(
+                    payload,
+                    timeout,
+                    expect_reply=expect_reply,
+                    allow_session_retry=False,
+                )
             raise UpstreamError.rpc_error(self.spec.name, f"HTTP {exc.code} {exc.reason}") from None
-        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        except (urllib.error.URLError, OSError, json.JSONDecodeError, zlib.error) as exc:
             raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
 
     def ensure_initialized(self) -> None:

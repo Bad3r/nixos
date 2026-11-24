@@ -79,6 +79,7 @@ def _build_command(config: SandboxConfig) -> list[str]:
         "--no-warnings=ExperimentalWarning",
         "--permission",
         f"--allow-fs-read={script_str}",
+        "--disallow-code-generation-from-strings",
         "--disable-proto=throw",
         f"--max-old-space-size={NODE_MAX_HEAP_MB}",
         script_str,
@@ -149,15 +150,25 @@ def _dispatch_rpc(
     msg: dict[str, object],
     rpc_handler: RpcHandler,
     send_message: Callable[[dict[str, object]], None],
-) -> None:
+) -> bool:
     req_id = msg.get("id")
     method = str(msg.get("method", ""))
     params = _as_dict(msg.get("params")) or {}
     try:
         rpc_result = rpc_handler(method, params)
-        send_message({"type": "rpc_result", "id": req_id, "ok": True, "result": rpc_result})
+        reply: dict[str, object] = {
+            "type": "rpc_result",
+            "id": req_id,
+            "ok": True,
+            "result": rpc_result,
+        }
     except Exception as exc:  # noqa: BLE001
-        send_message({"type": "rpc_result", "id": req_id, "ok": False, "error": str(exc)})
+        reply = {"type": "rpc_result", "id": req_id, "ok": False, "error": str(exc)}
+    try:
+        send_message(reply)
+    except BrokenPipeError, OSError, ValueError:
+        return False
+    return True
 
 
 def _parse_done(msg: dict[str, object]) -> SandboxResult:
@@ -188,7 +199,8 @@ def _read_sandbox_loop(
             continue
         msg_type = msg.get("type")
         if msg_type == "rpc":
-            _dispatch_rpc(msg, rpc_handler, send_message)
+            if not _dispatch_rpc(msg, rpc_handler, send_message):
+                return None, None
         elif msg_type == "done":
             return _parse_done(msg), None
         elif msg_type == "error":
@@ -267,15 +279,16 @@ def run_sandbox(
     final_error: str | None = None
 
     try:
-        send_message(
-            {
-                "type": "run",
-                "code": code,
-                "mode": mode,
-                "serverAliases": server_aliases,
-            }
-        )
-        final_result, final_error = _read_sandbox_loop(proc, rpc_handler, send_message)
+        with contextlib.suppress(BrokenPipeError, OSError):
+            send_message(
+                {
+                    "type": "run",
+                    "code": code,
+                    "mode": mode,
+                    "serverAliases": server_aliases,
+                }
+            )
+            final_result, final_error = _read_sandbox_loop(proc, rpc_handler, send_message)
     finally:
         _cleanup_sandbox_proc(proc, timer, stderr_thread)
 

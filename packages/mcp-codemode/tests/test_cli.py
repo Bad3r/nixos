@@ -15,7 +15,7 @@ from typing import cast
 from unittest import mock
 
 from mcp_codemode.cli import main
-from mcp_codemode.config import PROJECT_CONFIG_NAME, user_overrides_path
+from mcp_codemode.config import active_project_overrides, user_overrides_path
 
 
 class CliTest(unittest.TestCase):
@@ -55,7 +55,9 @@ class CliTest(unittest.TestCase):
             try:
                 with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(state_dir)}, clear=False):
                     self.assertEqual(main(["enable", "google-developer-knowledge"]), 0)
-                    self.assertTrue((proj_dir / PROJECT_CONFIG_NAME).is_file())
+                    self.assertTrue(user_overrides_path().is_file())
+                    self.assertFalse((proj_dir / ".mcp-codemode.json").exists())
+                    self.assertEqual(active_project_overrides(proj_dir), [str(proj_dir.resolve())])
 
                     self.assertEqual(main(["disable", "--user", "deepwiki"]), 0)
                     self.assertTrue(user_overrides_path().is_file())

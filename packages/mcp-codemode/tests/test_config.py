@@ -14,7 +14,6 @@ from unittest import mock
 from mcp_codemode.config import (
     DISABLE_ENV_VAR,
     ENABLE_ENV_VAR,
-    PROJECT_CONFIG_NAME,
     ConfigError,
     SecretHeader,
     format_secret_header,
@@ -93,11 +92,25 @@ class ConfigTest(unittest.TestCase):
                 self.assertTrue(states["beta"])
                 self.assertEqual(sources["beta"], str(user_overrides_path()))
 
-                update_override_file(ancestor / PROJECT_CONFIG_NAME, disable_names=["beta"])
-                update_override_file(project / PROJECT_CONFIG_NAME, enable_names=["beta"])
+                update_override_file(
+                    user_overrides_path(),
+                    project_dir=ancestor,
+                    disable_names=["beta"],
+                )
+                update_override_file(
+                    user_overrides_path(),
+                    project_dir=project,
+                    enable_names=["beta"],
+                )
+                # Untrusted repo files must not affect enablement.
+                (project / ".mcp-codemode.json").write_text(
+                    json.dumps({"disable": ["alpha", "beta", "google-developer-knowledge"]}),
+                    encoding="utf-8",
+                )
                 states, sources = resolve_enabled_servers(manifest, project)
+                self.assertTrue(states["alpha"])
                 self.assertTrue(states["beta"])
-                self.assertEqual(sources["beta"], str(project / PROJECT_CONFIG_NAME))
+                self.assertEqual(sources["beta"], f"{user_overrides_path()} ({project.resolve()})")
 
                 with mock.patch.dict(
                     os.environ,
@@ -138,8 +151,23 @@ class ConfigTest(unittest.TestCase):
                 cf_target.write_text("dummy-value\n", encoding="utf-8")
                 self.assertEqual(format_secret_header(bearer), "Bearer dummy-value")
 
+                # Sops-nix links ~/.local/share/<app>/api-key into /run/user/<uid>/secrets/...
+                external_dir = Path(tmp) / "run_secrets"
+                external_dir.mkdir(parents=True, exist_ok=True)
+                external_secret = external_dir / "key"
+                external_secret.write_text("symlinked-secret\n", encoding="utf-8")
+                link_target = data_dir / "linked" / "api-key"
+                link_target.parent.mkdir(parents=True, exist_ok=True)
+                link_target.symlink_to(external_secret)
+                linked_header = SecretHeader(name="X-Api-Key", relative_path="linked/api-key")
+                self.assertEqual(read_secret(linked_header), "symlinked-secret")
+
+                for bad_rel in ("/etc/passwd", "../escape", "sub/../../escape", ""):
+                    with self.assertRaises(ConfigError):
+                        read_secret(SecretHeader(name="X-Api-Key", relative_path=bad_rel))
+
     def test_secret_header_prefix_validation(self) -> None:
-        """Parse optional secretHeader.prefix and reject non-string or newline values."""
+        """Parse optional secretHeader.prefix and reject unsafe headers or paths."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             valid_manifest = root / "valid.json"
@@ -180,7 +208,19 @@ class ConfigTest(unittest.TestCase):
             if gdk_secret is not None:
                 self.assertEqual(gdk_secret.prefix, "")
 
-            for bad_prefix in (123, "Bearer \n"):
+            bad_headers: list[dict[str, object]] = [
+                {"name": "Authorization", "prefix": 123, "relativePath": "cloudflare/api-key"},
+                {
+                    "name": "Authorization",
+                    "prefix": "Bearer \n",
+                    "relativePath": "cloudflare/api-key",
+                },
+                {"name": "", "relativePath": "cloudflare/api-key"},
+                {"name": "X-Bad\r\nHeader", "relativePath": "cloudflare/api-key"},
+                {"name": "Authorization", "relativePath": "/abs/secret"},
+                {"name": "Authorization", "relativePath": "../escape"},
+            ]
+            for bad_header in bad_headers:
                 bad_manifest = root / "bad.json"
                 bad_manifest.write_text(
                     json.dumps(
@@ -190,11 +230,7 @@ class ConfigTest(unittest.TestCase):
                                 "cloudflare-api": {
                                     "transport": "http",
                                     "url": "https://mcp.cloudflare.com/mcp",
-                                    "secretHeader": {
-                                        "name": "Authorization",
-                                        "prefix": bad_prefix,
-                                        "relativePath": "cloudflare/api-key",
-                                    },
+                                    "secretHeader": bad_header,
                                 }
                             },
                         }

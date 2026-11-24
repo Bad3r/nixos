@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Bad3r
 //
-// Isolated Code Mode script runner executed inside Node 24 (--permission) +
-// Bubblewrap (--unshare-all). Communicates with the host gateway strictly over
-// newline-delimited JSON on stdin/stdout; model code runs in a separate VM
-// context without process, require, fetch, or filesystem globals.
+// Isolated Code Mode script runner executed inside Node 24 (--permission,
+// --disallow-code-generation-from-strings, --disable-proto=throw) + Bubblewrap
+// (--unshare-all) for OS/filesystem/network/codegen confinement. Model code
+// runs in a separate node:vm context without process, require, fetch, or
+// filesystem globals and communicates with the host gateway strictly over
+// newline-delimited JSON on stdin/stdout.
 
 import { stripTypeScriptTypes } from "node:module";
 import readline from "node:readline";
@@ -16,6 +18,18 @@ let nextRpcId = 1;
 
 function sendHost(msg) {
 	process.stdout.write(`${JSON.stringify(msg)}\n`);
+}
+
+function sendHostAndWait(msg) {
+	return new Promise((resolve, reject) => {
+		process.stdout.write(`${JSON.stringify(msg)}\n`, (err) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve();
+			}
+		});
+	});
 }
 
 function rpcCall(method, params = {}) {
@@ -113,15 +127,21 @@ function stripTypesIfPossible(source) {
 
 function compileUserCode(source, context) {
 	const cleaned = stripTypesIfPossible(source).trim();
+	const exprCandidate = cleaned.replace(/;+\s*$/, "");
+	let exprScript = null;
 	try {
-		const expr = vm.runInContext(`(${cleaned})`, context);
-		if (typeof expr === "function") {
-			return expr;
-		}
-		return async () => expr;
+		exprScript = new vm.Script(`(${exprCandidate})`);
 	} catch {
-		return vm.runInContext(`(async () => {\n${cleaned}\n})`, context);
+		exprScript = null;
 	}
+	if (exprScript !== null) {
+		return async () => {
+			const value = exprScript.runInContext(context);
+			return typeof value === "function" ? await value() : await value;
+		};
+	}
+	const bodyScript = new vm.Script(`(async () => {\n${cleaned}\n})`);
+	return bodyScript.runInContext(context);
 }
 
 function makeSandboxContext(codemode) {
@@ -155,11 +175,16 @@ async function runCode(msg) {
 		const context = makeSandboxContext(codemode);
 		const fn = compileUserCode(String(msg.code || ""), context);
 		const value = await fn();
-		sendHost({ type: "done", value: value === undefined ? null : value, logs });
+		await sendHostAndWait({
+			type: "done",
+			value: value === undefined ? null : value,
+			logs,
+		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		sendHost({ type: "error", error: message, logs });
+		await sendHostAndWait({ type: "error", error: message, logs });
 	} finally {
+		rl.close();
 		process.exit(0);
 	}
 }

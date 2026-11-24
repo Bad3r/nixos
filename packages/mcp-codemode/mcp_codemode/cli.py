@@ -12,8 +12,8 @@ from typing import Any
 
 from ._paths import resolve_bwrap_bin, resolve_node_bin, resolve_sandbox_script
 from .config import (
-    PROJECT_CONFIG_NAME,
     ConfigError,
+    active_project_overrides,
     load_manifest,
     resolve_enabled_servers,
     update_override_file,
@@ -52,13 +52,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     enable_p = sub.add_parser("enable", help="Enable one or more opt-in MCP servers.")
     enable_p.add_argument(
-        "--user", action="store_true", help="Write user-level override instead of project."
+        "--user",
+        action="store_true",
+        help="Write user-wide override instead of project-scoped override in user state.",
     )
     enable_p.add_argument("servers", nargs="+", help="Server name(s) or aliases to enable.")
 
     disable_p = sub.add_parser("disable", help="Disable one or more MCP servers.")
     disable_p.add_argument(
-        "--user", action="store_true", help="Write user-level override instead of project."
+        "--user",
+        action="store_true",
+        help="Write user-wide override instead of project-scoped override in user state.",
     )
     disable_p.add_argument("servers", nargs="+", help="Server name(s) or aliases to disable.")
 
@@ -102,31 +106,42 @@ def _cmd_status(args: argparse.Namespace) -> int:
         return 0
 
     user_path = user_overrides_path()
-    project_path = cwd / PROJECT_CONFIG_NAME
+    project_dir = cwd.resolve()
+    matching_projects = active_project_overrides(project_dir)
     payload = {
         "userOverrides": str(user_path),
         "userOverridesExists": user_path.is_file(),
-        "projectConfig": str(project_path),
-        "projectConfigExists": project_path.is_file(),
+        "projectDir": str(project_dir),
+        "projectOverrides": matching_projects,
+        "projectOverridesExist": bool(matching_projects),
     }
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
         print(f"user overrides: {user_path} ({'present' if user_path.is_file() else 'absent'})")
-        print(
-            f"project config: {project_path} ({'present' if project_path.is_file() else 'absent'})"
-        )
+        proj_summary = ", ".join(matching_projects) if matching_projects else "none"
+        print(f"project overrides for {project_dir}: {proj_summary}")
     return 0
 
 
 def _cmd_toggle(args: argparse.Namespace, *, enable: bool) -> int:
-    target = user_overrides_path() if args.user else Path.cwd() / PROJECT_CONFIG_NAME
+    target = user_overrides_path()
+    project_dir = None if args.user else Path.cwd().resolve()
     if enable:
-        update_override_file(target, enable_names=list(args.servers))
+        update_override_file(
+            target,
+            enable_names=list(args.servers),
+            project_dir=project_dir,
+        )
     else:
-        update_override_file(target, disable_names=list(args.servers))
+        update_override_file(
+            target,
+            disable_names=list(args.servers),
+            project_dir=project_dir,
+        )
+    scope = "user" if project_dir is None else f"project {project_dir}"
     action = "enabled" if enable else "disabled"
-    print(f"Updated {target}: {action} {', '.join(args.servers)}")
+    print(f"Updated {target} ({scope}): {action} {', '.join(args.servers)}")
     return 0
 
 

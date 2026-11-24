@@ -8,7 +8,7 @@
   Summary:
     * Exposes `search` and `execute` MCP tools to coding agents over stdio, running model-written JS/TS in Bubblewrap + Node 24 permissions.
     * Multiplexes upstream stdio and Streamable HTTP MCP servers with host-side SOPS secret header injection.
-    * Supports dynamic per-project (`.mcp-codemode.json`), user (`mcp-codemode enable --user`), and environment (`MCP_CODEMODE_ENABLE`) opt-in toggles.
+    * Supports hot-reloaded project and user overrides in `$XDG_STATE_HOME/mcp-codemode/overrides.json` (`mcp-codemode enable [--user]`) and startup `MCP_CODEMODE_ENABLE` / `MCP_CODEMODE_DISABLE` env toggles.
 */
 _:
 let

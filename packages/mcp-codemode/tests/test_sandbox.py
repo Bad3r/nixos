@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import time
 import unittest
 from typing import cast
 
@@ -122,3 +123,78 @@ class SandboxTest(unittest.TestCase):
         truncated = truncate_text(big)
         self.assertTrue(truncated.endswith("--- TRUNCATED ---"))
         self.assertLess(len(truncated), len(big))
+
+    def test_large_output_not_truncated_by_pipe(self) -> None:
+        """Flush stdout before exiting so payloads past 64 KiB survive."""
+        expected_len = 200_000
+        res = run_sandbox(
+            code=f'async () => "x".repeat({expected_len})',
+            mode="search",
+            server_aliases={},
+            rpc_handler=lambda _m, _p: None,
+            config=self._config(),
+        )
+        self.assertEqual(res.value, "x" * expected_len)
+
+    def test_trailing_semicolon_and_no_double_exec_on_error(self) -> None:
+        """Execute trailing-semicolon arrows and avoid re-running side effects on errors."""
+        res = run_sandbox(
+            code="async () => { return 42; };",
+            mode="search",
+            server_aliases={},
+            rpc_handler=lambda _m, _p: None,
+            config=self._config(),
+        )
+        expected_value = 42
+        self.assertEqual(res.value, expected_value)
+
+        rpc_calls = 0
+
+        def count_rpc(method: str, _params: dict[str, object]) -> object:
+            nonlocal rpc_calls
+            rpc_calls += 1
+            return {"method": method}
+
+        with self.assertRaises(SandboxError) as ctx:
+            run_sandbox(
+                code=(
+                    "(async () => { await codemode.mock_srv.ping({}); throw new Error('boom'); })()"
+                ),
+                mode="execute",
+                server_aliases={"mock_srv": "mock-srv"},
+                rpc_handler=count_rpc,
+                config=self._config(),
+            )
+        self.assertIn("boom", str(ctx.exception))
+        self.assertEqual(rpc_calls, 1)
+
+    def test_timeout_during_slow_rpc_and_codegen_blocked(self) -> None:
+        """Convert broken pipes after timeout into SandboxError and block Function escape."""
+
+        def slow_rpc(_method: str, _params: dict[str, object]) -> object:
+            time.sleep(1.0)
+            return {"ok": True}
+
+        with self.assertRaises(SandboxError) as timeout_ctx:
+            run_sandbox(
+                code="async () => await codemode.mock_srv.ping({})",
+                mode="execute",
+                server_aliases={"mock_srv": "mock-srv"},
+                rpc_handler=slow_rpc,
+                config=self._config(timeout_sec=0.3),
+            )
+        self.assertIn("timed out", str(timeout_ctx.exception))
+
+        for escape_code in (
+            'async () => codemode.servers.constructor.constructor("return 1")()',
+            'async () => setTimeout.constructor("return process")()',
+        ):
+            with self.assertRaises(SandboxError) as esc_ctx:
+                run_sandbox(
+                    code=escape_code,
+                    mode="search",
+                    server_aliases={},
+                    rpc_handler=lambda _m, _p: None,
+                    config=self._config(),
+                )
+            self.assertIn("disallowed", str(esc_ctx.exception).lower())

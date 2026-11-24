@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, cast
 from .config import (
     DISABLE_ENV_VAR,
     ENABLE_ENV_VAR,
-    PROJECT_CONFIG_NAME,
     Manifest,
     resolve_enabled_servers,
     user_overrides_path,
@@ -27,6 +26,7 @@ from .sandbox import (
 from .upstream import UpstreamError, UpstreamSupervisor
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 PROTOCOL_VERSION = "2025-03-26"
@@ -34,6 +34,7 @@ SERVER_INFO = {"name": "mcp-codemode", "version": "0.1.0"}
 NON_TEXT_BLOCK_TYPES = frozenset({"image", "audio", "resource", "resource_link"})
 RPC_METHOD_NOT_FOUND = -32601
 RPC_INVALID_PARAMS = -32602
+RPC_INTERNAL_ERROR = -32603
 
 
 class ToolDispatchError(RuntimeError):
@@ -48,10 +49,10 @@ class ToolDispatchError(RuntimeError):
     def disabled_server(cls, server: str) -> ToolDispatchError:
         """Create an error explaining how to enable an opt-in server."""
         return cls(
-            f"MCP server '{server}' is disabled. Enable it with "
-            f"`mcp-codemode enable {server}` (writes {PROJECT_CONFIG_NAME} in the project), "
-            f"`mcp-codemode enable --user {server}` (user override at {user_overrides_path()}), "
-            f"or `{ENABLE_ENV_VAR}={server}`."
+            f"MCP server '{server}' is disabled. Enable it without restarting via "
+            f"`mcp-codemode enable {server}` (project-scoped in {user_overrides_path()}) or "
+            f"`mcp-codemode enable --user {server}` (user-wide), or launch the client with "
+            f"`{ENABLE_ENV_VAR}={server}`."
         )
 
     @classmethod
@@ -194,10 +195,10 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
         "enabled MCP servers via `codemode.<server>.<tool>(args)` or "
         "`codemode.call(server, tool, args)`, plus `codemode.servers()`, `codemode.tools()`, "
         "and `codemode.spec()`. Use `search` first to inspect schemas. Return only the filtered "
-        "result you need; output past 24,000 chars is truncated. Toggle opt-in servers via "
-        f"`mcp-codemode enable <server>` ({PROJECT_CONFIG_NAME}), "
-        "`mcp-codemode enable --user <server>`, "
-        f"or `{ENABLE_ENV_VAR}` / `{DISABLE_ENV_VAR}` without restarting the client."
+        "result you need; output past 24,000 chars is truncated. Toggle opt-in servers without "
+        "restarting the client via `mcp-codemode enable <server>` "
+        f"(project-scoped in {user_overrides_path()}) or `mcp-codemode enable --user <server>`, "
+        f"or set `{ENABLE_ENV_VAR}` / `{DISABLE_ENV_VAR}` before launching the client."
     )
     return [
         {
@@ -384,6 +385,26 @@ class CodeModeServer:
             )
         return _unwrap_upstream_result(result, attachments)
 
+    def _make_rpc_handler(
+        self,
+        tool_name: str,
+        attachments: list[dict[str, object]],
+    ) -> Callable[[str, dict[str, object]], object]:
+        def rpc_handler(method: str, params: dict[str, object]) -> object:
+            if method == "servers":
+                return self._handle_servers_rpc()
+            if method == "tools":
+                return self._handle_discovery_rpc(params, compact=True)
+            if method == "spec":
+                return self._handle_discovery_rpc(params, compact=False)
+            if method == "call_tool":
+                if tool_name != "execute":
+                    raise ToolDispatchError.unsupported_method(tool_name, method)
+                return self._handle_call_tool_rpc(params, attachments)
+            raise ToolDispatchError.unsupported_method(tool_name, method)
+
+        return rpc_handler
+
     def run_tool(self, tool_name: str, arguments: dict[str, object]) -> dict[str, object]:
         """Execute a downstream `search` or `execute` tool call and return an MCP result."""
         if tool_name not in ("search", "execute"):
@@ -402,19 +423,7 @@ class CodeModeServer:
             }
 
         attachments: list[dict[str, object]] = []
-
-        def rpc_handler(method: str, params: dict[str, object]) -> object:
-            if method == "servers":
-                return self._handle_servers_rpc()
-            if method == "tools":
-                return self._handle_discovery_rpc(params, compact=True)
-            if method == "spec":
-                return self._handle_discovery_rpc(params, compact=False)
-            if method == "call_tool":
-                if tool_name != "execute":
-                    raise ToolDispatchError.unsupported_method(tool_name, method)
-                return self._handle_call_tool_rpc(params, attachments)
-            raise ToolDispatchError.unsupported_method(tool_name, method)
+        rpc_handler = self._make_rpc_handler(tool_name, attachments)
 
         try:
             outcome = run_sandbox(
@@ -428,6 +437,13 @@ class CodeModeServer:
             return {
                 "isError": True,
                 "content": [{"type": "text", "text": str(exc)}],
+            }
+        except Exception as exc:  # noqa: BLE001
+            sys.stderr.write(f"mcp-codemode: unexpected error running {tool_name}: {exc}\n")
+            sys.stderr.flush()
+            return {
+                "isError": True,
+                "content": [{"type": "text", "text": f"codemode internal error: {exc}"}],
             }
 
         content: list[dict[str, object]] = [
@@ -484,7 +500,6 @@ class CodeModeServer:
         """Run the newline-delimited JSON-RPC loop on stdin/stdout until EOF."""
 
         def _handle_signal(_signum: int, _frame: object) -> None:
-            self.supervisor.close_all()
             raise SystemExit(0)
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
@@ -503,7 +518,24 @@ class CodeModeServer:
                 msg = _as_dict(parsed)
                 if msg is None:
                     continue
-                reply = self.handle_message(msg)
+                try:
+                    reply = self.handle_message(msg)
+                except Exception as exc:  # noqa: BLE001
+                    sys.stderr.write(f"mcp-codemode: internal error handling message: {exc}\n")
+                    sys.stderr.flush()
+                    msg_id = msg.get("id")
+                    reply = (
+                        {
+                            "jsonrpc": "2.0",
+                            "id": msg_id,
+                            "error": {
+                                "code": RPC_INTERNAL_ERROR,
+                                "message": f"Internal error: {exc}",
+                            },
+                        }
+                        if msg_id is not None
+                        else None
+                    )
                 if reply is not None:
                     sys.stdout.write(json.dumps(reply, separators=(",", ":")) + "\n")
                     sys.stdout.flush()

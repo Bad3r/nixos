@@ -16,7 +16,7 @@ from typing import cast
 from unittest import mock
 
 from mcp_codemode._paths import resolve_node_bin, resolve_sandbox_script
-from mcp_codemode.config import PROJECT_CONFIG_NAME, load_manifest, update_override_file
+from mcp_codemode.config import load_manifest, update_override_file, user_overrides_path
 from mcp_codemode.server import CodeModeServer, build_sandbox_config
 
 STDIO_TOOL_SERVER = """
@@ -146,7 +146,8 @@ class ServerTest(unittest.TestCase):
         )
 
         update_override_file(
-            project_dir / PROJECT_CONFIG_NAME,
+            user_overrides_path(),
+            project_dir=project_dir,
             enable_names=["google-developer-knowledge"],
         )
 
@@ -252,3 +253,107 @@ class ServerTest(unittest.TestCase):
         finally:
             srv.shutdown()
             srv.server_close()
+
+    def test_missing_secret_isolated_and_slow_timeout_keeps_gateway_alive(self) -> None:
+        """Keep healthy tools discoverable on missing secret and survive timed-out RPC calls."""
+        slow_stdio = """
+import json, sys, time
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    msg = json.loads(line)
+    mid = msg.get("id")
+    method = msg.get("method")
+    if method == "initialize":
+        res = {"protocolVersion": "2025-03-26", "capabilities": {}}
+    elif method == "tools/list":
+        res = {
+            "tools": [
+                {"name": "slow", "description": "Slow", "inputSchema": {"type": "object"}}
+            ]
+        }
+    elif method == "tools/call":
+        time.sleep(1.5)
+        res = {"content": [{"type": "text", "text": "done"}]}
+    else:
+        continue
+    print(json.dumps({"jsonrpc": "2.0", "id": mid, "result": res}), flush=True)
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / "data"
+            state_dir = root / "state"
+            stdio_script = root / "slow_stdio.py"
+            stdio_script.write_text(slow_stdio, encoding="utf-8")
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "client": "claude",
+                        "servers": {
+                            "cloudflare-api": {
+                                "transport": "http",
+                                "url": "http://127.0.0.1:9/mcp",
+                                "enabled": True,
+                                "secretHeader": {
+                                    "name": "Authorization",
+                                    "prefix": "Bearer ",
+                                    "relativePath": "cloudflare/missing",
+                                },
+                            },
+                            "slow-stdio": {
+                                "transport": "stdio",
+                                "command": sys.executable,
+                                "args": ["-u", str(stdio_script)],
+                                "enabled": True,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest = load_manifest(manifest_path)
+            sandbox_cfg = build_sandbox_config(
+                node_bin=resolve_node_bin(),
+                bwrap_bin=None,
+                sandbox_script=resolve_sandbox_script(),
+                use_bwrap=False,
+                timeout_sec=0.4,
+            )
+            with mock.patch.dict(
+                os.environ,
+                {"XDG_DATA_HOME": str(data_dir), "XDG_STATE_HOME": str(state_dir)},
+                clear=False,
+            ):
+                server = CodeModeServer(manifest, sandbox_cfg, cwd=root)
+                try:
+                    search_res = self._call_tool(
+                        server, 1, "search", "async () => await codemode.tools()"
+                    )
+                    blocks = cast("list[dict[str, object]]", search_res["content"])
+                    discovered = cast(
+                        "dict[str, dict[str, object]]", json.loads(str(blocks[0]["text"]))
+                    )
+                    self.assertEqual(
+                        cast("list[dict[str, object]]", discovered["slow-stdio"]["tools"])[0][
+                            "name"
+                        ],
+                        "slow",
+                    )
+                    self.assertIn("error", discovered["cloudflare-api"])
+
+                    timed_out = self._call_tool(
+                        server,
+                        2,
+                        "execute",
+                        "async () => await codemode.slow_stdio.slow({})",
+                    )
+                    self.assertTrue(timed_out["isError"])
+                    timeout_blocks = cast("list[dict[str, object]]", timed_out["content"])
+                    self.assertIn("timed out", str(timeout_blocks[0]["text"]))
+
+                    ping = server.handle_message({"jsonrpc": "2.0", "id": 3, "method": "ping"})
+                    self.assertEqual(ping, {"jsonrpc": "2.0", "id": 3, "result": {}})
+                finally:
+                    server.supervisor.close_all()
