@@ -1,0 +1,3 @@
+# Copyright (c) 2026 Bad3r
+
+"""Unit tests for mcp-codemode."""

@@ -295,6 +295,7 @@ let
       marktext.extended.enable = lib.mkOverride 1100 true;
       masscan.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
+      "mcp-codemode".extended.enable = lib.mkOverride 1100 false;
       mdformat.extended.enable = lib.mkOverride 1100 true;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 true;

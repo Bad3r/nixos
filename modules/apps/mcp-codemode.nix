@@ -1,0 +1,58 @@
+/*
+  Package: mcp-codemode
+  Description: Local Code Mode MCP gateway multiplexing stdio and Streamable HTTP servers.
+  Homepage: https://github.com/Bad3r/nixos
+  Documentation: https://github.com/Bad3r/nixos/blob/main/docs/reference/mcp-tools.md
+  Repository: https://github.com/Bad3r/nixos
+
+  Summary:
+    * Exposes `search` and `execute` MCP tools to coding agents over stdio, running model-written JS/TS in Bubblewrap + Node 24 permissions.
+    * Multiplexes upstream stdio and Streamable HTTP MCP servers with host-side SOPS secret header injection.
+    * Supports dynamic per-project (`.mcp-codemode.json`), user (`mcp-codemode enable --user`), and environment (`MCP_CODEMODE_ENABLE`) opt-in toggles.
+*/
+_:
+let
+  McpCodemodeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."mcp-codemode".extended;
+    in
+    {
+      options.programs."mcp-codemode".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable the mcp-codemode gateway CLI.";
+        };
+
+        package = lib.mkPackageOption pkgs "mcp-codemode" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps."mcp-codemode" = McpCodemodeModule;
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks."apps/mcp-codemode" =
+        pkgs.runCommand "mcp-codemode-check"
+          {
+            passthru.runtimeCheck = true;
+            package = pkgs.callPackage ../../packages/mcp-codemode { };
+          }
+          ''
+            test -x "$package/bin/mcp-codemode"
+            touch "$out"
+          '';
+    };
+}
