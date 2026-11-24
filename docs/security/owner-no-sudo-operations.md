@@ -12,6 +12,7 @@ Scope:
 - sudo-rs rules:
   - `modules/hosts/common/sudo.nix`
   - `modules/apps/bpftrace.nix`
+  - `modules/apps/gdb.nix`, `modules/apps/strace.nix`, `modules/apps/ltrace.nix`, `modules/apps/frida-tools.nix`, and `modules/apps/delve.nix`
 - kernel setting affecting `dmesg`:
   - `modules/hosts/common/boot.nix`
 
@@ -85,6 +86,16 @@ Scope:
   - The rule matches the binary with any arguments and runs it as root.
     `-c <cmd>` and `--unsafe` (`system()`) start root commands, so the rule is a passwordless root for `wheel` users.
   - No capability wrapper exists, because bpftrace refuses to start without `CAP_DAC_OVERRIDE` and `CAP_DAC_READ_SEARCH` on top of `CAP_BPF` and `CAP_PERFMON`, and `-c` and `--unsafe` would pass them to a child process.
+- Attaching to a running process:
+  - `sudo gdb`, `sudo gdbserver`, `sudo gcore`
+  - `sudo strace`, `sudo ltrace`
+  - `sudo frida`, `sudo frida-trace`, `sudo frida-strace`, `sudo frida-itrace`, `sudo frida-discover`
+  - `sudo dlv`, `sudo dlv-dap`
+  - Granted by one `NOPASSWD` wheel rule per app module, present only where the app is enabled.
+  - `kernel.yama.ptrace_scope = 1` lets a process attach only to its own descendants unless the caller has `CAP_SYS_PTRACE`; root has it, so these rules remove the password prompt for attaching to any process.
+  - Each rule runs the tool as root with any arguments, so every one is a passwordless root: `gdb -ex 'shell ...'`, `strace` with `-o`, and `frida` scripts all run as root.
+  - Launching the target as a child (`strace -f <cmd>`, `gdb --args <cmd>`) needs no privilege, and these rules do not change that.
+  - A tool run under `sudo` skips the owner's `~/.gdbinit` and other per-user configuration.
 
 ## Related
 

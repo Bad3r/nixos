@@ -23,7 +23,7 @@ Scope:
       - `systemctl suspend`
       - `reboot`
       - `poweroff`
-      - `bpftrace` (where enabled)
+      - `bpftrace`, `gdb`, `gdbserver`, `gcore`, `strace`, `ltrace`, the `frida` tools, and `dlv` (where enabled)
     - polkit allow for login1 power actions:
       - `org.freedesktop.login1.power-off*`
       - `org.freedesktop.login1.reboot*`

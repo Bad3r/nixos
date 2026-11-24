@@ -36,6 +36,7 @@ let
     blackboxprotobuf = true;
     bloaty = true;
     bpftrace = true;
+    strace = true;
     buf = true;
     goresym = true;
     pbtk = true;

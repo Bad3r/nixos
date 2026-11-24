@@ -15,6 +15,9 @@
     -T: Display timing information for each call.
     -S: Trace system calls in addition to library calls.
     -e <expr>: Limit tracing to specific functions, libraries, or system calls.
+
+  Notes:
+    * A `NOPASSWD` sudo-rs rule lets `wheel` users run `ltrace` as root, which attaches to processes that `kernel.yama.ptrace_scope = 1` shields from the owner.
 */
 _:
 let
@@ -41,6 +44,18 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.sudo-rs.extraRules = [
+          {
+            commands = [
+              {
+                command = "${cfg.package}/bin/ltrace";
+                options = [ "NOPASSWD" ];
+              }
+            ];
+            groups = [ "wheel" ];
+          }
+        ];
       };
     };
 in
