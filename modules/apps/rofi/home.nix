@@ -290,9 +290,9 @@ in
             # Filebrowser settings
             filebrowser-directories-first = true;
             filebrowser-sorting-method = "name";
-          };
 
-          font = "${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.popups}";
+            font = "${config.stylix.fonts.sansSerif.name} ${toString config.stylix.fonts.sizes.popups}";
+          };
           theme = launcherTheme;
         };
 
