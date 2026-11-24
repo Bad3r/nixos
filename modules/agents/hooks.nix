@@ -170,31 +170,36 @@ in
             cases = pkgs.writeText "agent-hook-${name}-cases.json" (builtins.toJSON hook.tests);
           in
           lib.nameValuePair "agents/hooks/${name}" (
-            pkgs.runCommandLocal "agent-hook-${name}-check" { nativeBuildInputs = [ pkgs.jq ]; } ''
-              set -euo pipefail
-              fail=0
-              for expect in deny ask allow; do
-                while IFS= read -r case; do
-                  out_json="$(${lib.getExe (hook.package pkgs)} <<<"$case")"
-                  if jq -e 'type == "object" and has("toolCall")' <<<"$case" >/dev/null 2>&1; then
-                    got="$(jq -rs '
-                      if length == 1 and (.[0] | type == "object") and ((.[0].decision // "") | type == "string" and length > 0)
-                      then .[0].decision
-                      else "missing-decision"
-                      end
-                    ' <<<"$out_json")"
-                  else
-                    got="$(jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"' <<<"$out_json")"
-                  fi
-                  if [ "$got" != "$expect" ]; then
-                    echo "expected $expect, got $got: $case" >&2
-                    fail=1
-                  fi
-                done < <(jq -r ".$expect // [] | .[] | if type == \"string\" then . else tojson end" ${cases})
-              done
-              [ "$fail" -eq 0 ]
-              touch "$out"
-            ''
+            pkgs.runCommandLocal "agent-hook-${name}-check"
+              {
+                passthru.runtimeCheck = true;
+                nativeBuildInputs = [ pkgs.jq ];
+              }
+              ''
+                set -euo pipefail
+                fail=0
+                for expect in deny ask allow; do
+                  while IFS= read -r case; do
+                    out_json="$(${lib.getExe (hook.package pkgs)} <<<"$case")"
+                    if jq -e 'type == "object" and has("toolCall")' <<<"$case" >/dev/null 2>&1; then
+                      got="$(jq -rs '
+                        if length == 1 and (.[0] | type == "object") and ((.[0].decision // "") | type == "string" and length > 0)
+                        then .[0].decision
+                        else "missing-decision"
+                        end
+                      ' <<<"$out_json")"
+                    else
+                      got="$(jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"' <<<"$out_json")"
+                    fi
+                    if [ "$got" != "$expect" ]; then
+                      echo "expected $expect, got $got: $case" >&2
+                      fail=1
+                    fi
+                  done < <(jq -r ".$expect // [] | .[] | if type == \"string\" then . else tojson end" ${cases})
+                done
+                [ "$fail" -eq 0 ]
+                touch "$out"
+              ''
           )
         ) (lib.filterAttrs (_name: hook: hook ? tests) compiledHooks);
       };

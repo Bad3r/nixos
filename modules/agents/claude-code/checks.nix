@@ -15,6 +15,7 @@
           claudePkg = "/nix/store/test-claude";
           bunInstallDir = "/nix/store/test-bun";
           externalBinary = "/nix/store/test-external/bin/claude";
+          launcherDir = "/home/test/.local/bin";
         };
       installMethodVariants = {
         bun = {
@@ -218,6 +219,142 @@
               NODE
               echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
             '';
+
+        "claude-code/launcher-env" =
+          let
+            nixWrapFlags = import ./_wrap-flags.nix { inherit lib; };
+            probeText = ''
+              printf 'TEAMMATE=%s\nNONESS=%s\nTELEM=%s\nESCAPE=%s\nRCLAUNCH=%s\nOBSERVER=%s\nCODEMODE=%s\nARGS=%s\n' \
+                "''${CLAUDE_CODE_TEAMMATE_COMMAND-<unset>}" \
+                "''${CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC-<unset>}" \
+                "''${DISABLE_TELEMETRY-<unset>}" \
+                "''${CLAUDE_CODE_ALLOW_FEATURE_FLAGS-<unset>}" \
+                "''${CLAUDE_RC_LAUNCHING-<unset>}" \
+                "''${CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS-<unset>}" \
+                "''${CLAUDE_CODE_EXPERIMENTAL_CODE_MODE-<unset>}" \
+                "$*"
+            '';
+            probeTarget = pkgs.writeShellScript "claude-env-probe" probeText;
+            # Stands in for the raw target to verify the launcher keeps the escape.
+            probePackage = pkgs.writeShellScriptBin "claude" probeText;
+            # Stands in for the Nix-wrapped package with nixos.nix's real wrapProgram flags.
+            probePackageWrapped =
+              pkgs.runCommandLocal "claude-env-probe-wrapped" { nativeBuildInputs = [ pkgs.makeWrapper ]; }
+                ''
+                  mkdir -p "$out/bin"
+                  cp ${lib.getExe probePackage} "$out/bin/claude"
+                  chmod 0755 "$out/bin/claude"
+                  wrapProgram "$out/bin/claude" ${nixWrapFlags.setFlags} ${nixWrapFlags.launchOnlyRun}
+                '';
+            nixLauncher = import ./_launcher.nix {
+              inherit lib pkgs;
+              installMethods = installMethodVariants.nix;
+              claudePkg = "${probePackage}";
+              bunInstallDir = "/nix/store/test-bun";
+              externalBinary = "/nix/store/test-external/bin/claude";
+              scratchDir = "./scratch";
+              launcherDir = "/home/test/.local/bin";
+            };
+            nixWrappedLauncher = import ./_launcher.nix {
+              inherit lib pkgs;
+              installMethods = installMethodVariants.nix;
+              claudePkg = "${probePackageWrapped}";
+              bunInstallDir = "/nix/store/test-bun";
+              externalBinary = "/nix/store/test-external/bin/claude";
+              scratchDir = "./scratch";
+              launcherDir = "/home/test/.local/bin";
+            };
+            launcher = import ./_launcher.nix {
+              inherit lib pkgs;
+              installMethods = installMethodVariants.external;
+              claudePkg = "/nix/store/test-claude";
+              bunInstallDir = "/nix/store/test-bun";
+              externalBinary = "${probeTarget}";
+              scratchDir = "./scratch";
+              launcherDir = "/home/test/.local/bin";
+            };
+          in
+          pkgs.runCommandLocal "claude-code-launcher-env-check" { passthru.runtimeCheck = true; } ''
+            set -euo pipefail
+            claudeBin=${lib.getExe launcher.claudeWrapped}
+            claudeRcBin=${lib.getExe launcher.claudeRcWrapped}
+            nixClaudeBin=${lib.getExe nixLauncher.claudeWrapped}
+            nixClaudeRcBin=${lib.getExe nixLauncher.claudeRcWrapped}
+            nixWrappedClaudeBin=${lib.getExe nixWrappedLauncher.claudeWrapped}
+            nixWrappedClaudeRcBin=${lib.getExe nixWrappedLauncher.claudeRcWrapped}
+            bareNixWrappedBin=${lib.getExe' probePackageWrapped "claude"}
+            assert_env() {
+              local label=$1 expected=$2 actual=$3
+              if [ "$actual" != "$expected" ]; then
+                printf 'FAIL (%s):\nexpected:\n%s\ngot:\n%s\n' "$label" "$expected" "$actual" >&2
+                exit 1
+              fi
+            }
+
+            # Fresh plain launcher sets itself and keeps launchOnly opt-outs on.
+            got=$(env -i PATH="$PATH" "$claudeBin")
+            assert_env "fresh claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # Fresh claude-rc sets itself, clears launchOnly, and unsets internal markers.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_TELEMETRY=1 "$claudeRcBin")
+            assert_env "fresh claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # Plain claude nested inside claude-rc resets teammate command and restores launchOnly.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/home/test/.local/bin/claude-rc "$claudeBin")
+            assert_env "claude inside claude-rc" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # claude-rc nested inside plain claude switches teammate command to claude-rc.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/home/test/.local/bin/claude "$claudeRcBin")
+            assert_env "claude-rc inside claude" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # Explicit empty CLAUDE_CODE_TEAMMATE_COMMAND is replaced by each launcher.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND="" "$claudeBin")
+            assert_env "empty teammate claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND="" "$claudeRcBin")
+            assert_env "empty teammate claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # Manual override is preserved by both launchers.
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/custom/bin/claude "$claudeBin")
+            assert_env "custom override claude" $'TEAMMATE=/custom/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_TEAMMATE_COMMAND=/custom/bin/claude "$claudeRcBin")
+            assert_env "custom override claude-rc" $'TEAMMATE=/custom/bin/claude\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # A Nix-package target receives the escape from claude-rc, and real launchOnlyRun clears it.
+            got=$(env -i PATH="$PATH" "$nixClaudeRcBin")
+            assert_env "nix raw claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=1\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" "$nixClaudeBin")
+            assert_env "nix raw claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" "$nixWrappedClaudeRcBin")
+            assert_env "nix wrapped claude-rc" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" "$nixWrappedClaudeBin")
+            assert_env "nix wrapped claude" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            # Per-session observer flags and callerOverridable env overrides on both launchers.
+            got=$(env -i PATH="$PATH" "$claudeBin" --no-observer -p hi)
+            assert_env "claude --no-observer" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=true\nARGS=-p hi' "$got"
+            got=$(env -i PATH="$PATH" "$claudeRcBin" --no-observer -p hi)
+            assert_env "claude-rc --no-observer" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=true\nARGS=-p hi' "$got"
+            got=$(env -i PATH="$PATH" "$nixWrappedClaudeBin" --no-observer -p hi)
+            assert_env "nix wrapped claude --no-observer" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=true\nARGS=-p hi' "$got"
+            got=$(env -i PATH="$PATH" "$nixWrappedClaudeRcBin" --no-observer -p hi)
+            assert_env "nix wrapped claude-rc --no-observer" $'TEAMMATE=/home/test/.local/bin/claude-rc\nNONESS=<unset>\nTELEM=<unset>\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=true\nARGS=-p hi' "$got"
+
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 "$claudeBin" --observer)
+            assert_env "claude --observer overrides env" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=' "$got"
+
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 "$claudeBin")
+            assert_env "callerOverridable external" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=0\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 "$nixWrappedClaudeBin")
+            assert_env "callerOverridable nix wrapped" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=0\nARGS=' "$got"
+            got=$(env -i PATH="$PATH" CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 "$bareNixWrappedBin")
+            assert_env "callerOverridable bare nix wrapped" $'TEAMMATE=<unset>\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=0\nCODEMODE=0\nARGS=' "$got"
+
+            # Flag parsing stops at the first non-matching argument.
+            got=$(env -i PATH="$PATH" "$claudeBin" -- --no-observer)
+            assert_env "claude stops after --" $'TEAMMATE=/home/test/.local/bin/claude\nNONESS=1\nTELEM=1\nESCAPE=<unset>\nRCLAUNCH=<unset>\nOBSERVER=1\nCODEMODE=true\nARGS=-- --no-observer' "$got"
+
+            echo "ok: claude-code launcher env contract" >"$out"
+          '';
 
         "claude-code/notify" =
           let

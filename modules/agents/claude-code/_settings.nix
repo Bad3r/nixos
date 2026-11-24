@@ -3,11 +3,11 @@
 # replaces Claude's copy on each switch; commenting it out again removes it.
 {
   # Advisor model for the server-side advisor tool.
-  # advisorModel = ""; # [string]
+  advisorModel = "fable";
 
   # Name of an agent (built-in or custom) to use for the main thread. Applies
   # the agent's system prompt, tool restrictions, and model.
-  # agent = ""; # [string]
+  agent = "main";
 
   # Allow Claude to push proactive mobile notifications
   # agentPushNotifEnabled = true; # [boolean]
@@ -256,6 +256,10 @@
   # project and local settings are ignored.
   # processWrapper = ""; # [string]
 
+  # Prompt cache TTL for the main conversation: "5m" or "1h".
+  # CLAUDE_CODE_PROMPT_CACHE_TTL takes precedence.
+  promptCacheTtl = "1h";
+
   # Default environment ID to use for cloud sessions
   # remote = { }; # [object]
 
@@ -302,6 +306,10 @@
   # updates
   # statusLine = { }; # [object]
 
+  # Prompt cache TTL for subagents, workflows, background and helper requests:
+  # "5m" or "1h". CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL takes precedence.
+  subagentPromptCacheTtl = "5m";
+
   # When safeguards flag a message, automatically switch to a different model
   # to keep chatting. When off, your session will pause instead.
   # switchModelsOnFlag = true; # [boolean]
@@ -310,7 +318,7 @@
   # syntaxHighlightingDisabled = true; # [boolean]
 
   # How spawned teammates execute (tmux, iterm2, in-process, auto)
-  # teammateMode = ""; # [enum]
+  teammateMode = "tmux";
 
   # Emit OSC 9;4 progress sequences during long operations
   terminalProgressBarEnabled = true;

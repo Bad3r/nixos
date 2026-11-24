@@ -1,12 +1,12 @@
 /*
   Claude Code environment variables. Every entry in `vars` reaches
-  ~/.claude/settings.json `env` (launchOnly names excepted), the
-  ~/.local/bin/claude launcher, login shells (Home Manager sessionVariables),
-  and the Nix-installed binary. Uncomment a line and set its value to enable
-  it; commenting it out again removes it on the next switch (login shells at
-  the next login). `vars` lists https://code.claude.com/docs/en/env-vars as
-  of 2.1.222, then names only the 2.1.222 binary reads, then unresolved
-  identifiers.
+  ~/.claude/settings.json `env` (launchOnly and callerOverridable names
+  excepted), the ~/.local/bin/claude launcher, login shells (Home Manager
+  sessionVariables), and the Nix-installed binary. Uncomment a line and set its
+  value to enable it; commenting it out again removes it on the next switch
+  (login shells at the next login). `vars` lists
+  https://code.claude.com/docs/en/env-vars as of 2.1.222, then names only the
+  2.1.222 binary reads, then unresolved identifiers.
 */
 {
   # Exported by the launchers unless launchOnlyEscape is set, never written to
@@ -18,10 +18,16 @@
   ];
   # Read only by this repo's launchers; Claude Code never looks at it.
   launchOnlyEscape = "CLAUDE_CODE_ALLOW_FEATURE_FLAGS";
-  # Exported by the launchers only when the caller left them unset, so a
-  # per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0 is how the
-  # binary says to start a session with Chrome or computer use.
-  callerOverridable = [ "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE" ];
+  # Exported by the launchers only when the caller left them unset, and omitted
+  # from settings.json `env` (which otherwise overwrites process.env at
+  # startup), so a per-launch value wins: CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=0
+  # is how the binary says to start a session with Chrome or computer use, and
+  # CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0 turns observers off (allowing
+  # /steward and /ship watches).
+  callerOverridable = [
+    "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"
+    "CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS"
+  ];
 
   vars = {
     # Authentication and providers
@@ -394,7 +400,7 @@
     # Timeout in milliseconds for the first query to wait on the initial skills sync when CLAUDE_CODE_SYNC_SKILLS is set (default: 5000). [numeric]
     # CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS = "";
     # Override, in milliseconds, how long a non-interactive session waits at exit for its agent team to finish tearing down. [numeric]
-    # CLAUDE_CODE_TEAM_TEARDOWN_PARK_TIMEOUT_MS = "";
+    CLAUDE_CODE_TEAM_TEARDOWN_PARK_TIMEOUT_MS = "20000";
     # Timeout in milliseconds before the streaming idle watchdog closes a stalled connection. [numeric]
     # CLAUDE_STREAM_IDLE_TIMEOUT_MS = "";
     # Specify HTTPS proxy server for network connections.
@@ -516,6 +522,8 @@
     # CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "";
     # Controls whether sessions use the structured Task tools (TaskCreate, TaskUpdate, TaskGet, TaskList) or the legacy TodoWrite tool. [0 or unset]
     # CLAUDE_CODE_ENABLE_TASKS = "0";
+    # Offer the Wrap up tool (recap and next-step buttons drawn by the Claude apps); also gated server-side. [1 or unset]
+    CLAUDE_CODE_ENABLE_WRAP_UP = "1";
     # Set to 1 to turn off the in-process cache of credentials resolved from the
     # AWS default credential provider chain, so Claude Code resolves the chain on
     # every API request. [1 or unset]
@@ -596,7 +604,7 @@
     # Time in milliseconds to wait after the query loop becomes idle before automatically exiting. [numeric]
     # CLAUDE_CODE_EXIT_AFTER_STOP_DELAY = "";
     # Set to 1 to enable agent teams. [1 or unset]
-    # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+    CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
     CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "true";
     # JSON object to merge into the top level of every API request body.
     # CLAUDE_CODE_EXTRA_BODY = "";
@@ -841,7 +849,7 @@
     # CLAUDE_CODE_AGENT_PROXY_GH_SHIM = ""; # bool
     # CLAUDE_CODE_AGENT_PROXY_GIT_CONFIG = ""; # bool
     # CLAUDE_CODE_BG_TASKS_REPORT_RUNNING = ""; # bool
-    # CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS = ""; # bool
+    CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS = "1"; # bool
     # CLAUDE_CODE_PLAN_V2_AGENT_COUNT = ""; # int
     # CLAUDE_CODE_PLAN_V2_EXPLORE_AGENT_COUNT = ""; # int
     # CLAUDE_CODE_SUBAGENT_CACHE_EVICT = ""; # bool
@@ -888,7 +896,7 @@
     # CLAUDE_CODE_BASH_SANDBOX_SHOW_INDICATOR = ""; # bool
     # CLAUDE_CODE_DIAGNOSTICS_FILE = ""; # string
     # CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES = ""; # bool
-    # CLAUDE_CODE_ENABLE_EXPERIMENTAL_ADVISOR_TOOL = ""; # bool
+    CLAUDE_CODE_ENABLE_EXPERIMENTAL_ADVISOR_TOOL = "1"; # bool
     # CLAUDE_CODE_ENABLE_REFRESH_MCP_TOOLS = ""; # bool
     # CLAUDE_CODE_PEWTER_OWL_TOOL = ""; # true | false | unset
     # CLAUDE_CODE_REMOTE_RAW_EVENTS_FILE = ""; # string

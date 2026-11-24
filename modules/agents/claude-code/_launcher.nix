@@ -13,6 +13,7 @@
   externalBinary,
   installMethods,
   scratchDir,
+  launcherDir,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -34,14 +35,19 @@ let
   );
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
-  # GrowthBook evaluation Remote Control requires.
+  # GrowthBook evaluation Remote Control requires. The Nix package's own
+  # wrapper repeats this guard (launchOnlyRun in _wrap-flags.nix) and clears the
+  # escape itself, so it must still see the variable.
+  targetReadsEscape = !installMethods.bun.enable && installMethods.nix.enable;
   launchOnlyBlock = lib.optionalString (claudeEnv.launchOnly != [ ]) ''
     if [ -z "''${${claudeEnv.launchOnlyEscape}:-}" ]; then
     ${lib.concatMapStringsSep "\n" (
       name: "  export ${name}=${lib.escapeShellArg claudeEnv.vars.${name}}"
     ) claudeEnv.launchOnly}
     else
-      unset ${lib.concatStringsSep " " claudeEnv.launchOnly}
+      unset ${lib.concatStringsSep " " claudeEnv.launchOnly}${
+        lib.optionalString (!targetReadsEscape) " ${claudeEnv.launchOnlyEscape}"
+      }
     fi
   '';
 
@@ -140,6 +146,25 @@ let
     ${envExports}
     ${launchOnlyBlock}
 
+    # Leading launcher-only flags for per-session observer control (shared by
+    # claude and claude-rc). Stop at the first non-matching argument so `--`
+    # and Claude Code option values pass through untouched.
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --observer)
+          export CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=1
+          shift
+          ;;
+        --no-observer)
+          export CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS=0
+          shift
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+
     # Scratch root for Claude's own temp; its shell tool narrows TMPDIR per session.
     tmpDir=${lib.escapeShellArg scratchDir}
     mkdir -p "$tmpDir"
@@ -150,6 +175,20 @@ let
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
 
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
+
+    # tmux and iTerm2 teammates start through this launcher instead of the bare
+    # binary, which would skip everything above. Replace unset, empty, or the
+    # sibling launcher's path so nested sessions do not cross-wire teammates,
+    # while keeping any manual override intact.
+    if [ -n "''${CLAUDE_RC_LAUNCHING-}" ]; then
+      unset CLAUDE_RC_LAUNCHING
+    else
+      case "''${CLAUDE_CODE_TEAMMATE_COMMAND-}" in
+        "" | ${lib.escapeShellArg "${launcherDir}/claude-rc"})
+          export CLAUDE_CODE_TEAMMATE_COMMAND=${lib.escapeShellArg "${launcherDir}/claude"}
+          ;;
+      esac
+    fi
 
     ${targetScript}
 
@@ -174,6 +213,12 @@ let
     unset ${lib.concatStringsSep " " claudeEnv.launchOnly} DO_NOT_TRACK
     unset DISABLE_GROWTHBOOK
     export ${claudeEnv.launchOnlyEscape}=1
+    case "''${CLAUDE_CODE_TEAMMATE_COMMAND-}" in
+      "" | ${lib.escapeShellArg "${launcherDir}/claude"})
+        export CLAUDE_CODE_TEAMMATE_COMMAND=${lib.escapeShellArg "${launcherDir}/claude-rc"}
+        ;;
+    esac
+    export CLAUDE_RC_LAUNCHING=1
 
     exec ${lib.getExe claudeWrapped} "$@"
   '';
