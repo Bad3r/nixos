@@ -40,9 +40,17 @@
           "bash -c 'if [ -L '\\''/a b'\\'' ]; then readlink '\\''/a b'\\''; fi'"
         ];
         allow = [
+          "not json"
+          "{"
+          "[]"
+          ""
           {
             tool_name = "Write";
             tool_input.file_path = "/repo/run.sh";
+          }
+          {
+            tool_name = "Write";
+            tool_input.command = "bash -c 'ls'";
           }
           {
             tool_name = "Bash";

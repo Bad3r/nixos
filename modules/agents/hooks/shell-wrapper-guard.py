@@ -282,7 +282,10 @@ def main() -> None:
         return
     if not isinstance(payload, dict):
         return
-    tool_input = cast("dict[str, object]", payload).get("tool_input")
+    payload_dict = cast("dict[str, object]", payload)
+    if payload_dict.get("tool_name") != "Bash":
+        return
+    tool_input = payload_dict.get("tool_input")
     if not isinstance(tool_input, dict):
         return
     command = cast("dict[str, object]", tool_input).get("command")
