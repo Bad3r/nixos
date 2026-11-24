@@ -89,8 +89,8 @@ class CliTest(unittest.TestCase):
                     bare = cast("dict[str, object]", json.loads(bare_json.getvalue()))
                     self.assertEqual(bare["userDisable"], ["deepwiki"])
                     self.assertEqual(bare["envEnable"], ["deepwiki"])
-                    self.assertEqual(bare["projectOverrides"], [str(proj_dir.resolve())])
-                    self.assertTrue(bare["projectOverridesExist"])
+                    entries = cast("list[dict[str, object]]", bare["projectOverrideEntries"])
+                    self.assertEqual([entry["dir"] for entry in entries], [str(proj_dir.resolve())])
 
                     bare_text = io.StringIO()
                     with redirect_stdout(bare_text):

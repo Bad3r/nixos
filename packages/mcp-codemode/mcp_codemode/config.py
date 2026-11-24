@@ -530,9 +530,7 @@ def read_override_summary(cwd: Path) -> dict[str, object]:
         "userEnable": user_enable,
         "userDisable": user_disable,
         "projectDir": str(project_dir),
-        "projectOverrides": [str(item["dir"]) for item in matching],
         "projectOverrideEntries": matching,
-        "projectOverridesExist": bool(matching),
         "envEnable": sorted(_split_env_list(ENABLE_ENV_VAR)),
         "envDisable": sorted(_split_env_list(DISABLE_ENV_VAR)),
     }

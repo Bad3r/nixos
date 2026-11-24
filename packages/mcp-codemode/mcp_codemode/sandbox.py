@@ -28,6 +28,7 @@ SANDBOX_TMP_MOUNT = "/tmp"  # noqa: S108
 SANDBOX_TMPFS_BYTES = 16 * 1024 * 1024
 MAX_SANDBOX_IPC_LINE_BYTES = 4 * 1024 * 1024
 MAX_CONCURRENT_RPCS = 8
+MAX_PENDING_RPCS = 64
 WAIT_POLL_SEC = 0.05
 
 
@@ -166,7 +167,10 @@ class _SandboxSession:
         self._done_event = threading.Event()
         self._abort_event = threading.Event()
         self._write_queue: queue.Queue[dict[str, object] | None] = queue.Queue()
-        self._rpc_sem = threading.Semaphore(MAX_CONCURRENT_RPCS)
+        self._rpc_queue: queue.Queue[tuple[object, str, dict[str, object]] | None] = queue.Queue(
+            maxsize=MAX_PENDING_RPCS
+        )
+        self._rpc_workers_started = 0
         self.result: SandboxResult | None = None
         self.error: tuple[str, list[str]] | None = None
         self.timed_out = False
@@ -180,21 +184,29 @@ class _SandboxSession:
         stdin = self.proc.stdin
         if stdin is None:
             return
-        while True:
-            msg = self._write_queue.get()
-            if msg is None:
-                return
-            line = json.dumps(msg, separators=(",", ":")) + "\n"
-            try:
-                stdin.write(line)
-                stdin.flush()
-            except BrokenPipeError, OSError, ValueError:
-                return
+        try:
+            while True:
+                msg = self._write_queue.get()
+                if msg is None:
+                    return
+                line = json.dumps(msg, separators=(",", ":")) + "\n"
+                try:
+                    stdin.write(line)
+                    stdin.flush()
+                except BrokenPipeError, OSError, ValueError:
+                    return
+        finally:
+            with contextlib.suppress(OSError, ValueError, RuntimeError):
+                stdin.close()
 
-    def _run_rpc_task(self, req_id: object, method: str, params: dict[str, object]) -> None:
-        with self._rpc_sem:
-            if self._done_event.is_set() or self._abort_event.is_set():
+    def _rpc_worker_loop(self) -> None:
+        while True:
+            item = self._rpc_queue.get()
+            if item is None:
                 return
+            if self._done_event.is_set() or self._abort_event.is_set():
+                continue
+            req_id, method, params = item
             try:
                 rpc_result = self.rpc_handler(method, params, self.deadline, self._abort_event)
                 reply: dict[str, object] = {
@@ -207,6 +219,28 @@ class _SandboxSession:
                 reply = {"type": "rpc_result", "id": req_id, "ok": False, "error": str(exc)}
             if not self._done_event.is_set() and not self._abort_event.is_set():
                 self.enqueue_write(reply)
+
+    def _ensure_rpc_worker(self) -> None:
+        with self._state_lock:
+            if self._rpc_workers_started >= MAX_CONCURRENT_RPCS:
+                return
+            self._rpc_workers_started += 1
+        # Fixed daemon pool caps OS threads and avoids atexit hangs on aborted RPCs.
+        threading.Thread(target=self._rpc_worker_loop, daemon=True).start()
+
+    def _submit_rpc(self, req_id: object, method: str, params: dict[str, object]) -> None:
+        self._ensure_rpc_worker()
+        try:
+            self._rpc_queue.put_nowait((req_id, method, params))
+        except queue.Full:
+            self.enqueue_write(
+                {
+                    "type": "rpc_result",
+                    "id": req_id,
+                    "ok": False,
+                    "error": f"too many queued codemode RPCs (limit: {MAX_PENDING_RPCS})",
+                }
+            )
 
     def _reader_loop(self) -> None:
         stdout = self.proc.stdout
@@ -251,12 +285,7 @@ class _SandboxSession:
             method = str(msg.get("method", ""))
             params = as_dict(msg.get("params")) or {}
             if not self._done_event.is_set() and not self._abort_event.is_set():
-                # Daemon workers prevent orphaned upstream RPCs from stalling interpreter exit.
-                threading.Thread(
-                    target=self._run_rpc_task,
-                    args=(req_id, method, params),
-                    daemon=True,
-                ).start()
+                self._submit_rpc(req_id, method, params)
             return False
         if msg_type == "done":
             with self._state_lock:
@@ -292,6 +321,18 @@ class _SandboxSession:
                     self._on_abort()
             terminate_process_group(self.proc, KILL_GRACE_SEC)
 
+    def _stop_rpc_workers(self) -> None:
+        with self._state_lock:
+            worker_count = self._rpc_workers_started
+        while True:
+            try:
+                self._rpc_queue.get_nowait()
+            except queue.Empty:
+                break
+        for _ in range(worker_count):
+            with contextlib.suppress(queue.Full):
+                self._rpc_queue.put_nowait(None)
+
     def run_and_wait(
         self,
         init_msg: dict[str, object],
@@ -315,19 +356,23 @@ class _SandboxSession:
                 self._done_event.wait(timeout=min(remaining, WAIT_POLL_SEC))
         finally:
             self._abort_event.set()
+            if self._on_abort is not None:
+                with contextlib.suppress(Exception):
+                    self._on_abort()
             self._write_queue.put(None)
-            if self.proc.stdin is not None and not self.proc.stdin.closed:
-                with contextlib.suppress(OSError):
-                    self.proc.stdin.close()
-            with contextlib.suppress(subprocess.TimeoutExpired):
-                self.proc.wait(timeout=KILL_GRACE_SEC)
+            self._stop_rpc_workers()
+            # Only grant a graceful wait when the script finished cleanly; otherwise kill first
+            # to prevent a stdout-blocked child from deadlocking stdin/writer teardown.
+            if self.result is not None:
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    self.proc.wait(timeout=KILL_GRACE_SEC)
             terminate_process_group(self.proc, KILL_GRACE_SEC)
-            for stream in (self.proc.stdout, self.proc.stderr):
-                if stream is not None:
-                    with contextlib.suppress(OSError):
-                        stream.close()
-            reader.join(timeout=KILL_GRACE_SEC)
             writer.join(timeout=KILL_GRACE_SEC)
+            reader.join(timeout=KILL_GRACE_SEC)
+            for stream in (self.proc.stdin, self.proc.stdout, self.proc.stderr):
+                if stream is not None:
+                    with contextlib.suppress(OSError, ValueError, RuntimeError):
+                        stream.close()
 
 
 def run_sandbox(

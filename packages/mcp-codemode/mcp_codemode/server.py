@@ -481,6 +481,8 @@ class CodeModeServer:
             deadline=deadline,
             cancel_event=cancel_event,
         )
+        if cancel_event is not None and cancel_event.is_set():
+            raise UpstreamError.cancelled(canonical, tool_name)
         if result.get("isError"):
             raise ToolDispatchError.upstream_tool_error(
                 canonical,
@@ -588,7 +590,8 @@ class CodeModeServer:
         content: list[dict[str, object]] = [
             {"type": "text", "text": _format_execution_text(outcome.value, outcome.logs)}
         ]
-        content.extend(attachments)
+        with attachments_lock:
+            content.extend(attachments)
         return {"content": content}
 
     def _negotiate_protocol_version(self, params: dict[str, object]) -> str:
@@ -634,7 +637,6 @@ class CodeModeServer:
             cancel_event = self._active_cancels.get(request_id)
         if cancel_event is not None:
             cancel_event.set()
-            self.supervisor.cancel_active()
 
     def handle_message(
         self,
@@ -720,7 +722,6 @@ class CodeModeServer:
             for ev in self._active_cancels.values():
                 ev.set()
             self._active_cancels.clear()
-        self.supervisor.cancel_active()
         with threads_lock:
             pending_threads = list(active_threads)
         join_deadline = time.monotonic() + SHUTDOWN_JOIN_SEC
@@ -731,9 +732,11 @@ class CodeModeServer:
 
     def serve_stdio(self) -> int:
         """Run the newline-delimited JSON-RPC loop on stdin/stdout until EOF."""
+        shutting_down = False
 
         def _handle_signal(_signum: int, _frame: object) -> None:
-            raise SystemExit(0)
+            if not shutting_down:
+                raise SystemExit(0)
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
         previous_sigint = signal.signal(signal.SIGINT, _handle_signal)
@@ -767,8 +770,11 @@ class CodeModeServer:
                     active_threads.add(thread)
                 thread.start()
         finally:
-            self._shutdown_workers(active_threads, threads_lock)
-            signal.signal(signal.SIGTERM, previous_sigterm)
-            signal.signal(signal.SIGINT, previous_sigint)
-            self.supervisor.close_all()
+            shutting_down = True
+            try:
+                self._shutdown_workers(active_threads, threads_lock)
+            finally:
+                self.supervisor.close_all()
+                signal.signal(signal.SIGTERM, previous_sigterm)
+                signal.signal(signal.SIGINT, previous_sigint)
         return 0

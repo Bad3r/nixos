@@ -32,7 +32,7 @@ from ._util import (
 from .config import ConfigError, Manifest, ServerSpec, format_secret_header
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator, Iterator
     from http.client import HTTPResponse
     from typing import IO
 
@@ -119,9 +119,11 @@ def _close_response_hard(resp: HTTPResponse) -> None:
     raw = getattr(fp, "raw", None)
     sock = getattr(raw, "_sock", None)
     if isinstance(sock, socket.socket):
+        # Shutdown unblocks the owning reader thread without racing BufferedReader.close().
         with contextlib.suppress(OSError):
             sock.shutdown(socket.SHUT_RDWR)
-    with contextlib.suppress(OSError):
+        return
+    with contextlib.suppress(OSError, ValueError, RuntimeError):
         resp.close()
 
 
@@ -193,6 +195,8 @@ def _iter_bounded_chunks(
         _check_http_read_bounds(resp, server, ctx)
         chunk = _read_http_chunk(resp)
         if not chunk:
+            if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+                raise UpstreamError.cancelled(server, "http_read")
             break
         raw_total += len(chunk)
         if raw_total > MAX_HTTP_RESPONSE_BYTES:
@@ -212,7 +216,7 @@ def _iter_bounded_chunks(
         if data:
             yield data
     if decompressor is not None:
-        tail = decompressor.flush(MAX_HTTP_RESPONSE_BYTES - decoded_total + 1)
+        tail = decompressor.flush()
         if decoded_total + len(tail) > MAX_HTTP_RESPONSE_BYTES:
             msg = f"decompressed response exceeded {MAX_HTTP_RESPONSE_BYTES} bytes"
             raise UpstreamError.rpc_error(server, msg)
@@ -316,6 +320,30 @@ class _BaseUpstreamClient:
     """Shared MCP pagination and tool invocation built atop transport-specific RPCs."""
 
     spec: ServerSpec
+    _init_lock: threading.Lock
+
+    @contextlib.contextmanager
+    def _acquire_init_lock(
+        self,
+        deadline: float | None,
+        cancel_event: threading.Event | None,
+    ) -> Generator[None]:
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                raise UpstreamError.cancelled(self.spec.name, "initialize")
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise UpstreamError.timed_out(self.spec.name, "initialize", 0.0)
+                wait = min(remaining, STDIO_CANCEL_POLL_SEC)
+            else:
+                wait = STDIO_CANCEL_POLL_SEC
+            if self._init_lock.acquire(timeout=wait):
+                break
+        try:
+            yield
+        finally:
+            self._init_lock.release()
 
     def ensure_initialized(
         self,
@@ -443,7 +471,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         )
         return cast("HTTPResponse", self._opener.open(req, timeout=timeout))
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self, *, include_session: bool = True) -> dict[str, str]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
@@ -455,11 +483,12 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 )
             except ConfigError as exc:
                 raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
-        with self._lock:
-            if self._session_id:
-                headers["Mcp-Session-Id"] = self._session_id
-            if self._protocol_version:
-                headers["MCP-Protocol-Version"] = self._protocol_version
+        if include_session:
+            with self._lock:
+                if self._session_id:
+                    headers["Mcp-Session-Id"] = self._session_id
+                if self._protocol_version:
+                    headers["MCP-Protocol-Version"] = self._protocol_version
         return headers
 
     def _decode_response_body(
@@ -537,7 +566,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             _close_response_hard(resp)
 
     def _renew_expired_session(self, sent_session_id: str, ctx: _CallContext) -> None:
-        with self._init_lock:
+        with self._acquire_init_lock(ctx.deadline, ctx.cancel_event):
             with self._lock:
                 if self._session_id == sent_session_id:
                     self._session_id = None
@@ -564,7 +593,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         raw_id = payload.get("id") if expect_reply else None
         target_id = raw_id if isinstance(raw_id, int) else None
         raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        headers = self._headers()
+        headers = self._headers(include_session=method != "initialize")
         sent_session_id = headers.get("Mcp-Session-Id")
         try:
             with self._open(
@@ -640,6 +669,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         return _extract_rpc_result(self.spec.name, reply)
 
     def _initialize_locked(self, ctx: _CallContext) -> None:
+        with self._lock:
+            self._session_id = None
+            self._protocol_version = None
         init_req: dict[str, object] = {
             "jsonrpc": "2.0",
             "id": self._allocate_id(),
@@ -650,25 +682,32 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 "clientInfo": PACKAGE_INFO,
             },
         }
-        reply = self._post(
-            init_req,
-            self.spec.startup_timeout_sec,
-            expect_reply=True,
-            allow_session_retry=False,
-            ctx=ctx,
-        )
-        result = _extract_rpc_result(self.spec.name, reply)
-        negotiated = result.get("protocolVersion")
-        if isinstance(negotiated, str) and negotiated:
+        try:
+            reply = self._post(
+                init_req,
+                self.spec.startup_timeout_sec,
+                expect_reply=True,
+                allow_session_retry=False,
+                ctx=ctx,
+            )
+            result = _extract_rpc_result(self.spec.name, reply)
+            negotiated = result.get("protocolVersion")
+            if isinstance(negotiated, str) and negotiated:
+                with self._lock:
+                    self._protocol_version = negotiated
+            self._post(
+                {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                self.spec.startup_timeout_sec,
+                expect_reply=False,
+                allow_session_retry=False,
+                ctx=ctx,
+            )
+        except Exception:
             with self._lock:
-                self._protocol_version = negotiated
-        self._post(
-            {"jsonrpc": "2.0", "method": "notifications/initialized"},
-            self.spec.startup_timeout_sec,
-            expect_reply=False,
-            allow_session_retry=False,
-            ctx=ctx,
-        )
+                self._session_id = None
+                self._protocol_version = None
+                self._initialized = False
+            raise
         with self._lock:
             self._initialized = True
 
@@ -682,7 +721,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         with self._lock:
             if self._initialized:
                 return
-        with self._init_lock:
+        with self._acquire_init_lock(deadline, cancel_event):
             with self._lock:
                 if self._initialized:
                     return
@@ -994,7 +1033,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         with self._lock:
             if self._initialized and self._proc is not None and self._proc.poll() is None:
                 return
-        with self._init_lock:
+        with self._acquire_init_lock(deadline, cancel_event):
             with self._lock:
                 if self._initialized and self._proc is not None and self._proc.poll() is None:
                     return

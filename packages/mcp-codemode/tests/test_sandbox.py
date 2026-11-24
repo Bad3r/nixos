@@ -207,6 +207,8 @@ class SandboxTest(unittest.TestCase):
             "async () => { return 9; };\n// trailing comment after semi",
             "async () => { return 9; }; // inline trailing comment",
             "type Out = number;\nasync (): Promise<Out> => { return 9; };",
+            "4 /* left */ + 5 /* right */",
+            "async () => { /* keep */ return 9; } /* tail */",
         ):
             res = run_sandbox(
                 code=snippet,
@@ -264,12 +266,15 @@ class SandboxTest(unittest.TestCase):
               const hostObjProto = Object.getPrototypeOf(URL.prototype);
               const hostObjCtor = hostObjProto.constructor;
               const hostMapProto = Object.getPrototypeOf(structuredClone(new Map()));
+              const hostStrProto = Object.getPrototypeOf(structuredClone(new String("")));
               try { hostObjProto.toJSON = () => ({ type: "done", value: "pwned" }); } catch {}
               try { hostObjCtor.assign = () => ({ type: "done", value: "pwned" }); } catch {}
               try { hostMapProto.get = () => null; } catch {}
+              try { hostStrProto.trim = () => "pwned"; } catch {}
               return {
                 objCtorFrozen: Object.isFrozen(hostObjCtor),
                 mapProtoFrozen: Object.isFrozen(hostMapProto),
+                strProtoFrozen: Object.isFrozen(hostStrProto),
                 label: "clean",
               };
             }
@@ -282,6 +287,7 @@ class SandboxTest(unittest.TestCase):
         tampered_dict = cast("dict[str, object]", tampered.value)
         self.assertTrue(tampered_dict["objCtorFrozen"])
         self.assertTrue(tampered_dict["mapProtoFrozen"])
+        self.assertTrue(tampered_dict["strProtoFrozen"])
         self.assertEqual(tampered_dict["label"], "clean")
 
     def test_timeout_cancellation_and_truncation(self) -> None:

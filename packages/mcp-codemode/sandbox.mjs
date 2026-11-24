@@ -23,6 +23,8 @@ const safeJsonStringify = JSON.stringify;
 const isError = Error.isError;
 const hostSetTimeout = setTimeout;
 const hostClearTimeout = clearTimeout;
+const stringTrim = Function.prototype.call.bind(String.prototype.trim);
+const stringSlice = Function.prototype.call.bind(String.prototype.slice);
 
 const MAX_LOG_LINES = 200;
 const MAX_LOG_BYTES = 64 * 1024;
@@ -32,6 +34,7 @@ const pending = objectCreate(null);
 const timers = objectCreate(null);
 let nextRpcId = 1;
 let nextTimerId = 1;
+let started = false;
 let finished = false;
 let vmJsonParse = (raw) => safeJsonParse(raw);
 let vmMakeError = (message) => new Error(message);
@@ -49,6 +52,11 @@ for (const ctor of [
 	ReferenceError,
 	URIError,
 	EvalError,
+	String,
+	Number,
+	Boolean,
+	BigInt,
+	Symbol,
 	URL,
 	URLSearchParams,
 	TextEncoder,
@@ -58,6 +66,7 @@ for (const ctor of [
 	Date,
 	RegExp,
 	ArrayBuffer,
+	DataView,
 	Uint8Array,
 ]) {
 	objectFreeze(ctor);
@@ -67,6 +76,11 @@ for (const proto of [
 	Array.prototype,
 	Function.prototype,
 	Promise.prototype,
+	String.prototype,
+	Number.prototype,
+	Boolean.prototype,
+	BigInt.prototype,
+	Symbol.prototype,
 	URL.prototype,
 	URLSearchParams.prototype,
 	TextEncoder.prototype,
@@ -76,6 +90,7 @@ for (const proto of [
 	Date.prototype,
 	RegExp.prototype,
 	ArrayBuffer.prototype,
+	DataView.prototype,
 	Uint8Array.prototype,
 	Object.getPrototypeOf(Uint8Array.prototype),
 ]) {
@@ -185,7 +200,7 @@ function appendLog(level, args) {
 	let line = `${prefix}${args.map(formatLogArg).join(" ")}`;
 	const remaining = MAX_LOG_BYTES - logBytes;
 	if (line.length > remaining) {
-		line = `${line.slice(0, Math.max(0, remaining - 3))}...`;
+		line = `${stringSlice(line, 0, Math.max(0, remaining - 3))}...`;
 	}
 	logBytes += line.length;
 	logs.push(line);
@@ -274,13 +289,14 @@ function stripTypesIfPossible(source) {
 }
 
 function stripTrailingSemicolonAndComments(source) {
-	let current = source.trim();
+	let current = stringTrim(source);
 	while (true) {
-		const next = current
-			.replace(/(?:^|\n)[ \t]*\/\/[^\n]*$/, "")
-			.replace(/\/\*[\s\S]*?\*\/\s*$/, "")
-			.replace(/;\s*$/, "")
-			.trim();
+		const next = stringTrim(
+			current
+				.replace(/(?:^|\n)[ \t]*\/\/[^\n]*$/, "")
+				.replace(/\/\*(?:[^*]|\*(?!\/))*\*\/\s*$/, "")
+				.replace(/;\s*$/, ""),
+		);
 		if (next === current) return current;
 		current = next;
 	}
@@ -297,16 +313,19 @@ function tryCompileExpr(candidate) {
 }
 
 function compileUserCode(source, context) {
-	const trimmed = source.trim();
+	const trimmed = stringTrim(source);
 	// Pre-strip top-level TypeScript declarations (e.g. `type X = ...; async () => ...`)
 	// before testing single-expression wrapping.
-	const preStripped = stripTypesIfPossible(trimmed).trim();
-	const exprCandidate = stripTrailingSemicolonAndComments(preStripped);
-	let exprScript = tryCompileExpr(exprCandidate);
-	if (exprScript === null && /;\s*\/\/[^\n]*$/.test(exprCandidate)) {
-		exprScript = tryCompileExpr(
-			exprCandidate.replace(/;(\s*\/\/[^\n]*)$/, "$1").trim(),
-		);
+	const preStripped = stringTrim(stripTypesIfPossible(trimmed));
+	let exprScript = tryCompileExpr(preStripped);
+	if (exprScript === null) {
+		const exprCandidate = stripTrailingSemicolonAndComments(preStripped);
+		exprScript = tryCompileExpr(exprCandidate);
+		if (exprScript === null && /;\s*\/\/[^\n]*$/.test(exprCandidate)) {
+			exprScript = tryCompileExpr(
+				stringTrim(exprCandidate.replace(/;(\s*\/\/[^\n]*)$/, "$1")),
+			);
+		}
 	}
 	if (exprScript !== null) {
 		const outer = exprScript.runInContext(context);
@@ -360,8 +379,14 @@ function makeSandboxContext(codemode) {
 	const context = vm.createContext(sandbox, {
 		codeGeneration: { strings: false, wasm: false },
 	});
-	vmJsonParse = vm.runInContext("((s) => JSON.parse(s))", context);
-	vmMakeError = vm.runInContext("((m) => new Error(m))", context);
+	vmJsonParse = vm.runInContext(
+		"(() => { const parse = JSON.parse; return (s) => parse(s); })()",
+		context,
+	);
+	vmMakeError = vm.runInContext(
+		"(() => { const Err = Error; return (m) => new Err(m); })()",
+		context,
+	);
 	return context;
 }
 
@@ -409,7 +434,7 @@ const rl = readline.createInterface({
 	crlfDelay: Infinity,
 });
 rl.on("line", (line) => {
-	const trimmed = line.trim();
+	const trimmed = stringTrim(line);
 	if (!trimmed) return;
 	let msg;
 	try {
@@ -418,6 +443,8 @@ rl.on("line", (line) => {
 		return;
 	}
 	if (msg.type === "run") {
+		if (started) return;
+		started = true;
 		void runCode(msg);
 	} else if (msg.type === "rpc_result") {
 		if (!objectHasOwn(pending, msg.id)) return;
