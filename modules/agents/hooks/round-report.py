@@ -194,8 +194,9 @@ def past_cutoff(path: str, cutoff: str | None) -> bool:
 def repo_path(top: Path, rel: str) -> Path:
     """Resolve a repository-relative path under top, refusing paths that leave it."""
     root = os.path.normpath(top)
+    prefix = root if root.endswith(os.sep) else root + os.sep
     target = os.path.normpath(top / rel)
-    if not target.startswith(root + os.sep) and not (root == os.sep and target != os.sep):
+    if not target.startswith(prefix) or target == root:
         message = f"repo path {rel!r} leaves {root}"
         raise ValueError(message)
     return Path(target)

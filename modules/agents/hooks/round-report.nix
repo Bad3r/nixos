@@ -284,11 +284,13 @@ in
             touch "$repo/nested-bad/$bad_name"
             start_out=$(payload '{}' | hook round-start)
             [ -z "$start_out" ]
+            jq -e '.starts.main.files["nested-bad/"] | startswith("dir:")' "$ROUND_REPORT_SCRATCH/sessions/s/hooks/round-report/state.json" > /dev/null
             [ -z "$(stop done)" ]
             payload '{}' | hook round-start
             echo changed >> "$repo/$bad_name"
+            touch "$repo/nested-bad/extra"
             got=$(stop done)
-            echo "$got" | jq -e '.decision == "block" and (.systemMessage | startswith("Round report")) and (.systemMessage | contains("bad"))' > /dev/null
+            echo "$got" | jq -e '.decision == "block" and (.systemMessage | startswith("Round report")) and (.systemMessage | contains("bad")) and (.systemMessage | contains("nested-bad/"))' > /dev/null
             python3 -c 'import json, sys; raw = sys.stdin.read(); assert "\\udc" not in raw.lower(); json.loads(raw)' <<< "$got"
             stop done true > /dev/null
             rm -rf "$repo/$bad_name" "$repo/nested-bad"
@@ -302,13 +304,22 @@ in
             spec.loader.exec_module(mod)
             top = Path(sys.argv[1])
             assert mod.repo_path(top, "a/b.txt") == top / "a/b.txt"
-            for bad in ("../escape", "/etc/passwd", "."):
+            assert mod.repo_path(top, "nested-bad/") == top / "nested-bad"
+            assert mod.repo_path(Path("/"), "a/b.txt") == Path("/a/b.txt")
+            for bad in ("../escape", f"../{top.name}-evil/x", "/etc/passwd", ".", "..", ""):
                 try:
                     mod.repo_path(top, bad)
                 except ValueError:
                     pass
                 else:
                     raise AssertionError(f"accepted {bad!r}")
+            for bad in (".", "..", ""):
+                try:
+                    mod.repo_path(Path("/"), bad)
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError(f"root accepted {bad!r}")
             ' "$repo"
             touch "$out"
           '';
