@@ -119,6 +119,23 @@ class CliTest(unittest.TestCase):
                 self.assertIn(str(self.gateway_path), err)
         self.assertFalse(user_overrides_path().exists())
 
+    def test_gateway_list_alias_collision_is_an_error(self) -> None:
+        """Reject a gateway server list whose names share an alias, even for other names."""
+        self.gateway_path.write_text(
+            json.dumps(["foo-bar", "deepwiki", "foo.bar"]), encoding="utf-8"
+        )
+        for name in ("foo_bar", "deepwiki"):
+            with self.subTest(name=name):
+                rc, _, err = self._run(["enable", "--user", name])
+                self.assertEqual(rc, 1)
+                self.assertIn("server 'foo.bar' alias 'foo_bar' collides with 'foo-bar'", err)
+                self.assertIn(str(self.gateway_path), err)
+        self.assertFalse(user_overrides_path().exists())
+
+        self.gateway_path.write_text(json.dumps(["deepwiki", "deepwiki"]), encoding="utf-8")
+        rc, _, err = self._run(["enable", "--user", "deepwiki"])
+        self.assertEqual((rc, err), (0, ""))
+
     def test_absent_gateway_list_keeps_names_as_given(self) -> None:
         """Without a gateway server list or --manifest, store names unvalidated."""
         rc, _, err = self._run(["enable", "--user", "not-listed-anywhere"])

@@ -183,7 +183,15 @@ def _load_gateway_servers(path: Path) -> dict[str, str] | None:
     names = [entry for entry in entries or [] if isinstance(entry, str) and entry]
     if entries is None or len(names) != len(entries):
         raise ConfigError.gateway_server_list(path, "expected a JSON array of server names")
-    lookup = {make_alias(name): name for name in names}
+    lookup: dict[str, str] = {}
+    for name in sorted(set(names)):
+        alias = make_alias(name)
+        existing = lookup.get(alias)
+        if existing is not None:
+            raise ConfigError.gateway_server_list(
+                path, f"server '{name}' alias '{alias}' collides with '{existing}'"
+            )
+        lookup[alias] = name
     lookup.update({name: name for name in names})
     return lookup
 
