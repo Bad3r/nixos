@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest import mock
@@ -174,13 +174,15 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
         headers: dict[str, str] | None = None,
     ) -> None:
         payload = json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": result}).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        for k, v in (headers or {}).items():
-            self.send_header(k, v)
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+        # A client that timed out has already closed the connection.
+        with suppress(BrokenPipeError, ConnectionResetError):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
 
     def _empty(self, status: int) -> None:
         self.send_response(status)
@@ -192,6 +194,7 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
         with st.cond:
             st.init_count += 1
             session = f"sess-{st.init_count}"
+            st.cond.notify_all()
         st.init_entered.set()
         if st.init_gate is not None:
             st.init_gate.wait(timeout=WAIT_SEC)
@@ -1349,6 +1352,51 @@ for line in sys.stdin:
             finally:
                 resume.touch()
                 client.close()
+
+    def test_http_initialize_is_never_cancelled(self) -> None:
+        """Send no notifications/cancelled for an initialize that times out or is cancelled."""
+        st = _LifecycleState()
+        st.init_gate = threading.Event()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            with self.assertRaises(UpstreamError) as ctx:
+                client.ensure_initialized(deadline=time.monotonic() + 0.3)
+            self.assertIn("timed out", str(ctx.exception))
+            cancel = threading.Event()
+            errors: list[Exception] = []
+            thread = _run_capturing(lambda: client.ensure_initialized(cancel_event=cancel), errors)
+            attempts = 2
+            self.assertTrue(st.wait_for(lambda: st.init_count == attempts))
+            cancel.set()
+            client.cancel_matching()
+            st.init_gate.set()
+            thread.join(timeout=WAIT_SEC)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("cancelled", str(errors[0]))
+            self.assertTrue(_close_drained(client))
+            self.assertEqual(st.cancelled, [])
+
+    def test_stdio_initialize_is_never_cancelled(self) -> None:
+        """Write no notifications/cancelled for an initialize that times out or is cancelled."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, _, received = self._stalling_stdio_spec(Path(tmp), "no-init-reply")
+            client = StdioUpstreamClient(spec)
+            try:
+                with self.assertRaises(UpstreamError) as ctx:
+                    client.ensure_initialized(deadline=time.monotonic() + 0.3)
+                self.assertIn("timed out", str(ctx.exception))
+                cancel = threading.Event()
+                threading.Timer(0.2, cancel.set).start()
+                with self.assertRaises(UpstreamError) as cancel_ctx:
+                    client.ensure_initialized(cancel_event=cancel)
+                self.assertIn("cancelled", str(cancel_ctx.exception))
+            finally:
+                client.close()
+            methods = [
+                cast("list[object]", json.loads(line))[0]
+                for line in received.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(methods, ["initialize", "initialize"])
 
     def test_stdio_timeout_sends_cancelled_and_closed_client_never_respawns(self) -> None:
         """Cancel a timed-out stdio request upstream, then refuse calls after close()."""
