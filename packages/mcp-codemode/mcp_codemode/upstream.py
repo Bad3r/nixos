@@ -240,6 +240,18 @@ class _CallContext:
     cancel_event: threading.Event | None = None
 
 
+@dataclass(eq=False)
+class _HttpRequest:
+    """One POST from send until return, visible to cancel_matching() and close() before headers."""
+
+    request_id: int | None
+    method: str
+    headers: dict[str, str]
+    cancel_event: threading.Event | None
+    response: HTTPResponse | None = None
+    notified: bool = False
+
+
 def _read_http_chunk(resp: HTTPResponse) -> bytes:
     read1 = getattr(resp, "read1", None)
     if callable(read1):
@@ -527,8 +539,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         self._lock = threading.Lock()
         self._init_lock = threading.Lock()
         self._next_id = 1
-        self._next_inflight_id = 1
-        self._inflight: dict[int, tuple[HTTPResponse, threading.Event | None]] = {}
+        self._inflight: set[_HttpRequest] = set()
         self._session_id: str | None = None
         self._protocol_version: str | None = None
         self._initialized = False
@@ -628,38 +639,64 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             and method not in ("initialize", "notifications/initialized")
         )
 
-    def _register_response(
+    def _track_request(self, entry: _HttpRequest) -> None:
+        with self._lock:
+            if self._closed:
+                raise UpstreamError.closed(self.spec.name)
+            self._inflight.add(entry)
+
+    def _untrack_request(self, entry: _HttpRequest) -> None:
+        with self._lock:
+            self._inflight.discard(entry)
+
+    def _attach_response(
         self,
+        entry: _HttpRequest,
         resp: HTTPResponse,
-        cancel_event: threading.Event | None,
         sent_session_id: str | None,
-    ) -> int:
+    ) -> None:
         new_session = resp.headers.get("Mcp-Session-Id") or None
         with self._lock:
             if not self._closed:
                 if new_session:
                     self._session_id = new_session
-                token = self._next_inflight_id
-                self._next_inflight_id += 1
-                self._inflight[token] = (resp, cancel_event)
-                return token
+                entry.response = resp
+                return
         # close() already terminated the session it saw; a newly issued one is ours to end.
         if new_session and new_session != sent_session_id:
             self._sends.submit("DELETE", self._terminate_session, new_session, None)
         raise UpstreamError.closed(self.spec.name)
 
-    def _unregister_inflight(self, token: int) -> None:
-        with self._lock:
-            self._inflight.pop(token, None)
+    @staticmethod
+    def _claim_cancel_locked(entry: _HttpRequest) -> int | None:
+        # MCP forbids cancelling initialize.
+        if entry.notified or entry.request_id is None or entry.method == "initialize":
+            return None
+        entry.notified = True
+        return entry.request_id
+
+    def _send_cancelled(self, request_id: int, headers: dict[str, str], reason: str) -> None:
+        notification = _cancelled_notification(request_id, reason)
+        data = json.dumps(notification, separators=(",", ":")).encode("utf-8")
+        self._sends.submit("notifications/cancelled", self._send_best_effort, "POST", headers, data)
 
     @override
     def cancel_matching(self) -> None:
+        to_abort: list[HTTPResponse] = []
+        to_notify: list[tuple[int, dict[str, str]]] = []
         with self._lock:
-            to_abort = [
-                resp for resp, ev in self._inflight.values() if ev is not None and ev.is_set()
-            ]
+            for entry in self._inflight:
+                if entry.cancel_event is None or not entry.cancel_event.is_set():
+                    continue
+                if entry.response is not None:
+                    to_abort.append(entry.response)
+                request_id = self._claim_cancel_locked(entry)
+                if request_id is not None:
+                    to_notify.append((request_id, entry.headers))
         for resp in to_abort:
             _close_response_hard(resp)
+        for request_id, headers in to_notify:
+            self._send_cancelled(request_id, headers, "cancelled")
 
     def _renew_expired_session(self, sent_session_id: str, ctx: _CallContext) -> None:
         with self._acquire_init_lock(ctx.deadline, ctx.cancel_event):
@@ -687,15 +724,14 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         method = str(payload.get("method", "request"))
         if call_ctx.cancel_event is not None and call_ctx.cancel_event.is_set():
             raise UpstreamError.cancelled(self.spec.name, method)
-        with self._lock:
-            if self._closed:
-                raise UpstreamError.closed(self.spec.name)
         effective_timeout = _remaining_timeout(self.spec.name, method, timeout, call_ctx.deadline)
         raw_id = payload.get("id") if expect_reply else None
         target_id = raw_id if isinstance(raw_id, int) else None
         raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         headers = self._headers(include_session=method != "initialize")
         sent_session_id = headers.get("Mcp-Session-Id")
+        entry = _HttpRequest(target_id, method, headers, call_ctx.cancel_event)
+        self._track_request(entry)
         try:
             with self._open(
                 method="POST",
@@ -703,18 +739,16 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 data=raw,
                 timeout=effective_timeout,
             ) as resp:
-                token = self._register_response(resp, call_ctx.cancel_event, sent_session_id)
-                try:
-                    if not expect_reply:
-                        return {}
-                    if resp.status in NO_BODY_STATUSES:
-                        msg = f"unexpected HTTP {resp.status} for request expecting reply"
-                        raise UpstreamError.rpc_error(self.spec.name, msg)
-                    return self._decode_response_body(resp, target_id, call_ctx)
-                finally:
-                    self._unregister_inflight(token)
+                self._attach_response(entry, resp, sent_session_id)
+                if not expect_reply:
+                    return {}
+                if resp.status in NO_BODY_STATUSES:
+                    msg = f"unexpected HTTP {resp.status} for request expecting reply"
+                    raise UpstreamError.rpc_error(self.spec.name, msg)
+                return self._decode_response_body(resp, target_id, call_ctx)
         except urllib.error.HTTPError as exc:
             exc.close()
+            self._untrack_request(entry)
             if sent_session_id is not None and self._should_retry_session(
                 exc.code,
                 sent_session_id=sent_session_id,
@@ -731,7 +765,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 )
             raise UpstreamError.rpc_error(self.spec.name, f"HTTP {exc.code} {exc.reason}") from None
         except UpstreamError as exc:
-            self._notify_abandoned(target_id, method, headers, call_ctx, exc)
+            self._notify_abandoned(entry, call_ctx, exc)
             raise
         except (
             urllib.error.URLError,
@@ -741,8 +775,10 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             json.JSONDecodeError,
             zlib.error,
         ) as exc:
-            self._notify_abandoned(target_id, method, headers, call_ctx, exc)
+            self._notify_abandoned(entry, call_ctx, exc)
             raise self._transport_error(exc, method, call_ctx) from None
+        finally:
+            self._untrack_request(entry)
 
     def _transport_error(self, exc: Exception, method: str, ctx: _CallContext) -> UpstreamError:
         if ctx.cancel_event is not None and ctx.cancel_event.is_set():
@@ -789,26 +825,15 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         self._initialized = False
         return session
 
-    def _notify_abandoned(
-        self,
-        target_id: int | None,
-        method: str,
-        headers: dict[str, str],
-        ctx: _CallContext,
-        exc: BaseException,
-    ) -> None:
+    def _notify_abandoned(self, entry: _HttpRequest, ctx: _CallContext, exc: BaseException) -> None:
         # The transport does not treat a dropped response as cancellation.
-        if target_id is None or method == "initialize":
-            return
         reason = _abandon_reason(ctx, exc)
         if reason is None:
             return
         with self._lock:
-            if self._closed:
-                return
-        notification = _cancelled_notification(target_id, reason)
-        data = json.dumps(notification, separators=(",", ":")).encode("utf-8")
-        self._sends.submit("notifications/cancelled", self._send_best_effort, "POST", headers, data)
+            request_id = self._claim_cancel_locked(entry)
+        if request_id is not None:
+            self._send_cancelled(request_id, entry.headers, reason)
 
     @override
     def _rpc_call(
@@ -905,15 +930,30 @@ class HttpUpstreamClient(_BaseUpstreamClient):
     @override
     def close(self) -> None:
         """Abort active responses and start best-effort HTTP session termination."""
+        to_abort: list[HTTPResponse] = []
+        to_notify: list[tuple[int, dict[str, str], str]] = []
         with self._lock:
             self._closed = True
             session_id, protocol_version = self._take_session_locked()
-            inflight = [resp for resp, _ in self._inflight.values()]
+            for entry in self._inflight:
+                if entry.response is not None:
+                    to_abort.append(entry.response)
+                # The session DELETE ends requests sent in that session.
+                if session_id is not None and entry.headers.get("Mcp-Session-Id") == session_id:
+                    entry.notified = True
+                    continue
+                request_id = self._claim_cancel_locked(entry)
+                if request_id is not None:
+                    cancelled = entry.cancel_event is not None and entry.cancel_event.is_set()
+                    reason = "cancelled" if cancelled else "client closed"
+                    to_notify.append((request_id, entry.headers, reason))
             self._inflight.clear()
-        for resp in inflight:
+        for resp in to_abort:
             _close_response_hard(resp)
         if session_id:
             self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
+        for request_id, headers, reason in to_notify:
+            self._send_cancelled(request_id, headers, reason)
 
     @override
     def has_pending_sends(self) -> bool:

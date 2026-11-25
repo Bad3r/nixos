@@ -125,6 +125,7 @@ class _LifecycleState:
         self.delete_status = 204
         self.delete_started: list[str | None] = []
         self.delete_gate: threading.Event | None = None
+        self.issue_session = True
 
     def append[T](self, items: list[T], item: T) -> None:
         with self.cond:
@@ -170,7 +171,8 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
         st.init_entered.set()
         if st.init_gate is not None:
             st.init_gate.wait(timeout=WAIT_SEC)
-        self._reply(msg_id, {"protocolVersion": "2025-06-18"}, {"Mcp-Session-Id": session})
+        headers = {"Mcp-Session-Id": session} if st.issue_session else {}
+        self._reply(msg_id, {"protocolVersion": "2025-06-18"}, headers)
 
     def _initialized(self, msg_id: object, params: dict[str, object]) -> None:
         del msg_id, params
@@ -1017,6 +1019,64 @@ for line in sys.stdin:
                 self.assertEqual(st.cancelled[1], (st.hung_ids[1], "sess-1"))
             finally:
                 self.assertTrue(_close_drained(client))
+
+    def test_http_cancel_before_headers_notifies_at_once(self) -> None:
+        """Send notifications/cancelled on cancel even while the upstream withholds headers."""
+        st = _LifecycleState()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            try:
+                client.ensure_initialized()
+                cancel = threading.Event()
+                errors: list[Exception] = []
+                thread = _run_capturing(
+                    lambda: client.call_tool(
+                        "hang", {}, deadline=time.monotonic() + WAIT_SEC, cancel_event=cancel
+                    ),
+                    errors,
+                )
+                self.assertTrue(st.wait_for(lambda: len(st.hung_ids) == 1))
+                cancel.set()
+                client.cancel_matching()
+                self.assertTrue(st.wait_for(lambda: len(st.cancelled) == 1, timeout=1.0))
+                self.assertTrue(thread.is_alive())
+                st.release.set()
+                thread.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                self.assertIn("cancelled", str(errors[0]))
+                self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
+                self.assertEqual(st.cancelled, [(st.hung_ids[0], "sess-1")])
+            finally:
+                self.assertTrue(_close_drained(client))
+
+    def test_http_close_cancels_requests_of_a_stateless_upstream(self) -> None:
+        """Cancel in-flight calls on close() when no session DELETE would end them."""
+        st = _LifecycleState()
+        st.issue_session = False
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            client.ensure_initialized()
+            cancel = threading.Event()
+            errors: list[Exception] = []
+            threads = [
+                _run_capturing(
+                    lambda: client.call_tool("stream_hang", {}, cancel_event=cancel), errors
+                ),
+                _run_capturing(lambda: client.call_tool("stream_hang", {}), errors),
+            ]
+            calls = len(threads)
+            self.assertTrue(st.wait_for(lambda: len(st.hung_ids) == calls))
+            cancel.set()
+            self.assertTrue(_close_drained(client))
+            for thread in threads:
+                thread.join(timeout=WAIT_SEC)
+            self.assertEqual(len(errors), calls)
+            self.assertEqual(
+                sorted(cast("list[int]", st.hung_ids)),
+                sorted(cast("int", request_id) for request_id, _ in st.cancelled),
+            )
+            self.assertEqual({session for _, session in st.cancelled}, {None})
+            self.assertEqual(st.deleted, [])
 
     def test_http_sessions_issued_during_failed_or_closed_init_are_deleted(self) -> None:
         """DELETE every server-issued session the client drops, and stay closed after close()."""
