@@ -1329,7 +1329,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         }
         try:
             writer.send(_StdinLine(_json_line(request), method, waiter), best_effort=False)
-        except UpstreamError:
+        except Exception:
             with self._lock:
                 pending.pop(msg_id, None)
             raise

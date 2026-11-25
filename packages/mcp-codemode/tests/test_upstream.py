@@ -1628,3 +1628,17 @@ for line in sys.stdin:
                             ("cancelled", request_id),
                         ],
                     )
+
+    def test_stdio_request_that_fails_to_encode_leaves_no_waiter(self) -> None:
+        """Drop the reply slot of a request whose arguments cannot be encoded."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, _ = self._lifecycle_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                with self.assertRaises(TypeError):
+                    client.call_tool("report", {"x": {1}})
+                self.assertEqual(client._pending, {})  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+                client.call_tool("report", {})
+            finally:
+                client.close()
