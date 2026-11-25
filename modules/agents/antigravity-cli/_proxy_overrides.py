@@ -28,6 +28,7 @@ import codecs
 import hashlib
 import json
 import logging
+import math
 import os
 import socket
 import time
@@ -67,29 +68,34 @@ def _expand_opt(raw: str) -> str:
     return str(Path(cleaned).expanduser()) if cleaned else ""
 
 
-def parse_flag_value(raw: str) -> tuple[str, object, str]:
-    """Parse NAME=VALUE string into (proto_field_name, typed_value, raw_text)."""
-    low = raw.strip().lower()
-    if low in {"true", "false"}:
-        return "boolValue", low == "true", raw
-    try:
-        return "intValue", str(int(raw)), raw  # proto3 int64 encodes as JSON string
-    except ValueError:
-        pass
-    try:
-        return "floatValue", float(raw), raw
-    except ValueError:
-        return "stringValue", raw, raw
-
-
 def parse_flag_overrides(spec: str) -> dict[str, tuple[str, object, str]]:
-    """Parse comma-separated NAME=VALUE pairs into an override map."""
+    """Parse a JSON object of flag name to bool, int, float, or string into an override map.
+
+    Each entry maps to (proto_field_name, typed_value, string_form); rewrite_flags sends
+    string_form when the server already carries the flag as stringValue.
+    """
+    if not spec.strip():
+        return {}
+    data = json.loads(spec)
+    if not isinstance(data, dict):
+        msg = "flag_overrides must be a JSON object"
+        raise ValueError(msg)  # noqa: TRY004
     overrides: dict[str, tuple[str, object, str]] = {}
-    for item in filter(None, (s.strip() for s in spec.split(","))):
-        name, sep, value = item.partition("=")
-        if not sep:
-            continue
-        overrides[name.strip()] = parse_flag_value(value)
+    for name, value in data.items():
+        if isinstance(value, bool):
+            overrides[name] = ("boolValue", value, json.dumps(value))
+        elif isinstance(value, int):
+            overrides[name] = ("intValue", str(value), str(value))  # proto3 int64 is a JSON string
+        elif isinstance(value, float):
+            if not math.isfinite(value):
+                msg = f"flag_overrides[{name!r}] is not a finite number"
+                raise ValueError(msg)
+            overrides[name] = ("floatValue", value, json.dumps(value))
+        elif isinstance(value, str):
+            overrides[name] = ("stringValue", value, value)
+        else:
+            msg = f"flag_overrides[{name!r}] has unsupported type {type(value).__name__}"
+            raise ValueError(msg)  # noqa: TRY004
     return overrides
 
 
@@ -296,6 +302,7 @@ class DevModeOverrides:
         self.guidelines_mode: str = ""
         self.guidelines_pin: str = ""
         self.guidelines_pin_error: str = ""
+        self.flag_overrides_error: str = ""
         self.guidelines_drift_dir: str = ""
         self.ca_bundle_out: str = ""
         self.spki_out: str = ""
@@ -312,7 +319,7 @@ class DevModeOverrides:
             "flag_overrides",
             str,
             "",
-            "Comma-separated NAME=VALUE Mendel experiment flag overrides",
+            "JSON object mapping Mendel flag names to bool, int, float, or string values",
         )
         loader.add_option(
             "guidelines_override",
@@ -364,11 +371,25 @@ class DevModeOverrides:
             self.stream_log.close()
             self.stream_log = None
 
+    def _configure_flags(self) -> None:
+        """Parse flag_overrides, recording a parse error for running() to fail startup on."""
+        self.flag_overrides_error = ""
+        try:
+            self.overrides = parse_flag_overrides(ctx.options.flag_overrides)
+        except ValueError as exc:
+            self.overrides = {}
+            self.flag_overrides_error = f"invalid flag_overrides: {exc}"
+            LOG.error("proxy_overrides: %s", self.flag_overrides_error)  # noqa: TRY400
+            return
+        if self.overrides:
+            summary = {k: {v[0]: v[1]} for k, v in self.overrides.items()}
+            LOG.info("proxy_overrides: flags=%s", summary)
+
     def configure(self, updated: set[str]) -> None:
         """Apply updated mitmproxy option values."""
         if ctx is None:
             return
-        self.overrides = parse_flag_overrides(ctx.options.flag_overrides)
+        self._configure_flags()
         self.guidelines_mode = ctx.options.guidelines_override.strip()
         self.guidelines_drift_dir = _expand_opt(ctx.options.guidelines_drift_dir)
         self.ca_bundle_out = _expand_opt(ctx.options.ca_bundle_out)
@@ -396,9 +417,6 @@ class DevModeOverrides:
                     self.stream_log = Path(new_path).open(  # noqa: SIM115
                         "a", buffering=1, encoding="utf-8"
                     )
-        if self.overrides:
-            summary = {k: v[1] for k, v in self.overrides.items()}
-            LOG.info("proxy_overrides: flags=%s", summary)
         if self.guidelines_mode:
             LOG.info("proxy_overrides: guidelines=%s", self.guidelines_mode)
         if self.guidelines_pin:
@@ -409,6 +427,8 @@ class DevModeOverrides:
         if ctx is None:
             return
         try:
+            if self.flag_overrides_error:
+                raise ValueError(self.flag_overrides_error)  # noqa: TRY301
             if self.guidelines_drift_dir:
                 Path(self.guidelines_drift_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
             if self.ca_bundle_out or self.spki_out:

@@ -815,6 +815,8 @@ in
               flagOverrides = {
                 "generic-system-prompt" = false;
                 "enable-programmatic-tools" = true;
+                "comma-flag" = "a,b=c";
+                "numeric-string" = "42";
               };
               package = pkgs.mitmproxy;
             };
@@ -900,18 +902,27 @@ in
                   assert not pat.search(host), f"allow_hosts matched {host}"
 
               # Mendel flag parsing and rewriting.
-              overrides = mod.parse_flag_overrides("a=false,b=42,c=1.5,d=hello")
+              names = {"a", "b", "c", "d", "e", "f"}
+              spec = json.dumps({"a": False, "b": 42, "c": 1.5, "d": "hello", "e": "42", "f": "a,b=c"})
+              overrides = mod.parse_flag_overrides(spec)
+              assert set(overrides) == names, overrides
               assert overrides["a"][:2] == ("boolValue", False)
               assert overrides["b"][:2] == ("intValue", "42")
               assert overrides["c"][:2] == ("floatValue", 1.5)
               assert overrides["d"][:2] == ("stringValue", "hello")
+              assert overrides["e"][:2] == ("stringValue", "42")
+              assert overrides["f"][:2] == ("stringValue", "a,b=c")
 
               cfg_body = {"experimentConfig": {"experimentFlags": [{"name": "a", "stringValue": "true"}]}}
               changed = mod.rewrite_flags(cfg_body, "/v1alpha:fetchConfig", overrides)
-              assert set(changed) == {"a", "b", "c", "d"}
-              flags_by_name = {f["name"]: f for f in cfg_body["experimentConfig"]["experimentFlags"]}
+              assert set(changed) == names
+              flag_list = cfg_body["experimentConfig"]["experimentFlags"]
+              flags_by_name = {f["name"]: f for f in flag_list}
+              assert len(flag_list) == len(names) and set(flags_by_name) == names, flag_list
               assert flags_by_name["a"] == {"name": "a", "stringValue": "false"}
               assert flags_by_name["b"] == {"name": "b", "intValue": "42"}
+              assert flags_by_name["e"] == {"name": "e", "stringValue": "42"}
+              assert flags_by_name["f"] == {"name": "f", "stringValue": "a,b=c"}
 
               # Guidelines check + strip + replace + drift detection.
               sample_text = "pinned guidelines body"
@@ -1089,9 +1100,23 @@ in
               flow = respond(configured(), surrogate)
               assert_blocked(flow, "guidelines check failed")
 
+              # Invalid flag_overrides are recorded in configure() and stop startup in running() before READY=1.
+              for bad in ("not json", "[1]", '{"x": null}', '{"x": NaN}', '{"x": 1e999}'):
+                  addon = configured(flag_overrides=bad)
+                  assert addon.overrides == {}, (bad, addon.overrides)
+                  assert addon.flag_overrides_error.startswith("invalid flag_overrides"), bad
+                  stopped = []
+                  mod.ctx = types.SimpleNamespace(master=types.SimpleNamespace(shutdown=lambda: stopped.append(True)))
+                  try:
+                      addon.running()
+                  finally:
+                      mod.ctx = None
+                  assert stopped == [True], bad
+
               PY
 
-              # 3. Real mitmdump startup via mkProxyStartScript: sd_notify READY=1, bundle.pem, and SPKI match openssl.
+              # 3. Real mitmdump startup via mkProxyStartScript: sd_notify READY=1, bundle.pem, SPKI match openssl,
+              # and typed flag overrides that survive escapeShellArg and --set.
               export XDG_STATE_HOME="$TMPDIR/state"
               state_dir="$XDG_STATE_HOME/antigravity-proxy"
               notify_sock="$TMPDIR/notify.sock"
@@ -1104,22 +1129,32 @@ in
               srv.settimeout(20.0)
               env = dict(os.environ, NOTIFY_SOCKET=sock_path, STATE_DIRECTORY=str(state_dir))
               proc = subprocess.Popen([start_script], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              ready = False
               try:
                   msg, _ = srv.recvfrom(4096)
                   assert msg == b"READY=1", f"unexpected notify payload: {msg!r}"
                   # All artifacts must already exist at the moment READY=1 arrives.
                   for rel in ("bundle.pem", "spki.txt", "ca/mitmproxy-ca-cert.pem", "drift"):
                       assert (state_dir / rel).exists(), f"missing {rel} after READY=1"
-              except Exception:
-                  proc.terminate()
-                  out, _ = proc.communicate(timeout=10)
-                  sys.stderr.write(out.decode("utf-8", "replace"))
-                  raise
+                  ready = True
               finally:
                   if proc.poll() is None:
                       proc.terminate()
-                      proc.communicate(timeout=10)
+                  out = proc.communicate(timeout=10)[0].decode("utf-8", "replace")
                   srv.close()
+                  if not ready:
+                      sys.stderr.write(out)
+
+              # configure() logs each override with the proto field it selected.
+              flags_line = next((line for line in out.splitlines() if "proxy_overrides: flags=" in line), None)
+              assert flags_line, out
+              for want in (
+                  "'generic-system-prompt': {'boolValue': False}",
+                  "'enable-programmatic-tools': {'boolValue': True}",
+                  "'comma-flag': {'stringValue': 'a,b=c'}",
+                  "'numeric-string': {'stringValue': '42'}",
+              ):
+                  assert want in flags_line, f"{want} missing from {flags_line}"
               PY
 
               expected_spki=$(openssl x509 -in "$state_dir/ca/mitmproxy-ca-cert.pem" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)

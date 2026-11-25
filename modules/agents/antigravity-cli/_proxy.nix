@@ -23,15 +23,6 @@ let
   # Hub language_server also pins TEMPLATE_DATA_DIR across Electron's login-shell env merge.
   hubPinVars = [ "TEMPLATE_DATA_DIR" ] ++ proxyEnvVars;
 
-  formatFlagValue =
-    value: if builtins.isBool value then if value then "true" else "false" else toString value;
-
-  formatFlagOverrides =
-    lib: overrides:
-    lib.concatStringsSep "," (
-      lib.mapAttrsToList (name: value: "${name}=${formatFlagValue value}") overrides
-    );
-
   mkProxyOptions =
     { lib, pkgs }:
     {
@@ -87,7 +78,12 @@ let
           "generic-system-prompt" = false;
           "enable-programmatic-tools" = true;
         };
-        description = "Mendel experiment flag overrides rewritten in `fetchConfig` and `listExperiments`.";
+        description = ''
+          Mendel experiment flag overrides rewritten in `fetchConfig` and
+          `listExperiments`. The Nix value type selects the proto field (`bool`,
+          `int`, `float`, or `str` value), except that a flag the server sends
+          as `stringValue` stays a string.
+        '';
       };
 
       package = lib.mkOption {
@@ -106,7 +102,6 @@ let
       systemCaBundle ? "/etc/ssl/certs/ca-certificates.crt",
     }:
     let
-      flagOverridesStr = formatFlagOverrides lib proxy.flagOverrides;
       guidelinesOverrideStr =
         if proxy.guidelinesOverride == null then "" else "${proxy.guidelinesOverride}";
       guidelinesPinStr = if proxy.guidelinesPin == null then "" else "${proxy.guidelinesPin}";
@@ -122,7 +117,7 @@ let
         --listen-port ${toString proxy.port} \
         --set ${lib.escapeShellArg "allow_hosts=${allowHostsRegex}"} \
         -s ${addonScript} \
-        --set ${lib.escapeShellArg "flag_overrides=${flagOverridesStr}"} \
+        --set ${lib.escapeShellArg "flag_overrides=${builtins.toJSON proxy.flagOverrides}"} \
         --set ${lib.escapeShellArg "guidelines_override=${guidelinesOverrideStr}"} \
         --set ${lib.escapeShellArg "guidelines_pin=${guidelinesPinStr}"} \
         --set "guidelines_drift_dir=$state_dir/drift" \
@@ -265,7 +260,6 @@ in
     defaultGuidelinesPin
     defaultPort
     defaultTemplatesDir
-    formatFlagOverrides
     hubPinVars
     mkProxyOptions
     mkProxyStartScript
