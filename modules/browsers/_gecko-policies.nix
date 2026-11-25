@@ -52,7 +52,7 @@ in
     Cookies.Allow = [
       "https://github.com"
       "https://kagi.com"
-      "https://randrop.io"
+      "https://raindrop.io"
     ];
 
     # Fallback = false turns an SNI reset into a total DNS outage; see
