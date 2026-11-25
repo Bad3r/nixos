@@ -43,6 +43,33 @@ _: {
         else
           null;
 
+      hubPkg =
+        if hubEnabled then
+          lib.attrByPath [ "programs" "antigravity-hub" "extended" "finalPackage" ] null osConfig
+        else
+          null;
+
+      # agentapi talks to whichever language server ANTIGRAVITY_LS_ADDRESS names,
+      # so the CLI and the IDE copy both use the system `agy`. The Hub keeps its
+      # own language server, unwrapped: the `language_server` wrapper appends
+      # server flags to every invocation.
+      systemAgy = "/run/current-system/sw/bin/agy";
+      agentapiShims =
+        lib.optionals cliEnabled [
+          {
+            appDir = ".gemini/antigravity-cli";
+            target = systemAgy;
+          }
+          {
+            appDir = ".gemini/antigravity-ide";
+            target = systemAgy;
+          }
+        ]
+        ++ lib.optional (hubPkg != null) {
+          appDir = ".gemini/antigravity";
+          target = "${hubPkg}/share/antigravity/resources/bin/.language_server-wrapped";
+        };
+
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
       mcpServers = agents.mcp.clients.antigravity.servers { inherit pkgs osConfig; };
       hooks = agents.hooks.clients.antigravity pkgs;
@@ -163,6 +190,7 @@ _: {
           cliEnabled
           agyPkg
           marketplacePlugins
+          agentapiShims
           ;
         xdgConfigHome = config.xdg.configHome;
       };

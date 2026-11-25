@@ -13,7 +13,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 - [Shared system prompt](../../../modules/agents/system-prompt.nix): renders `~/.gemini/config/AGENTS.md` with `ask_question` and `sbx` settings.
 - [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, notifications, and verbosity for `agy`.
 - [Permissions policy](../../../modules/agents/antigravity-cli/_permissions.nix): defines `allow`, `ask`, and `deny` rules for CLI settings and Hub grants.
-- [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins and merges declared JSON keys atomically.
+- [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins, merges declared JSON keys atomically, and repoints the `agentapi` shims.
 - [Shared plugin catalog](../../../modules/agents/_plugins.nix): sets default plugin enablement for `antigravity-cli`.
 - [Shared MCP registry](../../../modules/agents/mcp/servers.nix): defines server endpoints, wrappers, and client membership compiled by [the MCP compiler](../../../modules/agents/mcp.nix).
 - [Shared hook registry](../../../modules/agents/hooks.nix): generates `PreInvocation` session reporting and `PreToolUse` scratch validation.
@@ -38,6 +38,13 @@ A preset or color picked in Settings > Appearance lasts until the next switch.
 Root `agy` sessions lack a local telemetry flag and read the Google account toggle from `/config` when signed in.
 `agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows run remote Language Server binaries.
 
+## agentapi shims
+
+`agy` and the Hub Language Server write `bin/agentapi` into their data directory from the running binary's store path whenever an agent runs a command, and put that directory first on the command's `PATH`.
+Each switch repoints `~/.gemini/antigravity-cli/bin/agentapi` and the IDE copy in `~/.gemini/antigravity-ide/` at `/run/current-system/sw/bin/agy`, and `~/.gemini/antigravity/bin/agentapi` at the Hub's unwrapped `.language_server-wrapped`.
+The Hub's `language_server` wrapper appends server flags, so the shim skips it.
+The next agent command rewrites the shim with the current store path, which stays valid until the following switch.
+
 ## Plugins and MCP servers
 
 Override plugins per host under `programs."antigravity-cli".extended.plugins`.
@@ -55,11 +62,12 @@ Allowed `read_file`, `write_file`, and `read_url` targets also populate the Linu
 
 ## Validation
 
-Build the Antigravity activation, shell wrapper, and scratch-guard checks before switching:
+Build the Antigravity activation, shim, shell wrapper, and scratch-guard checks before switching:
 
 ```sh
 nix build --accept-flake-config --no-link \
   'path:.#checks.x86_64-linux."antigravity-cli/activation-merge"' \
+  'path:.#checks.x86_64-linux."antigravity-cli/agentapi-shims"' \
   'path:.#checks.x86_64-linux."antigravity-cli/shell-wrapper"' \
   'path:.#checks.x86_64-linux."agents/hooks/scratch-guard"'
 ```
