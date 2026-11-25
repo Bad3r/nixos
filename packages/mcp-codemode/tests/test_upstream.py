@@ -21,6 +21,7 @@ from unittest import mock
 
 from mcp_codemode.config import SecretHeader, ServerSpec, load_manifest
 from mcp_codemode.upstream import (
+    MAX_BEST_EFFORT_SENDS,
     HttpUpstreamClient,
     StdioUpstreamClient,
     UpstreamError,
@@ -122,15 +123,17 @@ class _LifecycleState:
         self.release = threading.Event()
         self.initialized_status = 202
         self.delete_status = 204
+        self.delete_started: list[str | None] = []
+        self.delete_gate: threading.Event | None = None
 
     def append[T](self, items: list[T], item: T) -> None:
         with self.cond:
             items.append(item)
             self.cond.notify_all()
 
-    def wait_for(self, predicate: Callable[[], bool]) -> bool:
+    def wait_for(self, predicate: Callable[[], bool], timeout: float = WAIT_SEC) -> bool:
         with self.cond:
-            return self.cond.wait_for(predicate, timeout=WAIT_SEC)
+            return self.cond.wait_for(predicate, timeout=timeout)
 
 
 class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
@@ -214,8 +217,13 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
             handler(body.get("id"), cast("dict[str, object]", body.get("params") or {}))
 
     def do_DELETE(self) -> None:
-        self.state.append(self.state.deleted, self.headers.get("Mcp-Session-Id"))
-        self._empty(self.state.delete_status)
+        st = self.state
+        session = self.headers.get("Mcp-Session-Id")
+        st.append(st.delete_started, session)
+        if st.delete_gate is not None:
+            st.delete_gate.wait(timeout=WAIT_SEC)
+        st.append(st.deleted, session)
+        self._empty(st.delete_status)
 
 
 def _make_lifecycle_handler(st: _LifecycleState) -> type[http.server.BaseHTTPRequestHandler]:
@@ -233,12 +241,16 @@ def _running_server(st: _LifecycleState) -> Generator[str]:
         yield f"http://127.0.0.1:{srv.server_address[1]}/mcp"
     finally:
         st.release.set()
-        if st.init_gate is not None:
-            st.init_gate.set()
-        if st.list_gate is not None:
-            st.list_gate.set()
+        for gate in (st.init_gate, st.list_gate, st.delete_gate):
+            if gate is not None:
+                gate.set()
         srv.shutdown()
         srv.server_close()
+
+
+def _close_drained(client: HttpUpstreamClient) -> bool:
+    client.close()
+    return client.drain(time.monotonic() + WAIT_SEC)
 
 
 def _http_spec(url: str) -> ServerSpec:
@@ -589,7 +601,7 @@ class UpstreamTest(unittest.TestCase):
                     res = client.call_tool("search", {"q": "nix"})
                     content = cast("list[dict[str, object]]", res["content"])
                     self.assertEqual(content[0]["text"], "ok")
-                    client.close()
+                    self.assertTrue(_close_drained(client))
 
                 after_init = [entry for entry in seen if entry["method"] != "initialize"]
                 self.assertTrue(after_init)
@@ -684,7 +696,7 @@ class UpstreamTest(unittest.TestCase):
                     client = HttpUpstreamClient(spec)
                     tools = client.list_tools()
                     self.assertEqual([t["name"] for t in tools], ["docs"])
-                    client.close()
+                    self.assertTrue(_close_drained(client))
                 self.assertTrue(received_auth)
                 self.assertTrue(all(h == "Bearer dummy-value" for h in received_auth))
         finally:
@@ -797,7 +809,7 @@ class UpstreamTest(unittest.TestCase):
             max_retry_calls = 2
             self.assertEqual(state.tool_calls_seen - before_calls, max_retry_calls)
             state.fail_next_404 = False
-            client.close()
+            self.assertTrue(_close_drained(client))
 
             # 404 on notifications/initialized must raise UpstreamError, never RecursionError.
             state.init_notify_404 = True
@@ -806,6 +818,7 @@ class UpstreamTest(unittest.TestCase):
                 fresh_client.ensure_initialized()
             self.assertIn("404", str(init_ctx.exception))
             state.init_notify_404 = False
+            self.assertTrue(_close_drained(fresh_client))
         finally:
             srv.shutdown()
             srv.server_close()
@@ -847,7 +860,7 @@ class UpstreamTest(unittest.TestCase):
                 client.call_tool("ping", {})
             self.assertIn("cross-origin", str(redir_ctx.exception))
             state.redirect_cross_origin = False
-            client.close()
+            self.assertTrue(_close_drained(client))
         finally:
             srv.shutdown()
             srv.server_close()
@@ -890,7 +903,7 @@ class UpstreamTest(unittest.TestCase):
             for item in results:
                 content = cast("list[dict[str, object]]", item["content"])
                 self.assertEqual(content[0]["text"], split_utf8_text)
-            client.close()
+            self.assertTrue(_close_drained(client))
             self.assertEqual(state["delete_headers"], [("sess-race", "2025-06-18")])
         finally:
             srv.shutdown()
@@ -1003,7 +1016,7 @@ for line in sys.stdin:
                 self.assertTrue(st.wait_for(lambda: len(st.cancelled) == stream_hang))
                 self.assertEqual(st.cancelled[1], (st.hung_ids[1], "sess-1"))
             finally:
-                client.close()
+                self.assertTrue(_close_drained(client))
 
     def test_http_sessions_issued_during_failed_or_closed_init_are_deleted(self) -> None:
         """DELETE every server-issued session the client drops, and stay closed after close()."""
@@ -1020,19 +1033,21 @@ for line in sys.stdin:
             thread.join(timeout=WAIT_SEC)
             self.assertEqual(len(errors), 1)
             self.assertIsInstance(errors[0], UpstreamError)
+            self.assertTrue(racing.drain(time.monotonic() + WAIT_SEC))
             self.assertEqual(st.deleted, ["sess-1"])
 
             st.initialized_status = 404
             failing = HttpUpstreamClient(_http_spec(url))
             with self.assertRaises(UpstreamError):
                 failing.ensure_initialized()
-            self.assertTrue(st.wait_for(lambda: "sess-2" in st.deleted))
+            self.assertTrue(failing.drain(time.monotonic() + WAIT_SEC))
+            self.assertEqual(st.deleted, ["sess-1", "sess-2"])
             st.initialized_status = 202
 
             closed = HttpUpstreamClient(_http_spec(url))
             closed.ensure_initialized()
-            closed.close()
-            self.assertIn("sess-3", st.deleted)
+            self.assertTrue(_close_drained(closed))
+            self.assertEqual(st.deleted, ["sess-1", "sess-2", "sess-3"])
             init_count = st.init_count
             with self.assertRaises(UpstreamError):
                 closed.ensure_initialized()
@@ -1048,9 +1063,105 @@ for line in sys.stdin:
             client = HttpUpstreamClient(_http_spec(url))
             client.ensure_initialized()
             with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
-                client.close()
+                self.assertTrue(_close_drained(client))
             self.assertEqual(st.deleted, ["sess-1"])
             self.assertEqual(stderr.getvalue(), "")
+
+    def test_http_closed_init_returns_without_waiting_for_delete(self) -> None:
+        """Return the closed error at once and leave the late session's DELETE to run detached."""
+        st = _LifecycleState()
+        st.init_gate = threading.Event()
+        st.delete_gate = threading.Event()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            errors: list[Exception] = []
+            thread = _run_capturing(
+                lambda: client.ensure_initialized(deadline=time.monotonic() + WAIT_SEC), errors
+            )
+            self.assertTrue(st.init_entered.wait(timeout=WAIT_SEC))
+            client.close()
+            st.init_gate.set()
+            thread.join(timeout=1.0)
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(len(errors), 1)
+            self.assertIn("closed", str(errors[0]))
+            self.assertTrue(st.wait_for(lambda: st.delete_started == ["sess-1"]))
+            self.assertEqual(st.deleted, [])
+            st.delete_gate.set()
+            self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
+            self.assertEqual(st.deleted, ["sess-1"])
+
+    def test_http_best_effort_sends_are_bounded_per_client(self) -> None:
+        """Drop sends past the per-client limit with a log line that names no session."""
+        st = _LifecycleState()
+        st.initialized_status = 404
+        st.delete_gate = threading.Event()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                for _ in range(MAX_BEST_EFFORT_SENDS + 1):
+                    with self.assertRaises(UpstreamError):
+                        client.ensure_initialized()
+            self.assertTrue(st.wait_for(lambda: len(st.delete_started) == MAX_BEST_EFFORT_SENDS))
+            log = stderr.getvalue()
+            self.assertEqual(
+                log,
+                f"mcp-codemode: upstream 'lc-http': dropped DELETE: "
+                f"{MAX_BEST_EFFORT_SENDS} sends already pending\n",
+            )
+            st.delete_gate.set()
+            self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
+            self.assertEqual(len(st.deleted), MAX_BEST_EFFORT_SENDS)
+
+    def test_http_failed_cleanup_thread_keeps_original_error(self) -> None:
+        """Raise the handshake error, not the cleanup thread's start failure."""
+        st = _LifecycleState()
+        st.initialized_status = 404
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            caller = threading.current_thread()
+            real_start = threading.Thread.start
+
+            def refuse_on_caller(thread: threading.Thread) -> None:
+                if threading.current_thread() is caller:
+                    msg = "can't start new thread"
+                    raise RuntimeError(msg)
+                real_start(thread)
+
+            with (
+                mock.patch.object(threading.Thread, "start", refuse_on_caller),
+                mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+                self.assertRaises(UpstreamError) as ctx,
+            ):
+                client.ensure_initialized()
+            self.assertIn("404", str(ctx.exception))
+            self.assertIn("dropped DELETE: can't start new thread", stderr.getvalue())
+            self.assertFalse(client.has_pending_sends())
+
+    def test_supervisor_close_all_waits_for_detached_sends(self) -> None:
+        """Deliver a pending DELETE, even from an evicted client, before close_all() returns."""
+        st = _LifecycleState()
+        st.initialized_status = 404
+        st.delete_gate = threading.Event()
+        with _running_server(st) as url, tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "client": "test",
+                        "servers": {"lc-http": {"transport": "http", "url": url}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            supervisor = UpstreamSupervisor(load_manifest(manifest_path))
+            with self.assertRaises(UpstreamError):
+                supervisor.get_tools("lc-http")
+            self.assertTrue(st.wait_for(lambda: st.delete_started == ["sess-1"]))
+            supervisor.close_disabled({"lc-http": False})
+            threading.Timer(0.3, st.delete_gate.set).start()
+            supervisor.close_all()
+            self.assertEqual(st.deleted, ["sess-1"])
 
     def _lifecycle_stdio_spec(self, root: Path, *extra: str) -> tuple[ServerSpec, Path]:
         script = root / "lifecycle_stdio.py"

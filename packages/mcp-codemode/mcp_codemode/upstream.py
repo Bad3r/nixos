@@ -46,6 +46,7 @@ HTTP_READ_CHUNK_BYTES = 16 * 1024
 MAX_TOOL_PAGES = 100
 MIN_EFFECTIVE_TIMEOUT_SEC = 0.05
 STDIO_CANCEL_POLL_SEC = 0.05
+MAX_BEST_EFFORT_SENDS = 8
 
 
 class UpstreamError(RuntimeError):
@@ -80,8 +81,56 @@ class UpstreamError(RuntimeError):
 BEST_EFFORT_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError, UpstreamError)
 
 
-def _run_detached(target: Callable[..., None], *args: object) -> None:
-    threading.Thread(target=target, args=args, daemon=True).start()
+def _log_dropped(server: str, what: str, why: str) -> None:
+    sys.stderr.write(f"mcp-codemode: upstream '{server}': dropped {what}: {why}\n")
+
+
+class _BestEffortSends:
+    """Detached best-effort sends of one client, bounded in count and joinable at shutdown."""
+
+    def __init__(self, server: str) -> None:
+        self._server = server
+        self._cond = threading.Condition()
+        self._active: set[threading.Thread] = set()
+
+    def submit(self, what: str, target: Callable[..., None], *args: object) -> None:
+        """Run target on a daemon thread, or drop it with a log line when saturated."""
+        thread = threading.Thread(target=self._run, args=(target, args), daemon=True)
+        with self._cond:
+            saturated = len(self._active) >= MAX_BEST_EFFORT_SENDS
+            if not saturated:
+                self._active.add(thread)
+        if saturated:
+            _log_dropped(self._server, what, f"{MAX_BEST_EFFORT_SENDS} sends already pending")
+            return
+        try:
+            thread.start()
+        except RuntimeError as exc:
+            self._finish(thread)
+            _log_dropped(self._server, what, str(exc))
+
+    def _run(self, target: Callable[..., None], args: tuple[object, ...]) -> None:
+        try:
+            target(*args)
+        finally:
+            self._finish(threading.current_thread())
+
+    def _finish(self, thread: threading.Thread) -> None:
+        with self._cond:
+            self._active.discard(thread)
+            self._cond.notify_all()
+
+    def pending(self) -> bool:
+        """Report whether any send is still running."""
+        with self._cond:
+            return bool(self._active)
+
+    def drain(self, deadline: float) -> bool:
+        """Wait until no send runs or deadline passes; True when none remain."""
+        with self._cond:
+            return self._cond.wait_for(
+                lambda: not self._active, timeout=max(0.0, deadline - time.monotonic())
+            )
 
 
 def _cancelled_notification(request_id: int, reason: str) -> dict[str, object]:
@@ -448,6 +497,15 @@ class _BaseUpstreamClient:
     def close(self) -> None:
         raise NotImplementedError
 
+    def has_pending_sends(self) -> bool:
+        """Report whether detached best-effort sends are still running."""
+        return False
+
+    def drain(self, deadline: float) -> bool:
+        """Wait until deadline for detached best-effort sends; True when none remain."""
+        del deadline
+        return True
+
 
 class HttpUpstreamClient(_BaseUpstreamClient):
     """Streamable HTTP MCP client supporting SSE, gzip, sessions, and secret headers."""
@@ -475,6 +533,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         self._protocol_version: str | None = None
         self._initialized = False
         self._closed = False
+        self._sends = _BestEffortSends(spec.name)
 
     def _allocate_id(self) -> int:
         with self._lock:
@@ -586,7 +645,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 return token
         # close() already terminated the session it saw; a newly issued one is ours to end.
         if new_session and new_session != sent_session_id:
-            self._terminate_session(new_session, None)
+            self._sends.submit("DELETE", self._terminate_session, new_session, None)
         raise UpstreamError.closed(self.spec.name)
 
     def _unregister_inflight(self, token: int) -> None:
@@ -749,8 +808,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 return
         notification = _cancelled_notification(target_id, reason)
         data = json.dumps(notification, separators=(",", ":")).encode("utf-8")
-        # Detached so a slow upstream cannot eat the caller's deadline headroom.
-        _run_detached(self._send_best_effort, "POST", headers, data)
+        self._sends.submit("notifications/cancelled", self._send_best_effort, "POST", headers, data)
 
     @override
     def _rpc_call(
@@ -812,12 +870,8 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         except Exception:
             with self._lock:
                 session_id, protocol_version = self._take_session_locked()
-                closed = self._closed
             if session_id:
-                if closed:
-                    self._terminate_session(session_id, protocol_version)
-                else:
-                    _run_detached(self._terminate_session, session_id, protocol_version)
+                self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
             raise
         with self._lock:
             if not self._closed:
@@ -825,7 +879,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 return
             session_id, protocol_version = self._take_session_locked()
         if session_id:
-            self._terminate_session(session_id, protocol_version)
+            self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
         raise UpstreamError.closed(self.spec.name)
 
     @override
@@ -850,7 +904,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
 
     @override
     def close(self) -> None:
-        """Abort active responses and send best-effort HTTP session termination."""
+        """Abort active responses and start best-effort HTTP session termination."""
         with self._lock:
             self._closed = True
             session_id, protocol_version = self._take_session_locked()
@@ -859,7 +913,15 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         for resp in inflight:
             _close_response_hard(resp)
         if session_id:
-            self._terminate_session(session_id, protocol_version)
+            self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
+
+    @override
+    def has_pending_sends(self) -> bool:
+        return self._sends.pending()
+
+    @override
+    def drain(self, deadline: float) -> bool:
+        return self._sends.drain(deadline)
 
 
 class _PendingCall:
@@ -1223,6 +1285,8 @@ class UpstreamSupervisor:
         self._closed = False
         self._clients: dict[str, _BaseUpstreamClient] = {}
         self._closing: set[_BaseUpstreamClient] = set()
+        # Evicted clients stay reachable until their best-effort sends finish.
+        self._retired: set[_BaseUpstreamClient] = set()
         self._tools_cache: dict[str, list[dict[str, object]]] = {}
 
     def _get_client(self, name: str) -> _BaseUpstreamClient:
@@ -1303,14 +1367,26 @@ class UpstreamSupervisor:
             finally:
                 with self._lock:
                     self._closing.discard(client)
+        with self._lock:
+            self._retired.update(to_close)
+            self._retired = {c for c in self._retired if c.has_pending_sends()}
 
     def close_all(self) -> None:
-        """Close every active or in-flight-closing upstream client and prevent new starts."""
+        """Close every client, then wait up to CLOSE_TIMEOUT_SEC for their best-effort sends."""
         with self._lock:
             self._closed = True
             clients = [*self._clients.values(), *self._closing]
+            retired = list(self._retired)
             self._clients.clear()
+            self._retired.clear()
             self._tools_cache.clear()
         for client in clients:
             with contextlib.suppress(Exception):
                 client.close()
+        deadline = time.monotonic() + CLOSE_TIMEOUT_SEC
+        for client in [*clients, *retired]:
+            if not client.drain(deadline):
+                sys.stderr.write(
+                    f"mcp-codemode: upstream '{client.spec.name}': "
+                    "best-effort sends unfinished at shutdown\n"
+                )
