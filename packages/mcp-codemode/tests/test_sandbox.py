@@ -220,6 +220,12 @@ class SandboxTest(unittest.TestCase):
             symbolKey: { [Symbol("s")]: 1 },
             arrayUndefined: { list: [1, undefined] },
             arrayHole: { list: [1, , 3] },
+            getter: { get x() { throw new Error("boom"); } },
+            deep: (() => {
+              let o = {};
+              for (let i = 0; i < 200000; i++) o = { a: o };
+              return o;
+            })(),
             nan: { n: NaN },
             bigint: { n: 1n },
             deepDate: { "a-b": [{ d: new Date(0) }] },
@@ -287,6 +293,7 @@ class SandboxTest(unittest.TestCase):
             "symbolKey": "args[Symbol(s)] must be plain JSON, got symbol key",
             "arrayUndefined": "args.list[1] must be plain JSON, got undefined",
             "arrayHole": "args.list[1] must be plain JSON, got undefined",
+            "getter": "args could not be read: boom",
             "nan": "args.n must be plain JSON, got non-finite number",
             "bigint": "args.n must be plain JSON, got bigint",
             "deepDate": 'args["a-b"][0].d must be plain JSON, got Date instance',
@@ -306,8 +313,14 @@ class SandboxTest(unittest.TestCase):
         }
         value = cast("dict[str, object]", result.value)
         errors = cast("dict[str, str]", value["errors"])
-        for path in ("proxy", "call"):
-            self.assertIn("revoked", errors.pop(f"revoked/{path}"))
+        unreadable = {"revoked": "revoked", "deep": "Maximum call stack size exceeded"}
+        for kind, detail in unreadable.items():
+            for path in ("proxy", "call"):
+                message = errors.pop(f"{kind}/{path}")
+                self.assertTrue(
+                    message.startswith("mock-srv.echo: args could not be read: "), message
+                )
+                self.assertIn(detail, message)
         self.assertEqual(errors, expected_errors)
         self.assertEqual(value["reads"], 1)
         nested_sent = {"a": [1, "x", None, True, {"b": 2}], "s": [{"z": 1}, {"z": 1}]}

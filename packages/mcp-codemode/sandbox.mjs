@@ -318,18 +318,29 @@ function copyPlainJson(value, path, ancestors, fail) {
 // JSON.stringify drops functions and Symbols and turns Map or Set into {}.
 function callTool(server, tool, args) {
 	let copy;
+	let failed = false;
 	try {
 		const fail = (path, kind, expected = "plain JSON") => {
-			throw vmMakeError(
+			const err = vmMakeError(
 				`${server}.${tool}: ${path} must be ${expected}, got ${kind}`,
 			);
+			failed = true;
+			throw err;
 		};
 		if (!isPlainObject(args)) {
 			fail("args", describeArgsKind(args), "a plain object");
 		}
 		copy = copyPlainJson(args, "args", new HostSet(), fail);
 	} catch (err) {
-		return HostPromise.reject(vmMakeError(safeErrorMessage(err)));
+		// Getters, proxies, and stack overflow throw without the tool name.
+		const detail = safeErrorMessage(err);
+		return HostPromise.reject(
+			vmMakeError(
+				failed
+					? detail
+					: `${server}.${tool}: args could not be read: ${detail}`,
+			),
+		);
 	}
 	return rpcCall("call_tool", { server, tool, args: copy });
 }
