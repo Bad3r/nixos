@@ -12,9 +12,8 @@ let
     CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS = "1";
   };
 
-  # Nix manages CLI updates, so disable 15-minute `--bg-updater` checks.
   cliEnv = sharedEnv // {
-    AGY_CLI_DISABLE_AUTO_UPDATE = "1";
+    AGY_CLI_DISABLE_AUTO_UPDATE = "true";
   };
 
   # Hub stores UI settings as strings in app_storage.json; `SettingsService`

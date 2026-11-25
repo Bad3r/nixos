@@ -36,7 +36,6 @@ A preset or color picked in Settings > Appearance lasts until the next switch.
 
 `agy` accepts `--disable_telemetry` only on `acp`, so the wrapper injects it there and rejects falsy overrides before `--`.
 Root `agy` sessions lack a local telemetry flag and read the Google account toggle from `/config` when signed in.
-The `antigravity-cli/no-google-telemetry` check pins `agy` flag support against upstream `--help` output and checks Hub wrapper flags and environment.
 `agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows run remote Language Server binaries.
 
 ## Plugins and MCP servers
@@ -61,7 +60,6 @@ Build the Antigravity activation, shell wrapper, and scratch-guard checks before
 ```sh
 nix build --accept-flake-config --no-link \
   'path:.#checks.x86_64-linux."antigravity-cli/activation-merge"' \
-  'path:.#checks.x86_64-linux."antigravity-cli/no-google-telemetry"' \
   'path:.#checks.x86_64-linux."antigravity-cli/shell-wrapper"' \
   'path:.#checks.x86_64-linux."agents/hooks/scratch-guard"'
 ```
