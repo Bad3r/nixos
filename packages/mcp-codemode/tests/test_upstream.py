@@ -105,6 +105,29 @@ for line in sys.stdin:
             send(mid, result={"content": [{"type": "text", "text": text}]})
 """
 
+STALLING_STDIO_SCRIPT = """
+import json, os, signal, sys, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+resume, received = sys.argv[1], sys.argv[2]
+for line in sys.stdin:
+    msg = json.loads(line)
+    method, params = msg.get("method"), msg.get("params") or {}
+    with open(received, "a", encoding="utf-8") as log:
+        entry = [method, msg.get("id"), params.get("name"), params.get("requestId")]
+        log.write(json.dumps(entry) + "\\n")
+    if method == "initialize" and "no-init-reply" not in sys.argv:
+        reply = {"jsonrpc": "2.0", "id": msg["id"], "result": {"protocolVersion": "2025-03-26"}}
+        sys.stdout.write(json.dumps(reply) + "\\n")
+        sys.stdout.flush()
+    elif method == "notifications/initialized":
+        while not os.path.exists(resume):
+            time.sleep(0.02)
+    elif method == "tools/call":
+        reply = {"jsonrpc": "2.0", "id": msg["id"], "result": {"content": []}}
+        sys.stdout.write(json.dumps(reply) + "\\n")
+        sys.stdout.flush()
+"""
+
 WAIT_SEC = 5.0
 
 
@@ -1275,6 +1298,57 @@ for line in sys.stdin:
             args=("-u", str(script), str(spawn_log), *extra),
         )
         return spec, spawn_log
+
+    def _stalling_stdio_spec(self, root: Path, *extra: str) -> tuple[ServerSpec, Path, Path]:
+        script = root / "stalling_stdio.py"
+        script.write_text(STALLING_STDIO_SCRIPT, encoding="utf-8")
+        resume, received = root / "resume", root / "received.log"
+        spec = ServerSpec(
+            name="stall-stdio",
+            alias="stall_stdio",
+            transport="stdio",
+            command=sys.executable,
+            args=("-u", str(script), str(resume), str(received), *extra),
+        )
+        return spec, resume, received
+
+    def test_stdio_callers_meet_deadlines_while_stdin_is_stalled(self) -> None:
+        """Return by the deadline while stdin is full, and never send a request abandoned unsent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, received = self._stalling_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                calls_to_stall: list[tuple[str, dict[str, object]]] = [
+                    ("big", {"x": "a" * (1 << 21)}),
+                    ("small", {}),
+                ]
+                for name, args in calls_to_stall:
+                    errors: list[Exception] = []
+                    deadline = time.monotonic() + 0.5
+                    thread = _run_capturing(
+                        lambda name=name, args=args, deadline=deadline: client.call_tool(
+                            name, args, deadline=deadline
+                        ),
+                        errors,
+                    )
+                    thread.join(timeout=1.5)
+                    self.assertFalse(thread.is_alive(), name)
+                    self.assertEqual(len(errors), 1)
+                    self.assertIn("timed out", str(errors[0]))
+                resume.touch()
+                client.call_tool("report", {})
+                entries = [
+                    cast("list[object]", json.loads(line))
+                    for line in received.read_text(encoding="utf-8").splitlines()
+                ]
+                calls = {e[2]: e[1] for e in entries if e[0] == "tools/call"}
+                self.assertEqual(list(calls), ["big", "report"])
+                cancelled = [e[3] for e in entries if e[0] == "notifications/cancelled"]
+                self.assertEqual(cancelled, [calls["big"]])
+            finally:
+                resume.touch()
+                client.close()
 
     def test_stdio_timeout_sends_cancelled_and_closed_client_never_respawns(self) -> None:
         """Cancel a timed-out stdio request upstream, then refuse calls after close()."""

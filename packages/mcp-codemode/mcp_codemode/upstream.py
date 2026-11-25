@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import codecs
+import collections
 import contextlib
 import http.client
 import json
@@ -47,6 +48,8 @@ MAX_TOOL_PAGES = 100
 MIN_EFFECTIVE_TIMEOUT_SEC = 0.05
 STDIO_CANCEL_POLL_SEC = 0.05
 MAX_BEST_EFFORT_SENDS = 8
+MAX_STDIO_WRITE_BACKLOG = 64
+STDIO_WRITER_FLUSH_SEC = 0.1
 
 
 class UpstreamError(RuntimeError):
@@ -971,6 +974,100 @@ class _PendingCall:
         self.cancelled = False
         self.response: dict[str, object] | None = None
         self.error: Exception | None = None
+        self.write_started = False
+        self.abandoned = False
+
+
+def _json_line(payload: dict[str, object]) -> str:
+    return json.dumps(payload, separators=(",", ":")) + "\n"
+
+
+@dataclass(eq=False)
+class _StdinLine:
+    text: str
+    what: str
+    waiter: _PendingCall | None = None
+
+
+class _StdinWriter:
+    """Sole writer of one subprocess's stdin, so no caller waits on a stalled pipe."""
+
+    def __init__(self, server: str, stdin: IO[str]) -> None:
+        self._server = server
+        self._stdin = stdin
+        self._cond = threading.Condition()
+        self._backlog: collections.deque[_StdinLine] = collections.deque()
+        self._stopping = False
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self) -> None:
+        """Start the writer thread."""
+        self._thread.start()
+
+    def send(self, line: _StdinLine, *, best_effort: bool) -> None:
+        """Queue a line; drop a best-effort line with a log line when the backlog is full."""
+        with self._cond:
+            stopping = self._stopping
+            full = len(self._backlog) >= MAX_STDIO_WRITE_BACKLOG
+            if not stopping and not full:
+                self._backlog.append(line)
+                self._cond.notify()
+                return
+        if stopping:
+            if best_effort:
+                return
+            raise UpstreamError.closed(self._server)
+        why = f"{MAX_STDIO_WRITE_BACKLOG} stdin writes already queued"
+        if best_effort:
+            _log_dropped(self._server, line.what, why)
+            return
+        raise UpstreamError.rpc_error(self._server, why)
+
+    def abandon(self, waiter: _PendingCall) -> bool:
+        """Skip waiter's request if still queued; True when its write already started."""
+        with self._cond:
+            if waiter.write_started:
+                return True
+            waiter.abandoned = True
+            return False
+
+    def stop(self) -> None:
+        """Write what is queued, then close stdin and exit."""
+        with self._cond:
+            self._stopping = True
+            self._cond.notify()
+
+    def join(self, timeout: float) -> None:
+        """Wait up to timeout for the writer thread to exit."""
+        self._thread.join(timeout)
+
+    def _next(self) -> _StdinLine | None:
+        with self._cond:
+            while True:
+                self._cond.wait_for(lambda: self._backlog or self._stopping)
+                if not self._backlog:
+                    return None
+                line = self._backlog.popleft()
+                if line.waiter is None:
+                    return line
+                if not line.waiter.abandoned:
+                    line.waiter.write_started = True
+                    return line
+
+    def _run(self) -> None:
+        try:
+            while (line := self._next()) is not None:
+                try:
+                    self._stdin.write(line.text)
+                    self._stdin.flush()
+                except (OSError, ValueError) as exc:
+                    if line.waiter is not None:
+                        detail = f"write failed: {exc}"
+                        line.waiter.error = UpstreamError.rpc_error(self._server, detail)
+                        line.waiter.event.set()
+        finally:
+            with contextlib.suppress(OSError, ValueError):
+                self._stdin.close()
 
 
 class StdioUpstreamClient(_BaseUpstreamClient):
@@ -986,8 +1083,8 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         self._lock = threading.Lock()
         self._init_lock = threading.Lock()
         self._teardown_lock = threading.Lock()
-        self._write_lock = threading.Lock()
         self._proc: subprocess.Popen[str] | None = None
+        self._writer: _StdinWriter | None = None
         self._next_id = 1
         self._pending: dict[int, _PendingCall] = {}
         self._initialized = False
@@ -1000,7 +1097,8 @@ class StdioUpstreamClient(_BaseUpstreamClient):
 
     @staticmethod
     def _close_proc_handles(proc: subprocess.Popen[str]) -> None:
-        for stream in (proc.stdin, proc.stdout, proc.stderr):
+        # The process's _StdinWriter owns and closes stdin.
+        for stream in (proc.stdout, proc.stderr):
             if stream is not None:
                 with contextlib.suppress(OSError, ValueError, RuntimeError):
                     stream.close()
@@ -1011,8 +1109,12 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         if self._proc is not None and self._proc.poll() is None:
             return
         old_proc = self._proc
+        old_writer = self._writer
         self._proc = None
+        self._writer = None
         self._initialized = False
+        if old_writer is not None:
+            old_writer.stop()
         if old_proc is not None:
             with contextlib.suppress(OSError):
                 old_proc.wait(timeout=0.1)
@@ -1036,9 +1138,14 @@ class StdioUpstreamClient(_BaseUpstreamClient):
             raise UpstreamError.rpc_error(self.spec.name, f"failed to spawn: {exc}") from None
 
         pending: dict[int, _PendingCall] = {}
+        writer = _StdinWriter(self.spec.name, cast("IO[str]", proc.stdin))
         self._proc = proc
+        self._writer = writer
         self._pending = pending
-        threading.Thread(target=self._read_stdout, args=(proc, pending), daemon=True).start()
+        writer.start()
+        threading.Thread(
+            target=self._read_stdout, args=(proc, pending, writer), daemon=True
+        ).start()
         threading.Thread(target=self._read_stderr, args=(proc,), daemon=True).start()
 
     def _read_stderr(self, proc: subprocess.Popen[str]) -> None:
@@ -1049,12 +1156,8 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                 sys.stderr.write(f"[mcp-codemode:{self.spec.name}] {line}")
                 sys.stderr.flush()
 
-    def _reply_server_request(
-        self,
-        proc: subprocess.Popen[str],
-        msg_id: object,
-        method: str,
-    ) -> None:
+    @staticmethod
+    def _reply_server_request(writer: _StdinWriter, msg_id: object, method: str) -> None:
         if method == "ping":
             reply: dict[str, object] = {"jsonrpc": "2.0", "id": msg_id, "result": {}}
         else:
@@ -1066,12 +1169,11 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                     "message": f"Unsupported server request: {method}",
                 },
             }
-        with contextlib.suppress(UpstreamError, OSError):
-            self._send_raw_to(proc, reply)
+        writer.send(_StdinLine(_json_line(reply), f"{method} reply"), best_effort=True)
 
     def _handle_stdout_message(
         self,
-        proc: subprocess.Popen[str],
+        writer: _StdinWriter,
         pending: dict[int, _PendingCall],
         msg: dict[str, object],
     ) -> None:
@@ -1079,7 +1181,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         method = msg.get("method")
         if isinstance(method, str):
             if msg_id is not None:
-                self._reply_server_request(proc, msg_id, method)
+                self._reply_server_request(writer, msg_id, method)
             return
         if not isinstance(msg_id, int) or isinstance(msg_id, bool) or not _is_jsonrpc_response(msg):
             return
@@ -1093,6 +1195,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         self,
         proc: subprocess.Popen[str],
         pending: dict[int, _PendingCall],
+        writer: _StdinWriter,
     ) -> None:
         if proc.stdout is None:
             return
@@ -1108,8 +1211,9 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                         continue
                     msg = as_dict(parsed)
                     if msg is not None:
-                        self._handle_stdout_message(proc, pending, msg)
+                        self._handle_stdout_message(writer, pending, msg)
         finally:
+            writer.stop()
             with self._lock:
                 for waiter in pending.values():
                     waiter.error = UpstreamError.closed(self.spec.name)
@@ -1118,27 +1222,16 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                 if self._proc is proc:
                     self._initialized = False
 
-    def _send_raw_to(self, proc: subprocess.Popen[str], payload: dict[str, object]) -> None:
-        line = json.dumps(payload, separators=(",", ":")) + "\n"
-        try:
-            with self._write_lock:
-                if proc.stdin is None or proc.stdin.closed or proc.poll() is not None:
-                    raise UpstreamError.closed(self.spec.name)
-                proc.stdin.write(line)
-                proc.stdin.flush()
-        except (OSError, ValueError) as exc:
-            raise UpstreamError.rpc_error(self.spec.name, f"write failed: {exc}") from None
-
     def _send_raw(self, payload: dict[str, object]) -> None:
         with self._lock:
-            proc = self._proc
-        if proc is None:
+            writer = self._writer
+        if writer is None:
             raise UpstreamError.closed(self.spec.name)
-        self._send_raw_to(proc, payload)
+        writer.send(_StdinLine(_json_line(payload), str(payload.get("method"))), best_effort=False)
 
+    @staticmethod
     def _send_cancelled_notification(
-        self,
-        proc: subprocess.Popen[str],
+        writer: _StdinWriter,
         msg_id: int,
         method: str,
         reason: str,
@@ -1146,23 +1239,37 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         # MCP forbids cancelling initialize.
         if method == "initialize":
             return
-        with contextlib.suppress(UpstreamError, OSError):
-            self._send_raw_to(proc, _cancelled_notification(msg_id, reason))
+        line = _json_line(_cancelled_notification(msg_id, reason))
+        writer.send(_StdinLine(line, "notifications/cancelled"), best_effort=True)
+
+    def _abandon(
+        self,
+        writer: _StdinWriter,
+        pending: dict[int, _PendingCall],
+        msg_id: int,
+        waiter: _PendingCall,
+        reason: str,
+    ) -> None:
+        with self._lock:
+            still_pending = pending.pop(msg_id, None) is not None
+        if still_pending and writer.abandon(waiter):
+            self._send_cancelled_notification(writer, msg_id, waiter.method, reason)
 
     @override
     def cancel_matching(self) -> None:
-        cancelled_ids: list[tuple[subprocess.Popen[str], int, str]] = []
+        cancelled: list[tuple[_StdinWriter, int, _PendingCall]] = []
         with self._lock:
-            proc = self._proc
+            writer = self._writer
             for msg_id, waiter in list(self._pending.items()):
                 if waiter.cancel_event is not None and waiter.cancel_event.is_set():
                     waiter.cancelled = True
                     self._pending.pop(msg_id, None)
                     waiter.event.set()
-                    if proc is not None:
-                        cancelled_ids.append((proc, msg_id, waiter.method))
-        for proc, msg_id, method in cancelled_ids:
-            self._send_cancelled_notification(proc, msg_id, method, "cancelled")
+                    if writer is not None:
+                        cancelled.append((writer, msg_id, waiter))
+        for owner, msg_id, waiter in cancelled:
+            if owner.abandon(waiter):
+                self._send_cancelled_notification(owner, msg_id, waiter.method, "cancelled")
 
     def _wait_for_reply(
         self,
@@ -1197,41 +1304,35 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         effective_timeout = _remaining_timeout(self.spec.name, method, timeout, deadline)
         waiter = _PendingCall(method, cancel_event=cancel_event)
         with self._lock:
-            proc = self._proc
+            writer = self._writer
             pending = self._pending
-            if self._closed or proc is None:
+            if self._closed or writer is None:
                 raise UpstreamError.closed(self.spec.name)
             msg_id = self._next_id
             self._next_id += 1
             pending[msg_id] = waiter
+        request: dict[str, object] = {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "method": method,
+            "params": params,
+        }
         try:
-            self._send_raw_to(
-                proc,
-                {
-                    "jsonrpc": "2.0",
-                    "id": msg_id,
-                    "method": method,
-                    "params": params,
-                },
-            )
-        except Exception:
+            writer.send(_StdinLine(_json_line(request), method, waiter), best_effort=False)
+        except UpstreamError:
             with self._lock:
                 pending.pop(msg_id, None)
             raise
 
         ready, was_cancelled = self._wait_for_reply(waiter, effective_timeout, cancel_event)
         if was_cancelled:
-            with self._lock:
-                still_pending = pending.pop(msg_id, None) is not None
-            if still_pending:
-                self._send_cancelled_notification(proc, msg_id, method, "cancelled")
+            self._abandon(writer, pending, msg_id, waiter, "cancelled")
             raise UpstreamError.cancelled(self.spec.name, method)
         if not ready:
-            with self._lock:
-                still_pending = pending.pop(msg_id, None) is not None
-            if still_pending:
-                self._send_cancelled_notification(proc, msg_id, method, "timed out")
+            self._abandon(writer, pending, msg_id, waiter, "timed out")
             raise UpstreamError.timed_out(self.spec.name, method, effective_timeout)
+        with self._lock:
+            pending.pop(msg_id, None)
         if waiter.error is not None:
             raise waiter.error
         if waiter.response is None:
@@ -1245,25 +1346,26 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         with self._teardown_lock:
             with self._lock:
                 proc = self._proc
+                writer = self._writer
                 self._proc = None
+                self._writer = None
                 self._initialized = False
                 pending_waiters = list(self._pending.values())
                 self._pending.clear()
             for waiter in pending_waiters:
+                if writer is not None:
+                    writer.abandon(waiter)
                 waiter.error = UpstreamError.closed(self.spec.name)
                 waiter.event.set()
             if proc is None:
                 return
-            # Acquire _write_lock with a short timeout so a blocked write cannot deadlock teardown.
-            acquired = self._write_lock.acquire(timeout=0.1)
-            try:
-                if acquired and proc.stdin is not None:
-                    with contextlib.suppress(OSError, ValueError, RuntimeError):
-                        proc.stdin.close()
-            finally:
-                if acquired:
-                    self._write_lock.release()
+            if writer is not None:
+                writer.stop()
+                # Queued lines and EOF reach the process before SIGTERM unless stdin is stalled.
+                writer.join(STDIO_WRITER_FLUSH_SEC)
             terminate_process_group(proc, STDIO_TERM_GRACE_SEC)
+            if writer is not None:
+                writer.join(STDIO_TERM_GRACE_SEC)
             self._close_proc_handles(proc)
 
     @override
