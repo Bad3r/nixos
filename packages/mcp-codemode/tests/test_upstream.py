@@ -126,6 +126,7 @@ class _LifecycleState:
         self.delete_started: list[str | None] = []
         self.delete_gate: threading.Event | None = None
         self.issue_session = True
+        self.expired_sessions: set[str] = set()
 
     def append[T](self, items: list[T], item: T) -> None:
         with self.cond:
@@ -195,8 +196,18 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
         self._reply(msg_id, {"tools": [{"name": "a", "description": "A"}]})
 
     def _tools_call(self, msg_id: object, params: dict[str, object]) -> None:
+        name = params.get("name")
+        if name in ("session", "held_session"):
+            # Reply with the request's session and echo it in the header, as some servers do.
+            session = self.headers.get("Mcp-Session-Id")
+            if name == "held_session":
+                self.state.append(self.state.hung_ids, msg_id)
+                self.state.release.wait(timeout=WAIT_SEC)
+            content = [{"type": "text", "text": str(session)}]
+            self._reply(msg_id, {"content": content}, {"Mcp-Session-Id": str(session)})
+            return
         # Never replies: "hang" withholds headers, "stream_hang" sends SSE headers only.
-        if params.get("name") == "stream_hang":
+        if name == "stream_hang":
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
@@ -207,6 +218,9 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         body = cast("dict[str, object]", json.loads(self.rfile.read(length)))
+        if self.headers.get("Mcp-Session-Id") in self.state.expired_sessions:
+            self._empty(404)
+            return
         handlers = {
             "initialize": self._initialize,
             "notifications/initialized": self._initialized,
@@ -1077,6 +1091,32 @@ for line in sys.stdin:
             )
             self.assertEqual({session for _, session in st.cancelled}, {None})
             self.assertEqual(st.deleted, [])
+
+    def test_http_late_reply_keeps_the_renewed_session(self) -> None:
+        """Keep the renewed session when a reply sent under the expired one arrives late."""
+        st = _LifecycleState()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+
+            def session_text(result: dict[str, object]) -> object:
+                return cast("list[dict[str, object]]", result["content"])[0]["text"]
+
+            client.ensure_initialized()
+            held: list[dict[str, object]] = []
+            errors: list[Exception] = []
+            thread = _run_capturing(
+                lambda: held.append(client.call_tool("held_session", {})), errors
+            )
+            self.assertTrue(st.wait_for(lambda: len(st.hung_ids) == 1))
+            st.expired_sessions.add("sess-1")
+            self.assertEqual(session_text(client.call_tool("session", {})), "sess-2")
+            st.release.set()
+            thread.join(timeout=WAIT_SEC)
+            self.assertEqual(errors, [])
+            self.assertEqual(session_text(held[0]), "sess-1")
+            self.assertEqual(session_text(client.call_tool("session", {})), "sess-2")
+            self.assertTrue(_close_drained(client))
+            self.assertEqual(st.deleted, ["sess-2"])
 
     def test_http_sessions_issued_during_failed_or_closed_init_are_deleted(self) -> None:
         """DELETE every server-issued session the client drops, and stay closed after close()."""

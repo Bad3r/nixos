@@ -649,22 +649,20 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         with self._lock:
             self._inflight.discard(entry)
 
-    def _attach_response(
-        self,
-        entry: _HttpRequest,
-        resp: HTTPResponse,
-        sent_session_id: str | None,
-    ) -> None:
-        new_session = resp.headers.get("Mcp-Session-Id") or None
+    def _attach_response(self, entry: _HttpRequest, resp: HTTPResponse) -> None:
+        # Only initialize issues a session; a late reply echoing an older one must not restore it.
+        issued = (
+            (resp.headers.get("Mcp-Session-Id") or None) if entry.method == "initialize" else None
+        )
         with self._lock:
             if not self._closed:
-                if new_session:
-                    self._session_id = new_session
+                if issued:
+                    self._session_id = issued
                 entry.response = resp
                 return
-        # close() already terminated the session it saw; a newly issued one is ours to end.
-        if new_session and new_session != sent_session_id:
-            self._sends.submit("DELETE", self._terminate_session, new_session, None)
+        # close() already terminated the session it saw; one issued since is ours to end.
+        if issued:
+            self._sends.submit("DELETE", self._terminate_session, issued, None)
         raise UpstreamError.closed(self.spec.name)
 
     @staticmethod
@@ -739,7 +737,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 data=raw,
                 timeout=effective_timeout,
             ) as resp:
-                self._attach_response(entry, resp, sent_session_id)
+                self._attach_response(entry, resp)
                 if not expect_reply:
                     return {}
                 if resp.status in NO_BODY_STATUSES:
