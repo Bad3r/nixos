@@ -18,16 +18,19 @@ from unittest import mock
 
 from mcp_codemode._paths import resolve_node_bin, resolve_sandbox_script
 from mcp_codemode.config import load_manifest, update_override_file, user_overrides_path
-from mcp_codemode.sandbox import SandboxConfig
+from mcp_codemode.sandbox import SandboxConfig, SandboxResult
 from mcp_codemode.server import (
     RPC_INVALID_PARAMS,
     RPC_METHOD_NOT_FOUND,
     CodeModeServer,
+    ToolDispatchError,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import TextIO
+
+    from mcp_codemode.sandbox import RpcHandler
 
 WAIT_SEC = 5.0
 
@@ -569,7 +572,7 @@ for line in sys.stdin:
                     )
 
     def test_call_tool_rejects_non_object_arguments(self) -> None:
-        """Reject non-object sandbox arguments before the upstream; omitted ones still send {}."""
+        """Reject non-object call_tool args at the host, independent of the sandbox check."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             manifest_path = root / "manifest.json"
@@ -590,46 +593,48 @@ for line in sys.stdin:
                 encoding="utf-8",
             )
             server = CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
-            code = """
-            async () => {
-              const errors = {};
-              const attempts = {
-                string: () => codemode.mock_browser.snap("owner/repo"),
-                array: () => codemode.call("mock-browser", "snap", ["owner/repo"]),
-                null: () => codemode.mock_browser.snap(null),
-              };
-              for (const [kind, attempt] of Object.entries(attempts)) {
-                try {
-                  await attempt();
-                  errors[kind] = "accepted";
-                } catch (err) {
-                  errors[kind] = err.message;
+            errors: dict[str, str] = {}
+
+            def fake_run_sandbox(*, rpc_handler: RpcHandler, **_: object) -> SandboxResult:
+                deadline = time.monotonic() + WAIT_SEC
+                cancel = threading.Event()
+                target: dict[str, object] = {"server": "mock-browser", "tool": "snap"}
+                cases: dict[str, dict[str, object]] = {
+                    "string": {"args": "owner/repo"},
+                    "array": {"args": ["owner/repo"]},
+                    "null": {"args": None},
+                    "undefined": {},
                 }
-              }
-              const omitted = await codemode.mock_browser.snap();
-              return { errors, omitted };
-            }
-            """
+                for kind, extra in cases.items():
+                    try:
+                        rpc_handler("call_tool", {**target, **extra}, deadline, cancel)
+                        errors[kind] = "accepted"
+                    except ToolDispatchError as exc:
+                        errors[kind] = str(exc)
+                rpc_handler("call_tool", {**target, "args": {}}, deadline, cancel)
+                return SandboxResult(value=None)
+
             upstream_ok = {"content": [{"type": "text", "text": "ok"}]}
             with (
                 mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(root / "state")}, clear=False),
+                mock.patch("mcp_codemode.server.run_sandbox", fake_run_sandbox),
                 mock.patch.object(
                     server.supervisor, "call_tool", return_value=upstream_ok
                 ) as call_tool,
             ):
                 try:
-                    res = self._call_tool(server, 1, "execute", code)
+                    res = self._call_tool(server, 1, "execute", "async () => 1")
                 finally:
                     server.supervisor.close_all()
 
-            blocks = cast("list[dict[str, object]]", res["content"])
-            parsed = cast("dict[str, object]", json.loads(str(blocks[0]["text"])))
-            errors = cast("dict[str, str]", parsed["errors"])
-            for kind in ("string", "array", "null"):
-                self.assertIn(
-                    f"mock-browser.snap: arguments must be an object, got {kind}", errors[kind]
-                )
-            self.assertEqual(parsed["omitted"], "ok")
+            self.assertNotIn("isError", res)
+            self.assertEqual(
+                errors,
+                {
+                    kind: f"mock-browser.snap: arguments must be an object, got {kind}"
+                    for kind in ("string", "array", "null", "undefined")
+                },
+            )
             call_tool.assert_called_once()
             self.assertEqual(call_tool.call_args.args, ("mock-browser", "snap", {}))
 

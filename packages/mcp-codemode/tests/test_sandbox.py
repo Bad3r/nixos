@@ -126,7 +126,14 @@ class SandboxTest(unittest.TestCase):
           try {
             await codemode.mock_srv.ping({ n: 1n });
           } catch (e) {
-            caughtBigInt = e instanceof Error && e.message.includes("serialization");
+            caughtBigInt =
+              e instanceof Error && e.message.includes("args.n must be plain JSON, got bigint");
+          }
+          let caughtSerialization = false;
+          try {
+            await codemode.tools({ n: 1n });
+          } catch (e) {
+            caughtSerialization = e instanceof Error && e.message.includes("serialization failed");
           }
           const timerId = setTimeout(() => {}, 5000);
           clearTimeout(timerId);
@@ -139,6 +146,7 @@ class SandboxTest(unittest.TestCase):
             proxyJson,
             caughtVmError,
             caughtBigInt,
+            caughtSerialization,
             timerIsNumber: typeof timerId === "number",
           };
         }
@@ -163,9 +171,158 @@ class SandboxTest(unittest.TestCase):
         self.assertEqual(value["proxyJson"], "{}")
         self.assertTrue(value["caughtVmError"])
         self.assertTrue(value["caughtBigInt"])
+        self.assertTrue(value["caughtSerialization"])
         self.assertTrue(value["timerIsNumber"])
         expected_rpc_calls = 4
         self.assertEqual(len(calls), expected_rpc_calls)
+
+    def test_tool_calls_reject_non_plain_arguments(self) -> None:
+        """Reject args JSON would drop or coerce, at any depth, on both call paths."""
+        sent: list[object] = []
+
+        def rpc(
+            method: str,
+            params: dict[str, object],
+            _deadline: float,
+            _cancel: threading.Event,
+        ) -> object:
+            if method != "call_tool":
+                return None
+            sent.append(params.get("args", "<missing>"))
+            return {"k": 1} if params.get("tool") == "seed" else None
+
+        code = """
+        async () => {
+          class Point { constructor() { this.x = 1; } }
+          const cyclic = { a: {} };
+          cyclic.a.back = cyclic;
+          const rejected = {
+            function: () => 1,
+            symbol: Symbol("s"),
+            map: new Map([["a", 1]]),
+            set: new Set([1]),
+            array: [1],
+            instance: new Point(),
+            date: new Date(0),
+            null: null,
+            string: "x",
+            number: 5,
+            boolean: true,
+            revoked: (() => {
+              const { proxy, revoke } = Proxy.revocable({}, {});
+              revoke();
+              return proxy;
+            })(),
+            nestedMap: { a: new Map([[1, 2]]) },
+            nestedFunction: { f: () => 1 },
+            toJSON: { toJSON: () => "x" },
+            nestedSymbol: { k: Symbol() },
+            symbolKey: { [Symbol("s")]: 1 },
+            arrayUndefined: { list: [1, undefined] },
+            arrayHole: { list: [1, , 3] },
+            nan: { n: NaN },
+            bigint: { n: 1n },
+            deepDate: { "a-b": [{ d: new Date(0) }] },
+            cycle: cyclic,
+          };
+          const errors = {};
+          for (const [kind, value] of Object.entries(rejected)) {
+            const paths = {
+              proxy: () => codemode.mock_srv.echo(value),
+              call: () => codemode.call("mock-srv", "echo", value),
+            };
+            for (const [path, attempt] of Object.entries(paths)) {
+              try {
+                await attempt();
+                errors[`${kind}/${path}`] = "accepted";
+              } catch (err) {
+                errors[`${kind}/${path}`] = err instanceof Error ? err.message : "non-Error";
+              }
+            }
+          }
+          const fromRpc = await codemode.mock_srv.seed();
+          const nullProto = Object.create(null);
+          nullProto.n = 1;
+          const shared = { z: 1 };
+          const nested = { u: undefined, a: [1, "x", null, true, { b: 2 }], s: [shared, shared] };
+          let reads = 0;
+          const flipping = { get v() { reads += 1; return reads === 1 ? 1 : new Map(); } };
+          const accepted = [
+            undefined, {}, nullProto, structuredClone({ c: 3 }), fromRpc, nested,
+          ];
+          for (const args of accepted) {
+            await codemode.mock_srv.echo(args);
+            await codemode.call("mock-srv", "echo", args);
+          }
+          await codemode.call("mock-srv", "echo");
+          await codemode.mock_srv.echo(flipping);
+          return { errors, reads };
+        }
+        """
+        result = run_sandbox(
+            code=code,
+            mode="execute",
+            server_aliases={"mock_srv": "mock-srv"},
+            rpc_handler=rpc,
+            config=self._config(),
+        )
+        top_level = {
+            "function": "function",
+            "symbol": "symbol",
+            "map": "Map instance",
+            "set": "Set instance",
+            "array": "array",
+            "instance": "Point instance",
+            "date": "Date instance",
+            "null": "null",
+            "string": "string",
+            "number": "number",
+            "boolean": "boolean",
+        }
+        nested = {
+            "nestedMap": "args.a must be plain JSON, got Map instance",
+            "nestedFunction": "args.f must be plain JSON, got function",
+            "toJSON": "args.toJSON must be plain JSON, got function",
+            "nestedSymbol": "args.k must be plain JSON, got symbol",
+            "symbolKey": "args[Symbol(s)] must be plain JSON, got symbol key",
+            "arrayUndefined": "args.list[1] must be plain JSON, got undefined",
+            "arrayHole": "args.list[1] must be plain JSON, got undefined",
+            "nan": "args.n must be plain JSON, got non-finite number",
+            "bigint": "args.n must be plain JSON, got bigint",
+            "deepDate": 'args["a-b"][0].d must be plain JSON, got Date instance',
+            "cycle": "args.a.back must be plain JSON, got circular reference",
+        }
+        messages = {
+            **{
+                kind: f"args must be a plain object, got {label}"
+                for kind, label in top_level.items()
+            },
+            **nested,
+        }
+        expected_errors = {
+            f"{kind}/{path}": f"mock-srv.echo: {message}"
+            for kind, message in messages.items()
+            for path in ("proxy", "call")
+        }
+        value = cast("dict[str, object]", result.value)
+        errors = cast("dict[str, str]", value["errors"])
+        for path in ("proxy", "call"):
+            self.assertIn("revoked", errors.pop(f"revoked/{path}"))
+        self.assertEqual(errors, expected_errors)
+        self.assertEqual(value["reads"], 1)
+        nested_sent = {"a": [1, "x", None, True, {"b": 2}], "s": [{"z": 1}, {"z": 1}]}
+        self.assertEqual(
+            sent,
+            [
+                *([{}] * 5),
+                *([{"n": 1}] * 2),
+                *([{"c": 3}] * 2),
+                *([{"k": 1}] * 2),
+                *([nested_sent] * 2),
+                {},
+                {"v": 1},
+            ],
+        )
 
     def test_snippet_forms_options_first_arg_and_error_logs(self) -> None:
         """Support bare await, TS prelude + comments, options-only tools(), and error logs."""

@@ -231,6 +231,8 @@ def _build_tool_definitions(manifest: Manifest) -> list[dict[str, object]]:
         "enabled MCP servers via `codemode.<server>.<tool>(args)` (use underscore aliases such as "
         "`cloudflare_api` for hyphenated server names) or `codemode.call(server, tool, args)`, "
         "plus `await codemode.servers()`, `await codemode.tools()`, and `await codemode.spec()`. "
+        "Tool `args` must be plain JSON: objects, arrays, strings, finite numbers, booleans, "
+        "and null. "
         "Use `search` first to inspect schemas. Return only the filtered result you need; output "
         "past 24,000 chars is truncated. Toggle opt-in servers without restarting the client via "
         f"`mcp-codemode enable <server>` (run from the project directory; writes to "
@@ -492,10 +494,11 @@ class CodeModeServer:
         if canonical is None:
             raise ToolDispatchError.unknown_server(raw_server)
 
-        raw_args = params.get("args", {})
+        raw_args = params.get("args")
         arguments = as_dict(raw_args)
         if arguments is None:
-            raise ToolDispatchError.invalid_args(canonical, tool_name, _json_kind(raw_args))
+            kind = _json_kind(raw_args) if "args" in params else "undefined"
+            raise ToolDispatchError.invalid_args(canonical, tool_name, kind)
 
         states, _ = self._current_states()
         if not states[canonical]:

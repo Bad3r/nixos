@@ -16,6 +16,20 @@ const objectAssign = Object.assign;
 const objectCreate = Object.create;
 const objectFreeze = Object.freeze;
 const objectHasOwn = Object.hasOwn;
+const objectGetPrototypeOf = Object.getPrototypeOf;
+const objectGetOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+const arrayIsArray = Array.isArray;
+const objectKeys = Object.keys;
+const objectGetOwnPropertySymbols = Object.getOwnPropertySymbols;
+const numberIsFinite = Number.isFinite;
+const HostSet = Set;
+const setHas = Function.prototype.call.bind(Set.prototype.has);
+const setAdd = Function.prototype.call.bind(Set.prototype.add);
+const setDelete = Function.prototype.call.bind(Set.prototype.delete);
+const symbolToString = Function.prototype.call.bind(Symbol.prototype.toString);
+const regexpTest = Function.prototype.call.bind(RegExp.prototype.test);
+const identifierKey = /^[A-Za-z_$][\w$]*$/;
+const hostObjectPrototype = Object.prototype;
 const reflectGet = Reflect.get;
 const HostPromise = Promise;
 const safeJsonParse = JSON.parse;
@@ -38,6 +52,7 @@ let started = false;
 let finished = false;
 let vmJsonParse = (raw) => safeJsonParse(raw);
 let vmMakeError = (message) => new Error(message);
+let vmObjectPrototype = hostObjectPrototype;
 
 // Seal reachable host constructors and prototypes before user code runs.
 for (const ctor of [
@@ -216,6 +231,109 @@ function normalizeDiscoveryParams(server, options) {
 	};
 }
 
+// Names a rejected value's kind without invoking user getters.
+function describeArgsKind(value) {
+	if (value === null) return "null";
+	if (typeof value === "number") {
+		return numberIsFinite(value) ? "number" : "non-finite number";
+	}
+	if (typeof value !== "object") return typeof value;
+	if (arrayIsArray(value)) return "array";
+	const proto = objectGetPrototypeOf(value);
+	if (proto === null) return "object";
+	const ctor = objectGetOwnPropertyDescriptor(proto, "constructor")?.value;
+	const name =
+		typeof ctor === "function"
+			? objectGetOwnPropertyDescriptor(ctor, "name")?.value
+			: undefined;
+	return typeof name === "string" && name
+		? `${name} instance`
+		: "non-plain object";
+}
+
+function isPlainObject(value) {
+	if (value === null || typeof value !== "object" || arrayIsArray(value)) {
+		return false;
+	}
+	const proto = objectGetPrototypeOf(value);
+	return (
+		proto === null ||
+		proto === vmObjectPrototype ||
+		proto === hostObjectPrototype
+	);
+}
+
+function childPath(path, key) {
+	if (typeof key === "number") return `${path}[${key}]`;
+	return regexpTest(identifierKey, key)
+		? `${path}.${key}`
+		: `${path}[${safeJsonStringify(key)}]`;
+}
+
+// Copies in one pass so getters and proxies cannot change what was checked.
+// Undefined object properties are dropped, as JSON does.
+function copyPlainJson(value, path, ancestors, fail) {
+	if (
+		value === null ||
+		typeof value === "string" ||
+		typeof value === "boolean" ||
+		(typeof value === "number" && numberIsFinite(value))
+	) {
+		return value;
+	}
+	if (
+		typeof value !== "object" ||
+		!(arrayIsArray(value) || isPlainObject(value))
+	) {
+		fail(path, describeArgsKind(value));
+	}
+	if (setHas(ancestors, value)) fail(path, "circular reference");
+	setAdd(ancestors, value);
+	let out;
+	if (arrayIsArray(value)) {
+		out = [];
+		const length = value.length;
+		for (let i = 0; i < length; i++) {
+			const item = value[i];
+			if (item === undefined) fail(childPath(path, i), "undefined");
+			out[i] = copyPlainJson(item, childPath(path, i), ancestors, fail);
+		}
+	} else {
+		for (const sym of objectGetOwnPropertySymbols(value)) {
+			if (objectGetOwnPropertyDescriptor(value, sym)?.enumerable) {
+				fail(`${path}[${symbolToString(sym)}]`, "symbol key");
+			}
+		}
+		out = objectCreate(null);
+		for (const key of objectKeys(value)) {
+			const item = value[key];
+			if (item === undefined) continue;
+			out[key] = copyPlainJson(item, childPath(path, key), ancestors, fail);
+		}
+	}
+	setDelete(ancestors, value);
+	return out;
+}
+
+// JSON.stringify drops functions and Symbols and turns Map or Set into {}.
+function callTool(server, tool, args) {
+	let copy;
+	try {
+		const fail = (path, kind, expected = "plain JSON") => {
+			throw vmMakeError(
+				`${server}.${tool}: ${path} must be ${expected}, got ${kind}`,
+			);
+		};
+		if (!isPlainObject(args)) {
+			fail("args", describeArgsKind(args), "a plain object");
+		}
+		copy = copyPlainJson(args, "args", new HostSet(), fail);
+	} catch (err) {
+		return HostPromise.reject(vmMakeError(safeErrorMessage(err)));
+	}
+	return rpcCall("call_tool", { server, tool, args: copy });
+}
+
 function resolveCanonicalServer(serverAliases, key) {
 	return objectHasOwn(serverAliases, key) ? serverAliases[key] : key;
 }
@@ -246,12 +364,7 @@ function buildCodemode(mode, serverAliases) {
 				) {
 					return undefined;
 				}
-				return (args = {}) =>
-					rpcCall("call_tool", {
-						server: canonical,
-						tool: toolProp,
-						args,
-					});
+				return (args = {}) => callTool(canonical, toolProp, args);
 			},
 		});
 		serverCache[canonical] = proxy;
@@ -261,11 +374,11 @@ function buildCodemode(mode, serverAliases) {
 	const execBase = {
 		...base,
 		call: (server, tool, args = {}) =>
-			rpcCall("call_tool", {
-				server: resolveCanonicalServer(serverAliases, String(server)),
-				tool: String(tool),
+			callTool(
+				resolveCanonicalServer(serverAliases, String(server)),
+				String(tool),
 				args,
-			}),
+			),
 	};
 
 	return new Proxy(execBase, {
@@ -387,6 +500,7 @@ function makeSandboxContext(codemode) {
 		"(() => { const Err = Error; return (m) => new Err(m); })()",
 		context,
 	);
+	vmObjectPrototype = vm.runInContext("Object.prototype", context);
 	return context;
 }
 
