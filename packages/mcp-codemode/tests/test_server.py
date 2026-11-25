@@ -107,6 +107,16 @@ def _make_handler(header_value: str) -> type[http.server.BaseHTTPRequestHandler]
     return HttpHandler
 
 
+def _sandbox_config(timeout_sec: float = 10.0) -> SandboxConfig:
+    return SandboxConfig(
+        node_bin=resolve_node_bin(),
+        bwrap_bin=None,
+        sandbox_script=resolve_sandbox_script(),
+        use_bwrap=False,
+        timeout_sec=timeout_sec,
+    )
+
+
 class ServerTest(unittest.TestCase):
     """Covers downstream MCP methods, concurrency, cancellation, attachments, and live opt-in."""
 
@@ -401,6 +411,71 @@ for line in sys.stdin:
                     self.assertEqual(ping, {"jsonrpc": "2.0", "id": 3, "result": {}})
                 finally:
                     server.supervisor.close_all()
+
+    def test_call_tool_rejects_non_object_arguments(self) -> None:
+        """Reject non-object sandbox arguments before the upstream; omitted ones still send {}."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "client": "claude",
+                        "servers": {
+                            "mock-browser": {
+                                "transport": "stdio",
+                                "command": sys.executable,
+                                "args": ["-c", "pass"],
+                                "enabled": True,
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            server = CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
+            code = """
+            async () => {
+              const errors = {};
+              const attempts = {
+                string: () => codemode.mock_browser.snap("owner/repo"),
+                array: () => codemode.call("mock-browser", "snap", ["owner/repo"]),
+                null: () => codemode.mock_browser.snap(null),
+              };
+              for (const [kind, attempt] of Object.entries(attempts)) {
+                try {
+                  await attempt();
+                  errors[kind] = "accepted";
+                } catch (err) {
+                  errors[kind] = err.message;
+                }
+              }
+              const omitted = await codemode.mock_browser.snap();
+              return { errors, omitted };
+            }
+            """
+            upstream_ok = {"content": [{"type": "text", "text": "ok"}]}
+            with (
+                mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(root / "state")}, clear=False),
+                mock.patch.object(
+                    server.supervisor, "call_tool", return_value=upstream_ok
+                ) as call_tool,
+            ):
+                try:
+                    res = self._call_tool(server, 1, "execute", code)
+                finally:
+                    server.supervisor.close_all()
+
+            blocks = cast("list[dict[str, object]]", res["content"])
+            parsed = cast("dict[str, object]", json.loads(str(blocks[0]["text"])))
+            errors = cast("dict[str, str]", parsed["errors"])
+            for kind in ("string", "array", "null"):
+                self.assertIn(
+                    f"mock-browser.snap: arguments must be an object, got {kind}", errors[kind]
+                )
+            self.assertEqual(parsed["omitted"], "ok")
+            call_tool.assert_called_once()
+            self.assertEqual(call_tool.call_args.args, ("mock-browser", "snap", {}))
 
     def test_serve_stdio_concurrent_ping_and_cancellation(self) -> None:
         """Keep stdin open to prove notifications/cancelled (not EOF) aborts tools/call."""

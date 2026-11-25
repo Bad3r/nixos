@@ -89,6 +89,25 @@ class ToolDispatchError(RuntimeError):
         """Create an error when an upstream tool returns isError=true."""
         return cls(f"{server}.{tool}: {detail}")
 
+    @classmethod
+    def invalid_args(cls, server: str, tool: str, kind: str) -> ToolDispatchError:
+        """Create an error when call_tool arguments are not a JSON object."""
+        return cls(f"{server}.{tool}: arguments must be an object, got {kind}")
+
+
+def _json_kind(value: object) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    return type(value).__name__
+
 
 def _collect_blocks(
     raw_content: object,
@@ -465,7 +484,6 @@ class CodeModeServer:
     ) -> object:
         raw_server = str(params.get("server", ""))
         tool_name = str(params.get("tool", ""))
-        arguments = as_dict(params.get("args")) or {}
 
         if not raw_server or not tool_name:
             raise ToolDispatchError.missing_server_or_tool()
@@ -473,6 +491,11 @@ class CodeModeServer:
         canonical = self.manifest.resolve_name(raw_server)
         if canonical is None:
             raise ToolDispatchError.unknown_server(raw_server)
+
+        raw_args = params.get("args", {})
+        arguments = as_dict(raw_args)
+        if arguments is None:
+            raise ToolDispatchError.invalid_args(canonical, tool_name, _json_kind(raw_args))
 
         states, _ = self._current_states()
         if not states[canonical]:

@@ -250,7 +250,7 @@ function buildCodemode(mode, serverAliases) {
 					rpcCall("call_tool", {
 						server: canonical,
 						tool: toolProp,
-						args: args ?? {},
+						args,
 					});
 			},
 		});
@@ -264,7 +264,7 @@ function buildCodemode(mode, serverAliases) {
 			rpcCall("call_tool", {
 				server: resolveCanonicalServer(serverAliases, String(server)),
 				tool: String(tool),
-				args: args ?? {},
+				args,
 			}),
 	};
 
