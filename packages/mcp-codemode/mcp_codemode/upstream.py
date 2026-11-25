@@ -706,6 +706,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 data=data,
                 timeout=min(self.spec.startup_timeout_sec, CLOSE_TIMEOUT_SEC),
             ).close()
+        except urllib.error.HTTPError as exc:
+            # Any status means the server got it; 405 marks DELETE as unsupported.
+            exc.close()
         except BEST_EFFORT_ERRORS as exc:
             sys.stderr.write(f"mcp-codemode: upstream '{self.spec.name}': {method} failed: {exc}\n")
 
@@ -713,7 +716,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         try:
             headers = self._headers(include_session=False)
         except UpstreamError as exc:
-            sys.stderr.write(f"mcp-codemode: {exc}; session {session_id} left open\n")
+            sys.stderr.write(f"mcp-codemode: {exc}; session left open\n")
             return
         headers["Mcp-Session-Id"] = session_id
         if protocol_version:

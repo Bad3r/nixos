@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import gzip
 import http.server
+import io
 import json
 import os
 import sys
@@ -120,6 +121,7 @@ class _LifecycleState:
         self.list_gate: threading.Event | None = None
         self.release = threading.Event()
         self.initialized_status = 202
+        self.delete_status = 204
 
     def append[T](self, items: list[T], item: T) -> None:
         with self.cond:
@@ -213,7 +215,7 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         self.state.append(self.state.deleted, self.headers.get("Mcp-Session-Id"))
-        self._empty(204)
+        self._empty(self.state.delete_status)
 
 
 def _make_lifecycle_handler(st: _LifecycleState) -> type[http.server.BaseHTTPRequestHandler]:
@@ -1037,6 +1039,18 @@ for line in sys.stdin:
             with self.assertRaises(UpstreamError):
                 closed.list_tools()
             self.assertEqual(st.init_count, init_count)
+
+    def test_http_close_accepts_405_for_session_delete(self) -> None:
+        """Treat a 405 DELETE reply as a server that keeps sessions, not a failure."""
+        st = _LifecycleState()
+        st.delete_status = 405
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            client.ensure_initialized()
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                client.close()
+            self.assertEqual(st.deleted, ["sess-1"])
+            self.assertEqual(stderr.getvalue(), "")
 
     def _lifecycle_stdio_spec(self, root: Path, *extra: str) -> tuple[ServerSpec, Path]:
         script = root / "lifecycle_stdio.py"
