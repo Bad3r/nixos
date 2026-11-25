@@ -650,10 +650,7 @@ class CodeModeServer:
             if not isinstance(name, str):
                 error = {"code": RPC_INVALID_PARAMS, "message": "tools/call missing 'name'"}
             elif name not in ("search", "execute"):
-                result = {
-                    "isError": True,
-                    "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
-                }
+                error = {"code": RPC_INVALID_PARAMS, "message": f"Unknown tool: {name}"}
             elif args is None:
                 error = {
                     "code": RPC_INVALID_PARAMS,

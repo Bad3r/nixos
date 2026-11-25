@@ -595,9 +595,9 @@ for line in sys.stdin:
                         {
                             "jsonrpc": "2.0",
                             "id": 1,
-                            "result": {
-                                "isError": True,
-                                "content": [{"type": "text", "text": "Unknown tool: nope"}],
+                            "error": {
+                                "code": RPC_INVALID_PARAMS,
+                                "message": "Unknown tool: nope",
                             },
                         },
                     )
