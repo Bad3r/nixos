@@ -1070,9 +1070,10 @@ for line in sys.stdin:
                 self.assertEqual(len(errors), 1)
                 self.assertIsInstance(errors[0], UpstreamError)
                 self.assertIn("cancelled", str(errors[0]))
-                # A cancel sent before headers arrive is repeated once they do.
-                self.assertTrue(st.wait_for(lambda: len(st.cancelled) >= stream_hang))
-                self.assertEqual(st.cancelled[1], (st.hung_ids[1], "sess-1"))
+                self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
+                self.assertEqual(len(st.hung_ids), stream_hang)
+                self._assert_each_hung_call_cancelled(st)
+                self.assertEqual({session for _, session in st.cancelled}, {"sess-1"})
             finally:
                 self.assertTrue(_close_drained(client))
 
@@ -1128,11 +1129,7 @@ for line in sys.stdin:
                 thread.join(timeout=WAIT_SEC)
             self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
             self.assertEqual(len(errors), calls)
-            # A cancel sent before headers arrive is repeated once they do.
-            self.assertEqual(
-                set(cast("list[int]", st.hung_ids)),
-                {cast("int", request_id) for request_id, _ in st.cancelled},
-            )
+            self._assert_each_hung_call_cancelled(st)
             self.assertEqual({session for _, session in st.cancelled}, {None})
             self.assertEqual(st.deleted, [])
 
@@ -1589,6 +1586,15 @@ for line in sys.stdin:
                 self.assertEqual(st.list_count, lists + 1)
             finally:
                 supervisor.close_all()
+
+    def _assert_each_hung_call_cancelled(self, st: _LifecycleState) -> None:
+        # A cancel sent before headers arrive is repeated once they do.
+        self.assertEqual({request_id for request_id, _ in st.cancelled}, set(st.hung_ids))
+        for request_id in st.hung_ids:
+            kinds = [kind for kind, msg_id in st.received if msg_id == request_id]
+            self.assertEqual(kinds.count("tools/call"), 1)
+            self.assertIn(kinds.count("cancelled"), (1, 2))
+            self.assertEqual(kinds[-1], "cancelled")
 
     def _http_supervisor(self, url: str, root: Path) -> UpstreamSupervisor:
         manifest_path = root / "manifest.json"
