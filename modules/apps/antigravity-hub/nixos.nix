@@ -126,7 +126,7 @@ let
             # wrapper after Electron merges the user's login-shell environment.
             postFixup = (old.postFixup or "") + ''
               lsWrapper="$out/share/antigravity/resources/bin/language_server"
-              execCount="$(grep -Fc 'exec -a "$0" ' "$lsWrapper")"
+              execCount="$(grep -Fc 'exec -a "$0" ' "$lsWrapper" || true)"
               if [ "$execCount" -ne 1 ]; then
                 echo "antigravity-hub: expected 1 exec line in $lsWrapper, found $execCount" >&2
                 exit 1
