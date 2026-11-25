@@ -70,6 +70,39 @@ for line in sys.stdin:
 """
 
 
+LIFECYCLE_STDIO_SCRIPT = """
+import json, sys
+spawn_log = sys.argv[1]
+fail_first = len(sys.argv) > 2 and sys.argv[2] == "fail-first"
+with open(spawn_log, "a+", encoding="utf-8") as log:
+    log.seek(0)
+    spawn = len(log.read().splitlines())
+    log.write("spawn\\n")
+hung, cancelled = [], []
+def send(mid, **body):
+    sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": mid, **body}) + "\\n")
+    sys.stdout.flush()
+for line in sys.stdin:
+    msg = json.loads(line)
+    method = msg.get("method")
+    mid = msg.get("id")
+    if method == "initialize":
+        if fail_first and spawn == 0:
+            send(mid, error={"code": -32000, "message": "first init fails"})
+        else:
+            send(mid, result={"protocolVersion": "2025-03-26"})
+    elif method == "notifications/cancelled":
+        cancelled.append(msg["params"]["requestId"])
+    elif method == "tools/list":
+        send(mid, result={"tools": [{"name": "hang", "description": "Hang"}]})
+    elif method == "tools/call":
+        if msg["params"]["name"] == "hang":
+            hung.append(mid)
+        else:
+            text = json.dumps({"hung": hung, "cancelled": cancelled})
+            send(mid, result={"content": [{"type": "text", "text": text}]})
+"""
+
 WAIT_SEC = 5.0
 
 
@@ -220,6 +253,10 @@ def _run_capturing(target: Callable[[], object], errors: list[Exception]) -> thr
     thread = threading.Thread(target=_run)
     thread.start()
     return thread
+
+
+def _spawn_count(spawn_log: Path) -> int:
+    return len(spawn_log.read_text(encoding="utf-8").splitlines()) if spawn_log.exists() else 0
 
 
 class _HttpEdgeState:
@@ -936,6 +973,36 @@ for line in sys.stdin:
             finally:
                 client.close()
 
+    def test_http_timeout_and_cancel_send_cancelled_notification(self) -> None:
+        """Tell the HTTP upstream to stop a tools/call abandoned by deadline or cancellation."""
+        st = _LifecycleState()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            try:
+                client.ensure_initialized()
+                with self.assertRaises(UpstreamError):
+                    client.call_tool("hang", {}, deadline=time.monotonic() + 0.3)
+                self.assertTrue(st.wait_for(lambda: len(st.cancelled) == 1))
+                self.assertEqual(st.cancelled, [(st.hung_ids[0], "sess-1")])
+
+                cancel = threading.Event()
+                errors: list[Exception] = []
+                stream_hang = 2
+                thread = _run_capturing(
+                    lambda: client.call_tool("stream_hang", {}, cancel_event=cancel), errors
+                )
+                self.assertTrue(st.wait_for(lambda: len(st.hung_ids) == stream_hang))
+                cancel.set()
+                client.cancel_matching()
+                thread.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                self.assertIsInstance(errors[0], UpstreamError)
+                self.assertIn("cancelled", str(errors[0]))
+                self.assertTrue(st.wait_for(lambda: len(st.cancelled) == stream_hang))
+                self.assertEqual(st.cancelled[1], (st.hung_ids[1], "sess-1"))
+            finally:
+                client.close()
+
     def test_http_sessions_issued_during_failed_or_closed_init_are_deleted(self) -> None:
         """DELETE every server-issued session the client drops, and stay closed after close()."""
         st = _LifecycleState()
@@ -970,3 +1037,39 @@ for line in sys.stdin:
             with self.assertRaises(UpstreamError):
                 closed.list_tools()
             self.assertEqual(st.init_count, init_count)
+
+    def _lifecycle_stdio_spec(self, root: Path, *extra: str) -> tuple[ServerSpec, Path]:
+        script = root / "lifecycle_stdio.py"
+        script.write_text(LIFECYCLE_STDIO_SCRIPT, encoding="utf-8")
+        spawn_log = root / "spawns.log"
+        spec = ServerSpec(
+            name="lc-stdio",
+            alias="lc_stdio",
+            transport="stdio",
+            command=sys.executable,
+            args=("-u", str(script), str(spawn_log), *extra),
+        )
+        return spec, spawn_log
+
+    def test_stdio_timeout_sends_cancelled_and_closed_client_never_respawns(self) -> None:
+        """Cancel a timed-out stdio request upstream, then refuse calls after close()."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, spawn_log = self._lifecycle_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                with self.assertRaises(UpstreamError) as ctx:
+                    client.call_tool("hang", {}, deadline=time.monotonic() + 0.3)
+                self.assertIn("timed out", str(ctx.exception))
+                report = client.call_tool("report", {})
+                content = cast("list[dict[str, object]]", report["content"])
+                ids = cast("dict[str, list[int]]", json.loads(str(content[0]["text"])))
+                self.assertEqual(len(ids["hung"]), 1)
+                self.assertEqual(ids["cancelled"], ids["hung"])
+            finally:
+                client.close()
+            with self.assertRaises(UpstreamError):
+                client.call_tool("report", {})
+            with self.assertRaises(UpstreamError):
+                client.list_tools()
+            self.assertEqual(_spawn_count(spawn_log), 1)

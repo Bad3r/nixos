@@ -84,6 +84,26 @@ def _run_detached(target: Callable[..., None], *args: object) -> None:
     threading.Thread(target=target, args=args, daemon=True).start()
 
 
+def _cancelled_notification(request_id: int, reason: str) -> dict[str, object]:
+    return {
+        "jsonrpc": "2.0",
+        "method": "notifications/cancelled",
+        "params": {"requestId": request_id, "reason": reason},
+    }
+
+
+def _abandon_reason(ctx: _CallContext, exc: BaseException) -> str | None:
+    if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+        return "cancelled"
+    if isinstance(exc, TimeoutError) or (
+        isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, TimeoutError)
+    ):
+        return "timed out"
+    if ctx.deadline is not None and time.monotonic() >= ctx.deadline:
+        return "timed out"
+    return None
+
+
 def _extract_rpc_result(server: str, response: dict[str, object]) -> dict[str, object]:
     err_obj = response.get("error")
     if err_obj is not None:
@@ -651,6 +671,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                     ctx=call_ctx,
                 )
             raise UpstreamError.rpc_error(self.spec.name, f"HTTP {exc.code} {exc.reason}") from None
+        except UpstreamError as exc:
+            self._notify_abandoned(target_id, method, headers, call_ctx, exc)
+            raise
         except (
             urllib.error.URLError,
             http.client.HTTPException,
@@ -659,12 +682,16 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             json.JSONDecodeError,
             zlib.error,
         ) as exc:
-            if call_ctx.cancel_event is not None and call_ctx.cancel_event.is_set():
-                raise UpstreamError.cancelled(self.spec.name, method) from None
-            with self._lock:
-                if self._closed:
-                    raise UpstreamError.closed(self.spec.name) from None
-            raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
+            self._notify_abandoned(target_id, method, headers, call_ctx, exc)
+            raise self._transport_error(exc, method, call_ctx) from None
+
+    def _transport_error(self, exc: Exception, method: str, ctx: _CallContext) -> UpstreamError:
+        if ctx.cancel_event is not None and ctx.cancel_event.is_set():
+            return UpstreamError.cancelled(self.spec.name, method)
+        with self._lock:
+            if self._closed:
+                return UpstreamError.closed(self.spec.name)
+        return UpstreamError.rpc_error(self.spec.name, str(exc))
 
     def _send_best_effort(
         self,
@@ -699,6 +726,28 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         self._protocol_version = None
         self._initialized = False
         return session
+
+    def _notify_abandoned(
+        self,
+        target_id: int | None,
+        method: str,
+        headers: dict[str, str],
+        ctx: _CallContext,
+        exc: BaseException,
+    ) -> None:
+        # The transport does not treat a dropped response as cancellation.
+        if target_id is None or method == "initialize":
+            return
+        reason = _abandon_reason(ctx, exc)
+        if reason is None:
+            return
+        with self._lock:
+            if self._closed:
+                return
+        notification = _cancelled_notification(target_id, reason)
+        data = json.dumps(notification, separators=(",", ":")).encode("utf-8")
+        # Detached so a slow upstream cannot eat the caller's deadline headroom.
+        _run_detached(self._send_best_effort, "POST", headers, data)
 
     @override
     def _rpc_call(
@@ -811,8 +860,9 @@ class HttpUpstreamClient(_BaseUpstreamClient):
 
 
 class _PendingCall:
-    def __init__(self, cancel_event: threading.Event | None = None) -> None:
+    def __init__(self, method: str, cancel_event: threading.Event | None = None) -> None:
         """Initialize an event-backed RPC response slot."""
+        self.method = method
         self.event = threading.Event()
         self.cancel_event = cancel_event
         self.cancelled = False
@@ -983,20 +1033,22 @@ class StdioUpstreamClient(_BaseUpstreamClient):
             raise UpstreamError.closed(self.spec.name)
         self._send_raw_to(proc, payload)
 
-    def _send_cancelled_notification(self, proc: subprocess.Popen[str], msg_id: int) -> None:
+    def _send_cancelled_notification(
+        self,
+        proc: subprocess.Popen[str],
+        msg_id: int,
+        method: str,
+        reason: str,
+    ) -> None:
+        # MCP forbids cancelling initialize.
+        if method == "initialize":
+            return
         with contextlib.suppress(UpstreamError, OSError):
-            self._send_raw_to(
-                proc,
-                {
-                    "jsonrpc": "2.0",
-                    "method": "notifications/cancelled",
-                    "params": {"requestId": msg_id, "reason": "cancelled"},
-                },
-            )
+            self._send_raw_to(proc, _cancelled_notification(msg_id, reason))
 
     @override
     def cancel_matching(self) -> None:
-        cancelled_ids: list[tuple[subprocess.Popen[str], int]] = []
+        cancelled_ids: list[tuple[subprocess.Popen[str], int, str]] = []
         with self._lock:
             proc = self._proc
             for msg_id, waiter in list(self._pending.items()):
@@ -1005,9 +1057,9 @@ class StdioUpstreamClient(_BaseUpstreamClient):
                     self._pending.pop(msg_id, None)
                     waiter.event.set()
                     if proc is not None:
-                        cancelled_ids.append((proc, msg_id))
-        for proc, msg_id in cancelled_ids:
-            self._send_cancelled_notification(proc, msg_id)
+                        cancelled_ids.append((proc, msg_id, waiter.method))
+        for proc, msg_id, method in cancelled_ids:
+            self._send_cancelled_notification(proc, msg_id, method, "cancelled")
 
     def _wait_for_reply(
         self,
@@ -1040,7 +1092,7 @@ class StdioUpstreamClient(_BaseUpstreamClient):
         if cancel_event is not None and cancel_event.is_set():
             raise UpstreamError.cancelled(self.spec.name, method)
         effective_timeout = _remaining_timeout(self.spec.name, method, timeout, deadline)
-        waiter = _PendingCall(cancel_event=cancel_event)
+        waiter = _PendingCall(method, cancel_event=cancel_event)
         with self._lock:
             proc = self._proc
             pending = self._pending
@@ -1069,11 +1121,13 @@ class StdioUpstreamClient(_BaseUpstreamClient):
             with self._lock:
                 still_pending = pending.pop(msg_id, None) is not None
             if still_pending:
-                self._send_cancelled_notification(proc, msg_id)
+                self._send_cancelled_notification(proc, msg_id, method, "cancelled")
             raise UpstreamError.cancelled(self.spec.name, method)
         if not ready:
             with self._lock:
-                pending.pop(msg_id, None)
+                still_pending = pending.pop(msg_id, None) is not None
+            if still_pending:
+                self._send_cancelled_notification(proc, msg_id, method, "timed out")
             raise UpstreamError.timed_out(self.spec.name, method, effective_timeout)
         if waiter.error is not None:
             raise waiter.error
