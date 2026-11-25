@@ -245,6 +245,9 @@ class _StdioHarness:
             rc = self._server.serve_stdio()
         feeder_thread.join(timeout=WAIT_SEC)
         reader_thread.join(timeout=WAIT_SEC)
+        if reader_thread.is_alive():
+            msg = "reply reader did not reach EOF"
+            raise RuntimeError(msg)
         return rc
 
 
@@ -671,100 +674,59 @@ for line in sys.stdin:
 
     def test_serve_stdio_concurrent_ping_and_cancellation(self) -> None:
         """Keep stdin open to prove notifications/cancelled (not EOF) aborts tools/call."""
+        hang_code = "async () => new Promise(() => {})"
+        hang_returned = threading.Event()
+        later_id = 12
+        observed: dict[str, bool] = {}
+
+        def script(harness: _StdioHarness) -> None:
+            harness.send(_tool_call(hang_code, 10))
+            harness.send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": ["unhashable"],
+                    "method": "tools/call",
+                    "params": {"name": "search", "arguments": {"code": "1 + 1"}},
+                }
+            )
+            harness.send({"jsonrpc": "2.0", "id": 11, "method": "ping"})
+            harness.send(_cancel(10))
+            # Keep stdin open until cancellation finishes so EOF cannot mask it.
+            observed["cancelled_before_eof"] = hang_returned.wait(timeout=2.5)
+            harness.send({"jsonrpc": "2.0", "id": later_id, "method": "ping"})
+            harness.wait_reply(lambda reply: reply.get("id") == later_id)
+
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            manifest_path = root / "manifest.json"
-            manifest_path.write_text(
-                json.dumps({"client": "claude", "servers": {}}),
-                encoding="utf-8",
-            )
-            manifest = load_manifest(manifest_path)
-            sandbox_cfg = SandboxConfig(
-                node_bin=resolve_node_bin(),
-                bwrap_bin=None,
-                sandbox_script=resolve_sandbox_script(),
-                use_bwrap=False,
-                timeout_sec=10.0,
-            )
-            server = CodeModeServer(manifest, sandbox_cfg, cwd=root)
+            server = _empty_server(Path(tmp))
+            real_run_tool = server.run_tool
 
-            in_r, in_w = os.pipe()
-            out_r, out_w = os.pipe()
-            replies: list[dict[str, object]] = []
-            cancel_done = threading.Event()
+            def _tracked_run_tool(
+                tool_name: str,
+                arguments: dict[str, object],
+                *,
+                cancel_event: threading.Event | None = None,
+            ) -> dict[str, object]:
+                try:
+                    return real_run_tool(tool_name, arguments, cancel_event=cancel_event)
+                finally:
+                    if arguments.get("code") == hang_code:
+                        hang_returned.set()
 
-            cancel_req_id = 10
-
-            def _read_replies() -> None:
-                with os.fdopen(out_r, "r", encoding="utf-8") as reader:
-                    for line in reader:
-                        if not line.strip():
-                            continue
-                        parsed = cast("dict[str, object]", json.loads(line))
-                        replies.append(parsed)
-                        if parsed.get("id") == cancel_req_id:
-                            cancel_done.set()
-
-            reader_thread = threading.Thread(target=_read_replies, daemon=True)
-            reader_thread.start()
-
-            def _feed_stdin() -> None:
-                with os.fdopen(in_w, "w", encoding="utf-8") as writer:
-                    for payload in (
-                        {
-                            "jsonrpc": "2.0",
-                            "id": 10,
-                            "method": "tools/call",
-                            "params": {
-                                "name": "search",
-                                "arguments": {"code": "async () => new Promise(() => {})"},
-                            },
-                        },
-                        {
-                            "jsonrpc": "2.0",
-                            "id": ["unhashable"],
-                            "method": "tools/call",
-                            "params": {"name": "search", "arguments": {"code": "1 + 1"}},
-                        },
-                        {"jsonrpc": "2.0", "id": 11, "method": "ping"},
-                        {
-                            "jsonrpc": "2.0",
-                            "method": "notifications/cancelled",
-                            "params": {"requestId": 10},
-                        },
-                    ):
-                        writer.write(json.dumps(payload) + "\n")
-                        writer.flush()
-                    # Keep stdin open until cancellation finishes so EOF cannot mask it.
-                    cancel_done.wait(timeout=4.0)
-
-            feeder = threading.Thread(target=_feed_stdin, daemon=True)
-            feeder.start()
-
+            harness = _StdioHarness(server)
             t0 = time.monotonic()
-            with (
-                os.fdopen(in_r, "r", encoding="utf-8") as pipe_in,
-                os.fdopen(out_w, "w", encoding="utf-8") as pipe_out,
-                mock.patch.object(sys, "stdin", pipe_in),
-                mock.patch.object(sys, "stdout", pipe_out),
-            ):
-                rc = server.serve_stdio()
+            with mock.patch.object(server, "run_tool", _tracked_run_tool):
+                rc = harness.run(script)
             elapsed = time.monotonic() - t0
-            feeder.join(timeout=2.0)
-            reader_thread.join(timeout=2.0)
 
-            self.assertEqual(rc, 0)
-            self.assertTrue(cancel_done.is_set())
-            self.assertLess(elapsed, 3.0)
-
-            by_id = {
-                reply["id"]: reply for reply in replies if isinstance(reply.get("id"), (int, str))
-            }
-            self.assertEqual(by_id[11]["result"], {})
-            cancelled_res = cast("dict[str, object]", by_id[10]["result"])
-            self.assertTrue(cancelled_res["isError"])
-            cancelled_blocks = cast("list[dict[str, object]]", cancelled_res["content"])
-            self.assertIn("cancelled", str(cancelled_blocks[0]["text"]))
+        self.assertEqual(rc, 0)
+        self.assertEqual(observed, {"cancelled_before_eof": True})
+        self.assertLess(elapsed, 3.0)
+        int_replies = {
+            reply["id"]: reply.get("result")
+            for reply in harness.replies
+            if isinstance(reply.get("id"), int)
+        }
+        self.assertEqual(int_replies, {11: {}, later_id: {}})
 
     def test_serve_stdio_rejects_calls_past_queue_limit(self) -> None:
         """Answer a tools/call with the queue-limit error once workers and queue are full."""
@@ -817,36 +779,65 @@ for line in sys.stdin:
 
         with tempfile.TemporaryDirectory() as tmp:
             server = _empty_server(Path(tmp))
+            harness = _StdioHarness(server)
             with mock.patch.object(server, "run_tool", tools.run_tool):
-                rc = _StdioHarness(server).run(script)
+                rc = harness.run(script)
 
         self.assertEqual(rc, 0)
         self.assertEqual(observed, {"finished_before_eof": True})
         self.assertEqual(tools.cancelled, {"first": True, "second": True})
+        self.assertEqual(harness.replies, [])
 
     def test_serve_stdio_cancel_survives_finished_sibling(self) -> None:
         """A finished call under a shared request ID leaves its sibling cancellable."""
-        tools = _BlockingTools(("done", "pending"), released=("done",))
+        tools = _BlockingTools(("done", "pending", "later"), released=("done", "later"))
         observed: dict[str, bool] = {}
 
         def script(harness: _StdioHarness) -> None:
             harness.send(_tool_call("done", 8))
             harness.send(_tool_call("pending", 8))
-            if not all(tools.started[label].wait(timeout=WAIT_SEC) for label in tools.started):
+            if not all(
+                tools.started[label].wait(timeout=WAIT_SEC) for label in ("done", "pending")
+            ):
                 return
             tools.release["done"].set()
             if harness.wait_reply(lambda reply: _reply_text(reply) == "done"):
                 harness.send(_cancel(8))
                 observed["pending_before_eof"] = tools.finished["pending"].wait(timeout=WAIT_SEC)
+                tools.release["later"].set()
+                harness.send(_tool_call("later", 8))
+                harness.wait_reply(lambda reply: _reply_text(reply) == "later")
 
         with tempfile.TemporaryDirectory() as tmp:
             server = _empty_server(Path(tmp))
+            harness = _StdioHarness(server)
             with mock.patch.object(server, "run_tool", tools.run_tool):
-                rc = _StdioHarness(server).run(script)
+                rc = harness.run(script)
 
         self.assertEqual(rc, 0)
         self.assertEqual(observed, {"pending_before_eof": True})
-        self.assertEqual(tools.cancelled, {"done": False, "pending": True})
+        self.assertEqual(tools.cancelled, {"done": False, "pending": True, "later": False})
+        self.assertEqual([_reply_text(reply) for reply in harness.replies], ["done", "later"])
+
+    def test_serve_stdio_shutdown_cancel_still_replies(self) -> None:
+        """Closing stdin cancels an in-flight tools/call and still answers its request ID."""
+        tools = _BlockingTools(("inflight",))
+
+        def script(harness: _StdioHarness) -> None:
+            harness.send(_tool_call("inflight", 9))
+            tools.started["inflight"].wait(timeout=WAIT_SEC)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = _empty_server(Path(tmp))
+            harness = _StdioHarness(server)
+            with mock.patch.object(server, "run_tool", tools.run_tool):
+                rc = harness.run(script)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(tools.cancelled, {"inflight": True})
+        self.assertEqual(
+            [(reply.get("id"), _reply_text(reply)) for reply in harness.replies], [(9, "inflight")]
+        )
 
     def test_serve_stdio_shutdown_cancels_call_without_id(self) -> None:
         """Closing stdin cancels an in-flight tools/call that carries no request ID."""

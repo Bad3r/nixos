@@ -11,7 +11,7 @@ import signal
 import sys
 import threading
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 from ._util import (
@@ -295,6 +295,12 @@ class _DiscoveryOpts:
     cancel_event: threading.Event | None = None
 
 
+@dataclass(eq=False)
+class _InflightCall:
+    cancel_event: threading.Event = field(default_factory=threading.Event)
+    client_cancelled: bool = False
+
+
 class CodeModeServer:
     """JSON-RPC 2.0 stdio MCP server routing search and execute calls."""
 
@@ -313,8 +319,8 @@ class CodeModeServer:
         self._tools = _build_tool_definitions(manifest)
         self._stdout_lock = threading.Lock()
         self._cancel_lock = threading.Lock()
-        self._inflight_cancels: set[threading.Event] = set()
-        self._active_cancels: dict[str | int | float, list[threading.Event]] = {}
+        self._inflight_calls: set[_InflightCall] = set()
+        self._active_calls: dict[str | int | float, list[_InflightCall]] = {}
 
     def _current_states(self) -> tuple[dict[str, bool], dict[str, str]]:
         states, sources = resolve_enabled_servers(self.manifest, self.cwd)
@@ -665,30 +671,32 @@ class CodeModeServer:
             error = {"code": RPC_METHOD_NOT_FOUND, "message": f"Method not found: {method}"}
         return result, error
 
-    def _register_cancel(self, msg_id: object, cancel_event: threading.Event) -> None:
+    def _register_cancel(self, msg_id: object, call: _InflightCall) -> None:
         with self._cancel_lock:
-            self._inflight_cancels.add(cancel_event)
+            self._inflight_calls.add(call)
             if is_valid_rpc_id(msg_id):
-                self._active_cancels.setdefault(msg_id, []).append(cancel_event)
+                self._active_calls.setdefault(msg_id, []).append(call)
 
-    def _unregister_cancel(self, msg_id: object, cancel_event: threading.Event) -> None:
+    def _unregister_cancel(self, msg_id: object, call: _InflightCall) -> bool:
+        """Return whether the client cancelled the call."""
         with self._cancel_lock:
-            self._inflight_cancels.discard(cancel_event)
+            self._inflight_calls.discard(call)
             if is_valid_rpc_id(msg_id):
-                bucket = self._active_cancels.get(msg_id)
+                bucket = self._active_calls.get(msg_id)
                 if bucket is not None:
                     with contextlib.suppress(ValueError):
-                        bucket.remove(cancel_event)
+                        bucket.remove(call)
                     if not bucket:
-                        self._active_cancels.pop(msg_id, None)
+                        self._active_calls.pop(msg_id, None)
+            return call.client_cancelled
 
     def _cancel_request(self, request_id: object) -> None:
         if not is_valid_rpc_id(request_id):
             return
         with self._cancel_lock:
-            events = list(self._active_cancels.get(request_id, ()))
-        for cancel_event in events:
-            cancel_event.set()
+            for call in self._active_calls.get(request_id, ()):
+                call.client_cancelled = True
+                call.cancel_event.set()
 
     def handle_message(
         self,
@@ -726,11 +734,14 @@ class CodeModeServer:
         self,
         msg: dict[str, object],
         *,
-        cancel_event: threading.Event | None = None,
+        call: _InflightCall | None = None,
     ) -> None:
         msg_id = msg.get("id")
+        client_cancelled = False
         try:
-            reply = self.handle_message(msg, cancel_event=cancel_event)
+            reply = self.handle_message(
+                msg, cancel_event=call.cancel_event if call is not None else None
+            )
         except Exception as exc:  # noqa: BLE001
             sys.stderr.write(f"mcp-codemode: internal error handling message: {exc}\n")
             sys.stderr.flush()
@@ -747,9 +758,10 @@ class CodeModeServer:
                 else None
             )
         finally:
-            if cancel_event is not None:
-                self._unregister_cancel(msg_id, cancel_event)
-        if reply is not None:
+            if call is not None:
+                client_cancelled = self._unregister_cancel(msg_id, call)
+        # MCP cancellation: no response for a request the client cancelled.
+        if reply is not None and not client_cancelled:
             self._write_reply(reply)
 
     def _parse_stdin_message(self, raw_line: str) -> dict[str, object] | None:
@@ -766,13 +778,13 @@ class CodeModeServer:
 
     def _shutdown_workers(
         self,
-        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None],
+        work_queue: queue.Queue[tuple[dict[str, object], _InflightCall] | None],
         workers: list[threading.Thread],
     ) -> None:
         with self._cancel_lock:
-            events = list(self._inflight_cancels)
-            self._inflight_cancels.clear()
-            self._active_cancels.clear()
+            events = [call.cancel_event for call in self._inflight_calls]
+            self._inflight_calls.clear()
+            self._active_calls.clear()
         for ev in events:
             ev.set()
         while True:
@@ -792,15 +804,15 @@ class CodeModeServer:
     def _enqueue_tool_call(
         self,
         msg: dict[str, object],
-        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None],
+        work_queue: queue.Queue[tuple[dict[str, object], _InflightCall] | None],
     ) -> None:
-        cancel_event = threading.Event()
+        call = _InflightCall()
         msg_id = msg.get("id")
-        self._register_cancel(msg_id, cancel_event)
+        self._register_cancel(msg_id, call)
         try:
-            work_queue.put_nowait((msg, cancel_event))
+            work_queue.put_nowait((msg, call))
         except queue.Full:
-            self._unregister_cancel(msg_id, cancel_event)
+            self._unregister_cancel(msg_id, call)
             if msg_id is not None:
                 self._write_reply(
                     {
@@ -825,7 +837,7 @@ class CodeModeServer:
 
         previous_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
         previous_sigint = signal.signal(signal.SIGINT, _handle_signal)
-        work_queue: queue.Queue[tuple[dict[str, object], threading.Event] | None] = queue.Queue(
+        work_queue: queue.Queue[tuple[dict[str, object], _InflightCall] | None] = queue.Queue(
             maxsize=MAX_PENDING_REQUESTS
         )
 
@@ -834,8 +846,8 @@ class CodeModeServer:
                 item = work_queue.get()
                 if item is None:
                     return
-                msg, cancel_event = item
-                self._run_message_safe(msg, cancel_event=cancel_event)
+                msg, call = item
+                self._run_message_safe(msg, call=call)
 
         workers = [
             threading.Thread(target=_worker, daemon=True) for _ in range(MAX_CONCURRENT_REQUESTS)
