@@ -40,7 +40,10 @@
 let
   agentapiShimsScript = pkgs.writeShellApplication {
     name = "antigravity-agentapi-shims";
-    runtimeInputs = [ pkgs.coreutils ];
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.diffutils
+    ];
     text = ''
       # Arguments: APP_DIR TARGET pairs. A missing APP_DIR is skipped, so the
       # shim is only written where the app already keeps its data.

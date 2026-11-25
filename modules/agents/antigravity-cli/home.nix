@@ -67,7 +67,7 @@ _: {
         ]
         ++ lib.optional (hubPkg != null) {
           appDir = ".gemini/antigravity";
-          target = "${hubPkg}/share/antigravity/resources/bin/.language_server-wrapped";
+          target = "${hubPkg.basePackage}/share/antigravity/resources/bin/.language_server-wrapped";
         };
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
