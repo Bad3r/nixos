@@ -572,12 +572,6 @@ class CodeModeServer:
         cancel_event: threading.Event | None = None,
     ) -> dict[str, object]:
         """Execute a downstream `search` or `execute` tool call and return an MCP result."""
-        if tool_name not in ("search", "execute"):
-            return {
-                "isError": True,
-                "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
-            }
-
         code = arguments.get("code")
         if not isinstance(code, str) or not code.strip():
             return {
@@ -655,6 +649,11 @@ class CodeModeServer:
             args = as_dict(raw_args)
             if not isinstance(name, str):
                 error = {"code": RPC_INVALID_PARAMS, "message": "tools/call missing 'name'"}
+            elif name not in ("search", "execute"):
+                result = {
+                    "isError": True,
+                    "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
+                }
             elif args is None:
                 error = {
                     "code": RPC_INVALID_PARAMS,

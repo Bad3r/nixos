@@ -571,6 +571,37 @@ for line in sys.stdin:
                         f"tools/call codemode.{tool}: 'arguments' must be an object, got string",
                     )
 
+    def test_tools_call_reports_unknown_tool_before_arguments(self) -> None:
+        """Name an unknown tool as unknown whatever its arguments are."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps({"client": "claude", "servers": {}}), encoding="utf-8"
+            )
+            server = CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
+            for arguments in ("async () => 1", {"code": "1"}):
+                with self.subTest(arguments=arguments):
+                    reply = server.handle_message(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "tools/call",
+                            "params": {"name": "nope", "arguments": arguments},
+                        }
+                    )
+                    self.assertEqual(
+                        reply,
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "result": {
+                                "isError": True,
+                                "content": [{"type": "text", "text": "Unknown tool: nope"}],
+                            },
+                        },
+                    )
+
     def test_call_tool_rejects_non_object_arguments(self) -> None:
         """Reject non-object call_tool args at the host, independent of the sandbox check."""
         with tempfile.TemporaryDirectory() as tmp:
