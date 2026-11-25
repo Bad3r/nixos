@@ -156,6 +156,8 @@ def parse_args(argv: list[str]) -> tuple[Path, Path, list[str]]:
     patches = list(ALL)
     if "--patches" in args:
         k = args.index("--patches")
+        if k + 1 >= len(args):
+            fail("--patches requires a value: SET[,SET...]")
         patches = [p for p in args[k + 1].split(",") if p]
         del args[k : k + 2]
     bad = [p for p in patches if p not in ALL]
