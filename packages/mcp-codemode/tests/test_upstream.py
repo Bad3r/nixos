@@ -1377,26 +1377,78 @@ for line in sys.stdin:
             self.assertEqual(st.cancelled, [])
 
     def test_stdio_initialize_is_never_cancelled(self) -> None:
-        """Write no notifications/cancelled for an initialize that times out or is cancelled."""
+        """Write no notifications/cancelled for an initialize that is cancelled or abandoned."""
         with tempfile.TemporaryDirectory() as tmp:
             spec, _, received = self._stalling_stdio_spec(Path(tmp), "no-init-reply")
+
+            def logged() -> list[object]:
+                text = received.read_text(encoding="utf-8") if received.exists() else ""
+                return [cast("list[object]", json.loads(line))[0] for line in text.splitlines()]
+
             client = StdioUpstreamClient(spec)
             try:
-                with self.assertRaises(UpstreamError) as ctx:
-                    client.ensure_initialized(deadline=time.monotonic() + 0.3)
-                self.assertIn("timed out", str(ctx.exception))
-                cancel = threading.Event()
-                threading.Timer(0.2, cancel.set).start()
-                with self.assertRaises(UpstreamError) as cancel_ctx:
-                    client.ensure_initialized(cancel_event=cancel)
-                self.assertIn("cancelled", str(cancel_ctx.exception))
+                for attempt, use_cancel_matching in enumerate((False, True), start=1):
+                    cancel = threading.Event()
+                    errors: list[Exception] = []
+                    thread = _run_capturing(
+                        lambda cancel=cancel: client.ensure_initialized(cancel_event=cancel), errors
+                    )
+                    end = time.monotonic() + WAIT_SEC
+                    while logged().count("initialize") < attempt and time.monotonic() < end:
+                        time.sleep(0.02)
+                    cancel.set()
+                    if use_cancel_matching:
+                        client.cancel_matching()
+                    thread.join(timeout=WAIT_SEC)
+                    self.assertEqual(len(errors), 1)
+                    self.assertIn("cancelled", str(errors[0]))
             finally:
                 client.close()
-            methods = [
-                cast("list[object]", json.loads(line))[0]
-                for line in received.read_text(encoding="utf-8").splitlines()
-            ]
-            self.assertEqual(methods, ["initialize", "initialize"])
+            self.assertEqual(logged(), ["initialize", "initialize"])
+
+    def test_stdio_full_backlog_drops_cancellations_and_fails_requests(self) -> None:
+        """Log a dropped cancellation and fail a new request at once when the backlog is full."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, received = self._stalling_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                errors: list[Exception] = []
+                big = _run_capturing(
+                    lambda: client.call_tool(
+                        "big", {"x": "a" * (1 << 21)}, deadline=time.monotonic() + 1.0
+                    ),
+                    errors,
+                )
+                time.sleep(0.2)
+                with (
+                    mock.patch("mcp_codemode.upstream.MAX_STDIO_WRITE_BACKLOG", 0),
+                    mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+                ):
+                    big.join(timeout=WAIT_SEC)
+                    self.assertIn("timed out", str(errors[0]))
+                    t0 = time.monotonic()
+                    with self.assertRaises(UpstreamError) as ctx:
+                        client.call_tool("small", {}, deadline=time.monotonic() + WAIT_SEC)
+                    self.assertLess(time.monotonic() - t0, 0.5)
+                self.assertIn("stdin writes already queued", str(ctx.exception))
+                self.assertEqual(
+                    stderr.getvalue(),
+                    "mcp-codemode: upstream 'stall-stdio': dropped notifications/cancelled: "
+                    "0 stdin writes already queued\n",
+                )
+                resume.touch()
+                client.call_tool("report", {})
+                entries = [
+                    cast("list[object]", json.loads(line))
+                    for line in received.read_text(encoding="utf-8").splitlines()
+                ]
+                calls = [e[2] for e in entries if e[0] == "tools/call"]
+                self.assertEqual(calls, ["big", "report"])
+                self.assertNotIn("notifications/cancelled", [e[0] for e in entries])
+            finally:
+                resume.touch()
+                client.close()
 
     def test_stdio_timeout_sends_cancelled_and_closed_client_never_respawns(self) -> None:
         """Cancel a timed-out stdio request upstream, then refuse calls after close()."""
