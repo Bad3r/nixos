@@ -269,6 +269,9 @@ let
 
   validatedServers = lib.mapAttrs validateServer rawServers;
 
+  gatewayRouted = name: !validatedServers.${name}.direct;
+  gatewayServerNames = lib.filter gatewayRouted (lib.attrNames validatedServers);
+
   defaultTimeoutSec = 60;
   defaultToolTimeoutSec = 180;
 
@@ -554,7 +557,7 @@ let
     }:
     enabled:
     let
-      codemodeNames = lib.filter (name: !validatedServers.${name}.direct) enabled;
+      codemodeNames = lib.filter gatewayRouted enabled;
       rawServers = mkServers { inherit pkgs osConfig; } codemodeNames;
       servers = lib.mapAttrs (
         name: server:
@@ -654,9 +657,9 @@ let
     }:
     enabled:
     let
-      partitioned = lib.partition (name: validatedServers.${name}.direct) enabled;
-      directNames = partitioned.right;
-      codemodeNames = partitioned.wrong;
+      partitioned = lib.partition gatewayRouted enabled;
+      directNames = partitioned.wrong;
+      codemodeNames = partitioned.right;
       directEntries = mkDirectClientServers client {
         inherit
           pkgs
@@ -834,7 +837,7 @@ let
       [
         "# MCP Tools"
         ""
-        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>`, using the manifest store path from `~/.claude.json`, `~/.gemini/config/mcp_config.json`, or `$CODEX_HOME/config.base.toml` (`mcp-codemode status` alone prints active override entries). Project-scoped toggles (`mcp-codemode enable <server>`) apply to the directory where the command ran and its descendants; GUI clients launch outside the open workspace and require `--user`."
+        "Generated from `flake.lib.agents.mcp.servers`. Standard servers connect through the single `codemode` gateway (`search` and `execute`), while local servers requiring client-native confirmation routing or session metadata (`node_repl`, `sbx`) register directly. `Default Clients` shows which clients include each server out of the box. Inspect `codemode` server availability via `search` (`await codemode.servers()`) or `mcp-codemode status --manifest <path>`, using the manifest store path from `~/.claude.json`, `~/.gemini/config/mcp_config.json`, or `$CODEX_HOME/config.base.toml` (`mcp-codemode status` alone prints active override entries). Project-scoped toggles (`mcp-codemode enable <server>`) apply to the directory where the command ran and its descendants; GUI clients launch outside the open workspace and require `--user`. `enable` and `disable` reject names missing from `/etc/mcp-codemode/servers.json`, which lists every `codemode`-routed server."
         ""
         (renderTableRow tableHeaders)
         renderRule
@@ -864,6 +867,7 @@ in
     docs.referenceMarkdown = renderReferenceMarkdown;
     inherit
       defaultTimeoutSec
+      gatewayServerNames
       mkServer
       mkServers
       ;
