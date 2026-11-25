@@ -26,6 +26,7 @@ from mcp_codemode.upstream import (
     StdioUpstreamClient,
     UpstreamError,
     UpstreamSupervisor,
+    _BestEffortSends,  # pyright: ignore[reportPrivateUsage]
 )
 
 if TYPE_CHECKING:
@@ -1586,6 +1587,16 @@ for line in sys.stdin:
             finally:
                 supervisor.close_all()
 
+    def _http_supervisor(self, url: str, root: Path) -> UpstreamSupervisor:
+        manifest_path = root / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {"client": "test", "servers": {"lc-http": {"transport": "http", "url": url}}}
+            ),
+            encoding="utf-8",
+        )
+        return UpstreamSupervisor(load_manifest(manifest_path))
+
     def test_http_cancel_that_overtakes_its_request_is_repeated(self) -> None:
         """Repeat a cancel sent before headers once they show the upstream has the request."""
         for closing in (False, True):
@@ -1628,6 +1639,55 @@ for line in sys.stdin:
                             ("cancelled", request_id),
                         ],
                     )
+
+    def test_supervisor_close_all_waits_for_an_initialize_in_flight(self) -> None:
+        """Deliver the DELETE for a session issued after close_all() closed its client."""
+        for evict in (False, True):
+            with self.subTest(evict=evict):
+                st = _LifecycleState()
+                st.init_gate = threading.Event()
+                with _running_server(st) as url, tempfile.TemporaryDirectory() as tmp:
+                    supervisor = self._http_supervisor(url, Path(tmp))
+                    errors: list[Exception] = []
+                    thread = _run_capturing(
+                        lambda supervisor=supervisor: supervisor.get_tools("lc-http"), errors
+                    )
+                    self.assertTrue(st.init_entered.wait(timeout=WAIT_SEC))
+                    if evict:
+                        supervisor.close_disabled({"lc-http": False})
+                    threading.Timer(0.3, st.init_gate.set).start()
+                    supervisor.close_all()
+                    self.assertEqual(st.deleted, ["sess-1"])
+                    thread.join(timeout=WAIT_SEC)
+                    self.assertEqual(len(errors), 1)
+
+    def test_supervisor_close_all_waits_for_a_close_in_progress(self) -> None:
+        """Deliver the DELETE of an eviction whose close() has not submitted it yet."""
+        st = _LifecycleState()
+        with _running_server(st) as url, tempfile.TemporaryDirectory() as tmp:
+            supervisor = self._http_supervisor(url, Path(tmp))
+            supervisor.get_tools("lc-http")
+            real_submit = _BestEffortSends.submit
+            entered, gate = threading.Event(), threading.Event()
+
+            def gated_submit(
+                sends: _BestEffortSends, what: str, target: Callable[..., None], *args: object
+            ) -> None:
+                if threading.current_thread().name == "evict":
+                    entered.set()
+                    gate.wait(timeout=WAIT_SEC)
+                real_submit(sends, what, target, *args)
+
+            with mock.patch.object(_BestEffortSends, "submit", gated_submit):
+                evict = threading.Thread(
+                    target=lambda: supervisor.close_disabled({"lc-http": False}), name="evict"
+                )
+                evict.start()
+                self.assertTrue(entered.wait(timeout=WAIT_SEC))
+                threading.Timer(0.3, gate.set).start()
+                supervisor.close_all()
+                self.assertEqual(st.deleted, ["sess-1"])
+                evict.join(timeout=WAIT_SEC)
 
     def test_stdio_request_that_fails_to_encode_leaves_no_waiter(self) -> None:
         """Drop the reply slot of a request whose arguments cannot be encoded."""

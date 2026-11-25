@@ -95,6 +95,7 @@ class _BestEffortSends:
         self._server = server
         self._cond = threading.Condition()
         self._active: set[threading.Thread] = set()
+        self._producers = 0
 
     def submit(self, what: str, target: Callable[..., None], *args: object) -> None:
         """Run target on a daemon thread, or drop it with a log line when saturated."""
@@ -112,6 +113,18 @@ class _BestEffortSends:
             self._finish(thread)
             _log_dropped(self._server, what, str(exc))
 
+    @contextlib.contextmanager
+    def producing(self) -> Generator[None]:
+        """Count the caller as pending until it returns, since it may still submit a send."""
+        with self._cond:
+            self._producers += 1
+        try:
+            yield
+        finally:
+            with self._cond:
+                self._producers -= 1
+                self._cond.notify_all()
+
     def _run(self, target: Callable[..., None], args: tuple[object, ...]) -> None:
         try:
             target(*args)
@@ -123,16 +136,19 @@ class _BestEffortSends:
             self._active.discard(thread)
             self._cond.notify_all()
 
+    def _idle_locked(self) -> bool:
+        return not self._active and not self._producers
+
     def pending(self) -> bool:
-        """Report whether any send is still running."""
+        """Report whether any send is still running or may still be submitted."""
         with self._cond:
-            return bool(self._active)
+            return not self._idle_locked()
 
     def drain(self, deadline: float) -> bool:
-        """Wait until no send runs or deadline passes; True when none remain."""
+        """Wait until no send runs or may still be submitted, or deadline passes; True when idle."""
         with self._cond:
             return self._cond.wait_for(
-                lambda: not self._active, timeout=max(0.0, deadline - time.monotonic())
+                self._idle_locked, timeout=max(0.0, deadline - time.monotonic())
             )
 
 
@@ -870,53 +886,56 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         return _extract_rpc_result(self.spec.name, reply)
 
     def _initialize_locked(self, ctx: _CallContext) -> None:
-        with self._lock:
-            self._session_id = None
-            self._protocol_version = None
-        init_req: dict[str, object] = {
-            "jsonrpc": "2.0",
-            "id": self._allocate_id(),
-            "method": "initialize",
-            "params": {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": PACKAGE_INFO,
-            },
-        }
-        try:
-            reply = self._post(
-                init_req,
-                self.spec.startup_timeout_sec,
-                expect_reply=True,
-                allow_session_retry=False,
-                ctx=ctx,
-            )
-            result = _extract_rpc_result(self.spec.name, reply)
-            negotiated = result.get("protocolVersion")
-            if isinstance(negotiated, str) and negotiated:
-                with self._lock:
-                    self._protocol_version = negotiated
-            self._post(
-                {"jsonrpc": "2.0", "method": "notifications/initialized"},
-                self.spec.startup_timeout_sec,
-                expect_reply=False,
-                allow_session_retry=False,
-                ctx=ctx,
-            )
-        except Exception:
+        with self._sends.producing():
             with self._lock:
+                self._session_id = None
+                self._protocol_version = None
+            init_req: dict[str, object] = {
+                "jsonrpc": "2.0",
+                "id": self._allocate_id(),
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": PACKAGE_INFO,
+                },
+            }
+            try:
+                reply = self._post(
+                    init_req,
+                    self.spec.startup_timeout_sec,
+                    expect_reply=True,
+                    allow_session_retry=False,
+                    ctx=ctx,
+                )
+                result = _extract_rpc_result(self.spec.name, reply)
+                negotiated = result.get("protocolVersion")
+                if isinstance(negotiated, str) and negotiated:
+                    with self._lock:
+                        self._protocol_version = negotiated
+                self._post(
+                    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                    self.spec.startup_timeout_sec,
+                    expect_reply=False,
+                    allow_session_retry=False,
+                    ctx=ctx,
+                )
+            except Exception:
+                with self._lock:
+                    session_id, protocol_version = self._take_session_locked()
+                if session_id:
+                    self._sends.submit(
+                        "DELETE", self._terminate_session, session_id, protocol_version
+                    )
+                raise
+            with self._lock:
+                if not self._closed:
+                    self._initialized = True
+                    return
                 session_id, protocol_version = self._take_session_locked()
             if session_id:
                 self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
-            raise
-        with self._lock:
-            if not self._closed:
-                self._initialized = True
-                return
-            session_id, protocol_version = self._take_session_locked()
-        if session_id:
-            self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
-        raise UpstreamError.closed(self.spec.name)
+            raise UpstreamError.closed(self.spec.name)
 
     @override
     def ensure_initialized(
@@ -941,30 +960,31 @@ class HttpUpstreamClient(_BaseUpstreamClient):
     @override
     def close(self) -> None:
         """Abort active responses and start best-effort HTTP session termination."""
-        to_abort: list[HTTPResponse] = []
-        to_notify: list[tuple[int, dict[str, str], str]] = []
-        with self._lock:
-            self._closed = True
-            session_id, protocol_version = self._take_session_locked()
-            for entry in self._inflight:
-                if entry.response is not None:
-                    to_abort.append(entry.response)
-                # The session DELETE ends requests sent in that session.
-                if session_id is not None and entry.headers.get("Mcp-Session-Id") == session_id:
-                    entry.notified = True
-                    continue
-                cancelled = entry.cancel_event is not None and entry.cancel_event.is_set()
-                reason = "cancelled" if cancelled else "client closed"
-                request_id = self._claim_cancel_locked(entry, reason)
-                if request_id is not None:
-                    to_notify.append((request_id, entry.headers, reason))
-            self._inflight.clear()
-        for resp in to_abort:
-            _close_response_hard(resp)
-        if session_id:
-            self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
-        for request_id, headers, reason in to_notify:
-            self._send_cancelled(request_id, headers, reason)
+        with self._sends.producing():
+            to_abort: list[HTTPResponse] = []
+            to_notify: list[tuple[int, dict[str, str], str]] = []
+            with self._lock:
+                self._closed = True
+                session_id, protocol_version = self._take_session_locked()
+                for entry in self._inflight:
+                    if entry.response is not None:
+                        to_abort.append(entry.response)
+                    # The session DELETE ends requests sent in that session.
+                    if session_id is not None and entry.headers.get("Mcp-Session-Id") == session_id:
+                        entry.notified = True
+                        continue
+                    cancelled = entry.cancel_event is not None and entry.cancel_event.is_set()
+                    reason = "cancelled" if cancelled else "client closed"
+                    request_id = self._claim_cancel_locked(entry, reason)
+                    if request_id is not None:
+                        to_notify.append((request_id, entry.headers, reason))
+                self._inflight.clear()
+            for resp in to_abort:
+                _close_response_hard(resp)
+            if session_id:
+                self._sends.submit("DELETE", self._terminate_session, session_id, protocol_version)
+            for request_id, headers, reason in to_notify:
+                self._send_cancelled(request_id, headers, reason)
 
     @override
     def has_pending_sends(self) -> bool:
