@@ -147,6 +147,7 @@ let
           {
             name = "antigravity-hub-${basePkg.version or "custom"}";
             paths = [ basePkg ];
+            passthru.basePackage = basePkg;
             nativeBuildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
               wrapProgram "$out/bin/antigravity" \

@@ -1,14 +1,16 @@
 {
   config,
+  inputs,
   lib,
   ...
 }:
 let
   telemetry = import ./_telemetry.nix;
+  binaryPatches = import ./_binary-patches.nix;
 in
 {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, system, ... }:
     let
       scratchDir = config.flake.lib.agents.scratchDir;
       json = name: value: pkgs.writeText name (builtins.toJSON value);
@@ -22,7 +24,7 @@ in
         stateFile = null;
         hubStorageFile = null;
       };
-      inherit (activation) applyConfig;
+      inherit (activation) applyConfig agentapiShimsScript;
 
       shell = import ./_shell.nix {
         inherit lib pkgs;
@@ -559,6 +561,128 @@ in
               [ "$(cat "$HOME/.config/Antigravity/app_storage.json")" = "[]" ]
 
               echo "ok: antigravity-apply-config contract" >$out
+            '';
+
+        "antigravity-cli/binary-patches" =
+          let
+            unpatched = inputs.llm-agents.packages.${system}.antigravity-cli;
+            patched = binaryPatches.patchAgy {
+              inherit lib pkgs;
+              package = unpatched;
+              patches = binaryPatches.defaultPatches;
+            };
+            patchedAll = binaryPatches.patchAgy {
+              inherit lib pkgs;
+              package = unpatched;
+              patches = binaryPatches.patchSets;
+            };
+          in
+          pkgs.runCommandLocal "antigravity-cli-binary-patches"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [
+                pkgs.jq
+                pkgs.python3
+              ];
+            }
+            ''
+              set -euo pipefail
+              manifest=${patched}/share/antigravity-cli/agy.patch.json
+              fail() { echo "FAIL: $*" >&2; exit 1; }
+
+              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.defaultPatches)} ] || fail "manifest patch sets"
+              [ "$(jq -r .input_sha256 "$manifest")" = "$(sha256sum ${unpatched}/bin/agy | cut -d' ' -f1)" ] \
+                || fail "input checksum"
+              [ "$(jq -r .output_sha256 "$manifest")" = "$(sha256sum ${patched}/bin/agy | cut -d' ' -f1)" ] \
+                || fail "output checksum"
+              ! grep -q ${lib.escapeShellArg (builtins.unsafeDiscardStringContext (toString unpatched))} "$manifest" \
+                || fail "manifest references the unpatched package"
+
+              # The binaries differ in exactly the bytes the manifest's edits change.
+              expected=$(jq '[.edits[] | . as $e | [range(0; $e.orig | length; 2) | select($e.orig[.:.+2] != $e.new[.:.+2])] | length] | add' "$manifest")
+              actual=$(cmp -l ${unpatched}/bin/agy ${patched}/bin/agy | wc -l || true)
+              [ "$actual" -eq "$expected" ] || fail "$actual bytes differ, manifest edits change $expected"
+
+              # The default sets on 1.5.16 give exactly this binary.
+              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
+                || [ "$(jq -r .output_sha256 "$manifest")" = 6a2b526546901fb733b2f8ea14524e3ca59f5f8614c63c7ab975a3cef4d3f0cf ] || fail "1.5.16 output checksum drifted"
+
+              # Every set on 1.5.16, devmode included, gives exactly this binary.
+              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
+                || [ "$(jq -r .output_sha256 ${patchedAll}/share/antigravity-cli/agy.patch.json)" = 661f84099da9a6d4fd27cf87a38d3f6c21750fe369e3397aac4ccf94362573f6 ] \
+                || fail "1.5.16 all-sets output checksum drifted"
+
+              # A build the patcher does not know fails instead of passing through unpatched.
+              cp ${unpatched}/bin/agy "$TMPDIR/agy-unknown"
+              chmod u+w "$TMPDIR/agy-unknown"
+              printf 'x' | dd of="$TMPDIR/agy-unknown" bs=1 seek=64 conv=notrunc status=none
+              if python3 -I ${./_patch_agy.py} "$TMPDIR/agy-unknown" "$TMPDIR/agy-out" 2>"$TMPDIR/unknown.err"; then
+                fail "patched an unknown build"
+              fi
+              grep -q 'unknown agy build' "$TMPDIR/unknown.err" || fail "unknown build error message"
+              [ ! -e "$TMPDIR/agy-out" ] || fail "wrote output for an unknown build"
+              rm -f "$TMPDIR/agy-unknown"
+
+              # The patched binary still starts.
+              HOME="$TMPDIR" ${patched}/bin/agy --help 2>&1 | grep -q 'Usage of agy' || fail "agy --help"
+
+              # Offline print mode, signed out: the unpatched binary reaches the updater (which skips a
+              # read-only store directory) and fails to flush Clearcut telemetry at exit; the patched
+              # one does neither.
+              run_print() {
+                mkdir -p "$TMPDIR/home-$2"
+                HOME="$TMPDIR/home-$2" timeout 25 "$1" -p hi --log-file "$TMPDIR/$2.log" </dev/null >/dev/null 2>&1 || true
+              }
+              run_print ${unpatched}/bin/agy unpatched
+              run_print ${patched}/bin/agy patched
+              grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/unpatched.log" \
+                || fail "unpatched: updater not reached (test is blind)"
+              grep -q 'telemetry client' "$TMPDIR/unpatched.log" || fail "unpatched: no telemetry flush (test is blind)"
+              grep -q 'Auto-update disabled' "$TMPDIR/patched.log" || fail "patched: updater not disabled"
+              ! grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/patched.log" \
+                || fail "patched: updater reached"
+              ! grep -q 'telemetry client' "$TMPDIR/patched.log" || fail "patched: telemetry client active"
+              ! grep -q 'skipping empty or temp file' "$TMPDIR/patched.log" || fail "patched: file_watcher log line"
+
+              echo "ok: agy binary patches ($expected bytes)" >$out
+            '';
+
+        "antigravity-cli/agentapi-shims" =
+          pkgs.runCommandLocal "antigravity-cli-agentapi-shims" { passthru.runtimeCheck = true; }
+            ''
+              set -euo pipefail
+              shims() { PATH="/nonexistent" ${lib.getExe agentapiShimsScript} "$@"; }
+              target="$TMPDIR/bin/agy"
+              mkdir -p "$TMPDIR/bin" "$TMPDIR/cli/bin" "$TMPDIR/hub"
+              printf '#!/bin/sh\n' >"$target"
+              chmod +x "$target"
+              printf '#!/bin/sh\nexec "/nix/store/old/bin/agy" agentapi "$@"\n' >"$TMPDIR/cli/bin/agentapi"
+              expected=$(printf '#!/bin/sh\nexec "%s" agentapi "$@"' "$target")
+
+              # 1. A stale shim is rewritten, a missing bin/ is created, a missing app dir is skipped.
+              shims "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" "$TMPDIR/ide" "$target" >"$TMPDIR/out1"
+              for dir in cli hub; do
+                [ "$(cat "$TMPDIR/$dir/bin/agentapi")" = "$expected" ] || { echo "FAIL: $dir shim" >&2; exit 1; }
+                [ -x "$TMPDIR/$dir/bin/agentapi" ] || { echo "FAIL: $dir shim not executable" >&2; exit 1; }
+              done
+              [ ! -e "$TMPDIR/ide" ] || { echo "FAIL: created a missing app dir" >&2; exit 1; }
+              [ "$(wc -l <"$TMPDIR/out1")" -eq 2 ] || { echo "FAIL: expected 2 rewrites" >&2; exit 1; }
+
+              # 2. A second run changes nothing and leaves no temp files.
+              shims "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" >"$TMPDIR/out2"
+              [ ! -s "$TMPDIR/out2" ] || { echo "FAIL: second run rewrote a shim" >&2; exit 1; }
+              [ -z "$(find "$TMPDIR/cli/bin" "$TMPDIR/hub/bin" -name '.agentapi.*')" ] || { echo "FAIL: temp file left" >&2; exit 1; }
+
+              # 3. A non-executable target leaves the shim alone with a warning.
+              shims "$TMPDIR/cli" "$TMPDIR/missing/agy" 2>"$TMPDIR/err3"
+              grep -q 'not executable' "$TMPDIR/err3" || { echo "FAIL: no warning" >&2; exit 1; }
+              [ "$(cat "$TMPDIR/cli/bin/agentapi")" = "$expected" ] || { echo "FAIL: shim changed" >&2; exit 1; }
+
+              # 4. Targets that would break the double-quoted exec are refused, and odd argument counts fail.
+              if shims "$TMPDIR/cli" '/x/"$(id)"' 2>/dev/null; then echo "FAIL: accepted unsafe target" >&2; exit 1; fi
+              if shims "$TMPDIR/cli" 2>/dev/null; then echo "FAIL: accepted odd argument count" >&2; exit 1; fi
+
+              echo "ok: antigravity-agentapi-shims contract" >$out
             '';
 
         "antigravity-cli/shell-wrapper" =

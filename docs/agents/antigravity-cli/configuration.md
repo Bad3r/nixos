@@ -5,15 +5,16 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 
 ## Choose the owning file
 
-- [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
+- [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): patches the `agy` binary at build time (`binaryPatches`), wraps it with the controlled shell, and registers `antigravity-cli` plugin options.
+- [Binary patches](../../../modules/agents/antigravity-cli/_binary-patches.nix): lists the patch sets that [the patcher](../../../modules/agents/antigravity-cli/_patch_agy.py) applies to the `agy` ELF.
 - [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell, sets the Hub server port, and draws the window and tray icons from [the Stylix template](../../../modules/stylix/icons/antigravity.svg.mustache).
 - [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
 - [Shared system prompt](../../../modules/agents/system-prompt.nix): renders `~/.gemini/config/AGENTS.md` with `ask_question` and `sbx` settings.
-- [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, notifications, and verbosity for `agy`.
+- [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, copy on select, Orchestrator planner and executor models, notifications, and verbosity for `agy`.
 - [Permissions policy](../../../modules/agents/antigravity-cli/_permissions.nix): defines `allow`, `ask`, and `deny` rules for CLI settings and Hub grants.
-- [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins and merges declared JSON keys atomically.
+- [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins, merges declared JSON keys atomically, and repoints the `agentapi` shims.
 - [Shared plugin catalog](../../../modules/agents/_plugins.nix): sets default plugin enablement for `antigravity-cli`.
 - [Shared MCP registry](../../../modules/agents/mcp/servers.nix): defines server endpoints, wrappers, and client membership compiled by [the MCP compiler](../../../modules/agents/mcp.nix).
 - [Shared hook registry](../../../modules/agents/hooks.nix): generates `PreInvocation` session reporting and `PreToolUse` scratch validation.
@@ -35,8 +36,20 @@ A preset or color picked in Settings > Appearance lasts until the next switch.
 ## Telemetry and update checks
 
 `agy` accepts `--disable_telemetry` only on `acp`, so the wrapper injects it there and rejects falsy overrides before `--`.
-Root `agy` sessions lack a local telemetry flag and read the Google account toggle from `/config` when signed in.
+Root `agy` sessions (TUI, `-p`, `--hub`) have no telemetry flag, so the default `notelemetry` patch sets `DisableTelemetry` in the in-process Language Server and the CLI.
+The `noautoupdate` patch makes the background updater return before it checks for a release.
+The `quietwatcher` patch drops the `file_watcher.go:194` log line that floods the log at shutdown.
+`devmode` is opt-in: it enables `TEMPLATE_DATA_DIR` prompt overrides and `SetMendelFlagOverrides`, and serves `/debug/pprof` and `/metrics` on the loopback ports without a CSRF token.
+The patcher is pinned by sha256 to known `agy` builds, so a new release fails the build until `_patch_agy.py` gains a `BUILDS` entry.
+`binaryPatches = [ ]` installs the release unpatched.
 `agy remote-control start` resolves the unwrapped store binary via `/proc/self/exe`, and Hub SSH windows run remote Language Server binaries.
+
+## agentapi shims
+
+`agy` and the Hub Language Server write `bin/agentapi` into their data directory from the running binary's store path whenever an agent runs a command, and put that directory first on the command's `PATH`.
+Each switch repoints `~/.gemini/antigravity-cli/bin/agentapi` and the IDE copy in `~/.gemini/antigravity-ide/` at `/run/current-system/sw/bin/agy`, and `~/.gemini/antigravity/bin/agentapi` at the Hub's unwrapped `.language_server-wrapped`.
+The Hub's `language_server` wrapper appends server flags, so the shim skips it.
+The next agent command rewrites the shim with the current store path, which stays valid until the following switch.
 
 ## Plugins and MCP servers
 
@@ -55,11 +68,13 @@ Allowed `read_file`, `write_file`, and `read_url` targets also populate the Linu
 
 ## Validation
 
-Build the Antigravity activation, shell wrapper, and scratch-guard checks before switching:
+Build the Antigravity activation, shim, binary patch, shell wrapper, and scratch-guard checks before switching:
 
 ```sh
 nix build --accept-flake-config --no-link \
   'path:.#checks.x86_64-linux."antigravity-cli/activation-merge"' \
+  'path:.#checks.x86_64-linux."antigravity-cli/agentapi-shims"' \
+  'path:.#checks.x86_64-linux."antigravity-cli/binary-patches"' \
   'path:.#checks.x86_64-linux."antigravity-cli/shell-wrapper"' \
   'path:.#checks.x86_64-linux."agents/hooks/scratch-guard"'
 ```

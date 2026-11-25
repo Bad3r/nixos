@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI byte-patched at build time (telemetry and the background updater off in every mode, quiet file watcher; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:
@@ -35,6 +35,7 @@ let
       cfg = config.programs."antigravity-cli".extended;
       shell = import ./_shell.nix { inherit lib pkgs scratchDir; };
       telemetry = import ./_telemetry.nix;
+      binaryPatches = import ./_binary-patches.nix;
     in
     {
       imports = [ (import ../_plugin-options.nix "antigravity-cli") ];
@@ -53,6 +54,22 @@ let
           description = "The antigravity-cli package to use.";
         };
 
+        binaryPatches = lib.mkOption {
+          type = lib.types.listOf (lib.types.enum binaryPatches.patchSets);
+          default = binaryPatches.defaultPatches;
+          example = [
+            "devmode"
+            "notelemetry"
+            "noautoupdate"
+            "quietwatcher"
+          ];
+          description = ''
+            Patch sets applied to the `agy` binary at build time (see
+            _binary-patches.nix). An empty list installs the binary unpatched.
+            The build fails when the package is not a build the patcher knows.
+          '';
+        };
+
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
@@ -68,7 +85,15 @@ let
             shell
             scratchDir
             ;
-          inherit (cfg) package;
+          package =
+            if cfg.binaryPatches == [ ] then
+              cfg.package
+            else
+              binaryPatches.patchAgy {
+                inherit lib pkgs;
+                inherit (cfg) package;
+                patches = cfg.binaryPatches;
+              };
         };
 
         environment.systemPackages = [ cfg.finalPackage ];

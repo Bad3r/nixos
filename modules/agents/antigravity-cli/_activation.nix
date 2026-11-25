@@ -13,6 +13,13 @@
 
   Also removes artifacts left behind by an earlier migrated-settings import and
   a manual `herdr integration install` block without clobbering unrelated entries.
+
+  antigravity-agentapi-shims points each existing app data directory's
+  bin/agentapi at an installed binary. The CLI and the Hub write that shim from
+  os.Executable() whenever an agent runs a command and put its directory first
+  on the command's PATH, so after an upgrade it keeps naming the previous store
+  path until the next command. The Hub's IDE install wizard copies the Hub's
+  data directory, shim included, into ~/.gemini/antigravity-ide.
 */
 {
   lib,
@@ -28,8 +35,52 @@
   cliEnabled ? false,
   agyPkg ? null,
   marketplacePlugins ? [ ],
+  agentapiShims ? [ ],
 }:
 let
+  agentapiShimsScript = pkgs.writeShellApplication {
+    name = "antigravity-agentapi-shims";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.diffutils
+    ];
+    text = ''
+      # Arguments: APP_DIR TARGET pairs. A missing APP_DIR is skipped, so the
+      # shim is only written where the app already keeps its data.
+      if [ $(( $# % 2 )) -ne 0 ]; then
+        echo "usage: antigravity-agentapi-shims [APP_DIR TARGET]..." >&2
+        exit 2
+      fi
+      while [ "$#" -gt 0 ]; do
+        app_dir=$1
+        target=$2
+        shift 2
+        [ -d "$app_dir" ] || continue
+        shim="$app_dir/bin/agentapi"
+        case $target in
+          *[\"\$\`\\]* | "")
+            echo "antigravity-agentapi-shims: refusing target '$target'" >&2
+            exit 1
+            ;;
+        esac
+        if [ ! -x "$target" ]; then
+          echo "warning: antigravity-agentapi-shims: $target is not executable; leaving $shim unchanged" >&2
+          continue
+        fi
+        mkdir -p -- "$app_dir/bin"
+        tmp=$(mktemp "$app_dir/bin/.agentapi.XXXXXX")
+        printf '#!/bin/sh\nexec "%s" agentapi "$@"\n' "$target" >"$tmp"
+        chmod 0755 -- "$tmp"
+        if [ -f "$shim" ] && [ ! -L "$shim" ] && cmp -s -- "$tmp" "$shim"; then
+          rm -f -- "$tmp"
+          continue
+        fi
+        mv -f -- "$tmp" "$shim"
+        echo "Antigravity: $shim -> $target"
+      done
+    '';
+  };
+
   applyConfig = pkgs.writeShellApplication {
     name = "antigravity-apply-config";
     runtimeInputs = [
@@ -335,7 +386,7 @@ let
   xdgConfigArg = if xdgConfigHome != null then xdgConfigHome else "";
 in
 {
-  inherit applyConfig;
+  inherit applyConfig agentapiShimsScript;
 
   activation =
     lib.optionalAttrs installPluginsEnabled {
@@ -372,6 +423,15 @@ in
             echo "warning: installAntigravityPlugins: network probe failed, skipping plugin install for: ''${missing_plugins[*]}" >&2
           fi
         fi
+      '';
+    }
+    // lib.optionalAttrs (agentapiShims != [ ]) {
+      antigravityAgentapiShims = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run ${lib.getExe agentapiShimsScript} ${
+          lib.concatMapStringsSep " " (
+            s: ''"$HOME"/${lib.escapeShellArg s.appDir} ${lib.escapeShellArg s.target}''
+          ) agentapiShims
+        }
       '';
     }
     // {
