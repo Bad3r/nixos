@@ -253,6 +253,8 @@ class _HttpRequest:
     cancel_event: threading.Event | None
     response: HTTPResponse | None = None
     notified: bool = False
+    # Reason of a cancellation sent before headers, which the request itself may trail.
+    early_cancel: str | None = None
 
 
 def _read_http_chunk(resp: HTTPResponse) -> bytes:
@@ -658,22 +660,30 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             (resp.headers.get("Mcp-Session-Id") or None) if entry.method == "initialize" else None
         )
         with self._lock:
-            if not self._closed:
+            closed = self._closed
+            if not closed:
                 if issued:
                     self._session_id = issued
                 entry.response = resp
-                return
+            early_cancel, entry.early_cancel = entry.early_cancel, None
+        # Headers show the upstream has the request, so repeat a cancellation that may have led it.
+        if early_cancel is not None and entry.request_id is not None:
+            self._send_cancelled(entry.request_id, entry.headers, early_cancel)
+        if not closed:
+            return
         # close() already terminated the session it saw; one issued since is ours to end.
         if issued:
             self._sends.submit("DELETE", self._terminate_session, issued, None)
         raise UpstreamError.closed(self.spec.name)
 
     @staticmethod
-    def _claim_cancel_locked(entry: _HttpRequest) -> int | None:
+    def _claim_cancel_locked(entry: _HttpRequest, reason: str) -> int | None:
         # MCP forbids cancelling initialize.
         if entry.notified or entry.request_id is None or entry.method == "initialize":
             return None
         entry.notified = True
+        if entry.response is None:
+            entry.early_cancel = reason
         return entry.request_id
 
     def _send_cancelled(self, request_id: int, headers: dict[str, str], reason: str) -> None:
@@ -691,7 +701,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                     continue
                 if entry.response is not None:
                     to_abort.append(entry.response)
-                request_id = self._claim_cancel_locked(entry)
+                request_id = self._claim_cancel_locked(entry, "cancelled")
                 if request_id is not None:
                     to_notify.append((request_id, entry.headers))
         for resp in to_abort:
@@ -832,7 +842,7 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         if reason is None:
             return
         with self._lock:
-            request_id = self._claim_cancel_locked(entry)
+            request_id = self._claim_cancel_locked(entry, reason)
         if request_id is not None:
             self._send_cancelled(request_id, entry.headers, reason)
 
@@ -943,10 +953,10 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 if session_id is not None and entry.headers.get("Mcp-Session-Id") == session_id:
                     entry.notified = True
                     continue
-                request_id = self._claim_cancel_locked(entry)
+                cancelled = entry.cancel_event is not None and entry.cancel_event.is_set()
+                reason = "cancelled" if cancelled else "client closed"
+                request_id = self._claim_cancel_locked(entry, reason)
                 if request_id is not None:
-                    cancelled = entry.cancel_event is not None and entry.cancel_event.is_set()
-                    reason = "cancelled" if cancelled else "client closed"
                     to_notify.append((request_id, entry.headers, reason))
             self._inflight.clear()
         for resp in to_abort:

@@ -139,6 +139,9 @@ class _LifecycleState:
         self.deleted: list[str | None] = []
         self.cancelled: list[tuple[object, str | None]] = []
         self.hung_ids: list[object] = []
+        self.received: list[tuple[str, object]] = []
+        self.upload_entered = threading.Event()
+        self.upload_gate: threading.Event | None = None
         self.init_entered = threading.Event()
         self.init_gate: threading.Event | None = None
         self.list_entered = threading.Event()
@@ -208,6 +211,7 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
     def _cancelled(self, msg_id: object, params: dict[str, object]) -> None:
         del msg_id
         entry = (params.get("requestId"), self.headers.get("Mcp-Session-Id"))
+        self.state.append(self.state.received, ("cancelled", entry[0]))
         self.state.append(self.state.cancelled, entry)
         self._empty(202)
 
@@ -222,7 +226,14 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
         self._reply(msg_id, {"tools": [{"name": "a", "description": "A"}]})
 
     def _tools_call(self, msg_id: object, params: dict[str, object]) -> None:
+        st = self.state
         name = params.get("name")
+        if name == "slow_upload":
+            # Models a server still reading the request body.
+            st.upload_entered.set()
+            if st.upload_gate is not None:
+                st.upload_gate.wait(timeout=WAIT_SEC)
+        st.append(st.received, ("tools/call", msg_id))
         if name in ("session", "held_session"):
             # Reply with the request's session and echo it in the header, as some servers do.
             session = self.headers.get("Mcp-Session-Id")
@@ -232,8 +243,8 @@ class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
             content = [{"type": "text", "text": str(session)}]
             self._reply(msg_id, {"content": content}, {"Mcp-Session-Id": str(session)})
             return
-        # Never replies: "hang" withholds headers, "stream_hang" sends SSE headers only.
-        if name == "stream_hang":
+        # Never replies: "hang" withholds headers, the others send SSE headers only.
+        if name in ("stream_hang", "slow_upload"):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
@@ -283,7 +294,7 @@ def _running_server(st: _LifecycleState) -> Generator[str]:
         yield f"http://127.0.0.1:{srv.server_address[1]}/mcp"
     finally:
         st.release.set()
-        for gate in (st.init_gate, st.list_gate, st.delete_gate):
+        for gate in (st.init_gate, st.list_gate, st.delete_gate, st.upload_gate):
             if gate is not None:
                 gate.set()
         srv.shutdown()
@@ -1055,7 +1066,8 @@ for line in sys.stdin:
                 self.assertEqual(len(errors), 1)
                 self.assertIsInstance(errors[0], UpstreamError)
                 self.assertIn("cancelled", str(errors[0]))
-                self.assertTrue(st.wait_for(lambda: len(st.cancelled) == stream_hang))
+                # A cancel sent before headers arrive is repeated once they do.
+                self.assertTrue(st.wait_for(lambda: len(st.cancelled) >= stream_hang))
                 self.assertEqual(st.cancelled[1], (st.hung_ids[1], "sess-1"))
             finally:
                 self.assertTrue(_close_drained(client))
@@ -1110,10 +1122,12 @@ for line in sys.stdin:
             self.assertTrue(_close_drained(client))
             for thread in threads:
                 thread.join(timeout=WAIT_SEC)
+            self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
             self.assertEqual(len(errors), calls)
+            # A cancel sent before headers arrive is repeated once they do.
             self.assertEqual(
-                sorted(cast("list[int]", st.hung_ids)),
-                sorted(cast("int", request_id) for request_id, _ in st.cancelled),
+                set(cast("list[int]", st.hung_ids)),
+                {cast("int", request_id) for request_id, _ in st.cancelled},
             )
             self.assertEqual({session for _, session in st.cancelled}, {None})
             self.assertEqual(st.deleted, [])
@@ -1571,3 +1585,46 @@ for line in sys.stdin:
                 self.assertEqual(st.list_count, lists + 1)
             finally:
                 supervisor.close_all()
+
+    def test_http_cancel_that_overtakes_its_request_is_repeated(self) -> None:
+        """Repeat a cancel sent before headers once they show the upstream has the request."""
+        for closing in (False, True):
+            with self.subTest(closing=closing):
+                st = _LifecycleState()
+                # Without a session, close() cancels each request instead of sending DELETE.
+                st.issue_session = not closing
+                st.upload_gate = threading.Event()
+                with _running_server(st) as url:
+                    client = HttpUpstreamClient(_http_spec(url))
+                    client.ensure_initialized()
+                    cancel = threading.Event()
+                    errors: list[Exception] = []
+                    thread = _run_capturing(
+                        lambda client=client, cancel=cancel: client.call_tool(
+                            "slow_upload", {}, cancel_event=cancel
+                        ),
+                        errors,
+                    )
+                    self.assertTrue(st.upload_entered.wait(timeout=WAIT_SEC))
+                    if closing:
+                        client.close()
+                    else:
+                        cancel.set()
+                        client.cancel_matching()
+                    self.assertTrue(st.wait_for(lambda st=st: len(st.received) == 1))
+                    st.upload_gate.set()
+                    thread.join(timeout=WAIT_SEC)
+                    self.assertEqual(len(errors), 1)
+                    self.assertIsInstance(errors[0], UpstreamError)
+                    self.assertTrue(_close_drained(client))
+                    call_ids = [msg_id for kind, msg_id in st.received if kind == "tools/call"]
+                    self.assertEqual(len(call_ids), 1)
+                    request_id = call_ids[0]
+                    self.assertEqual(
+                        st.received,
+                        [
+                            ("cancelled", request_id),
+                            ("tools/call", request_id),
+                            ("cancelled", request_id),
+                        ],
+                    )
