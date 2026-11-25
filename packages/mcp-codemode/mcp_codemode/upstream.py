@@ -32,7 +32,7 @@ from ._util import (
 from .config import ConfigError, Manifest, ServerSpec, format_secret_header
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Callable, Generator, Iterator
     from http.client import HTTPResponse
     from typing import IO
 
@@ -75,6 +75,13 @@ class UpstreamError(RuntimeError):
     def cancelled(cls, server: str, method: str) -> UpstreamError:
         """Create an error when an upstream request is cancelled."""
         return cls(f"upstream '{server}' cancelled during {method}")
+
+
+BEST_EFFORT_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError, UpstreamError)
+
+
+def _run_detached(target: Callable[..., None], *args: object) -> None:
+    threading.Thread(target=target, args=args, daemon=True).start()
 
 
 def _extract_rpc_result(server: str, response: dict[str, object]) -> dict[str, object]:
@@ -542,18 +549,25 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             and method not in ("initialize", "notifications/initialized")
         )
 
-    def _register_inflight(
+    def _register_response(
         self,
         resp: HTTPResponse,
         cancel_event: threading.Event | None,
+        sent_session_id: str | None,
     ) -> int:
+        new_session = resp.headers.get("Mcp-Session-Id") or None
         with self._lock:
-            if self._closed:
-                raise UpstreamError.closed(self.spec.name)
-            token = self._next_inflight_id
-            self._next_inflight_id += 1
-            self._inflight[token] = (resp, cancel_event)
-            return token
+            if not self._closed:
+                if new_session:
+                    self._session_id = new_session
+                token = self._next_inflight_id
+                self._next_inflight_id += 1
+                self._inflight[token] = (resp, cancel_event)
+                return token
+        # close() already terminated the session it saw; a newly issued one is ours to end.
+        if new_session and new_session != sent_session_id:
+            self._terminate_session(new_session, None)
+        raise UpstreamError.closed(self.spec.name)
 
     def _unregister_inflight(self, token: int) -> None:
         with self._lock:
@@ -580,14 +594,6 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 elif self._initialized:
                     return
             self._initialize_locked(ctx)
-
-    def _record_response_session(self, resp: HTTPResponse) -> None:
-        new_session = resp.headers.get("Mcp-Session-Id")
-        with self._lock:
-            if self._closed:
-                raise UpstreamError.closed(self.spec.name)
-            if new_session:
-                self._session_id = new_session
 
     def _post(
         self,
@@ -618,9 +624,8 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 data=raw,
                 timeout=effective_timeout,
             ) as resp:
-                token = self._register_inflight(resp, call_ctx.cancel_event)
+                token = self._register_response(resp, call_ctx.cancel_event, sent_session_id)
                 try:
-                    self._record_response_session(resp)
                     if not expect_reply:
                         return {}
                     if resp.status in NO_BODY_STATUSES:
@@ -660,6 +665,40 @@ class HttpUpstreamClient(_BaseUpstreamClient):
                 if self._closed:
                     raise UpstreamError.closed(self.spec.name) from None
             raise UpstreamError.rpc_error(self.spec.name, str(exc)) from None
+
+    def _send_best_effort(
+        self,
+        method: str,
+        headers: dict[str, str],
+        data: bytes | None = None,
+    ) -> None:
+        try:
+            self._open(
+                method=method,
+                headers=headers,
+                data=data,
+                timeout=min(self.spec.startup_timeout_sec, CLOSE_TIMEOUT_SEC),
+            ).close()
+        except BEST_EFFORT_ERRORS as exc:
+            sys.stderr.write(f"mcp-codemode: upstream '{self.spec.name}': {method} failed: {exc}\n")
+
+    def _terminate_session(self, session_id: str, protocol_version: str | None) -> None:
+        try:
+            headers = self._headers(include_session=False)
+        except UpstreamError as exc:
+            sys.stderr.write(f"mcp-codemode: {exc}; session {session_id} left open\n")
+            return
+        headers["Mcp-Session-Id"] = session_id
+        if protocol_version:
+            headers["MCP-Protocol-Version"] = protocol_version
+        self._send_best_effort("DELETE", headers)
+
+    def _take_session_locked(self) -> tuple[str | None, str | None]:
+        session = (self._session_id, self._protocol_version)
+        self._session_id = None
+        self._protocol_version = None
+        self._initialized = False
+        return session
 
     @override
     def _rpc_call(
@@ -720,16 +759,22 @@ class HttpUpstreamClient(_BaseUpstreamClient):
             )
         except Exception:
             with self._lock:
-                self._session_id = None
-                self._protocol_version = None
-                self._initialized = False
+                session_id, protocol_version = self._take_session_locked()
+                closed = self._closed
+            if session_id:
+                if closed:
+                    self._terminate_session(session_id, protocol_version)
+                else:
+                    _run_detached(self._terminate_session, session_id, protocol_version)
             raise
         with self._lock:
-            if self._closed:
-                self._session_id = None
-                self._protocol_version = None
-                raise UpstreamError.closed(self.spec.name)
-            self._initialized = True
+            if not self._closed:
+                self._initialized = True
+                return
+            session_id, protocol_version = self._take_session_locked()
+        if session_id:
+            self._terminate_session(session_id, protocol_version)
+        raise UpstreamError.closed(self.spec.name)
 
     @override
     def ensure_initialized(
@@ -756,29 +801,13 @@ class HttpUpstreamClient(_BaseUpstreamClient):
         """Abort active responses and send best-effort HTTP session termination."""
         with self._lock:
             self._closed = True
-            session_id = self._session_id
-            protocol_version = self._protocol_version
-            self._session_id = None
-            self._protocol_version = None
-            self._initialized = False
+            session_id, protocol_version = self._take_session_locked()
             inflight = [resp for resp, _ in self._inflight.values()]
             self._inflight.clear()
         for resp in inflight:
             _close_response_hard(resp)
-        if not session_id:
-            return
-        with contextlib.suppress(
-            urllib.error.URLError, http.client.HTTPException, OSError, RuntimeError
-        ):
-            headers = self._headers(include_session=False)
-            headers["Mcp-Session-Id"] = session_id
-            if protocol_version:
-                headers["MCP-Protocol-Version"] = protocol_version
-            self._open(
-                method="DELETE",
-                headers=headers,
-                timeout=min(self.spec.startup_timeout_sec, CLOSE_TIMEOUT_SEC),
-            ).close()
+        if session_id:
+            self._terminate_session(session_id, protocol_version)
 
 
 class _PendingCall:

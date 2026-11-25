@@ -13,8 +13,9 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 from mcp_codemode.config import SecretHeader, ServerSpec, load_manifest
@@ -24,6 +25,9 @@ from mcp_codemode.upstream import (
     UpstreamError,
     UpstreamSupervisor,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 MOCK_STDIO_SCRIPT = """
 import json, os, sys
@@ -64,6 +68,158 @@ for line in sys.stdin:
         continue
     print(json.dumps({"jsonrpc": "2.0", "id": mid, "result": reply}), flush=True)
 """
+
+
+WAIT_SEC = 5.0
+
+
+class _LifecycleState:
+    def __init__(self) -> None:
+        self.cond = threading.Condition()
+        self.init_count = 0
+        self.list_count = 0
+        self.deleted: list[str | None] = []
+        self.cancelled: list[tuple[object, str | None]] = []
+        self.hung_ids: list[object] = []
+        self.init_entered = threading.Event()
+        self.init_gate: threading.Event | None = None
+        self.list_entered = threading.Event()
+        self.list_gate: threading.Event | None = None
+        self.release = threading.Event()
+        self.initialized_status = 202
+
+    def append[T](self, items: list[T], item: T) -> None:
+        with self.cond:
+            items.append(item)
+            self.cond.notify_all()
+
+    def wait_for(self, predicate: Callable[[], bool]) -> bool:
+        with self.cond:
+            return self.cond.wait_for(predicate, timeout=WAIT_SEC)
+
+
+class _LifecycleHandler(http.server.BaseHTTPRequestHandler):
+    state: _LifecycleState
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        del format, args
+
+    def _reply(
+        self,
+        msg_id: object,
+        result: dict[str, object],
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        payload = json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": result}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _empty(self, status: int) -> None:
+        self.send_response(status)
+        self.end_headers()
+
+    def _initialize(self, msg_id: object, params: dict[str, object]) -> None:
+        del params
+        st = self.state
+        with st.cond:
+            st.init_count += 1
+            session = f"sess-{st.init_count}"
+        st.init_entered.set()
+        if st.init_gate is not None:
+            st.init_gate.wait(timeout=WAIT_SEC)
+        self._reply(msg_id, {"protocolVersion": "2025-06-18"}, {"Mcp-Session-Id": session})
+
+    def _initialized(self, msg_id: object, params: dict[str, object]) -> None:
+        del msg_id, params
+        self._empty(self.state.initialized_status)
+
+    def _cancelled(self, msg_id: object, params: dict[str, object]) -> None:
+        del msg_id
+        entry = (params.get("requestId"), self.headers.get("Mcp-Session-Id"))
+        self.state.append(self.state.cancelled, entry)
+        self._empty(202)
+
+    def _tools_list(self, msg_id: object, params: dict[str, object]) -> None:
+        del params
+        st = self.state
+        with st.cond:
+            st.list_count += 1
+        st.list_entered.set()
+        if st.list_gate is not None:
+            st.list_gate.wait(timeout=WAIT_SEC)
+        self._reply(msg_id, {"tools": [{"name": "a", "description": "A"}]})
+
+    def _tools_call(self, msg_id: object, params: dict[str, object]) -> None:
+        # Never replies: "hang" withholds headers, "stream_hang" sends SSE headers only.
+        if params.get("name") == "stream_hang":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.flush()
+        self.state.append(self.state.hung_ids, msg_id)
+        self.state.release.wait(timeout=WAIT_SEC)
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        body = cast("dict[str, object]", json.loads(self.rfile.read(length)))
+        handlers = {
+            "initialize": self._initialize,
+            "notifications/initialized": self._initialized,
+            "notifications/cancelled": self._cancelled,
+            "tools/list": self._tools_list,
+            "tools/call": self._tools_call,
+        }
+        handler = handlers.get(str(body.get("method")))
+        if handler is not None:
+            handler(body.get("id"), cast("dict[str, object]", body.get("params") or {}))
+
+    def do_DELETE(self) -> None:
+        self.state.append(self.state.deleted, self.headers.get("Mcp-Session-Id"))
+        self._empty(204)
+
+
+def _make_lifecycle_handler(st: _LifecycleState) -> type[http.server.BaseHTTPRequestHandler]:
+    class BoundHandler(_LifecycleHandler):
+        state = st
+
+    return BoundHandler
+
+
+@contextmanager
+def _running_server(st: _LifecycleState) -> Generator[str]:
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _make_lifecycle_handler(st))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{srv.server_address[1]}/mcp"
+    finally:
+        st.release.set()
+        if st.init_gate is not None:
+            st.init_gate.set()
+        if st.list_gate is not None:
+            st.list_gate.set()
+        srv.shutdown()
+        srv.server_close()
+
+
+def _http_spec(url: str) -> ServerSpec:
+    return ServerSpec(name="lc-http", alias="lc_http", transport="http", url=url)
+
+
+def _run_capturing(target: Callable[[], object], errors: list[Exception]) -> threading.Thread:
+    def _run() -> None:
+        try:
+            target()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    thread = threading.Thread(target=_run)
+    thread.start()
+    return thread
 
 
 class _HttpEdgeState:
@@ -779,3 +935,38 @@ for line in sys.stdin:
                 self.assertLess(time.monotonic() - t0, 1.5)
             finally:
                 client.close()
+
+    def test_http_sessions_issued_during_failed_or_closed_init_are_deleted(self) -> None:
+        """DELETE every server-issued session the client drops, and stay closed after close()."""
+        st = _LifecycleState()
+        with _running_server(st) as url:
+            st.init_gate = threading.Event()
+            racing = HttpUpstreamClient(_http_spec(url))
+            errors: list[Exception] = []
+            thread = _run_capturing(racing.ensure_initialized, errors)
+            self.assertTrue(st.init_entered.wait(timeout=WAIT_SEC))
+            racing.close()
+            self.assertEqual(st.deleted, [])
+            st.init_gate.set()
+            thread.join(timeout=WAIT_SEC)
+            self.assertEqual(len(errors), 1)
+            self.assertIsInstance(errors[0], UpstreamError)
+            self.assertEqual(st.deleted, ["sess-1"])
+
+            st.initialized_status = 404
+            failing = HttpUpstreamClient(_http_spec(url))
+            with self.assertRaises(UpstreamError):
+                failing.ensure_initialized()
+            self.assertTrue(st.wait_for(lambda: "sess-2" in st.deleted))
+            st.initialized_status = 202
+
+            closed = HttpUpstreamClient(_http_spec(url))
+            closed.ensure_initialized()
+            closed.close()
+            self.assertIn("sess-3", st.deleted)
+            init_count = st.init_count
+            with self.assertRaises(UpstreamError):
+                closed.ensure_initialized()
+            with self.assertRaises(UpstreamError):
+                closed.list_tools()
+            self.assertEqual(st.init_count, init_count)
