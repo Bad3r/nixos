@@ -58,8 +58,8 @@ let
         default = defaultGuidelinesPin;
         description = ''
           File whose first field is the expected SHA-256 of Google's server
-          guidelines template. When set, drift or a failed check returns HTTP 502
-          and saves the drifted template under
+          guidelines template. When set, drift or a failed check returns HTTP 502.
+          Drifted templates are saved under
           `$XDG_STATE_HOME/antigravity-proxy/drift/`.
         '';
       };
