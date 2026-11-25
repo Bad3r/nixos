@@ -174,7 +174,7 @@ class ConfigTest(unittest.TestCase):
                 )
 
     def test_read_secret_and_errors(self) -> None:
-        """Read declared/XDG/fallback secrets and reject missing, binary, or escaping paths."""
+        """Read XDG and fallback secrets and reject missing, binary, or escaping paths."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             data_dir = root / "custom-data"
@@ -197,16 +197,6 @@ class ConfigTest(unittest.TestCase):
                 home_fallback.parent.mkdir(parents=True, exist_ok=True)
                 home_fallback.write_text("from-home-fallback\n", encoding="utf-8")
                 self.assertEqual(read_secret(secret), "from-home-fallback")
-
-                # Declared SOPS path takes precedence over XDG_DATA_HOME.
-                declared_file = root / "sops-declared-key"
-                declared_file.write_text("from-declared-path\n", encoding="utf-8")
-                declared_secret = SecretHeader(
-                    name="X-Goog-Api-Key",
-                    relative_path=secret.relative_path,
-                    declared_path=str(declared_file),
-                )
-                self.assertEqual(read_secret(declared_secret), "from-declared-path")
 
                 target = data_dir / secret.relative_path
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -262,7 +252,6 @@ class ConfigTest(unittest.TestCase):
                                     "name": "Authorization",
                                     "prefix": "Bearer ",
                                     "relativePath": "cloudflare/api-key",
-                                    "path": "/home/test/.local/share/cloudflare/api-key",
                                 },
                             },
                             "gdk": {
@@ -285,9 +274,6 @@ class ConfigTest(unittest.TestCase):
             self.assertIsNotNone(gdk_secret)
             if cf_secret is not None:
                 self.assertEqual(cf_secret.prefix, "Bearer ")
-                self.assertEqual(
-                    cf_secret.declared_path, "/home/test/.local/share/cloudflare/api-key"
-                )
             if gdk_secret is not None:
                 self.assertEqual(gdk_secret.prefix, "")
 
@@ -341,11 +327,6 @@ class ConfigTest(unittest.TestCase):
                 {"name": "X-Bad\r\nHeader", "relativePath": "cloudflare/api-key"},
                 {"name": "Authorization", "relativePath": "/abs/secret"},
                 {"name": "Authorization", "relativePath": "../escape"},
-                {
-                    "name": "Authorization",
-                    "relativePath": "cloudflare/api-key",
-                    "path": "relative/path",
-                },
             )
             bad_manifests.extend(
                 {

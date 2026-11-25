@@ -44,10 +44,7 @@ _: {
           null;
 
       sbxEnabled = agents.skills.sbx.enabledOn osConfig;
-      mcpServers = agents.mcp.clients.antigravity.servers {
-        inherit pkgs osConfig;
-        sopsSecrets = config.sops.secrets or { };
-      };
+      mcpServers = agents.mcp.clients.antigravity.servers { inherit pkgs osConfig; };
       hooks = agents.hooks.clients.antigravity pkgs;
 
       enabledPlugins = lib.attrByPath [

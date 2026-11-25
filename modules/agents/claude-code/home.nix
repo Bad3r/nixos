@@ -81,10 +81,7 @@ _: {
       ) agents.skills.list;
 
       # MCP servers via compiled agents.mcp client profile
-      mcpServers = agents.mcp.clients.claude.servers {
-        inherit pkgs osConfig;
-        sopsSecrets = config.sops.secrets or { };
-      };
+      mcpServers = agents.mcp.clients.claude.servers { inherit pkgs osConfig; };
 
       # Merges parts that must not declare the same top-level key.
       mergeParts =

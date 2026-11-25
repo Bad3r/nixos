@@ -551,7 +551,6 @@ let
       client,
       pkgs,
       osConfig,
-      sopsSecrets ? { },
     }:
     enabled:
     let
@@ -561,19 +560,6 @@ let
         name: server:
         let
           meta = validatedServers.${name};
-          declaredSecretPath =
-            if meta ? secretHeader then
-              lib.attrByPath [ meta.secretHeader.relativePath "path" ] null sopsSecrets
-            else
-              null;
-          secretHeader =
-            if meta ? secretHeader then
-              meta.secretHeader
-              // lib.optionalAttrs (declaredSecretPath != null) {
-                path = declaredSecretPath;
-              }
-            else
-              null;
           baseFields = {
             enabled = !meta.disabled;
             primaryUse = meta.docs.primaryUse;
@@ -589,8 +575,8 @@ let
             transport = "http";
             inherit (server) url;
           }
-          // lib.optionalAttrs (secretHeader != null) {
-            inherit secretHeader;
+          // lib.optionalAttrs (meta ? secretHeader) {
+            inherit (meta) secretHeader;
           }
         else
           baseFields
@@ -665,7 +651,6 @@ let
       pkgs,
       osConfig,
       serverOverrides ? { },
-      sopsSecrets ? { },
     }:
     enabled:
     let
@@ -685,12 +670,7 @@ let
         else
           let
             manifestData = mkClientManifestData {
-              inherit
-                client
-                pkgs
-                osConfig
-                sopsSecrets
-                ;
+              inherit client pkgs osConfig;
             } codemodeNames;
             manifestFile = pkgs.writeText "${client}-codemode-manifest.json" (builtins.toJSON manifestData);
             codemodeBin = lib.getExe (codemodePkgFor pkgs osConfig);
@@ -757,32 +737,21 @@ let
     {
       inherit names enabledNames;
       manifest =
-        {
-          pkgs,
-          osConfig,
-          sopsSecrets ? { },
-        }:
+        { pkgs, osConfig }:
         mkClientManifestData {
-          inherit
-            client
-            pkgs
-            osConfig
-            sopsSecrets
-            ;
+          inherit client pkgs osConfig;
         } (enabledNames osConfig);
       servers =
         {
           pkgs,
           osConfig,
           serverOverrides ? { },
-          sopsSecrets ? { },
         }:
         mkClientServers client {
           inherit
             pkgs
             osConfig
             serverOverrides
-            sopsSecrets
             ;
         } (enabledNames osConfig);
       # Claude Code and Antigravity approve direct MCP tools through permission rules.

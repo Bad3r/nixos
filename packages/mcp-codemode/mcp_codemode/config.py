@@ -64,12 +64,11 @@ class ConfigError(RuntimeError):
 
 @dataclass(frozen=True)
 class SecretHeader:
-    """Reference to an HTTP header value stored under XDG_DATA_HOME or a declared SOPS path."""
+    """Reference to an HTTP header value stored under XDG_DATA_HOME."""
 
     name: str
     relative_path: str
     prefix: str = ""
-    declared_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -147,29 +146,12 @@ def _validate_relative_secret_path(rel_path: str) -> str | None:
     return None
 
 
-def _validate_declared_secret_path(declared: str) -> str | None:
-    if not declared or "\r" in declared or "\n" in declared:
-        return "secretHeader.path must be a single-line absolute path"
-    candidate = Path(declared)
-    if not candidate.is_absolute() or ".." in candidate.parts:
-        return "secretHeader.path must be a clean absolute path"
-    return None
-
-
 def _lexical_child(base: Path, rel_path: str) -> Path:
     # Use normpath (not resolve) because sops-nix links ~/.local/share secrets into /run/user.
     return Path(os.path.normpath(Path(os.path.normpath(base)) / rel_path))
 
 
 def _resolve_secret_path(secret_header: SecretHeader) -> Path:
-    if secret_header.declared_path is not None:
-        invalid_decl = _validate_declared_secret_path(secret_header.declared_path)
-        if invalid_decl is not None:
-            raise ConfigError.invalid_secret_path(invalid_decl)
-        declared = Path(os.path.normpath(secret_header.declared_path))
-        if declared.exists():
-            return declared
-
     invalid_detail = _validate_relative_secret_path(secret_header.relative_path)
     if invalid_detail is not None:
         raise ConfigError.invalid_secret_path(invalid_detail)
@@ -214,7 +196,6 @@ def _parse_secret_header(name: str, raw_secret: object, path: Path) -> SecretHea
     header_name = secret_dict.get("name")
     rel_path = secret_dict.get("relativePath")
     raw_prefix = secret_dict.get("prefix", "")
-    raw_declared = secret_dict.get("path")
     if (
         not isinstance(header_name, str)
         or not header_name
@@ -233,22 +214,7 @@ def _parse_secret_header(name: str, raw_secret: object, path: Path) -> SecretHea
         raise ConfigError.invalid_manifest(
             path, f"server '{name}' has invalid 'secretHeader.prefix'"
         )
-    declared_path: str | None = None
-    if raw_declared is not None:
-        if not isinstance(raw_declared, str):
-            raise ConfigError.invalid_manifest(
-                path, f"server '{name}' has invalid 'secretHeader.path'"
-            )
-        decl_error = _validate_declared_secret_path(raw_declared)
-        if decl_error is not None:
-            raise ConfigError.invalid_manifest(path, f"server '{name}' {decl_error}")
-        declared_path = raw_declared
-    return SecretHeader(
-        name=header_name,
-        relative_path=rel_path,
-        prefix=raw_prefix,
-        declared_path=declared_path,
-    )
+    return SecretHeader(name=header_name, relative_path=rel_path, prefix=raw_prefix)
 
 
 def _parse_manifest_timeout(

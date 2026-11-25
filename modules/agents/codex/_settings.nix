@@ -8,7 +8,6 @@
   lib,
   osConfig,
   pkgs,
-  sopsSecrets ? { },
   telemetry,
 }:
 let
@@ -23,7 +22,7 @@ let
     };
   };
   codexMcpServers = agents.mcp.clients.codex.servers {
-    inherit pkgs osConfig sopsSecrets;
+    inherit pkgs osConfig;
     serverOverrides = nodeReplServerOverrides;
   };
 

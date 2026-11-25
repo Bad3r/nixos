@@ -52,43 +52,31 @@ in
         };
       };
 
-      sampleSopsSecrets = {
-        "cloudflare/api-key".path = "/home/test/.local/share/cloudflare/api-key";
-        "google-developer-knowledge/api-key".path =
-          "/home/test/.local/share/google-developer-knowledge/api-key";
-      };
-
       codexServers = agents.mcp.clients.codex.servers {
         inherit pkgs;
         osConfig = fullOsConfig;
         serverOverrides = nodeReplOverrides;
-        sopsSecrets = sampleSopsSecrets;
       };
       antigravityServers = agents.mcp.clients.antigravity.servers {
         inherit pkgs;
         osConfig = emptyOsConfig;
-        sopsSecrets = sampleSopsSecrets;
       };
       claudeServers = agents.mcp.clients.claude.servers {
         inherit pkgs;
         osConfig = emptyOsConfig;
-        sopsSecrets = sampleSopsSecrets;
       };
 
       codexManifest = agents.mcp.clients.codex.manifest {
         inherit pkgs;
         osConfig = fullOsConfig;
-        sopsSecrets = sampleSopsSecrets;
       };
       antigravityManifest = agents.mcp.clients.antigravity.manifest {
         inherit pkgs;
         osConfig = emptyOsConfig;
-        sopsSecrets = sampleSopsSecrets;
       };
       claudeManifest = agents.mcp.clients.claude.manifest {
         inherit pkgs;
         osConfig = emptyOsConfig;
-        sopsSecrets = sampleSopsSecrets;
       };
 
       allManifests = [
@@ -193,11 +181,10 @@ in
             && m.servers.cloudflare-api.enabled == true
             && m.servers.cloudflare-api.url == cfApiMeta.url
             && m.servers.cloudflare-api.toolTimeoutSec == 180
-            && m.servers.cloudflare-api.secretHeader.name == cfApiMeta.secretHeader.name
+            && m.servers.cloudflare-api.secretHeader == cfApiMeta.secretHeader
             && m.servers.cloudflare-api.secretHeader.prefix == "Bearer "
-            && m.servers.cloudflare-api.secretHeader.path == "/home/test/.local/share/cloudflare/api-key"
           ) allManifests)
-          "every client manifest must include enabled cloudflare-api with 180s toolTimeoutSec and declared secret path";
+          "every client manifest must include enabled cloudflare-api with 180s toolTimeoutSec and its secret header";
         assert lib.assertMsg (lib.all
           (
             m:
@@ -214,12 +201,9 @@ in
             && m.servers.google-developer-knowledge.enabled == false
             && m.servers.google-developer-knowledge.url == gdkMeta.url
             && m.servers.google-developer-knowledge.toolTimeoutSec == 180
-            && m.servers.google-developer-knowledge.secretHeader.name == gdkMeta.secretHeader.name
-            &&
-              m.servers.google-developer-knowledge.secretHeader.path
-              == "/home/test/.local/share/google-developer-knowledge/api-key"
+            && m.servers.google-developer-knowledge.secretHeader == gdkMeta.secretHeader
           ) allManifests)
-          "every client manifest must include disabled google-developer-knowledge with 180s toolTimeoutSec and declared secret path";
+          "every client manifest must include disabled google-developer-knowledge with 180s toolTimeoutSec and its secret header";
         assert lib.assertMsg (
           antigravityManifest.servers.deepwiki.enabled == true
           && antigravityManifest.servers.deepwiki.toolTimeoutSec == 180
