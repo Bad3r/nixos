@@ -219,7 +219,9 @@ let
       direct = validatedServer.direct or false;
       autoApprove = validatedServer.autoApprove or false;
     in
-    if !validSource then
+    if builtins.match "[A-Za-z0-9_-]+" serverName == null then
+      throw "Agent MCP server name ${builtins.toJSON serverName} must match [A-Za-z0-9_-]+"
+    else if !validSource then
       throw "Agent MCP server '${serverName}' has invalid source '${source}'. Valid: ${toString validSources}"
     else if missingFields != [ ] then
       throw "Agent MCP server '${serverName}' (${source}) missing required fields: ${toString missingFields}"
@@ -331,12 +333,12 @@ let
                   # The secret is optional; the server starts without it.
                   if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
                     if ! secret_value="$(tr -d '\r\n' < "$secret_path")"; then
-                      echo "Failed to read the ${name} MCP secret from $secret_path" >&2
+                      printf 'Failed to read the %s MCP secret from %s\n' ${lib.escapeShellArg name} "$secret_path" >&2
                       exit 1
                     fi
                     export ${meta.secretEnv.name}="$secret_value"
                   fi
-                  exec ${binPath} "$@"
+                  exec ${lib.escapeShellArg binPath} "$@"
                 '';
               };
             in
