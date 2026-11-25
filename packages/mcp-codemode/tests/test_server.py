@@ -549,19 +549,24 @@ for line in sys.stdin:
                 json.dumps({"client": "claude", "servers": {}}), encoding="utf-8"
             )
             server = CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
-            reply = server.handle_message(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "tools/call",
-                    "params": {"name": "search", "arguments": "async () => 1"},
-                }
-            )
-        if reply is None:
-            self.fail("expected JSON-RPC reply for tools/call with string arguments")
-        error = cast("dict[str, object]", reply["error"])
-        self.assertEqual(error["code"], RPC_INVALID_PARAMS)
-        self.assertIn("'arguments' must be an object, got string", str(error["message"]))
+            for tool in ("search", "execute"):
+                with self.subTest(tool=tool):
+                    reply = server.handle_message(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "tools/call",
+                            "params": {"name": tool, "arguments": "async () => 1"},
+                        }
+                    )
+                    if reply is None:
+                        self.fail("expected JSON-RPC reply for tools/call with string arguments")
+                    error = cast("dict[str, object]", reply["error"])
+                    self.assertEqual(error["code"], RPC_INVALID_PARAMS)
+                    self.assertEqual(
+                        error["message"],
+                        f"tools/call codemode.{tool}: 'arguments' must be an object, got string",
+                    )
 
     def test_call_tool_rejects_non_object_arguments(self) -> None:
         """Reject non-object sandbox arguments before the upstream; omitted ones still send {}."""

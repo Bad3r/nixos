@@ -656,7 +656,8 @@ class CodeModeServer:
                 error = {
                     "code": RPC_INVALID_PARAMS,
                     "message": (
-                        f"tools/call 'arguments' must be an object, got {_json_kind(raw_args)}"
+                        f"tools/call codemode.{name}: 'arguments' must be an object, "
+                        f"got {_json_kind(raw_args)}"
                     ),
                 }
             else:
