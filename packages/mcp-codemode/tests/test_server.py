@@ -13,7 +13,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 from mcp_codemode._paths import resolve_node_bin, resolve_sandbox_script
@@ -24,6 +24,12 @@ from mcp_codemode.server import (
     RPC_METHOD_NOT_FOUND,
     CodeModeServer,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import TextIO
+
+WAIT_SEC = 5.0
 
 STDIO_TOOL_SERVER = """
 import json, sys
@@ -115,6 +121,128 @@ def _sandbox_config(timeout_sec: float = 10.0) -> SandboxConfig:
         use_bwrap=False,
         timeout_sec=timeout_sec,
     )
+
+
+def _empty_server(root: Path) -> CodeModeServer:
+    manifest_path = root / "manifest.json"
+    manifest_path.write_text(json.dumps({"client": "claude", "servers": {}}), encoding="utf-8")
+    return CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
+
+
+def _tool_call(label: str, msg_id: int | None) -> dict[str, object]:
+    msg: dict[str, object] = {
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {"name": "search", "arguments": {"code": label}},
+    }
+    if msg_id is not None:
+        msg["id"] = msg_id
+    return msg
+
+
+def _cancel(msg_id: int) -> dict[str, object]:
+    return {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": msg_id}}
+
+
+def _reply_text(reply: dict[str, object]) -> str:
+    result = reply.get("result")
+    if not isinstance(result, dict):
+        return ""
+    blocks = cast("dict[str, object]", result).get("content")
+    if not isinstance(blocks, list) or not blocks:
+        return ""
+    return str(cast("list[dict[str, object]]", blocks)[0].get("text", ""))
+
+
+class _BlockingTools:
+    """Stand-in for run_tool whose calls block until released or cancelled."""
+
+    def __init__(self, labels: tuple[str, ...], *, released: tuple[str, ...] = ()) -> None:
+        self.started = {label: threading.Event() for label in labels}
+        self.finished = {label: threading.Event() for label in labels}
+        self.release = {label: threading.Event() for label in released}
+        self.cancelled: dict[str, bool] = {}
+
+    def run_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, object],
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, object]:
+        del tool_name
+        label = str(arguments["code"])
+        self.started[label].set()
+        gate = self.release.get(label) or cancel_event
+        if gate is not None:
+            gate.wait(timeout=WAIT_SEC)
+        self.cancelled[label] = cancel_event is not None and cancel_event.is_set()
+        self.finished[label].set()
+        return {"content": [{"type": "text", "text": label}]}
+
+
+class _StdioHarness:
+    """Runs serve_stdio over pipes while a script thread writes requests; EOF follows the script."""
+
+    def __init__(self, server: CodeModeServer) -> None:
+        self._server = server
+        self._replies: list[dict[str, object]] = []
+        self._replies_cond = threading.Condition()
+        self._writer: TextIO | None = None
+
+    @property
+    def replies(self) -> list[dict[str, object]]:
+        with self._replies_cond:
+            return list(self._replies)
+
+    def send(self, payload: dict[str, object]) -> None:
+        if self._writer is None:
+            msg = "send() is only valid inside run()"
+            raise RuntimeError(msg)
+        self._writer.write(json.dumps(payload) + "\n")
+        self._writer.flush()
+
+    def wait_reply(self, predicate: Callable[[dict[str, object]], bool]) -> bool:
+        with self._replies_cond:
+            return self._replies_cond.wait_for(
+                lambda: any(predicate(reply) for reply in self._replies), timeout=WAIT_SEC
+            )
+
+    def run(self, script: Callable[[_StdioHarness], None]) -> int:
+        in_r, in_w = os.pipe()
+        out_r, out_w = os.pipe()
+
+        def _read() -> None:
+            with os.fdopen(out_r, "r", encoding="utf-8") as reader:
+                for line in reader:
+                    if not line.strip():
+                        continue
+                    with self._replies_cond:
+                        self._replies.append(cast("dict[str, object]", json.loads(line)))
+                        self._replies_cond.notify_all()
+
+        def _feed() -> None:
+            with os.fdopen(in_w, "w", encoding="utf-8") as writer:
+                self._writer = writer
+                try:
+                    script(self)
+                finally:
+                    self._writer = None
+
+        reader_thread = threading.Thread(target=_read, daemon=True)
+        feeder_thread = threading.Thread(target=_feed, daemon=True)
+        reader_thread.start()
+        feeder_thread.start()
+        with (
+            os.fdopen(in_r, "r", encoding="utf-8") as pipe_in,
+            os.fdopen(out_w, "w", encoding="utf-8") as pipe_out,
+            mock.patch.object(sys, "stdin", pipe_in),
+            mock.patch.object(sys, "stdout", pipe_out),
+        ):
+            rc = self._server.serve_stdio()
+        feeder_thread.join(timeout=WAIT_SEC)
+        reader_thread.join(timeout=WAIT_SEC)
+        return rc
 
 
 class ServerTest(unittest.TestCase):
@@ -596,3 +724,105 @@ for line in sys.stdin:
             self.assertTrue(cancelled_res["isError"])
             cancelled_blocks = cast("list[dict[str, object]]", cancelled_res["content"])
             self.assertIn("cancelled", str(cancelled_blocks[0]["text"]))
+
+    def test_serve_stdio_rejects_calls_past_queue_limit(self) -> None:
+        """Answer a tools/call with the queue-limit error once workers and queue are full."""
+        tools = _BlockingTools(("running", "queued", "overflow"))
+        overflow_id = 3
+
+        def script(harness: _StdioHarness) -> None:
+            harness.send(_tool_call("running", 1))
+            if tools.started["running"].wait(timeout=WAIT_SEC):
+                harness.send(_tool_call("queued", 2))
+                harness.send(_tool_call("overflow", overflow_id))
+                harness.wait_reply(lambda reply: reply.get("id") == overflow_id)
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.multiple(
+                "mcp_codemode.server", MAX_CONCURRENT_REQUESTS=1, MAX_PENDING_REQUESTS=1
+            ),
+        ):
+            server = _empty_server(Path(tmp))
+            harness = _StdioHarness(server)
+            with mock.patch.object(server, "run_tool", tools.run_tool):
+                rc = harness.run(script)
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(tools.started["running"].is_set())
+        self.assertFalse(tools.started["overflow"].is_set())
+        limit_replies = [
+            reply
+            for reply in harness.replies
+            if "Too many queued tool calls (limit: 1)"
+            in str(cast("dict[str, object]", reply.get("error", {})).get("message", ""))
+        ]
+        self.assertEqual([reply["id"] for reply in limit_replies], [overflow_id])
+
+    def test_serve_stdio_cancel_reaches_every_call_sharing_an_id(self) -> None:
+        """One notifications/cancelled cancels every in-flight call under that request ID."""
+        labels = ("first", "second")
+        tools = _BlockingTools(labels)
+        observed: dict[str, bool] = {}
+
+        def script(harness: _StdioHarness) -> None:
+            for label in labels:
+                harness.send(_tool_call(label, 7))
+            if all(tools.started[label].wait(timeout=WAIT_SEC) for label in labels):
+                harness.send(_cancel(7))
+                observed["finished_before_eof"] = all(
+                    tools.finished[label].wait(timeout=WAIT_SEC) for label in labels
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = _empty_server(Path(tmp))
+            with mock.patch.object(server, "run_tool", tools.run_tool):
+                rc = _StdioHarness(server).run(script)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(observed, {"finished_before_eof": True})
+        self.assertEqual(tools.cancelled, {"first": True, "second": True})
+
+    def test_serve_stdio_cancel_survives_finished_sibling(self) -> None:
+        """A finished call under a shared request ID leaves its sibling cancellable."""
+        tools = _BlockingTools(("done", "pending"), released=("done",))
+        observed: dict[str, bool] = {}
+
+        def script(harness: _StdioHarness) -> None:
+            harness.send(_tool_call("done", 8))
+            harness.send(_tool_call("pending", 8))
+            if not all(tools.started[label].wait(timeout=WAIT_SEC) for label in tools.started):
+                return
+            tools.release["done"].set()
+            if harness.wait_reply(lambda reply: _reply_text(reply) == "done"):
+                harness.send(_cancel(8))
+                observed["pending_before_eof"] = tools.finished["pending"].wait(timeout=WAIT_SEC)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = _empty_server(Path(tmp))
+            with mock.patch.object(server, "run_tool", tools.run_tool):
+                rc = _StdioHarness(server).run(script)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(observed, {"pending_before_eof": True})
+        self.assertEqual(tools.cancelled, {"done": False, "pending": True})
+
+    def test_serve_stdio_shutdown_cancels_call_without_id(self) -> None:
+        """Closing stdin cancels an in-flight tools/call that carries no request ID."""
+        tools = _BlockingTools(("orphan",))
+
+        def script(harness: _StdioHarness) -> None:
+            harness.send(_tool_call("orphan", None))
+            tools.started["orphan"].wait(timeout=WAIT_SEC)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = _empty_server(Path(tmp))
+            harness = _StdioHarness(server)
+            with mock.patch.object(server, "run_tool", tools.run_tool):
+                rc = harness.run(script)
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(tools.started["orphan"].is_set())
+        self.assertTrue(tools.finished["orphan"].is_set())
+        self.assertEqual(tools.cancelled, {"orphan": True})
+        self.assertEqual(harness.replies, [])
