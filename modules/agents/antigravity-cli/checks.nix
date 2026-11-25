@@ -924,6 +924,11 @@ in
               assert flags_by_name["e"] == {"name": "e", "stringValue": "42"}
               assert flags_by_name["f"] == {"name": "f", "stringValue": "a,b=c"}
 
+              # An int override keeps its decimal text when the server carries the flag as stringValue.
+              int_body = {"experimentConfig": {"experimentFlags": [{"name": "n", "stringValue": "3"}]}}
+              mod.rewrite_flags(int_body, "/v1alpha:fetchConfig", mod.parse_flag_overrides(json.dumps({"n": 7})))
+              assert int_body["experimentConfig"]["experimentFlags"] == [{"name": "n", "stringValue": "7"}], int_body
+
               # Guidelines check + strip + replace + drift detection.
               sample_text = "pinned guidelines body"
               sample_pin = hashlib.sha256(sample_text.encode("utf-8")).hexdigest()
@@ -1089,11 +1094,49 @@ in
               flow = respond(configured(guidelines_override=""), text)
               assert flow.response.status_code == 200 and flow.response.text == text, flow.response.text
 
+              # Null mode with an unreadable pin blocks.
+              flow = respond(
+                  configured(guidelines_override="", guidelines_pin=str(tmp / "missing-pin")),
+                  json.dumps(models_body(sample_text)),
+              )
+              assert_blocked(flow, "cannot read guidelines_pin")
+
+              # Null mode with a valid pin passes a body without the guidelines key through unchanged.
+              text = json.dumps({"models": {"other-model": {"modelExperiments": {"experiments": {}}}}})
+              flow = respond(configured(guidelines_override=""), text)
+              assert flow.response.status_code == 200 and flow.response.text == text, flow.response.text
+
               # A drift save that fails still blocks.
               not_dir = tmp / "not-a-dir"
               not_dir.write_text("")
               flow = respond(configured(guidelines_drift_dir=str(not_dir)), json.dumps(models_body("changed")))
               assert_blocked(flow, "cannot save server template")
+
+              # A drift write that fails partway blocks and leaves nothing in the drift dir.
+              class FailingWriter:
+                  def __init__(self, fd):
+                      self.fd = fd
+
+                  def __enter__(self):
+                      return self
+
+                  def __exit__(self, *exc):
+                      mod.os.close(self.fd)
+                      return False
+
+                  def write(self, data):
+                      raise OSError(28, "No space left on device")
+
+
+              drift_dir = tmp / "drift-partial"
+              real_fdopen = mod.os.fdopen
+              mod.os.fdopen = lambda fd, *args, **kwargs: FailingWriter(fd)
+              try:
+                  flow = respond(configured(guidelines_drift_dir=str(drift_dir)), json.dumps(models_body("changed")))
+              finally:
+                  mod.os.fdopen = real_fdopen
+              assert_blocked(flow, "cannot save server template: [Errno 28] No space left on device")
+              assert list(drift_dir.iterdir()) == [], list(drift_dir.iterdir())
 
               # An exception inside the check blocks: a lone surrogate escape cannot be hashed as UTF-8.
               surrogate = json.dumps(models_body("SURROGATE")).replace("SURROGATE", "\\ud800")
