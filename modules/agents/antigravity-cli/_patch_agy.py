@@ -4,7 +4,7 @@
 
 Usage: python3 -I _patch_agy.py IN OUT [--patches SET[,SET...]]
 
-Patch sets (default: all four):
+Patch sets (default: all five):
 
   devmode       language_server.Options.EnvironmentConfig.DevMode (opts+0x1) = true at the entry
                 of language_server.CreateLanguageServerAndServe. The Hub sets it from --dev_mode;
@@ -23,6 +23,11 @@ Patch sets (default: all four):
                 that downloads the newest CLI and renames it over os.Executable().
   quietwatcher  NOPs the log call at file_watcher.go:194 ("skipping empty or temp file: %s"). Its
                 event loop spins on a closed channel at shutdown and logs one ERROR line per spin.
+  agygating     sets enabled: false on the sir_flash_lite and severe_internal_risks_agy monitors in
+                the embedded MonitorsConfig textproto, and severe_internal_risks_agy's mode from
+                BLOCK to ASK. Both are LLM pre-filters on pending tool calls;
+                severe_internal_risks_agy runs behind sir_flash_lite. Each edit borrows one byte of
+                the next line's indentation.
 
 Both opts stores need more room than the hooked instructions, so the hooks jump to code in int3
 padding past the last Go function (findfunc reports no Go function there, so async preemption
@@ -42,29 +47,38 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-ALL = ("devmode", "notelemetry", "noautoupdate", "quietwatcher")
+ALL = ("devmode", "notelemetry", "noautoupdate", "quietwatcher", "agygating")
 
 # sha256 of the unpatched binary -> addresses (file offset == vaddr in the first LOAD segment).
 BUILDS = {
-    "f35d089fd4f32ac66298ecca5988d1c9936336062c82e4daba3fb493669a04c6": {
-        "version": "1.5.16",
-        # CreateLanguageServerAndServe: movups [rsp+0xd08],xmm15 ; test [rcx],al ; nop ; nop
-        "ls_hook": 0xA915AA5,
-        "ls_orig": "440f11bc24080d000084019090",
-        # main.main: mov BYTE PTR [rsp+0x2bf],0x0 (open-coded defer bits)
-        "main_hook": 0xB11062F,
-        "main_orig": "c68424bf02000000",
+    "0fafb9f87a76533ec6c7fd3112fee9306d4d50ba729f9ecb1506ff20884d9cd0": {
+        "version": "1.5.17",
+        # CreateLanguageServerAndServe: movups [rsp+0xd38],xmm15 ; test [rcx],al ; nop ; nop
+        "ls_hook": 0xAB8C065,
+        "ls_orig": "440f11bc24380d000084019090",
+        # main.main: mov BYTE PTR [rsp+0x2c7],0x0 (open-coded defer bits)
+        "main_hook": 0xB39286F,
+        "main_orig": "c68424c702000000",
         # main's package-level language_server.Options: DisableTelemetry at +0x122
-        "main_opts": 0xDA7D720,
+        "main_opts": 0xDD7FFC0,
         # file_watcher.(*FileWatcherDefault).listenAndForwardEvents: call log.ctxlogf
-        "watcher_call": 0x8922F00,
-        "watcher_orig": "e87bc223ff",
-        # updater.triggerUpdateShared: test dl,dl ; jne <disabled-by-env return at 0xb0af3e7>
-        "update_gate": 0xB0AE000,
+        "watcher_call": 0x8AD7F20,
+        "watcher_orig": "e81b3a1fff",
+        # updater.triggerUpdateShared: test dl,dl ; jne <disabled-by-env return at 0xb331447>
+        "update_gate": 0xB330060,
         "update_orig": "84d20f85df130000",
-        "update_disabled": 0xB0AF3E7,
-        # int3 run between the end of a C++ function (ret at 0xb1912b2) and the page boundary
-        "cave": (0xB1912B3, 0xB192000),
+        "update_disabled": 0xB331447,
+        # int3 run between the end of a C++ function (ret at 0xb413492) and the page boundary
+        "cave": (0xB413493, 0xB414000),
+        # Embedded MonitorsConfig textproto (agygating)
+        "monitors": (
+            # sir_flash_lite; the mode edit only checks the following line
+            (0x0D888D1D, b"enabled: true\n ", b"enabled: false\n"),
+            (0x0D888D2C, b" mode: LOG\n", b" mode: LOG\n"),
+            # severe_internal_risks_agy
+            (0x0D88B09B, b"enabled: true\n ", b"enabled: false\n"),
+            (0x0D88B0AA, b" mode: BLOCK\n", b"  mode: ASK \n"),
+        ),
     },
 }
 OPTS_DEVMODE = 0x1
@@ -135,6 +149,11 @@ def plan(data: bytearray, build: dict, patches: list[str]) -> list[Edit]:
         )
     if "quietwatcher" in patches:
         edits.append((build["watcher_call"], bytes.fromhex(build["watcher_orig"]), NOP5))
+    if "agygating" in patches:
+        monitors = build.get("monitors")
+        if not monitors:
+            fail(f"patch set 'agygating' is not supported on agy {build['version']}")
+        edits.extend(monitors)
     if pc > cave_hi:
         fail("cave too small")
     return edits

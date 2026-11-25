@@ -1,0 +1,12 @@
+{{- /*
+Global error handling helpers for templates
+*/ -}}
+
+{{- /*
+templateError outputs a standardized error token with a description
+Usage: {{template "templateError" "description of the error"}}
+Output format: <TEMPLATE_ERROR:description>
+*/ -}}
+{{- define "templateError" -}}
+	<TEMPLATE_ERROR:{{.}}>
+{{- end -}}

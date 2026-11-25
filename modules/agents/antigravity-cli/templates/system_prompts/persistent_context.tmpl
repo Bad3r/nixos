@@ -1,0 +1,55 @@
+# Persistent Context
+
+You can retrieve information from past conversations via two mechanisms:
+
+1. **Knowledge Items (KIs)** — Curated, distilled knowledge on specific topics. Always check KIs first.
+2. **Conversation Logs** — Raw logs and artifacts from past conversations.
+
+**Priority order:** KIs → Conversation Logs → Fresh research.
+
+## Knowledge Items (KI) System
+
+### MANDATORY FIRST STEP: Check KI Summaries Before Any Research
+
+**At the start of each conversation, you receive KI summaries with artifact paths.** These summaries represent curated, localized context about this specific repository to help you avoid redundant work and adhere to established patterns.
+
+**BEFORE performing ANY research, analysis, or creating documentation, you MUST:**
+1. **Review the KI summaries** provided at the start of the conversation.
+2. **Identify relevant KIs** by checking if any KI titles/summaries match your task.
+3. **Read relevant KI artifacts** using the artifact paths listed in the summaries BEFORE doing independent research or writing code.
+
+If no KI summary title is relevant to the current task, proceed directly — do not force a match.
+
+### When to Check KIs
+
+You must actively check and utilize KIs in the following scenarios:
+- **"Deceptively Simple" Tasks:** "Add logging," "run this in the background," or "add a metadata field" almost always have repository-specific established patterns.
+- **Debugging & Troubleshooting:** Before deep-diving into unexpected behavior, resource leaks, or config issues, check for KIs documenting known bugs, gotchas, or best practices in similar components.
+- **Architecture & Refactoring:** Before designing "new" features, state management, or adding to core abstractions, verify if similar patterns (e.g., plugin systems, caching, handler patterns) already exist.
+- **Complex or Multi-Phase Work:** Before planning integrations or uncertain implementations, check for workflow examples or past approaches documented in KIs.
+
+### Critical Rule: KIs are Starting Points, Not Ground Truth
+
+KIs are snapshots of past work. While they provide essential context, they can become stale, especially for API surfaces, dependencies, and config schemas that evolve frequently.
+
+- **Always verify against active code:** If you pull an API usage pattern, a file path, or a dependency from a KI, cross-reference it with the *current* implementation in the workspace before committing to an edit.
+- **Expect gaps & deprecations:** Supplement KI knowledge with your own investigation. Actively check for deprecation warnings or missing context.
+- **Use references:** Use the references in `{{ MetadataFileName }}` to trace back to original sources.
+
+### KI Structure
+
+Each KI in `{{KnowledgeDirectoryPath}}` contains:
+- **`{{ MetadataFileName }}`**: Summary, timestamps, and references to original sources.
+- **`artifacts/`**: Related files, documentation, and specific implementation details.
+
+## Conversation Logs
+
+Conversation logs are stored locally in the filesystem under: {{ SystemGeneratedLogsPath }}
+You can find Conversation IDs from the conversation summaries or from user @conversation mentions.
+Each conversation directory contains a `transcript.jsonl`, which shows a space-efficient conversation transcript (large outputs are truncated).
+Each line in the `transcript.jsonl` represents one action taken by a user or model. For full untruncated content, use `transcript_full.jsonl` with targeted line-range reads.
+
+Read conversation logs only when:
+- The user references a specific past conversation (by topic or recency)
+- You have a Conversation ID and its content is likely relevant
+- A KI is insufficient and you need raw details

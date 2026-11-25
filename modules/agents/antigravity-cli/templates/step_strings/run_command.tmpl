@@ -1,0 +1,78 @@
+{{- /*
+Template for RunCommandStringConverter.ToOutputString
+Data: StepStringData with Step field
+*/ -}}
+{{- $step := .Step -}}
+{{- $runCommand := $step.GetRunCommand -}}
+{{- $proposedCmd := $runCommand.GetProposedCommandLine -}}
+{{- $actualCmd := $runCommand.GetCommandLine -}}
+{{- $commandId := $runCommand.GetCommandId -}}
+{{- $statusStr := $step.GetStatus.String -}}
+{{- $combinedOutput := $runCommand.GetCombinedOutput -}}
+{{- $combinedOutputSnapshot := $runCommand.GetCombinedOutputSnapshot -}}
+
+{{- $isError := or (eq $statusStr "CORTEX_STEP_STATUS_ERROR") (eq $statusStr "CORTEX_STEP_STATUS_INVALID") -}}
+
+{{- /* Check if command was edited */ -}}
+{{- if and (ne $proposedCmd $actualCmd) (ne $proposedCmd "") }}
+The user changed the command to be run to: {{ $actualCmd }}
+{{- end }}
+
+{{- /* Background command special case */ -}}
+{{- if ne $commandId "" }}
+Background command ID: {{ $commandId }}
+	{{- if $combinedOutputSnapshot }}
+		{{- if ne $combinedOutputSnapshot.GetFull "" }}
+Output snapshot:
+{{ $combinedOutputSnapshot.GetFull }}
+		{{- end }}
+	{{- end }}
+{{- else }}
+	{{- if and (eq $statusStr "CORTEX_STEP_STATUS_CANCELED") (not $combinedOutput) }}
+		{{- if $step.GetError.GetShortError }}Step was canceled: {{ $step.GetError.GetShortError }}{{- else }}Step was canceled.{{- end }}
+	{{- else if or (eq $statusStr "CORTEX_STEP_STATUS_PENDING") (eq $statusStr "CORTEX_STEP_STATUS_RUNNING") (eq $statusStr "CORTEX_STEP_STATUS_WAITING") (eq $statusStr "CORTEX_STEP_STATUS_UNSPECIFIED") }}
+		{{- template "defaultStatusOutputString" $step }}
+	{{- else }}
+		{{- /* Print error message if the step failed */ -}}
+		{{- if $isError }}
+			{{- template "defaultStatusOutputString" $step }}
+		{{- end }}
+		{{- /* Handle cancellation with output */ -}}
+		{{- if eq $statusStr "CORTEX_STEP_STATUS_CANCELED" }}
+			{{- if $step.GetError.GetShortError }}Step was canceled: {{ $step.GetError.GetShortError }}{{- else }}Step was canceled.{{- end }}
+The following output was generated before the cancellation.
+		{{- else }}
+			{{- /* Exit code information */ -}}
+			{{- if or (ne $runCommand.GetExitCode 0) (not $isError) }}
+The command exited with code {{ $runCommand.GetExitCode }}.
+			{{- end }}
+			{{- /* Sandbox guidance. Suppressed entirely when bypassing is disabled by config. When the command line statically contains a non-proxy trusted CLI, a requested BypassSandbox is dropped (the CLI must stay intercepted). Tell the model whenever it requested bypass (so it does not retry in a loop) or when a sandboxed failure would otherwise prompt a futile bypass retry. Otherwise fall back to the generic bypass suggestion, suppressed for commands that already ran with an override or that surfaced their own trusted-CLI remediation. */ -}}
+			{{- if not $runCommand.GetSandboxBypassDisabled }}
+				{{- if ne $runCommand.GetSandboxedTrustedCli "" }}
+					{{- if or $runCommand.GetSandboxOverride (and (ne $runCommand.GetSandboxErrors "") (or (ne $runCommand.GetExitCode 0) $isError) (not $runCommand.GetIsTrustedCli)) }}
+This command includes call(s) to `{{ $runCommand.GetSandboxedTrustedCli }}`, which MUST run inside the sandbox, so `BypassSandbox` was not applied to this command. If you really need to run the other parts outside the sandbox, run them as a separate command.
+					{{- end }}
+				{{- else if and (ne $runCommand.GetSandboxErrors "") (or (ne $runCommand.GetExitCode 0) $isError) (not $runCommand.GetSandboxOverride) (not $runCommand.GetIsTrustedCli) }}
+There were sandbox errors that may or may not be related to the failure. If you think the failure is because of running in the sandbox, you can run the command again with `BypassSandbox` set to true to request explicit user permission.
+				{{- end }}
+			{{- end }}
+		{{- end -}}
+		{{/* Output section */ -}}
+		{{- if ne $combinedOutput.GetFull "" }}
+Output:
+{{ $combinedOutput.GetFull }}
+		{{- else if or (ne $runCommand.GetStdoutOutput.GetFull "") (ne $runCommand.GetStderrOutput.GetFull "") }}
+Stdout:
+{{ $runCommand.GetStdoutOutput.GetFull }}
+Stderr:
+{{ $runCommand.GetStderrOutput.GetFull }}
+		{{- else if not $isError }}
+No output
+		{{- end }}
+	{{- end }}
+{{- end }}
+
+{{- /* Terminal ID for persistent terminals */ -}}
+{{- if ne $runCommand.GetTerminalId "" }}
+Terminal ID: {{ $runCommand.GetTerminalId }}
+{{- end }}

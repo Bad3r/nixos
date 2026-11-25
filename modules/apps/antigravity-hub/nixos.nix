@@ -19,6 +19,7 @@ let
   meshInterface = config.flake.lib.nixos._firewallMeshInterface;
   inherit (config.flake.lib.agents) scratchDir;
   telemetry = import ../../agents/antigravity-cli/_telemetry.nix;
+  proxy = import ../../agents/antigravity-cli/_proxy.nix;
 
   AntigravityHubModule =
     {
@@ -29,14 +30,21 @@ let
     }:
     let
       cfg = config.programs."antigravity-hub".extended;
+      cliCfg = lib.attrByPath [ "programs" "antigravity-cli" "extended" ] { } config;
+      templatesDir = cliCfg.templatesDir or proxy.defaultTemplatesDir;
+      proxyCfg = cliCfg.proxy or { enable = false; };
       shell = import ../../agents/antigravity-cli/_shell.nix {
         inherit lib pkgs scratchDir;
       };
-      sharedEnvArgs = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value: "--set ${lib.escapeShellArg name} ${lib.escapeShellArg value}"
-        ) telemetry.sharedEnv
+      exportSharedEnv = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") telemetry.sharedEnv
       );
+      hubProxyAndTemplatesEnv = proxy.mkWrapperEnvSnippet {
+        inherit lib;
+        templatesDir = if cfg.devMode then templatesDir else null;
+        proxy = proxyCfg;
+        isHub = true;
+      };
       iconTemplate = builtins.readFile ../../stylix/icons/antigravity.svg.mustache;
       appIcon = config.lib.stylix.colors {
         template = iconTemplate;
@@ -61,6 +69,7 @@ let
             "--https_server_port=${toString cfg.port}"
             "--remote_accessible"
           ]
+          ++ lib.optional cfg.devMode "--dev_mode"
           ++ telemetry.languageServerFlags;
         }).overrideAttrs
           (old: {
@@ -112,6 +121,28 @@ let
                 <(cd "$asarRoot/app.asar.unpacked" && find . | sort)
               cp "$asarRoot/app.asar" "$resources/app.asar"
             '';
+
+            # Restore ANTIGRAVITY_PIN_* variables inside the language_server
+            # wrapper after Electron merges the user's login-shell environment.
+            postFixup = (old.postFixup or "") + ''
+              lsWrapper="$out/share/antigravity/resources/bin/language_server"
+              execCount="$(grep -Fc 'exec -a "$0" ' "$lsWrapper")"
+              if [ "$execCount" -ne 1 ]; then
+                echo "antigravity-hub: expected 1 exec line in $lsWrapper, found $execCount" >&2
+                exit 1
+              fi
+              lsExecLine="$(grep -F 'exec -a "$0" ' "$lsWrapper")"
+              lsHead="$(grep -Fv 'exec -a "$0" ' "$lsWrapper")"
+              {
+                printf '%s\n' "$lsHead"
+                cat <<'PIN_EOF'
+              ${proxy.restorePinnedEnvSnippet lib}
+              PIN_EOF
+                printf '%s\n' "$lsExecLine"
+              } > "$lsWrapper.tmp"
+              chmod --reference="$lsWrapper" "$lsWrapper.tmp"
+              mv "$lsWrapper.tmp" "$lsWrapper"
+            '';
           });
     in
     {
@@ -122,10 +153,16 @@ let
           description = "Whether to enable antigravity-hub.";
         };
 
+        devMode = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether to pass `--dev_mode` to the Hub language server so `TEMPLATE_DATA_DIR` and Mendel flag overrides apply.";
+        };
+
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
-          description = "The antigravity-hub package with the configured language server flags, Stylix icons, and controlled agent shell.";
+          description = "The antigravity-hub package with the configured language server flags, Stylix icons, local template overrides, proxy routing, and controlled agent shell.";
         };
 
         package = lib.mkOption {
@@ -148,16 +185,21 @@ let
             name = "antigravity-hub-${basePkg.version or "custom"}";
             paths = [ basePkg ];
             passthru.basePackage = basePkg;
-            nativeBuildInputs = [ pkgs.makeWrapper ];
             postBuild = ''
-              wrapProgram "$out/bin/antigravity" \
-                --prefix PATH : "${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin" \
-                ${sharedEnvArgs} \
-                --run ${lib.escapeShellArg ''
-                  if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
-                    export TMPDIR=${lib.escapeShellArg scratchDir}
-                  fi
-                ''}
+              rm -f "$out/bin/antigravity"
+              mkdir -p "$out/bin"
+              cat > "$out/bin/antigravity" <<'WRAPPER_EOF'
+              #!${pkgs.runtimeShell}
+              set -euo pipefail
+              export PATH="${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin''${PATH:+:$PATH}"
+              ${exportSharedEnv}
+              if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
+                export TMPDIR=${lib.escapeShellArg scratchDir}
+              fi
+              ${hubProxyAndTemplatesEnv}
+              exec -a "$0" ${lib.escapeShellArg "${basePkg}/bin/antigravity"} "$@"
+              WRAPPER_EOF
+              chmod +x "$out/bin/antigravity"
             '';
           }
           // lib.optionalAttrs (basePkg ? version) { inherit (basePkg) version; }

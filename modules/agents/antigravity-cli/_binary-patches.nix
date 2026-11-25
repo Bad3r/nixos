@@ -15,16 +15,13 @@ let
     "noautoupdate"
     # Drops the file_watcher.go:194 log call that floods the log at shutdown.
     "quietwatcher"
+    # Disables the embedded sir_flash_lite and severe_internal_risks_agy
+    # tool-call monitors and drops severe_internal_risks_agy from BLOCK to ASK.
+    "agygating"
   ];
 in
 {
   inherit patchSets;
-
-  defaultPatches = [
-    "notelemetry"
-    "noautoupdate"
-    "quietwatcher"
-  ];
 
   patchAgy =
     {

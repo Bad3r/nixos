@@ -40,7 +40,8 @@ let
   ];
 
   # Wrap `agy` with the controlled shell, disabled auto-updates and MCP checks,
-  # and `--disable_telemetry` on `acp` (rejecting falsy overrides before `--`).
+  # local template overrides, proxy routing, and `--disable_telemetry` on `acp`
+  # (rejecting falsy overrides before `--`).
   wrapAgy =
     {
       lib,
@@ -48,11 +49,18 @@ let
       package,
       shell,
       scratchDir,
+      templatesDir ? null,
+      proxy ? null,
     }:
     let
+      proxyHelper = import ./_proxy.nix;
       exportEnv = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") cliEnv
       );
+      proxyAndTemplatesEnv = proxyHelper.mkWrapperEnvSnippet {
+        inherit lib templatesDir proxy;
+        isHub = false;
+      };
     in
     pkgs.symlinkJoin (
       {
@@ -69,6 +77,7 @@ let
           if [ -z "''${TMPDIR:-}" ] && [ -d ${lib.escapeShellArg scratchDir} ] && [ -w ${lib.escapeShellArg scratchDir} ]; then
             export TMPDIR=${lib.escapeShellArg scratchDir}
           fi
+          ${proxyAndTemplatesEnv}
           if [ "''${1:-}" = "acp" ]; then
             shift
             for arg in "$@"; do

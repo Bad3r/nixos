@@ -28,9 +28,15 @@ _: {
     }:
     let
       telemetry = import ./_telemetry.nix;
+      proxy = import ./_proxy.nix;
       cliEnabled = lib.attrByPath [ "programs" "antigravity-cli" "extended" "enable" ] false osConfig;
       hubEnabled = lib.attrByPath [ "programs" "antigravity-hub" "extended" "enable" ] false osConfig;
       anyEnabled = cliEnabled || hubEnabled;
+
+      proxyCfg = lib.attrByPath [ "programs" "antigravity-cli" "extended" "proxy" ] {
+        enable = false;
+      } osConfig;
+      proxyEnabled = anyEnabled && (proxyCfg.enable or false);
 
       agyPkg =
         if cliEnabled then
@@ -220,6 +226,31 @@ _: {
           // antigravitySkillFiles;
 
           inherit (activationResult) activation;
+        };
+
+        systemd.user.services.antigravity-proxy = lib.mkIf proxyEnabled {
+          Unit.Description = "Local mitmproxy override service for Antigravity CLI and Hub";
+          Service = {
+            Type = "notify";
+            ExecStart = "${proxy.mkProxyStartScript {
+              inherit lib pkgs;
+              proxy = proxyCfg;
+            }}";
+            Restart = "on-failure";
+            RestartSec = 2;
+            StateDirectory = "antigravity-proxy";
+            StateDirectoryMode = "0700";
+            UMask = "0077";
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            Environment = [ "PYTHONUNBUFFERED=1" ];
+            RestrictAddressFamilies = [
+              "AF_UNIX"
+              "AF_INET"
+              "AF_INET6"
+            ];
+          };
+          Install.WantedBy = [ "default.target" ];
         };
       };
     };

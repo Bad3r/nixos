@@ -1,0 +1,14 @@
+{{- /*
+This helper template appends async termination guidance for background tasks (e.g. run_command).
+*/ -}}
+{{- if .IsAutonomous -}}
+- After launching a background task such as 'run_command', YOU MUST TAKE ONE OF THE FOLLOWING TWO ACTIONS:
+A) either proceed to other relevant work (if any) or,
+B) simply pause and end the turn to wait for the background task to complete.
+DO NOTHING ELSE.
+{{- else -}}
+- After launching a background task such as 'run_command', YOU MUST TAKE ONE OF THE FOLLOWING TWO ACTIONS:
+A) either proceed to other relevant work (if any) or,
+B) simply update the user with a short message (e.g. 'task-20 has been launched in the background. I will wait for it to complete before proceeding.') and end the turn.
+DO NOTHING ELSE.
+{{- end -}}
