@@ -9,6 +9,7 @@ import http.server
 import io
 import json
 import os
+import signal
 import sys
 import tempfile
 import threading
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest import mock
 
+from mcp_codemode._util import terminate_process_group
 from mcp_codemode.config import SecretHeader, ServerSpec, load_manifest
 from mcp_codemode.upstream import (
     MAX_BEST_EFFORT_SENDS,
@@ -30,6 +32,7 @@ from mcp_codemode.upstream import (
 )
 
 if TYPE_CHECKING:
+    import subprocess
     from collections.abc import Callable, Generator
 
 MOCK_STDIO_SCRIPT = """
@@ -1597,6 +1600,13 @@ for line in sys.stdin:
         )
         return UpstreamSupervisor(load_manifest(manifest_path))
 
+    @staticmethod
+    def _received_entries(received: Path) -> list[list[object]]:
+        return [
+            cast("list[object]", json.loads(line))
+            for line in received.read_text(encoding="utf-8").splitlines()
+        ]
+
     def test_http_cancel_that_overtakes_its_request_is_repeated(self) -> None:
         """Repeat a cancel sent before headers once they show the upstream has the request."""
         for closing in (False, True):
@@ -1639,6 +1649,29 @@ for line in sys.stdin:
                             ("cancelled", request_id),
                         ],
                     )
+
+    def test_http_request_after_close_never_reaches_the_upstream(self) -> None:
+        """Refuse a POST that starts after close(), past the caller's initialized check."""
+        st = _LifecycleState()
+        with _running_server(st) as url:
+            client = HttpUpstreamClient(_http_spec(url))
+            real_ensure = client.ensure_initialized
+
+            def ensure_then_close(
+                deadline: float | None = None,
+                cancel_event: threading.Event | None = None,
+            ) -> None:
+                real_ensure(deadline=deadline, cancel_event=cancel_event)
+                client.close()
+
+            with (
+                mock.patch.object(client, "ensure_initialized", ensure_then_close),
+                self.assertRaises(UpstreamError) as ctx,
+            ):
+                client.list_tools()
+            self.assertIn("closed unexpectedly", str(ctx.exception))
+            self.assertTrue(client.drain(time.monotonic() + WAIT_SEC))
+            self.assertEqual(st.list_count, 0)
 
     def test_supervisor_close_all_waits_for_an_initialize_in_flight(self) -> None:
         """Deliver the DELETE for a session issued after close_all() closed its client."""
@@ -1700,5 +1733,134 @@ for line in sys.stdin:
                     client.call_tool("report", {"x": {1}})
                 self.assertEqual(client._pending, {})  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
                 client.call_tool("report", {})
+            finally:
+                client.close()
+
+    def test_stdio_cancel_matching_never_sends_a_request_queued_behind_a_stall(self) -> None:
+        """Write neither a cancelled request still queued nor a cancel for it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, received = self._stalling_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                errors: list[Exception] = []
+                big = _run_capturing(
+                    lambda: client.call_tool("big", {"x": "a" * (1 << 21)}), errors
+                )
+                time.sleep(0.2)
+                cancel = threading.Event()
+                queued = _run_capturing(
+                    lambda: client.call_tool("queued", {}, cancel_event=cancel), errors
+                )
+                time.sleep(0.2)
+                cancel.set()
+                client.cancel_matching()
+                queued.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                self.assertIn("cancelled", str(errors[0]))
+                resume.touch()
+                big.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                client.call_tool("report", {})
+                entries = self._received_entries(received)
+                calls = [e[2] for e in entries if e[0] == "tools/call"]
+                self.assertEqual(calls, ["big", "report"])
+                self.assertNotIn("notifications/cancelled", [e[0] for e in entries])
+            finally:
+                resume.touch()
+                client.close()
+
+    def test_stdio_close_never_sends_a_request_queued_behind_a_stall(self) -> None:
+        """Skip a request still queued at close(), though stdin drains before SIGKILL."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, received = self._stalling_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                errors: list[Exception] = []
+                threads = [
+                    _run_capturing(lambda: client.call_tool("big", {"x": "a" * (1 << 21)}), errors)
+                ]
+                time.sleep(0.2)
+                threads.append(_run_capturing(lambda: client.call_tool("queued", {}), errors))
+                time.sleep(0.2)
+
+                def resume_then_terminate(proc: subprocess.Popen[str], grace_sec: float) -> None:
+                    resume.touch()
+                    terminate_process_group(proc, grace_sec)
+
+                with mock.patch(
+                    "mcp_codemode.upstream.terminate_process_group",
+                    side_effect=resume_then_terminate,
+                ):
+                    client.close()
+                for thread in threads:
+                    thread.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), len(threads))
+                calls = [e[2] for e in self._received_entries(received) if e[0] == "tools/call"]
+                self.assertEqual(calls, ["big"])
+            finally:
+                resume.touch()
+                client.close()
+
+    def test_stdio_close_delivers_queued_lines_and_eof_before_sigterm(self) -> None:
+        """Close stdin after the queued cancel before signalling the process group."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, received = self._stalling_stdio_spec(Path(tmp))
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                cancel = threading.Event()
+                errors: list[Exception] = []
+                thread = _run_capturing(
+                    lambda: client.call_tool("small", {}, cancel_event=cancel), errors
+                )
+                time.sleep(0.2)
+                cancel.set()
+                client.cancel_matching()
+                thread.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                stdin_closed_at_sigterm: list[bool] = []
+
+                def record_then_terminate(proc: subprocess.Popen[str], grace_sec: float) -> None:
+                    stdin_closed_at_sigterm.append(proc.stdin is not None and proc.stdin.closed)
+                    resume.touch()
+                    terminate_process_group(proc, grace_sec)
+
+                with mock.patch(
+                    "mcp_codemode.upstream.terminate_process_group",
+                    side_effect=record_then_terminate,
+                ):
+                    client.close()
+                self.assertEqual(stdin_closed_at_sigterm, [True])
+                entries = self._received_entries(received)
+                small = [e[1] for e in entries if e[0] == "tools/call"]
+                self.assertEqual(len(small), 1)
+                cancelled = [e[3] for e in entries if e[0] == "notifications/cancelled"]
+                self.assertEqual(cancelled, small)
+            finally:
+                resume.touch()
+                client.close()
+
+    def test_stdio_writer_stops_when_the_process_exits(self) -> None:
+        """End the stdin writer on process exit, so a later send fails as closed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, resume, _ = self._stalling_stdio_spec(Path(tmp))
+            resume.touch()
+            client = StdioUpstreamClient(spec)
+            try:
+                client.ensure_initialized()
+                proc = client._proc  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+                writer = client._writer  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+                if proc is None or writer is None:
+                    self.fail("no running process after ensure_initialized()")
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait(timeout=WAIT_SEC)
+                t0 = time.monotonic()
+                writer.join(WAIT_SEC)
+                self.assertLess(time.monotonic() - t0, WAIT_SEC)
+                with self.assertRaises(UpstreamError) as ctx:
+                    client._send_raw({"jsonrpc": "2.0", "method": "ping"})  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+                self.assertIn("closed unexpectedly", str(ctx.exception))
             finally:
                 client.close()
