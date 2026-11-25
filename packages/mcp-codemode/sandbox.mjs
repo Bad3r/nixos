@@ -29,6 +29,7 @@ const setDelete = Function.prototype.call.bind(Set.prototype.delete);
 const symbolToString = Function.prototype.call.bind(Symbol.prototype.toString);
 const regexpTest = Function.prototype.call.bind(RegExp.prototype.test);
 const identifierKey = /^[A-Za-z_$][\w$]*$/;
+const arrayIndexKey = /^(?:0|[1-9]\d*)$/;
 const hostObjectPrototype = Object.prototype;
 const reflectGet = Reflect.get;
 const HostPromise = Promise;
@@ -289,21 +290,27 @@ function copyPlainJson(value, path, ancestors, fail) {
 	}
 	if (setHas(ancestors, value)) fail(path, "circular reference");
 	setAdd(ancestors, value);
+	for (const sym of objectGetOwnPropertySymbols(value)) {
+		if (objectGetOwnPropertyDescriptor(value, sym)?.enumerable) {
+			fail(`${path}[${symbolToString(sym)}]`, "symbol key");
+		}
+	}
 	let out;
 	if (arrayIsArray(value)) {
 		out = [];
 		const length = value.length;
+		for (const key of objectKeys(value)) {
+			if (!regexpTest(arrayIndexKey, key) || +key >= length) {
+				fail(childPath(path, key), "non-index array key");
+			}
+		}
 		for (let i = 0; i < length; i++) {
+			if (!objectHasOwn(value, i)) fail(childPath(path, i), "hole");
 			const item = value[i];
 			if (item === undefined) fail(childPath(path, i), "undefined");
 			out[i] = copyPlainJson(item, childPath(path, i), ancestors, fail);
 		}
 	} else {
-		for (const sym of objectGetOwnPropertySymbols(value)) {
-			if (objectGetOwnPropertyDescriptor(value, sym)?.enumerable) {
-				fail(`${path}[${symbolToString(sym)}]`, "symbol key");
-			}
-		}
 		out = objectCreate(null);
 		for (const key of objectKeys(value)) {
 			const item = value[key];

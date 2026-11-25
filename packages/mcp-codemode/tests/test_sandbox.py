@@ -220,6 +220,13 @@ class SandboxTest(unittest.TestCase):
             symbolKey: { [Symbol("s")]: 1 },
             arrayUndefined: { list: [1, undefined] },
             arrayHole: { list: [1, , 3] },
+            arrayInheritedHole: (() => {
+              const list = [1, , 3];
+              Object.setPrototypeOf(list, Object.create(Array.prototype, { 1: { value: 2 } }));
+              return { list };
+            })(),
+            arrayNamedKey: { list: Object.assign([1], { f: () => 1 }) },
+            arraySymbolKey: { list: Object.assign([1], { [Symbol("s")]: 1 }) },
             getter: { get x() { throw new Error("boom"); } },
             deep: (() => {
               let o = {};
@@ -292,7 +299,10 @@ class SandboxTest(unittest.TestCase):
             "nestedSymbol": "args.k must be plain JSON, got symbol",
             "symbolKey": "args[Symbol(s)] must be plain JSON, got symbol key",
             "arrayUndefined": "args.list[1] must be plain JSON, got undefined",
-            "arrayHole": "args.list[1] must be plain JSON, got undefined",
+            "arrayHole": "args.list[1] must be plain JSON, got hole",
+            "arrayInheritedHole": "args.list[1] must be plain JSON, got hole",
+            "arrayNamedKey": "args.list.f must be plain JSON, got non-index array key",
+            "arraySymbolKey": "args.list[Symbol(s)] must be plain JSON, got symbol key",
             "getter": "args could not be read: boom",
             "nan": "args.n must be plain JSON, got non-finite number",
             "bigint": "args.n must be plain JSON, got bigint",
