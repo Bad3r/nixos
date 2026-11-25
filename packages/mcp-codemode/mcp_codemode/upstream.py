@@ -1505,11 +1505,10 @@ class UpstreamSupervisor:
                 with contextlib.suppress(Exception):
                     client.close()
             finally:
+                # One lock section, so close_all() sees the client in _closing or _retired.
                 with self._lock:
                     self._closing.discard(client)
-        with self._lock:
-            self._retired.update(to_close)
-            self._retired = {c for c in self._retired if c.has_pending_sends()}
+                    self._retired = {c for c in (*self._retired, client) if c.has_pending_sends()}
 
     def close_all(self) -> None:
         """Close every client, then wait up to CLOSE_TIMEOUT_SEC for their best-effort sends."""
