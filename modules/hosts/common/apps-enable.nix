@@ -35,8 +35,10 @@ let
       amass.extended.enable = lib.mkOverride 1100 true;
       audiness.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
+      "antigravity-acp".extended.enable = lib.mkOverride 1100 false;
       "antigravity-cli".extended.enable = lib.mkOverride 1100 true;
       "antigravity-hub".extended.enable = lib.mkOverride 1100 true;
+      "antigravity-ide".extended.enable = lib.mkOverride 1100 false;
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
