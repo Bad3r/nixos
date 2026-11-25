@@ -651,7 +651,7 @@ in
           pkgs.runCommandLocal "antigravity-cli-agentapi-shims" { passthru.runtimeCheck = true; }
             ''
               set -euo pipefail
-              shims=${lib.getExe agentapiShimsScript}
+              shims() { PATH="/nonexistent" ${lib.getExe agentapiShimsScript} "$@"; }
               target="$TMPDIR/bin/agy"
               mkdir -p "$TMPDIR/bin" "$TMPDIR/cli/bin" "$TMPDIR/hub"
               printf '#!/bin/sh\n' >"$target"
@@ -660,7 +660,7 @@ in
               expected=$(printf '#!/bin/sh\nexec "%s" agentapi "$@"' "$target")
 
               # 1. A stale shim is rewritten, a missing bin/ is created, a missing app dir is skipped.
-              "$shims" "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" "$TMPDIR/ide" "$target" >"$TMPDIR/out1"
+              shims "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" "$TMPDIR/ide" "$target" >"$TMPDIR/out1"
               for dir in cli hub; do
                 [ "$(cat "$TMPDIR/$dir/bin/agentapi")" = "$expected" ] || { echo "FAIL: $dir shim" >&2; exit 1; }
                 [ -x "$TMPDIR/$dir/bin/agentapi" ] || { echo "FAIL: $dir shim not executable" >&2; exit 1; }
@@ -669,18 +669,18 @@ in
               [ "$(wc -l <"$TMPDIR/out1")" -eq 2 ] || { echo "FAIL: expected 2 rewrites" >&2; exit 1; }
 
               # 2. A second run changes nothing and leaves no temp files.
-              "$shims" "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" >"$TMPDIR/out2"
+              shims "$TMPDIR/cli" "$target" "$TMPDIR/hub" "$target" >"$TMPDIR/out2"
               [ ! -s "$TMPDIR/out2" ] || { echo "FAIL: second run rewrote a shim" >&2; exit 1; }
               [ -z "$(find "$TMPDIR/cli/bin" "$TMPDIR/hub/bin" -name '.agentapi.*')" ] || { echo "FAIL: temp file left" >&2; exit 1; }
 
               # 3. A non-executable target leaves the shim alone with a warning.
-              "$shims" "$TMPDIR/cli" "$TMPDIR/missing/agy" 2>"$TMPDIR/err3"
+              shims "$TMPDIR/cli" "$TMPDIR/missing/agy" 2>"$TMPDIR/err3"
               grep -q 'not executable' "$TMPDIR/err3" || { echo "FAIL: no warning" >&2; exit 1; }
               [ "$(cat "$TMPDIR/cli/bin/agentapi")" = "$expected" ] || { echo "FAIL: shim changed" >&2; exit 1; }
 
               # 4. Targets that would break the double-quoted exec are refused, and odd argument counts fail.
-              if "$shims" "$TMPDIR/cli" '/x/"$(id)"' 2>/dev/null; then echo "FAIL: accepted unsafe target" >&2; exit 1; fi
-              if "$shims" "$TMPDIR/cli" 2>/dev/null; then echo "FAIL: accepted odd argument count" >&2; exit 1; fi
+              if shims "$TMPDIR/cli" '/x/"$(id)"' 2>/dev/null; then echo "FAIL: accepted unsafe target" >&2; exit 1; fi
+              if shims "$TMPDIR/cli" 2>/dev/null; then echo "FAIL: accepted odd argument count" >&2; exit 1; fi
 
               echo "ok: antigravity-agentapi-shims contract" >$out
             '';
