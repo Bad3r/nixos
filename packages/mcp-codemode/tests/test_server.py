@@ -412,6 +412,29 @@ for line in sys.stdin:
                 finally:
                     server.supervisor.close_all()
 
+    def test_tools_call_rejects_non_object_arguments(self) -> None:
+        """Answer tools/call with non-object arguments with an invalid-params error."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps({"client": "claude", "servers": {}}), encoding="utf-8"
+            )
+            server = CodeModeServer(load_manifest(manifest_path), _sandbox_config(), cwd=root)
+            reply = server.handle_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "search", "arguments": "async () => 1"},
+                }
+            )
+        if reply is None:
+            self.fail("expected JSON-RPC reply for tools/call with string arguments")
+        error = cast("dict[str, object]", reply["error"])
+        self.assertEqual(error["code"], RPC_INVALID_PARAMS)
+        self.assertIn("'arguments' must be an object, got string", str(error["message"]))
+
     def test_call_tool_rejects_non_object_arguments(self) -> None:
         """Reject non-object sandbox arguments before the upstream; omitted ones still send {}."""
         with tempfile.TemporaryDirectory() as tmp:

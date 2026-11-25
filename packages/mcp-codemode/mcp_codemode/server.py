@@ -648,9 +648,17 @@ class CodeModeServer:
             result = {"tools": self._tools}
         elif method == "tools/call":
             name = params.get("name")
-            args = as_dict(params.get("arguments")) or {}
+            raw_args = params.get("arguments", {})
+            args = as_dict(raw_args)
             if not isinstance(name, str):
                 error = {"code": RPC_INVALID_PARAMS, "message": "tools/call missing 'name'"}
+            elif args is None:
+                error = {
+                    "code": RPC_INVALID_PARAMS,
+                    "message": (
+                        f"tools/call 'arguments' must be an object, got {_json_kind(raw_args)}"
+                    ),
+                }
             else:
                 result = self.run_tool(name, args, cancel_event=cancel_event)
         else:
