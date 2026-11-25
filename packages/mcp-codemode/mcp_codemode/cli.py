@@ -8,13 +8,14 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ._paths import resolve_bwrap_bin, resolve_node_bin, resolve_sandbox_script
-from ._util import parse_positive_timeout
+from ._util import as_list, parse_positive_timeout
 from .config import (
     ConfigError,
     load_manifest,
+    make_alias,
     read_override_summary,
     resolve_enabled_servers,
     update_override_file,
@@ -22,6 +23,11 @@ from .config import (
 )
 from .sandbox import DEFAULT_EXEC_TIMEOUT_SEC, SandboxConfig
 from .server import CodeModeServer
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+GATEWAY_SERVERS_PATH = Path("/etc/mcp-codemode/servers.json")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -71,7 +77,10 @@ def _build_parser() -> argparse.ArgumentParser:
         toggle_p.add_argument(
             "--manifest",
             type=Path,
-            help="Optional client manifest JSON to validate and canonicalize server names.",
+            help=(
+                "Client manifest JSON to validate and canonicalize server names against "
+                f"(default: the gateway server list in {GATEWAY_SERVERS_PATH}, when present)."
+            ),
         )
         toggle_p.add_argument(
             "servers", nargs="+", help=f"Server name(s) or aliases to {action_name}."
@@ -159,17 +168,57 @@ def _cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _resolve_toggle_names(raw_names: list[str], manifest_path: Path | None) -> list[str]:
-    if manifest_path is None:
-        return list(raw_names)
-    manifest = load_manifest(manifest_path)
+def _load_gateway_servers(path: Path) -> dict[str, str] | None:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError.gateway_server_list(path, f"unreadable: {exc}") from exc
+    try:
+        parsed: object = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ConfigError.gateway_server_list(path, f"invalid JSON: {exc}") from exc
+    entries = as_list(parsed)
+    names = [entry for entry in entries or [] if isinstance(entry, str) and entry]
+    if entries is None or len(names) != len(entries):
+        raise ConfigError.gateway_server_list(path, "expected a JSON array of server names")
+    lookup = {make_alias(name): name for name in names}
+    lookup.update({name: name for name in names})
+    return lookup
+
+
+def _canonicalize(
+    raw_names: list[str],
+    resolve: Callable[[str], str | None],
+    unknown: Callable[[str], ConfigError],
+) -> list[str]:
     resolved: list[str] = []
     for name in raw_names:
-        canonical = manifest.resolve_name(name)
+        canonical = resolve(name)
         if canonical is None:
-            raise ConfigError.unknown_server(name, manifest_path)
+            raise unknown(name)
         resolved.append(canonical)
     return resolved
+
+
+def _resolve_toggle_names(raw_names: list[str], manifest_path: Path | None) -> list[str]:
+    if manifest_path is not None:
+        manifest = load_manifest(manifest_path)
+        return _canonicalize(
+            raw_names,
+            manifest.resolve_name,
+            lambda name: ConfigError.unknown_server(name, manifest_path),
+        )
+    gateway_path = GATEWAY_SERVERS_PATH
+    lookup = _load_gateway_servers(gateway_path)
+    if lookup is None:
+        return list(raw_names)
+    return _canonicalize(
+        raw_names,
+        lookup.get,
+        lambda name: ConfigError.gateway_server_list(gateway_path, f"unknown server '{name}'"),
+    )
 
 
 def _cmd_toggle(args: argparse.Namespace, *, enable: bool) -> int:

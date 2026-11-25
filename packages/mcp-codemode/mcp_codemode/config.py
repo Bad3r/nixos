@@ -61,6 +61,11 @@ class ConfigError(RuntimeError):
         """Create an error when a CLI toggle names a server missing from a manifest."""
         return cls(f"unknown server '{server}' in manifest {manifest_path}")
 
+    @classmethod
+    def gateway_server_list(cls, path: Path, detail: str) -> ConfigError:
+        """Create an error for a CLI toggle rejected by the gateway server list."""
+        return cls(f"{detail} (gateway server list {path})")
+
 
 @dataclass(frozen=True)
 class SecretHeader:
