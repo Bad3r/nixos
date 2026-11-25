@@ -1,7 +1,7 @@
 # ~/.gemini/antigravity-cli/settings.json keys that permissions do not hold.
 # Every key set here replaces the CLI's copy on each switch; commenting it out
-# again removes it. Model, orchestrator, and trustedWorkspaces remain unset so
-# runtime choices persist.
+# again removes it. Model and trustedWorkspaces remain unset so runtime choices
+# persist.
 {
   "$schema" = "https://antigravity.google/schemas/v1/settings.json";
 
@@ -24,7 +24,7 @@
   # colorScheme = "terminal";
 
   # Copy selection on mouse release in alt-screen mode
-  # copyOnSelect = true;
+  copyOnSelect = true;
 
   # Disable /slash-command expansion in headless (-p) mode
   # disableSlashCommands = false;
@@ -46,6 +46,12 @@
 
   # Desktop notifications and terminal bell on approvals or turn completion
   notifications = true;
+
+  # Models for Orchestrator mode roles, named as the model picker lists them
+  orchestrator = {
+    planner = "Gemini 4 Neon (High)";
+    executor = "Gemini 4 Hydrogen (High)";
+  };
 
   # /resume picker grouping: "none" | "grouped"
   # pickerGrouping = "none";

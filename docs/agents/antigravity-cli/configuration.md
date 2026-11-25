@@ -12,7 +12,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
 - [Shared system prompt](../../../modules/agents/system-prompt.nix): renders `~/.gemini/config/AGENTS.md` with `ask_question` and `sbx` settings.
-- [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, notifications, and verbosity for `agy`.
+- [CLI settings](../../../modules/agents/antigravity-cli/_settings.nix): sets startup mode, sandbox flag, editor mode, copy on select, Orchestrator planner and executor models, notifications, and verbosity for `agy`.
 - [Permissions policy](../../../modules/agents/antigravity-cli/_permissions.nix): defines `allow`, `ask`, and `deny` rules for CLI settings and Hub grants.
 - [Activation merger](../../../modules/agents/antigravity-cli/_activation.nix): installs missing marketplace plugins, merges declared JSON keys atomically, and repoints the `agentapi` shims.
 - [Shared plugin catalog](../../../modules/agents/_plugins.nix): sets default plugin enablement for `antigravity-cli`.
