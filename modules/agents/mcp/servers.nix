@@ -27,7 +27,10 @@ _: {
     context7 = {
       source = "nix";
       package = "context7-mcp";
-      secretEnvVar = "CONTEXT7_API_KEY";
+      secretEnv = {
+        name = "CONTEXT7_API_KEY";
+        relativePath = "context7/api-key";
+      };
       network.allowedDomains = [ "context7.com" ];
       clients = [
         "antigravity"

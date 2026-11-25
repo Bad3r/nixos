@@ -48,7 +48,7 @@ let
   };
 
   optionalFields = {
-    nix = [ "secretEnvVar" ];
+    nix = [ "secretEnv" ];
     http = [
       "timeout"
       "secretHeader"
@@ -118,6 +118,13 @@ let
     else
       throw "Agent MCP server '${serverName}' has invalid network.mode '${mode}'. Valid: ${toString validNetworkModes}";
 
+  validateSecretRelativePath =
+    serverName: field: relativePath:
+    if lib.hasPrefix "/" relativePath || lib.hasInfix ".." relativePath then
+      throw "Agent MCP server '${serverName}' ${field}.relativePath must be a clean XDG_DATA_HOME-relative path"
+    else
+      relativePath;
+
   validateSecretHeader =
     serverName: secretHeader:
     let
@@ -145,15 +152,41 @@ let
       throw "Agent MCP server '${serverName}' secretHeader.prefix must be a string"
     else if validated ? prefix && builtins.match ".*[\r\n].*" validated.prefix != null then
       throw "Agent MCP server '${serverName}' secretHeader.prefix must not contain newlines"
-    else if lib.hasPrefix "/" relativePath || lib.hasInfix ".." relativePath then
-      throw "Agent MCP server '${serverName}' secretHeader.relativePath must be a clean XDG_DATA_HOME-relative path"
     else
       {
         name = headerName;
-        inherit relativePath;
+        relativePath = validateSecretRelativePath serverName "secretHeader" relativePath;
       }
       // lib.optionalAttrs (validated ? prefix) {
         inherit (validated) prefix;
+      };
+
+  validateSecretEnv =
+    serverName: secretEnv:
+    let
+      validated =
+        if builtins.isAttrs secretEnv then
+          validateAllowedFields "'${serverName}'.secretEnv" [
+            "name"
+            "relativePath"
+          ] secretEnv
+        else
+          throw "Agent MCP server '${serverName}' requires attrset field 'secretEnv'";
+      missingFields = lib.filter (field: !(validated ? ${field})) [
+        "name"
+        "relativePath"
+      ];
+      envName = validateNonEmptyString serverName "secretEnv.name" validated.name;
+      relativePath = validateNonEmptyString serverName "secretEnv.relativePath" validated.relativePath;
+    in
+    if missingFields != [ ] then
+      throw "Agent MCP server '${serverName}' missing secretEnv fields: ${lib.concatStringsSep ", " missingFields}"
+    else if builtins.match "[A-Za-z_][A-Za-z0-9_]*" envName == null then
+      throw "Agent MCP server '${serverName}' secretEnv.name must be a shell variable name"
+    else
+      {
+        name = envName;
+        relativePath = validateSecretRelativePath serverName "secretEnv" relativePath;
       };
 
   validateServer =
@@ -229,6 +262,9 @@ let
       }
       // lib.optionalAttrs (validatedServer ? secretHeader) {
         secretHeader = validateSecretHeader serverName validatedServer.secretHeader;
+      }
+      // lib.optionalAttrs (validatedServer ? secretEnv) {
+        secretEnv = validateSecretEnv serverName validatedServer.secretEnv;
       };
 
   validatedServers = lib.mapAttrs validateServer rawServers;
@@ -272,8 +308,9 @@ let
             pkg = mcpPkgs.${meta.package};
             binPath = "${pkg}/bin/${meta.package}";
           in
-          if meta ? secretEnvVar then
+          if meta ? secretEnv then
             let
+              relativePath = lib.escapeShellArg meta.secretEnv.relativePath;
               wrapper = pkgs.writeShellApplication {
                 name = "${name}-wrapper";
                 runtimeInputs = [
@@ -281,20 +318,20 @@ let
                   pkg
                 ];
                 text = /* bash */ ''
-                  secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}/context7/api-key"
+                  secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}"/${relativePath}
                   if [ ! -r "$secret_path" ] || [ ! -s "$secret_path" ]; then
-                    fallback_path="$HOME/.local/share/context7/api-key"
+                    fallback_path="$HOME/.local/share"/${relativePath}
                     if [ -r "$fallback_path" ] && [ -s "$fallback_path" ]; then
                       secret_path="$fallback_path"
                     fi
                   fi
+                  # The secret is optional; the server starts without it.
                   if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-                    # Context7 supports unauthenticated access; export auth only when the optional secret exists.
                     if ! secret_value="$(tr -d '\r\n' < "$secret_path")"; then
-                      echo "Failed to read Context7 secret from $secret_path" >&2
+                      echo "Failed to read the ${name} MCP secret from $secret_path" >&2
                       exit 1
                     fi
-                    export ${meta.secretEnvVar}="$secret_value"
+                    export ${meta.secretEnv.name}="$secret_value"
                   fi
                   exec ${binPath} "$@"
                 '';
