@@ -1,14 +1,16 @@
 {
   config,
+  inputs,
   lib,
   ...
 }:
 let
   telemetry = import ./_telemetry.nix;
+  binaryPatches = import ./_binary-patches.nix;
 in
 {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, system, ... }:
     let
       scratchDir = config.flake.lib.agents.scratchDir;
       json = name: value: pkgs.writeText name (builtins.toJSON value);
@@ -559,6 +561,90 @@ in
               [ "$(cat "$HOME/.config/Antigravity/app_storage.json")" = "[]" ]
 
               echo "ok: antigravity-apply-config contract" >$out
+            '';
+
+        "antigravity-cli/binary-patches" =
+          let
+            unpatched = inputs.llm-agents.packages.${system}.antigravity-cli;
+            patched = binaryPatches.patchAgy {
+              inherit lib pkgs;
+              package = unpatched;
+              patches = binaryPatches.defaultPatches;
+            };
+            patchedAll = binaryPatches.patchAgy {
+              inherit lib pkgs;
+              package = unpatched;
+              patches = binaryPatches.patchSets;
+            };
+          in
+          pkgs.runCommandLocal "antigravity-cli-binary-patches"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [
+                pkgs.jq
+                pkgs.python3
+              ];
+            }
+            ''
+              set -euo pipefail
+              manifest=${patched}/share/antigravity-cli/agy.patch.json
+              fail() { echo "FAIL: $*" >&2; exit 1; }
+
+              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.defaultPatches)} ] || fail "manifest patch sets"
+              [ "$(jq -r .input_sha256 "$manifest")" = "$(sha256sum ${unpatched}/bin/agy | cut -d' ' -f1)" ] \
+                || fail "input checksum"
+              [ "$(jq -r .output_sha256 "$manifest")" = "$(sha256sum ${patched}/bin/agy | cut -d' ' -f1)" ] \
+                || fail "output checksum"
+              ! grep -q ${lib.escapeShellArg (builtins.unsafeDiscardStringContext (toString unpatched))} "$manifest" \
+                || fail "manifest references the unpatched package"
+
+              # The binaries differ in exactly the bytes the manifest's edits change.
+              expected=$(jq '[.edits[] | . as $e | [range(0; $e.orig | length; 2) | select($e.orig[.:.+2] != $e.new[.:.+2])] | length] | add' "$manifest")
+              actual=$(cmp -l ${unpatched}/bin/agy ${patched}/bin/agy | wc -l || true)
+              [ "$actual" -eq "$expected" ] || fail "$actual bytes differ, manifest edits change $expected"
+
+              # The default sets on 1.5.16 give exactly this binary.
+              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
+                || [ "$(jq -r .output_sha256 "$manifest")" = 6a2b526546901fb733b2f8ea14524e3ca59f5f8614c63c7ab975a3cef4d3f0cf ] || fail "1.5.16 output checksum drifted"
+
+              # Every set on 1.5.16, devmode included, gives exactly this binary.
+              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
+                || [ "$(jq -r .output_sha256 ${patchedAll}/share/antigravity-cli/agy.patch.json)" = 661f84099da9a6d4fd27cf87a38d3f6c21750fe369e3397aac4ccf94362573f6 ] \
+                || fail "1.5.16 all-sets output checksum drifted"
+
+              # A build the patcher does not know fails instead of passing through unpatched.
+              cp ${unpatched}/bin/agy "$TMPDIR/agy-unknown"
+              chmod u+w "$TMPDIR/agy-unknown"
+              printf 'x' | dd of="$TMPDIR/agy-unknown" bs=1 seek=64 conv=notrunc status=none
+              if python3 -I ${./_patch_agy.py} "$TMPDIR/agy-unknown" "$TMPDIR/agy-out" 2>"$TMPDIR/unknown.err"; then
+                fail "patched an unknown build"
+              fi
+              grep -q 'unknown agy build' "$TMPDIR/unknown.err" || fail "unknown build error message"
+              [ ! -e "$TMPDIR/agy-out" ] || fail "wrote output for an unknown build"
+              rm -f "$TMPDIR/agy-unknown"
+
+              # The patched binary still starts.
+              HOME="$TMPDIR" ${patched}/bin/agy --help 2>&1 | grep -q 'Usage of agy' || fail "agy --help"
+
+              # Offline print mode, signed out: the unpatched binary reaches the updater (which skips a
+              # read-only store directory) and fails to flush Clearcut telemetry at exit; the patched
+              # one does neither.
+              run_print() {
+                mkdir -p "$TMPDIR/home-$2"
+                HOME="$TMPDIR/home-$2" timeout 25 "$1" -p hi --log-file "$TMPDIR/$2.log" </dev/null >/dev/null 2>&1 || true
+              }
+              run_print ${unpatched}/bin/agy unpatched
+              run_print ${patched}/bin/agy patched
+              grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/unpatched.log" \
+                || fail "unpatched: updater not reached (test is blind)"
+              grep -q 'telemetry client' "$TMPDIR/unpatched.log" || fail "unpatched: no telemetry flush (test is blind)"
+              grep -q 'Auto-update disabled' "$TMPDIR/patched.log" || fail "patched: updater not disabled"
+              ! grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/patched.log" \
+                || fail "patched: updater reached"
+              ! grep -q 'telemetry client' "$TMPDIR/patched.log" || fail "patched: telemetry client active"
+              ! grep -q 'skipping empty or temp file' "$TMPDIR/patched.log" || fail "patched: file_watcher log line"
+
+              echo "ok: agy binary patches ($expected bytes)" >$out
             '';
 
         "antigravity-cli/agentapi-shims" =
