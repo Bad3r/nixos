@@ -1073,3 +1073,102 @@ for line in sys.stdin:
             with self.assertRaises(UpstreamError):
                 client.list_tools()
             self.assertEqual(_spawn_count(spawn_log), 1)
+
+    def test_stdio_failed_first_initialize_allows_respawn(self) -> None:
+        """Respawn after a failed handshake instead of treating it as a permanent close."""
+        with tempfile.TemporaryDirectory() as tmp:
+            spec, spawn_log = self._lifecycle_stdio_spec(Path(tmp), "fail-first")
+            client = StdioUpstreamClient(spec)
+            try:
+                with self.assertRaises(UpstreamError) as ctx:
+                    client.list_tools()
+                self.assertIn("first init fails", str(ctx.exception))
+                tools = client.list_tools()
+                self.assertEqual([t["name"] for t in tools], ["hang"])
+            finally:
+                client.close()
+            expected_spawns = 2
+            self.assertEqual(_spawn_count(spawn_log), expected_spawns)
+
+    def test_supervisor_close_all_rejects_calls_without_spawning(self) -> None:
+        """Refuse call_tool and get_tools after close_all() and start no new client."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            spec, spawn_log = self._lifecycle_stdio_spec(root)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "client": "test",
+                        "servers": {
+                            spec.name: {
+                                "transport": "stdio",
+                                "command": spec.command,
+                                "args": list(spec.args),
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            supervisor = UpstreamSupervisor(load_manifest(manifest_path))
+            self.assertEqual([t["name"] for t in supervisor.get_tools(spec.name)], ["hang"])
+            supervisor.close_all()
+            with self.assertRaises(UpstreamError):
+                supervisor.call_tool(spec.name, "report", {})
+            with self.assertRaises(UpstreamError):
+                supervisor.get_tools(spec.name)
+            with self.assertRaises(UpstreamError):
+                supervisor.get_tools(spec.name, refresh=True)
+            self.assertEqual(_spawn_count(spawn_log), 1)
+
+    def test_supervisor_close_disabled_during_get_tools_caches_nothing(self) -> None:
+        """Keep tools listed by an evicted client out of the cache."""
+        st = _LifecycleState()
+        with _running_server(st) as url, tempfile.TemporaryDirectory() as tmp:
+            manifest_path = Path(tmp) / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "client": "test",
+                        "servers": {"lc-http": {"transport": "http", "url": url}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            supervisor = UpstreamSupervisor(load_manifest(manifest_path))
+            try:
+                st.list_gate = threading.Event()
+                errors: list[Exception] = []
+                thread = _run_capturing(lambda: supervisor.get_tools("lc-http"), errors)
+                self.assertTrue(st.list_entered.wait(timeout=WAIT_SEC))
+                supervisor.close_disabled({"lc-http": False})
+                st.list_gate.set()
+                thread.join(timeout=WAIT_SEC)
+                self.assertEqual(len(errors), 1)
+                self.assertIsInstance(errors[0], UpstreamError)
+                st.list_gate = None
+                lists = st.list_count
+                supervisor.get_tools("lc-http")
+                self.assertEqual(st.list_count, lists + 1)
+
+                # Eviction lands after list_tools returns but before the cache write.
+                real_list_tools = HttpUpstreamClient.list_tools
+
+                def list_then_disable(
+                    client: HttpUpstreamClient,
+                    deadline: float | None = None,
+                    cancel_event: threading.Event | None = None,
+                ) -> list[dict[str, object]]:
+                    tools = real_list_tools(client, deadline=deadline, cancel_event=cancel_event)
+                    supervisor.close_disabled({"lc-http": False})
+                    return tools
+
+                with mock.patch.object(HttpUpstreamClient, "list_tools", list_then_disable):
+                    tools = supervisor.get_tools("lc-http", refresh=True)
+                self.assertEqual([t["name"] for t in tools], ["a"])
+                lists = st.list_count
+                supervisor.get_tools("lc-http")
+                self.assertEqual(st.list_count, lists + 1)
+            finally:
+                supervisor.close_all()
