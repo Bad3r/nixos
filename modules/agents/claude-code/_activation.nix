@@ -125,8 +125,9 @@ let
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
 
-  # Code Mode stops a REPL script turn after this long; upstream hardcodes 30000.
-  replWallClockMs = 60000;
+  # Code Mode stops a REPL script turn after this long; upstream hardcodes 30000,
+  # raised to 240000 to match codemode's 240s max tool timeout.
+  replWallClockMs = 240000;
   replWallClockPatch = pkgs.writeShellApplication {
     name = "claude-code-repl-wall-clock";
     runtimeInputs = [ pkgs.coreutils ];

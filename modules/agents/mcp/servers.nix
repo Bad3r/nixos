@@ -27,109 +27,40 @@ _: {
     context7 = {
       source = "nix";
       package = "context7-mcp";
-      secretEnvVar = "CONTEXT7_API_KEY";
+      secretEnv = {
+        name = "CONTEXT7_API_KEY";
+        relativePath = "context7/api-key";
+      };
       network.allowedDomains = [ "context7.com" ];
-      clients = [
-        "antigravity"
-        "codex"
-      ];
-      docs = {
-        primaryUse = "Look up library IDs and documentation for coding tasks.";
-        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits. Scoped to Codex and Antigravity: Claude Code consumes the claude.ai Context7 connector instead, so the local server is dropped there to avoid a duplicate registration.";
-        example = "`context7 resolve-library-id --name <library>`";
-      };
-    };
-
-    cfdocs = {
-      source = "http";
-      url = "https://docs.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Search Cloudflare documentation.";
-        accessNotes = "Use for Workers, R2, Zero Trust, and other Cloudflare services through the streamable HTTP endpoint.";
-        example = "`cfdocs search --query \"Workers KV\"`";
-      };
-    };
-
-    cfbrowser = {
-      source = "http";
-      url = "https://browser.mcp.cloudflare.com/mcp";
-      network.mode = "full";
       clients = [
         "antigravity"
         "claude"
         "codex"
       ];
       docs = {
-        primaryUse = "Render and capture live webpages.";
-        accessNotes = "Useful for verifying UI changes against deployed sites through the streamable HTTP endpoint.";
-        example = "`cfbrowser get-url-html --url <page>`";
+        primaryUse = "Look up library IDs and documentation for coding tasks.";
+        accessNotes = "Works without an API key; provision `~/.local/share/context7/api-key` for higher rate limits. Shared across Codex, Antigravity, and Claude Code, where `claude.ai Context7` is denied so every client routes through `codemode`.";
+        example = "Use `codemode` `search` (`await codemode.tools(\"context7\")`) or `execute` (`await codemode.context7[\"resolve-library-id\"](...)`).";
       };
     };
 
-    cfbuilds = {
+    cloudflare-api = {
       source = "http";
-      url = "https://builds.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Inspect Cloudflare builds and deployment activity.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfbuilds` tools.";
+      url = "https://mcp.cloudflare.com/mcp";
+      secretHeader = {
+        name = "Authorization";
+        prefix = "Bearer ";
+        relativePath = "cloudflare/api-key";
       };
-    };
-
-    cfobservability = {
-      source = "http";
-      url = "https://observability.mcp.cloudflare.com/mcp";
-      clients = [ ];
+      clients = [
+        "antigravity"
+        "claude"
+        "codex"
+      ];
       docs = {
-        primaryUse = "Query Cloudflare observability and logging data.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfobservability` tools.";
-      };
-    };
-
-    cfbindings = {
-      source = "http";
-      url = "https://bindings.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Inspect Cloudflare bindings for Workers and Pages projects.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfbindings` tools.";
-      };
-    };
-
-    cfradar = {
-      source = "http";
-      url = "https://radar.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Query Cloudflare Radar internet telemetry and trends.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfradar` tools.";
-      };
-    };
-
-    cfcontainers = {
-      source = "http";
-      url = "https://containers.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Inspect Cloudflare Containers projects and instances.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfcontainers` tools.";
-      };
-    };
-
-    cfgraphql = {
-      source = "http";
-      url = "https://graphql.mcp.cloudflare.com/mcp";
-      clients = [ ];
-      docs = {
-        primaryUse = "Run GraphQL queries against Cloudflare analytics endpoints.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex, Claude Code, or Antigravity; uses the streamable HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `cfgraphql` tools.";
+        primaryUse = "Search Cloudflare docs and run authenticated Cloudflare API actions through Cloudflare's Code Mode MCP server.";
+        accessNotes = "Authenticates host-side with the SOPS-provisioned Bearer token at `~/.local/share/cloudflare/api-key` (`CF_MCP_API_KEY` from `secrets/cloudflare.yaml`). User API tokens (`cfut_*`) require `User Details: Read` and `Account Settings: Read`; account API tokens (`cfat_*`) require `Account Resources: Read`. Replaces the separate Cloudflare MCP endpoints (`cfdocs`, `cfbrowser`, `cfbuilds`, `cfobservability`, `cfbindings`, `cfradar`, `cfcontainers`, `cfgraphql`) and the marketplace Cloudflare plugins so all clients route through `codemode`.";
+        example = "Use `codemode` `search` for `cloudflare_api` tools (`docs`, `search`, `execute`, `whoami`).";
       };
     };
 
@@ -141,7 +72,7 @@ _: {
       docs = {
         primaryUse = "Search OpenAI developer docs and API references.";
         accessNotes = "Enabled by default only for Codex through a streamable HTTP endpoint.";
-        example = "`codex mcp add openaiDeveloperDocs --url https://developers.openai.com/mcp`";
+        example = "Use `codemode` `search` (`await codemode.tools(\"openaiDeveloperDocs\")`).";
       };
     };
 
@@ -156,7 +87,27 @@ _: {
       docs = {
         primaryUse = "Search public GitHub code indexed by grep.app.";
         accessNotes = "Enabled by default for Codex, Claude Code, and Antigravity through the remote grep.app HTTP endpoint.";
-        example = "Use `/mcp` to inspect the available `gh_grep` tools.";
+        example = "Use `codemode` `search` (`await codemode.tools(\"gh_grep\")`).";
+      };
+    };
+
+    google-developer-knowledge = {
+      source = "http";
+      url = "https://developerknowledge.googleapis.com/mcp";
+      disabled = true;
+      secretHeader = {
+        name = "X-Goog-Api-Key";
+        relativePath = "google-developer-knowledge/api-key";
+      };
+      clients = [
+        "antigravity"
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Search and retrieve official Google developer documentation.";
+        accessNotes = "Disabled by default across clients so it does not load on every project; authenticates host-side with the SOPS-provisioned API key at `~/.local/share/google-developer-knowledge/api-key` (`X-Goog-Api-Key` from `secrets/google-developer-knowledge-mcp.yaml`). Enable without restarting via `mcp-codemode enable google-developer-knowledge` from the target project directory (writes a project-scoped entry in `~/.local/state/mcp-codemode/overrides.json` matching that directory and its subdirectories) or `mcp-codemode enable --user google-developer-knowledge` (required for GUI clients launched outside the open workspace), or launch the client with `MCP_CODEMODE_ENABLE=google-developer-knowledge`.";
+        example = "`mcp-codemode enable google-developer-knowledge`";
       };
     };
 
@@ -171,7 +122,7 @@ _: {
       docs = {
         primaryUse = "Browse repository knowledge bases.";
         accessNotes = "Official remote no-authentication-required HTTP endpoint; pass `owner/repo` to the DeepWiki tools.";
-        example = "`claude mcp add -s user -t http deepwiki https://mcp.deepwiki.com/mcp`";
+        example = "Use `codemode` `search` (`await codemode.tools(\"deepwiki\")`).";
       };
     };
 
@@ -249,7 +200,7 @@ _: {
       docs = {
         primaryUse = "Control and inspect a live Camoufox (Firefox) session, including privileged contexts.";
         accessNotes = "Runs the Mozilla build of the server with every tool module, driving the camoufox app's browser, so it is present only where that app's row is on. Camoufox does not replace geckodriver, which still translates the server's WebDriver calls; the geckodriver app supplies it and the wrapper puts it on PATH. The wrapper sets MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1 for the privileged modules and turns off Selenium Manager statistics and the Firefox crash reporter; Firefox telemetry prefs are off. Each session uses a fresh temporary profile. The privileged modules give the agent browser-privileged access with no web-content sandbox, so it can act outside the page.";
-        example = "Use `/mcp` to inspect the available `firefox` tools.";
+        example = "Use `codemode` `search` (`await codemode.tools(\"firefox\")`).";
       };
     };
 
@@ -257,9 +208,10 @@ _: {
       source = "app";
       app = "sbx";
       program = "sbx-mcp";
+      direct = true;
+      autoApprove = true;
       # A call lasts up to a sandbox's longest TTL; Codex stops waiting after 300 s by default.
       toolTimeout = cfg: cfg.limits.maxTtl * 3600;
-      autoApprove = true;
       clients = [
         "antigravity"
         "claude"
@@ -267,7 +219,7 @@ _: {
       ];
       docs = {
         primaryUse = "Run untrusted code in disposable sbx VMs.";
-        accessNotes = "Local stdio server of the `sbx` app, present only where its row is on; tools mirror the `sbx` verbs and their `--json` output.";
+        accessNotes = "Local stdio server of the `sbx` app, registered directly to preserve `_meta` session scoping, cancellation, and VM TTL timeouts; present only where its row is on.";
         example = "`run` with `{\"base\": \"nixos\", \"command\": [\"uname\", \"-a\"]}`";
       };
     };
@@ -276,11 +228,12 @@ _: {
       source = "app";
       app = "chatgpt";
       program = cfg: "${cfg.finalPackage.unwrapped}/lib/chatgpt/resources/cua_node/bin/node_repl";
+      direct = true;
       timeout = 120;
       clients = [ "codex" ];
       docs = {
         primaryUse = "Run JavaScript in the ChatGPT browser runtime.";
-        accessNotes = "Requires the ChatGPT desktop package. Browser access uses the desktop session connection.";
+        accessNotes = "Requires the ChatGPT desktop package; registered directly on Codex to preserve native browser confirmation routing and isolate desktop IPC environment variables.";
         example = "Use `/mcp` to inspect the available `node_repl` tools.";
       };
     };

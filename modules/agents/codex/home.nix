@@ -125,6 +125,10 @@
       codexSkillDirs = lib.mapAttrs' (
         name: skill: lib.nameValuePair "agents/skills/${name}" { source = (skill.codex pkgs).dir; }
       ) (lib.filterAttrs (_name: skill: skill ? codex && skill.enabledOn osConfig) agents.skills.list);
+
+      packCodexSkillDirs = lib.mapAttrs' (
+        name: dir: lib.nameValuePair "agents/skills/${name}" { source = dir; }
+      ) (agents.skills.packDirsFor "codex");
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -262,7 +266,8 @@
           "codex/AGENTS.md".text = codexInstructions;
         }
         # Skills (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
-        // codexSkillDirs;
+        // codexSkillDirs
+        // packCodexSkillDirs;
       };
     };
 }

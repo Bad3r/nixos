@@ -672,8 +672,9 @@ in
               for arg in "$@"; do
                 printf ' [%s]' "$arg"
               done
-              printf '\nENV:AGY_CLI_DISABLE_AUTO_UPDATE=%s|NO_CFG=%s|NO_STATS=%s|NO_UPD=%s\n' \
+              printf '\nENV:AGY_CLI_DISABLE_AUTO_UPDATE=%s|DISABLE_TELEM=%s|NO_CFG=%s|NO_STATS=%s|NO_UPD=%s\n' \
                 "''${AGY_CLI_DISABLE_AUTO_UPDATE:-}" \
+                "''${DISABLE_TELEMETRY:-}" \
                 "''${CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY:-}" \
                 "''${CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS:-}" \
                 "''${CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS:-}"
@@ -772,7 +773,8 @@ in
             (telemetry.cliEnv.CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY or null) == "1"
             && (telemetry.cliEnv.CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS or null) == "1"
             && (telemetry.cliEnv.CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS or null) == "1"
-          ) "antigravity-cli: CHROME_DEVTOOLS_MCP_NO_* variables must be \"1\"";
+            && (telemetry.cliEnv.DISABLE_TELEMETRY or null) == "1"
+          ) "antigravity-cli: CHROME_DEVTOOLS_MCP_NO_* and DISABLE_TELEMETRY variables must be \"1\"";
           assert lib.assertMsg (
             !songbirdAnyEnabled
             || lib.hasInfix (lib.escapeShellArg songbirdHm.xdg.configHome) songbirdHm.home.activation.antigravitySetup.data
@@ -806,7 +808,7 @@ in
                 echo "FAIL: stub agy $* -> expected 'ARGV:$expected', got '$argv_line'" >&2
                 exit 1
               fi
-              if [ "$env_line" != "ENV:AGY_CLI_DISABLE_AUTO_UPDATE=1|NO_CFG=1|NO_STATS=1|NO_UPD=1" ]; then
+              if [ "$env_line" != "ENV:AGY_CLI_DISABLE_AUTO_UPDATE=1|DISABLE_TELEM=1|NO_CFG=1|NO_STATS=1|NO_UPD=1" ]; then
                 echo "FAIL: stub agy $* -> unexpected env '$env_line'" >&2
                 exit 1
               fi

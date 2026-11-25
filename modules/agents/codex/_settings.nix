@@ -11,10 +11,20 @@
   telemetry,
 }:
 let
-  # MCP servers via compiled agents.mcp client profile
+  # MCP servers via compiled agents.mcp client profile (multiplexed through codemode)
   codexMcpServerNames = agents.mcp.clients.codex.enabledNames osConfig;
   codexMcpServerMeta = map (name: agents.mcp.servers.${name}) codexMcpServerNames;
-  codexMcpServers = agents.mcp.clients.codex.servers { inherit pkgs osConfig; };
+  nodeReplServerOverrides = lib.optionalAttrs (lib.elem "node_repl" codexMcpServerNames) {
+    node_repl = import ./_node-repl.nix {
+      inherit configDir profileDirectory;
+      inherit ((agents.mcp.mkServer { inherit pkgs osConfig; } "node_repl")) command;
+      inherit (osConfig.programs.chatgpt.extended.finalPackage) version;
+    };
+  };
+  codexMcpServers = agents.mcp.clients.codex.servers {
+    inherit pkgs osConfig;
+    serverOverrides = nodeReplServerOverrides;
+  };
 
   codexMcpAllowedDomains = builtins.sort builtins.lessThan (
     lib.unique (
@@ -173,6 +183,7 @@ let
           DISABLE_BUG_COMMAND
           DISABLE_ERROR_REPORTING
           DISABLE_INSTALLATION_CHECKS
+          DISABLE_TELEMETRY
           DISABLE_UPDATES
           OTEL_METRICS_INCLUDE_ACCOUNT_UUID
           OTEL_METRICS_INCLUDE_SESSION_ID
@@ -223,17 +234,7 @@ let
     };
 
     # MCP servers
-    mcp_servers =
-      codexMcpServers
-      // lib.optionalAttrs (codexMcpServers ? node_repl) {
-        node_repl =
-          codexMcpServers.node_repl
-          // (import ./_node-repl.nix {
-            inherit configDir profileDirectory;
-            inherit (codexMcpServers.node_repl) command;
-            inherit (osConfig.programs.chatgpt.extended.finalPackage) version;
-          });
-      };
+    mcp_servers = codexMcpServers;
   };
 
   # Base settings (everything except projects - those are merged at runtime)

@@ -244,6 +244,14 @@ _: {
       claudeSkillFiles = lib.mapAttrs' (
         name: skill: lib.nameValuePair ".claude/skills/${name}/SKILL.md" { text = skill.claude; }
       ) registryClaudeSkills;
+
+      packClaudeSkillFiles = lib.mapAttrs' (
+        name: dir:
+        lib.nameValuePair ".claude/skills/${name}" {
+          source = dir;
+          recursive = true;
+        }
+      ) (agents.skills.packDirsFor "claude");
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -275,6 +283,7 @@ _: {
             };
           }
           // claudeSkillFiles
+          // packClaudeSkillFiles
           // claudeAgentFiles;
 
           inherit activation;

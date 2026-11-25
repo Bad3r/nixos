@@ -1,10 +1,16 @@
 { config, lib, ... }:
 let
-  reservedPublicSkillNames = [ "list" ];
+  reservedPublicSkillNames = [
+    "list"
+    "packDirsFor"
+    "packs"
+  ];
 
   registry = import ./_registry.nix { inherit lib; };
   inherit (registry) validClients;
   validateAllowedFields = registry.validateAllowedFields "skill";
+  validateNonEmptyString = registry.validateNonEmptyString "skill";
+  validatePackClients = registry.validateClients "skill pack";
 
   rawSkills = config.flake.lib.agents._internal.skills.raw;
 
@@ -38,18 +44,11 @@ let
       ]
     );
 
-  validateNonEmptyString =
-    skillName: field: value:
-    if builtins.isString value && value != "" then
-      value
-    else
-      throw "Agent skill '${skillName}' requires non-empty string field '${field}'";
-
   validateOpenaiInterface =
     skillName: interface:
     let
       validatedInterface =
-        validateAllowedFields "'${skillName}'.codex.openaiYaml.interface'" requiredFields
+        validateAllowedFields "'${skillName}'.codex.openaiYaml.interface" requiredFields
           interface;
       requiredFields = [
         "display_name"
@@ -94,12 +93,12 @@ let
           ];
         }
         .${client};
-      validatedClientSpec = validateAllowedFields "'${skillName}'.${client}'" allowedFields clientSpec;
+      validatedClientSpec = validateAllowedFields "'${skillName}'.${client}" allowedFields clientSpec;
     in
     if client == "codex" then
       let
         openaiYaml = validatedClientSpec.openaiYaml or { };
-        validatedOpenaiYaml = validateAllowedFields "'${skillName}'.codex.openaiYaml'" [
+        validatedOpenaiYaml = validateAllowedFields "'${skillName}'.codex.openaiYaml" [
           "interface"
         ] openaiYaml;
         interface = validateOpenaiInterface skillName (validatedOpenaiYaml.interface or { });
@@ -309,13 +308,79 @@ let
     };
 
   compiledSkills = lib.mapAttrs compileSkill rawSkills;
+
+  rawPacks = config.flake.lib.agents._internal.skills.packs;
+
+  compilePack =
+    packName: rawPack:
+    let
+      validatedPack = validateAllowedFields "pack '${packName}'" [
+        "src"
+        "clients"
+      ] rawPack;
+      src = validatedPack.src or (throw "Agent skill pack '${packName}' requires field 'src'");
+      clients = validatePackClients packName (
+        validatedPack.clients or (throw "Agent skill pack '${packName}' requires field 'clients'")
+      );
+      entries = builtins.readDir src;
+      skillNames = builtins.sort builtins.lessThan (
+        lib.filter (name: entries.${name} == "directory" && builtins.pathExists "${src}/${name}/SKILL.md") (
+          lib.attrNames entries
+        )
+      );
+      reservedCollisions = lib.filter (name: lib.elem name reservedPublicSkillNames) skillNames;
+      rawCollisions = lib.filter (name: rawSkills ? ${name}) skillNames;
+    in
+    assert lib.assertMsg (
+      skillNames != [ ]
+    ) "Agent skill pack '${packName}' contains no '<name>/SKILL.md' directories";
+    assert lib.assertMsg (reservedCollisions == [ ])
+      "Agent skill pack '${packName}' uses reserved skill name(s): ${lib.concatStringsSep ", " reservedCollisions}";
+    assert lib.assertMsg (rawCollisions == [ ])
+      "Agent skill pack '${packName}' collides with standalone skill(s): ${lib.concatStringsSep ", " rawCollisions}";
+    {
+      inherit
+        clients
+        src
+        skillNames
+        ;
+      dirs = lib.genAttrs skillNames (skillName: "${src}/${skillName}");
+    };
+
+  compiledPacks = lib.mapAttrs compilePack rawPacks;
+
+  packDirsFor =
+    client:
+    let
+      matchingPacks = lib.attrValues (
+        lib.filterAttrs (_: pack: lib.elem client pack.clients) compiledPacks
+      );
+      mergePack =
+        acc: pack:
+        lib.foldl' (
+          innerAcc: skillName:
+          assert lib.assertMsg (
+            !(innerAcc ? ${skillName})
+          ) "Agent skill '${skillName}' is declared by more than one skill pack for client '${client}'";
+          innerAcc // { ${skillName} = pack.dirs.${skillName}; }
+        ) acc pack.skillNames;
+    in
+    lib.foldl' mergePack { } matchingPacks;
 in
 {
   options.flake.lib.agents = {
-    _internal.skills.raw = lib.mkOption {
-      type = lib.types.attrsOf lib.types.anything;
-      default = { };
-      description = "Canonical raw skill specifications compiled into public client outputs.";
+    _internal.skills = {
+      raw = lib.mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        default = { };
+        description = "Canonical raw skill specifications compiled into public client outputs.";
+      };
+
+      packs = lib.mkOption {
+        type = lib.types.attrsOf lib.types.anything;
+        default = { };
+        description = "Directory-based third-party skill packs linked into selected agent clients.";
+      };
     };
 
     skills = lib.mkOption {
@@ -327,5 +392,7 @@ in
 
   config.flake.lib.agents.skills = compiledSkills // {
     list = compiledSkills;
+    packs = compiledPacks;
+    inherit packDirsFor;
   };
 }

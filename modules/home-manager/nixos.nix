@@ -21,8 +21,10 @@ let
   ++ map (name: config.flake.homeManagerModules.${name}) [
     "base"
     "sopsRuntime"
+    "cloudflareSecrets"
     "context7Secrets"
     "geckoSecrets"
+    "googleDeveloperKnowledgeSecrets"
     "r2Secrets"
     "virustotalSecrets"
   ];

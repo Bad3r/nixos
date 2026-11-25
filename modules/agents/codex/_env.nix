@@ -75,5 +75,8 @@
     # LOG_FORMAT = "json";
     # Rust standard library panic diagnostics; this does not enable request tracing.
     # RUST_BACKTRACE = "1";
+
+    # Disable Clearcut telemetry in modern-web-guidance invocations.
+    DISABLE_TELEMETRY = "1";
   };
 }

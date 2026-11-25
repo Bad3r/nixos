@@ -137,6 +137,7 @@ in
   # renamed on claude.ai, or suffixed " (N)" after a collision, needs updating.
   deniedMcpServers = map (serverName: { inherit serverName; }) [
     "claude.ai Cloudflare Developer Platform"
+    "claude.ai Context7"
     "claude.ai Gmail"
     "claude.ai Google Calendar"
     "claude.ai Google Drive"
@@ -173,7 +174,7 @@ in
 
   # Set allow, ask, and deny rules and the starting permission mode
   permissions = {
-    # `mcp__<server>` covers every tool of that server.
+    # `mcp__<server>` covers every tool of that direct server.
     allow = fileWebAllow ++ map bash bashAllow ++ map (name: "mcp__${name}") mcpAutoApproved;
     ask = map bash bashAsk;
     deny = map bash bashDeny;

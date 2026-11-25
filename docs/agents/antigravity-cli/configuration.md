@@ -7,7 +7,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 
 - [CLI module](../../../modules/agents/antigravity-cli/nixos.nix): wraps `agy` with the controlled shell and registers `antigravity-cli` plugin options.
 - [Hub module](../../../modules/apps/antigravity-hub/nixos.nix): wraps `antigravity` with the controlled shell, sets the Hub server port, and draws the window and tray icons from [the Stylix template](../../../modules/stylix/icons/antigravity.svg.mustache).
-- [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling.
+- [Telemetry policy](../../../modules/agents/antigravity-cli/_telemetry.nix): disables Hub Language Server and `agy acp` telemetry, CLI auto-updates, `chrome-devtools-mcp` checks, and Hub update polling, and sets `DISABLE_TELEMETRY=1` for `modern-web-guidance`.
 - [Controlled shell](../../../modules/agents/antigravity-cli/_shell.nix): runs `direnv`, exports per-conversation `TMPDIR`, and shims `rm` to trash.
 - [Home Manager module](../../../modules/agents/antigravity-cli/home.nix): compiles instructions, skills, permissions, hooks, MCP servers, and plugin state.
 - [Shared system prompt](../../../modules/agents/system-prompt.nix): renders `~/.gemini/config/AGENTS.md` with `ask_question` and `sbx` settings.
@@ -17,7 +17,7 @@ Activation merges declared keys into `~/.gemini/config/` and `~/.gemini/antigrav
 - [Shared plugin catalog](../../../modules/agents/_plugins.nix): sets default plugin enablement for `antigravity-cli`.
 - [Shared MCP registry](../../../modules/agents/mcp/servers.nix): defines server endpoints, wrappers, and client membership compiled by [the MCP compiler](../../../modules/agents/mcp.nix).
 - [Shared hook registry](../../../modules/agents/hooks.nix): generates `PreInvocation` session reporting and `PreToolUse` scratch validation.
-- [Shared skill registry](../../../modules/agents/skills.nix): compiles standalone skills into `~/.gemini/config/skills/`.
+- [Shared skill registry](../../../modules/agents/skills.nix): compiles standalone skills and links flake-backed skill packs from `modules/agents/skills/packs.nix` into `~/.gemini/config/skills/`.
 
 ## Shared and CLI-only files
 
@@ -29,7 +29,7 @@ Activation also deletes leftover `migrated-settings` directories and manual `her
 
 ## Hub theme
 
-With `antigravity-hub` enabled, Stylix owns `userSettings.themeMode` and the seeds for its polarity in `config.json`.`app_storage.json` pins `jetski.typeface` to `system`, so the Hub renders with the fontconfig sans-serif face.
+With `antigravity-hub` enabled, Stylix owns `userSettings.themeMode` and the seeds for its polarity in `config.json`. `app_storage.json` pins `jetski.typeface` to `system`, so the Hub renders with the fontconfig sans-serif face.
 A preset or color picked in Settings > Appearance lasts until the next switch.
 
 ## Telemetry and update checks
@@ -44,7 +44,7 @@ The `antigravity-cli/no-google-telemetry` check pins `agy` flag support against 
 Override plugins per host under `programs."antigravity-cli".extended.plugins`.
 On activation, when `antigravity-cli` is enabled and Google endpoints respond, missing non-builtin plugins install via `agy plugin install`.
 `plugins.<name>.enabled` then merges into `~/.gemini/config/config.json` without overwriting `.installedFrom`.
-[The MCP compiler](../../../modules/agents/mcp.nix) writes remote servers under `serverUrl`, sets `timeoutSeconds` only past 180 seconds, and strips client-specific keys.
+[The MCP compiler](../../../modules/agents/mcp.nix) multiplexes standard servers behind a single `codemode` stdio entry, keeps direct local servers (`sbx` when enabled) registered alongside it, writes any direct remote server under `serverUrl`, sets `timeoutSeconds` only past 180 seconds, and strips client-specific keys.
 
 ## Controlled shell and permissions
 

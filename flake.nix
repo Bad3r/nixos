@@ -198,6 +198,17 @@
       url = "github:cloudflare/workers-rs";
     };
 
+    cloudflare-skills = {
+      flake = false;
+      url = "github:cloudflare/skills";
+    };
+
+    # Published skills built from https://github.com/GoogleChrome/modern-web-guidance-src
+    modern-web-guidance = {
+      flake = false;
+      url = "github:GoogleChrome/modern-web-guidance";
+    };
+
     tinted-schemes = {
       flake = false;
       url = "github:tinted-theming/schemes";

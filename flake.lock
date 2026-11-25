@@ -173,6 +173,22 @@
         "type": "github"
       }
     },
+    "cloudflare-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795540212,
+        "narHash": "sha256-50afPPoq1/Xd+es0P6HOoL7U0b9oT9dxUpPgq4n3UUQ=",
+        "owner": "cloudflare",
+        "repo": "skills",
+        "rev": "ff191de7d903788eceaf516a514ae7d3b56b924a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "skills",
+        "type": "github"
+      }
+    },
     "dedupe_flake-compat": {
       "locked": {
         "lastModified": 1767039857,
@@ -796,6 +812,22 @@
         "type": "github"
       }
     },
+    "modern-web-guidance": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795445662,
+        "narHash": "sha256-UfeLMKMpwfOvJgyuyiysQy+ExGnLEJLY1CG/y4uIJHw=",
+        "owner": "GoogleChrome",
+        "repo": "modern-web-guidance",
+        "rev": "2b4aa13a72dd47cd135b06ce5abfccd92e19b24f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GoogleChrome",
+        "repo": "modern-web-guidance",
+        "type": "github"
+      }
+    },
     "nix-cachyos-kernel": {
       "inputs": {
         "flake-compat": [
@@ -1197,6 +1229,7 @@
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
+        "cloudflare-skills": "cloudflare-skills",
         "dedupe_flake-compat": "dedupe_flake-compat",
         "dedupe_nur": "dedupe_nur",
         "emacs-overlay": "emacs-overlay",
@@ -1208,6 +1241,7 @@
         "llm-agents": "llm-agents",
         "make-shell": "make-shell",
         "mcp-servers-nix": "mcp-servers-nix",
+        "modern-web-guidance": "modern-web-guidance",
         "nix-cachyos-kernel": "nix-cachyos-kernel",
         "nix-doom-emacs-unstraightened": "nix-doom-emacs-unstraightened",
         "nix-index-database": "nix-index-database",

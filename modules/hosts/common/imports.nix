@@ -47,8 +47,10 @@ let
     };
 
     home-manager.users.${metaOwner.username}.home = {
+      cloudflareSecrets.enable = lib.mkDefault true;
       context7Secrets.enable = lib.mkDefault true;
       geckoSecrets.enable = lib.mkDefault true;
+      googleDeveloperKnowledgeSecrets.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkDefault true;
       virustotalSecrets.enable = lib.mkDefault true;
     };
