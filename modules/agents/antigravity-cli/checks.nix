@@ -869,9 +869,10 @@ in
               [ -s ${proxy.defaultTemplatesDir}/system_prompts/identity.tmpl ] || fail "missing identity.tmpl"
               [ "$(find ${proxy.defaultTemplatesDir} -name '*.tmpl' | wc -l)" -eq 19 ] || fail "expected 19 templates"
 
-              # 2. Offline unit tests of _proxy_overrides.py (pin parsing, flags, guidelines drift & rewrite, allow_hosts regex).
+              # 2. Offline unit tests of _proxy_overrides.py (pin parsing, flags, guidelines drift & rewrite, allow_hosts regex)
+              # and DevModeOverrides.response() blocking on fake flows.
               python3 -I - ${proxy.addonScript} ${proxy.defaultGuidelinesPin} ${lib.escapeShellArg proxy.allowHostsRegex} <<'PY'
-              import hashlib, importlib.util, pathlib, re, sys
+              import hashlib, importlib.util, json, pathlib, re, sys, tempfile, types
 
               addon_path, pin_path, allow_re = sys.argv[1], sys.argv[2], sys.argv[3]
               spec = importlib.util.spec_from_file_location("proxy_overrides", addon_path)
@@ -965,6 +966,129 @@ in
               assert touched == ["models.gemini-4-hydrogen-high"]
               assert mod.GUIDELINES_KEY not in ok_body["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]
               assert ok_body["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]["other-flag"] == {"boolValue": True}
+
+              # DevModeOverrides.response() on fake fetchAvailableModels flows; every blocked case must not forward the body.
+              class FakeResponse:
+                  def __init__(self, status_code, text):
+                      self.status_code = status_code
+                      self.text = text
+
+                  def get_text(self):
+                      return self.text
+
+                  def set_text(self, text):
+                      self.text = text
+
+
+              mod.http = types.SimpleNamespace(
+                  Response=types.SimpleNamespace(make=lambda status, body, headers: FakeResponse(status, body))
+              )
+              tmp = pathlib.Path(tempfile.mkdtemp())
+              pin_file = tmp / "pin"
+              pin_file.write_text(sample_pin + "  guidelines.tmpl\n")
+              drift_name = "server-guidelines." + hashlib.sha256("changed".encode()).hexdigest()[:12] + ".tmpl"
+              blocked = "antigravity-proxy blocked fetchAvailableModels"
+
+
+              def configured(**opts):
+                  options = {
+                      "flag_overrides": "",
+                      "guidelines_override": "strip",
+                      "guidelines_pin": str(pin_file),
+                      "guidelines_drift_dir": "",
+                      "ca_bundle_out": "",
+                      "spki_out": "",
+                      "system_ca_bundle": "",
+                      "stream_tap_log": "",
+                      **opts,
+                  }
+                  mod.ctx = types.SimpleNamespace(options=types.SimpleNamespace(**options))
+                  try:
+                      addon = mod.DevModeOverrides()
+                      addon.configure(set())
+                  finally:
+                      mod.ctx = None
+                  return addon
+
+
+              def respond(addon, text):
+                  flow = types.SimpleNamespace(
+                      id="flow",
+                      request=types.SimpleNamespace(path=mod.MODELS_PATH),
+                      metadata={},
+                      response=FakeResponse(200, text),
+                  )
+                  addon.response(flow)
+                  return flow
+
+
+              def models_body(text):
+                  return {
+                      "models": {
+                          "gemini-4-hydrogen-high": {
+                              "modelExperiments": {
+                                  "experiments": {
+                                      mod.GUIDELINES_KEY: {"stringValue": text},
+                                      "other-flag": {"boolValue": True},
+                                  }
+                              }
+                          },
+                          "other-model": {"modelExperiments": {"experiments": {}}},
+                      }
+                  }
+
+
+              def assert_blocked(flow, reason):
+                  assert flow.response.status_code == 502, (flow.response.status_code, flow.response.text)
+                  assert blocked in flow.response.text and reason in flow.response.text, flow.response.text
+
+
+              # Strip mode blocks drift and saves the server template.
+              drift_dir = tmp / "drift-strip"
+              flow = respond(configured(guidelines_drift_dir=str(drift_dir)), json.dumps(models_body("changed")))
+              assert_blocked(flow, "!= pinned")
+              assert (drift_dir / drift_name).read_text() == "changed"
+
+              # Strip mode with the pinned template removes only the guidelines key.
+              flow = respond(configured(), json.dumps(models_body(sample_text)))
+              assert flow.response.status_code == 200, flow.response.text
+              experiments = json.loads(flow.response.text)["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]
+              assert experiments == {"other-flag": {"boolValue": True}}, experiments
+              assert flow.metadata["guidelines_override"]["targets"] == ["models.gemini-4-hydrogen-high"]
+
+              # An unreadable pin blocks even a body without guidelines.
+              flow = respond(configured(guidelines_pin=str(tmp / "missing-pin")), json.dumps({"models": {}}))
+              assert_blocked(flow, "cannot read guidelines_pin")
+
+              # A non-JSON body is blocked.
+              flow = respond(configured(), "<html>")
+              assert_blocked(flow, "not JSON")
+
+              # Null mode still enforces the pin and saves drift.
+              drift_dir = tmp / "drift-null"
+              flow = respond(
+                  configured(guidelines_override="", guidelines_drift_dir=str(drift_dir)),
+                  json.dumps(models_body("changed")),
+              )
+              assert_blocked(flow, "!= pinned")
+              assert (drift_dir / drift_name).read_text() == "changed"
+
+              # Null mode passes the pinned template through unchanged.
+              text = json.dumps(models_body(sample_text))
+              flow = respond(configured(guidelines_override=""), text)
+              assert flow.response.status_code == 200 and flow.response.text == text, flow.response.text
+
+              # A drift save that fails still blocks.
+              not_dir = tmp / "not-a-dir"
+              not_dir.write_text("")
+              flow = respond(configured(guidelines_drift_dir=str(not_dir)), json.dumps(models_body("changed")))
+              assert_blocked(flow, "cannot save server template")
+
+              # An exception inside the check blocks: a lone surrogate escape cannot be hashed as UTF-8.
+              surrogate = json.dumps(models_body("SURROGATE")).replace("SURROGATE", "\\ud800")
+              flow = respond(configured(), surrogate)
+              assert_blocked(flow, "guidelines check failed")
+
               PY
 
               # 3. Real mitmdump startup via mkProxyStartScript: sd_notify READY=1, bundle.pem, and SPKI match openssl.

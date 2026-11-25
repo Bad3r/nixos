@@ -8,10 +8,11 @@ Rewrites responses only (requests, headers, and all other endpoints pass untouch
   - /v1internal:fetchAvailableModels   (template__system_prompts__guidelines)
 
 With guidelines_pin set, a fetchAvailableModels response is replaced by an HTTP 502
-before any override is applied when Google's guidelines template differs from the
-pinned sha256, when the key is malformed, moved, or (with a replacement file) absent,
-or when any other server template__* override appears. Unpinned templates are saved
-to guidelines_drift_dir for review.
+before any override is applied, whatever guidelines_override is, when Google's
+guidelines template differs from the pinned sha256, when the key is malformed, moved,
+or (with a replacement file) absent, when any other server template__* override
+appears, or when the check itself fails. Unpinned templates are saved to
+guidelines_drift_dir for review; a failed save still blocks the response.
 
 Streaming responses (Connect / gRPC-web / SSE) are passed through unbuffered so
 long-lived RPC streams do not stall; set stream_tap_log to record frames to JSONL.
@@ -242,7 +243,7 @@ def check_guidelines(
         for ref in _template_refs(body)
         if ref not in known and not any(ref.startswith(f"{k}.") for k in known)
     )
-    if found == 0 and mode != "strip":
+    if found == 0 and mode not in {"", "strip"}:
         problems.append(
             f"no {GUIDELINES_KEY} in response; the replacement file would not be applied"
         )
@@ -317,7 +318,8 @@ class DevModeOverrides:
             "guidelines_override",
             str,
             "",
-            "Override server template__system_prompts__guidelines ('strip' or path to .tmpl file)",
+            "Override server template__system_prompts__guidelines ('strip', path to .tmpl file, "
+            "or empty to pass it through)",
         )
         loader.add_option(
             "guidelines_pin",
@@ -505,6 +507,7 @@ class DevModeOverrides:
                 LOG.info("proxy_overrides: rewrote %s on %s", ", ".join(changed), path)
 
     def _save_drift(self, unpinned: dict[str, str]) -> list[str]:
+        """Save each unpinned template once; raise OSError when one cannot be saved."""
         saved: list[str] = []
         if not self.guidelines_drift_dir:
             return saved
@@ -517,21 +520,18 @@ class DevModeOverrides:
             except FileExistsError:
                 saved.append(str(dest))
                 continue
-            except OSError as exc:
-                if ctx is not None:
-                    LOG.error("proxy_overrides: cannot save %s: %s", dest, exc)  # noqa: TRY400
-                continue
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(text)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            except BaseException:
+                # A partial file would be reported as saved on the next drift.
+                dest.unlink(missing_ok=True)
+                raise
             saved.append(str(dest))
         return saved
 
     def _block_models(self, flow: Any, problems: list[str]) -> None:  # noqa: ANN401
         """Replace fetchAvailableModels with HTTP 502 so drifted templates are blocked."""
-        flow.metadata["guidelines_check"] = problems
-        if ctx is not None:
-            for problem in problems:
-                LOG.error("proxy_overrides: GUIDELINES CHECK FAILED: %s", problem)
         message = "antigravity-proxy blocked fetchAvailableModels: " + "; ".join(problems)
         error = {"error": {"code": HTTP_BAD_GATEWAY, "status": "UNAVAILABLE", "message": message}}
         flow.response = http.Response.make(
@@ -539,9 +539,13 @@ class DevModeOverrides:
             json.dumps(error),
             {"content-type": "application/json"},
         )
+        flow.metadata["guidelines_check"] = problems
+        if ctx is not None:
+            for problem in problems:
+                LOG.error("proxy_overrides: GUIDELINES CHECK FAILED: %s", problem)
 
     def _load_replacement_template(self, *, checking: bool, flow: Any) -> tuple[bool, str | None]:  # noqa: ANN401
-        if self.guidelines_mode == "strip":
+        if self.guidelines_mode in {"", "strip"}:
             return True, None
         try:
             return True, Path(self.guidelines_mode).read_text(encoding="utf-8")
@@ -561,25 +565,43 @@ class DevModeOverrides:
             body, self.guidelines_pin, self.guidelines_mode
         )
         if problems:
-            saved = self._save_drift(unpinned)
-            if saved:
-                problems.append("server template saved to " + ", ".join(saved))
+            try:
+                saved = self._save_drift(unpinned)
+            except OSError as exc:
+                problems.append(f"cannot save server template: {exc}")
+            else:
+                if saved:
+                    problems.append("server template saved to " + ", ".join(saved))
             self._block_models(flow, problems)
             return False
         if found == 0 and "guidelines-absent" not in self.logged:
             self.logged.add("guidelines-absent")
             if ctx is not None:
                 LOG.warning(
-                    "proxy_overrides: %s absent from %s; strip has nothing to remove",
+                    "proxy_overrides: %s absent from %s",
                     GUIDELINES_KEY,
                     path,
                 )
         return True
 
+    @property
+    def _checking(self) -> bool:
+        return bool(self.guidelines_pin or self.guidelines_pin_error)
+
+    def _handle_models(self, flow: Any, path: str) -> None:  # noqa: ANN401
+        """Run the guidelines check and override, blocking on any error while checking."""
+        try:
+            self._handle_guidelines(flow, path)
+        except Exception as exc:
+            # mitmproxy logs addon errors and forwards the unmodified response.
+            if not self._checking:
+                raise
+            self._block_models(flow, [f"guidelines check failed: {type(exc).__name__}: {exc}"])
+
     def _handle_guidelines(self, flow: Any, path: str) -> None:  # noqa: ANN401
-        if not self.guidelines_mode:
+        checking = self._checking
+        if not self.guidelines_mode and not checking:
             return
-        checking = bool(self.guidelines_pin or self.guidelines_pin_error)
         if self.guidelines_pin_error:
             self._block_models(flow, [self.guidelines_pin_error])
             return
@@ -634,7 +656,7 @@ class DevModeOverrides:
         if path in FLAG_PATHS:
             self._handle_flags(flow, path)
         elif path == MODELS_PATH:
-            self._handle_guidelines(flow, path)
+            self._handle_models(flow, path)
 
     def error(self, flow: Any) -> None:  # noqa: ANN401
         """Finalize stream state when an active stream aborts."""

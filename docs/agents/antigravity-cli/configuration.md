@@ -75,7 +75,8 @@ Allowed `read_file`, `write_file`, and `read_url` targets also populate the Linu
 Gen4 models receive a server-pushed `template__system_prompts__guidelines` override in `fetchAvailableModels`, which takes precedence over `TEMPLATE_DATA_DIR`.
 The `antigravity-proxy` user service runs `mitmdump` on loopback with `allow_hosts` restricted to Google's Antigravity API endpoints so unrelated traffic tunnels untouched.
 Its addon verifies the server guidelines template against [the pinned hash](../../../modules/agents/antigravity-cli/_server-guidelines.sha256) and strips the override so [guidelines.tmpl](../../../modules/agents/antigravity-cli/templates/system_prompts/guidelines.tmpl) applies.
-On template drift or an unexpected `template__*` key, the proxy returns HTTP 502 and saves the new server template under `~/.local/state/antigravity-proxy/drift/`.
+On template drift, an unexpected `template__*` key, or a failed check, the proxy returns HTTP 502.
+It saves a drifted server template under `~/.local/state/antigravity-proxy/drift/`.
 On startup, the service writes `~/.local/state/antigravity-proxy/bundle.pem` and `spki.txt` before signaling systemd readiness.
 Both launchers fail closed if those CA artifacts are missing, while utility `agy` subcommands such as `plugin` and `--help` bypass the proxy.
 The Hub `language_server` wrapper restores pinned proxy and template variables after Electron merges the login-shell environment, and [the controlled shell](../../../modules/agents/antigravity-cli/_shell.nix) restores the caller's original environment before running agent commands.

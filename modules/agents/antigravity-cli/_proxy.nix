@@ -57,7 +57,8 @@ let
           How to handle server-pushed `template__system_prompts__guidelines` in
           `fetchAvailableModels`: `"strip"` deletes it so local
           `templates/system_prompts/guidelines.tmpl` applies, a path replaces
-          its content directly, and `null` leaves it untouched.
+          its content directly, and `null` leaves it untouched. `guidelinesPin`
+          applies in every mode.
         '';
       };
 
@@ -66,8 +67,9 @@ let
         default = defaultGuidelinesPin;
         description = ''
           File whose first field is the expected SHA-256 of Google's server
-          guidelines template. When set, drift returns HTTP 502 and saves the
-          drifted template under `$XDG_STATE_HOME/antigravity-proxy/drift/`.
+          guidelines template. When set, drift or a failed check returns HTTP 502
+          and saves the drifted template under
+          `$XDG_STATE_HOME/antigravity-proxy/drift/`.
         '';
       };
 
