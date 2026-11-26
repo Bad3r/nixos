@@ -112,6 +112,52 @@ BUILDS = {
         "test_jmp_addr": 0x9E5BC0A,
         "test_jmp_orig": "e8b15681fe",
     },
+    "8c51d6ee686bf8560cef67d5e7ca5a50b97e25a5a47eb657031fed858a46e0dc": {
+        "version": "1.5.18",
+        # CreateLanguageServerAndServe: movups [rsp+0xc10],xmm15 ; test [rcx],al ; nop ; nop
+        "ls_hook": 0xAD385E5,
+        "ls_orig": "440f11bc24100c000084019090",
+        # main.main: mov BYTE PTR [rsp+0x2c7],0x0 (open-coded defer bits)
+        "main_hook": 0xB5409EF,
+        "main_orig": "c68424c702000000",
+        # main's package-level language_server.Options: DisableTelemetry at +0x122
+        "main_opts": 0xDF75320,
+        # file_watcher.(*FileWatcherDefault).listenAndForwardEvents: call log.ctxlogf
+        "watcher_call": 0x8BF41A0,
+        "watcher_orig": "e8db551dff",
+        # updater.triggerUpdateShared: test dl,dl ; jne <disabled-by-env return at 0xb4df5a7>
+        "update_gate": 0xB4DE1C0,
+        "update_orig": "84d20f85df130000",
+        "update_disabled": 0xB4DF5A7,
+        # int3 run between the end of a C++ function (ret at 0xb5c1612) and the page boundary
+        "cave": (0xB5C1613, 0xB5C2000),
+        # Embedded MonitorsConfig textproto (agygating)
+        "monitors": (
+            # sir_flash_lite; the mode edit only checks the following line
+            (0x0DA7E97D, b"enabled: true\n ", b"enabled: false\n"),
+            (0x0DA7E98C, b" mode: LOG\n", b" mode: LOG\n"),
+            # severe_internal_risks_agy
+            (0x0DA80CFB, b"enabled: true\n ", b"enabled: false\n"),
+            (0x0DA80D0A, b" mode: BLOCK\n", b"  mode: ASK \n"),
+        ),
+        # Pure-static mixins.(*Section).Content methods (staticprompts):
+        # each is lea rax,[StaticString itab] ; lea rbx,[&StaticString] ; ret
+        "static_string_itab": 0xD8E4990,
+        "template_source_itab": 0xD8E6130,
+        "template_source_zero": 0x112F3CA0,
+        "static_prompts": (
+            ("browser_safety", 0x9BF0380, 0xBE9D750),
+            ("chrome_default_profile", 0x9BF0400, 0xBE9D760),
+            ("work_efficiently", 0x9BF31A0, 0xBE9D770),
+            ("non_interactive_mode", 0x9BF9080, 0xBE9D7C0),
+        ),
+        # templateprovider.(*TemplateProvider).loadEmbeddedTemplate: save ReadFile results to stack
+        "embed_read_hook": 0x8D5E825,
+        "embed_read_orig": "48897c2438488944245848895c2440",
+        # testjmp: skip CheckScriptGuard (call 0x878edc0 -> xor eax, eax ; nop3)
+        "test_jmp_addr": 0x9FB244A,
+        "test_jmp_orig": "e871c97dfe",
+    },
 }
 OPTS_DEVMODE = 0x1
 OPTS_DISABLE_TELEMETRY = 0x122
