@@ -77,6 +77,7 @@ let
     "pentesting-devshell" = true;
     radare2 = true;
     rizin = true;
+    pwntools = true;
     inkscape = true;
     krita = true;
     ytubic = true;

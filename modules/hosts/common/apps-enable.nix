@@ -410,6 +410,7 @@ let
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
+      pwntools.extended.enable = lib.mkOverride 1100 false;
       pwvucontrol.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
