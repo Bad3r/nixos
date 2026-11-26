@@ -39,6 +39,11 @@
   - Repo.: <https://gitlab.com/procps-ng/procps>
   - Docs.: <https://gitlab.com/procps-ng/procps#readme>
   - Desc.: ps, top, free, and friends for process inspection.
+- procs
+  - run..: `procs --tree`
+  - Repo.: <https://github.com/dalance/procs>
+  - Docs.: <https://github.com/dalance/procs#readme>
+  - Desc.: Rust ps replacement that adds TCP and UDP ports, read and write throughput, and container names per process, with keyword search, tree view, and watch mode.
 - psmisc
   - run..: `pstree -p`
   - Repo.: <https://gitlab.com/psmisc/psmisc>

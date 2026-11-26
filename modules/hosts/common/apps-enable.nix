@@ -404,6 +404,7 @@ let
       "pre-commit".extended.enable = lib.mkOverride 1100 true;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
+      procs.extended.enable = lib.mkOverride 1100 false;
       projectlibre.extended.enable = lib.mkOverride 1100 false;
       protobuf.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;

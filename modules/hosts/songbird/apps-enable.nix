@@ -39,6 +39,7 @@ let
     bloaty = true;
     bpftrace = true;
     strace = true;
+    procs = true;
     buf = true;
     goresym = true;
     pbtk = true;
