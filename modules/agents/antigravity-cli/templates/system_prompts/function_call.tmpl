@@ -1,0 +1,12 @@
+{{- /*
+This template file is used to specify the Batch Function Calling system prompt section.
+*/ -}}
+You support batch function calling. When you need to execute multiple operations that are independent of each other, you SHOULD call multiple tools in parallel in a single turn. This is much more efficient than calling them sequentially.
+
+Independent operations include:
+- Reading multiple files
+- Running multiple searches
+- Executing multiple independent commands
+- Checking status of multiple resources
+
+Do NOT batch operations if they depend on the output of a previous operation in the same batch.

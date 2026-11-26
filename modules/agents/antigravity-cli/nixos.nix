@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI byte-patched at build time (telemetry and the background updater off in every mode, quiet file watcher; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI byte-patched at build time (dev mode on, telemetry and the background updater off in every mode, quiet file watcher, embedded sir_flash_lite and severe_internal_risks_agy monitors off, pure-static prompt sections routed through TEMPLATE_DATA_DIR; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:
@@ -36,6 +36,7 @@ let
       shell = import ./_shell.nix { inherit lib pkgs scratchDir; };
       telemetry = import ./_telemetry.nix;
       binaryPatches = import ./_binary-patches.nix;
+      proxy = import ./_proxy.nix;
     in
     {
       imports = [ (import ../_plugin-options.nix "antigravity-cli") ];
@@ -56,12 +57,10 @@ let
 
         binaryPatches = lib.mkOption {
           type = lib.types.listOf (lib.types.enum binaryPatches.patchSets);
-          default = binaryPatches.defaultPatches;
+          default = binaryPatches.patchSets;
           example = [
-            "devmode"
             "notelemetry"
             "noautoupdate"
-            "quietwatcher"
           ];
           description = ''
             Patch sets applied to the `agy` binary at build time (see
@@ -70,10 +69,22 @@ let
           '';
         };
 
+        templatesDir = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = proxy.defaultTemplatesDir;
+          description = ''
+            Prompt template directory exported as `TEMPLATE_DATA_DIR` for
+            Antigravity CLI and Hub when dev mode is active. Set to `null` to
+            use embedded templates.
+          '';
+        };
+
+        proxy = proxy.mkProxyOptions { inherit lib pkgs; };
+
         finalPackage = lib.mkOption {
           type = lib.types.package;
           readOnly = true;
-          description = "The antigravity-cli package wrapped with disabled telemetry and auto-updates, the controlled agent shell, and rm shim.";
+          description = "The antigravity-cli package wrapped with disabled telemetry and auto-updates, local template overrides, proxy routing, the controlled agent shell, and rm shim.";
         };
       };
 
@@ -85,6 +96,7 @@ let
             shell
             scratchDir
             ;
+          inherit (cfg) templatesDir proxy;
           package =
             if cfg.binaryPatches == [ ] then
               cfg.package

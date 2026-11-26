@@ -1,0 +1,29 @@
+{{- /*
+Template for defaultStatusOutputString function
+Returns a status string based on step status, or empty string if status is DONE
+Can be used by multiple step converter templates
+Params: . (dot) - the Step proto
+*/ -}}
+{{- define "defaultStatusOutputString" }}
+	{{- $step := . }}
+	{{- $statusStr := $step.GetStatus.String }}
+	{{- if eq $statusStr "CORTEX_STEP_STATUS_CANCELED" }}
+Step was canceled: {{ $step.GetError.GetShortError }}
+	{{- else if eq $statusStr "CORTEX_STEP_STATUS_ERROR" }}
+Encountered error in step execution: {{ $step.GetError.GetShortError }}
+	{{- else if eq $statusStr "CORTEX_STEP_STATUS_INVALID" }}
+		{{- if $step.GetMetadata.GetToolCall }}
+Error invalid tool call: {{ $step.GetError.GetShortError }}
+		{{- else }}
+Error: {{ $step.GetError.GetShortError }}
+		{{- end }}
+	{{- else if or (eq $statusStr "CORTEX_STEP_STATUS_PENDING") (eq $statusStr "CORTEX_STEP_STATUS_RUNNING") }}
+Step is still running
+	{{- else if eq $statusStr "CORTEX_STEP_STATUS_WAITING" }}
+Step is WAITING for user approval
+	{{- else if eq $statusStr "CORTEX_STEP_STATUS_DONE" }}
+		{{- /* Return empty string for DONE status */ -}}
+	{{- else }}
+		{{- template "templateError" "Unrecognized Cortex Step Status" }}
+	{{- end }}
+{{- end }}

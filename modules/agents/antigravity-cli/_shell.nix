@@ -9,9 +9,12 @@
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
   sessionTmpdir = import ../_session-tmpdir.nix { inherit lib scratchDir; };
+  proxy = import ./_proxy.nix;
 
   antigravityBashWrapper = pkgs.writeShellScriptBin "bash" ''
     set -euo pipefail
+
+    ${proxy.restoreShellEnvSnippet lib}
 
     direnvBin=${lib.getExe pkgs.direnv}
     realBash=${lib.getExe pkgs.bashInteractive}

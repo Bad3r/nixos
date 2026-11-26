@@ -36,7 +36,7 @@
   editorMode = "vim";
 
   # Isolate terminal commands in OS namespaces
-  enableTerminalSandbox = true;
+  enableTerminalSandbox = false;
 
   # Hide active subagents and background tasks below the prompt box
   # hideActiveItems = false;
@@ -69,7 +69,7 @@
   # showTips = true;
 
   # Tool approval fallback: "request-review" | "proceed-in-sandbox" | "always-proceed" | "strict"
-  toolPermission = "proceed-in-sandbox";
+  toolPermission = "always-proceed";
 
   # Use Google AI credits when plan quota runs out
   # useG1Credits = false;

@@ -7,6 +7,7 @@
 let
   telemetry = import ./_telemetry.nix;
   binaryPatches = import ./_binary-patches.nix;
+  proxy = import ./_proxy.nix;
 in
 {
   perSystem =
@@ -569,11 +570,6 @@ in
             patched = binaryPatches.patchAgy {
               inherit lib pkgs;
               package = unpatched;
-              patches = binaryPatches.defaultPatches;
-            };
-            patchedAll = binaryPatches.patchAgy {
-              inherit lib pkgs;
-              package = unpatched;
               patches = binaryPatches.patchSets;
             };
           in
@@ -590,7 +586,7 @@ in
               manifest=${patched}/share/antigravity-cli/agy.patch.json
               fail() { echo "FAIL: $*" >&2; exit 1; }
 
-              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.defaultPatches)} ] || fail "manifest patch sets"
+              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.patchSets)} ] || fail "manifest patch sets"
               [ "$(jq -r .input_sha256 "$manifest")" = "$(sha256sum ${unpatched}/bin/agy | cut -d' ' -f1)" ] \
                 || fail "input checksum"
               [ "$(jq -r .output_sha256 "$manifest")" = "$(sha256sum ${patched}/bin/agy | cut -d' ' -f1)" ] \
@@ -603,14 +599,58 @@ in
               actual=$(cmp -l ${unpatched}/bin/agy ${patched}/bin/agy | wc -l || true)
               [ "$actual" -eq "$expected" ] || fail "$actual bytes differ, manifest edits change $expected"
 
-              # The default sets on 1.5.16 give exactly this binary.
-              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
-                || [ "$(jq -r .output_sha256 "$manifest")" = 6a2b526546901fb733b2f8ea14524e3ca59f5f8614c63c7ab975a3cef4d3f0cf ] || fail "1.5.16 output checksum drifted"
+              # Every set on 1.5.17 gives exactly this binary.
+              [ "$(jq -r .version "$manifest")" != 1.5.17 ] \
+                || [ "$(jq -r .output_sha256 "$manifest")" = 361aaa5864a4c830153a4b93097e24239067df7bf387a1b334f7c5c061c9ce45 ] \
+                || fail "1.5.17 output checksum drifted"
 
-              # Every set on 1.5.16, devmode included, gives exactly this binary.
-              [ "$(jq -r .version "$manifest")" != 1.5.16 ] \
-                || [ "$(jq -r .output_sha256 ${patchedAll}/share/antigravity-cli/agy.patch.json)" = 661f84099da9a6d4fd27cf87a38d3f6c21750fe369e3397aac4ccf94362573f6 ] \
-                || fail "1.5.16 all-sets output checksum drifted"
+              # staticprompts routes every listed pure-static PromptSection.Content through
+              # TemplateSource{} and hooks loadEmbeddedTemplate to fall back to the built-in strings.
+              python3 -I -c '
+              import hashlib, importlib.util, pathlib, struct, sys
+              spec = importlib.util.spec_from_file_location("patch_agy", sys.argv[1])
+              mod = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(mod)
+              unpatched_b = pathlib.Path(sys.argv[2]).read_bytes()
+              patched_b = pathlib.Path(sys.argv[3]).read_bytes()
+              build = mod.BUILDS[hashlib.sha256(unpatched_b).hexdigest()]
+
+              def lea_target(buf, off, prefix):
+                  assert buf[off : off + 3] == prefix, (hex(off), buf[off : off + 3].hex())
+                  return off + 7 + struct.unpack_from("<i", buf, off + 3)[0]
+
+              for name, off, static_addr in build["static_prompts"]:
+                  assert lea_target(patched_b, off, b"\x48\x8d\x05") == build["template_source_itab"], name
+                  assert lea_target(patched_b, off + 7, b"\x48\x8d\x1d") == build["template_source_zero"], name
+                  assert patched_b[off + 14] == 0xC3, name
+                  assert lea_target(unpatched_b, off + 7, b"\x48\x8d\x1d") == static_addr, name
+
+              hook = build["embed_read_hook"]
+              assert patched_b[hook] == 0xE9
+              cave_target = hook + 5 + struct.unpack_from("<i", patched_b, hook + 1)[0]
+              cave_lo, cave_hi = build["cave"]
+              assert cave_lo <= cave_target < cave_hi, hex(cave_target)
+              ' ${./_patch_agy.py} ${unpatched}/bin/agy ${patched}/bin/agy || fail "staticprompts patch check"
+
+              # agygating disables sir_flash_lite and severe_internal_risks_agy, drops the latter
+              # to ASK, and changes no other monitor field.
+              python3 -I -c '
+              import re, sys
+              header = re.compile(rb"monitors \{\n +name: \x22([^\x22]+)\x22\n((?: +[a-z_]+: [^\n]*\n)+)")
+              def monitors(path):
+                  data = open(path, "rb").read()
+                  return {
+                      m[1].decode(): {k.decode(): v.decode().strip() for k, v in re.findall(rb"^ *([a-z_]+): (.*)$", m[2], re.M)}
+                      for m in header.finditer(data)
+                  }
+              shipped, patched = map(monitors, sys.argv[1:])
+              assert {"sir_flash_lite", "severe_internal_risks_agy"} <= shipped.keys(), shipped.keys()
+              assert shipped["sir_flash_lite"]["enabled"] == shipped["severe_internal_risks_agy"]["enabled"] == "true", shipped
+              expected = {name: dict(fields) for name, fields in shipped.items()}
+              expected["sir_flash_lite"]["enabled"] = "false"
+              expected["severe_internal_risks_agy"].update(enabled="false", mode="ASK")
+              assert patched == expected, patched
+              ' ${unpatched}/bin/agy ${patched}/bin/agy || fail "agygating monitor fields"
 
               # A build the patcher does not know fails instead of passing through unpatched.
               cp ${unpatched}/bin/agy "$TMPDIR/agy-unknown"
@@ -779,6 +819,464 @@ in
               [ -n "${scratchDir}" ]
 
               echo "ok: antigravity-cli shell wrapper" >$out
+            '';
+
+        "antigravity-cli/proxy-overrides" =
+          let
+            dummyAgy = pkgs.writeShellScriptBin "agy" ''
+              printf 'ARGS:%s\n' "$*"
+              printf 'TEMPLATE_DATA_DIR=%s\n' "''${TEMPLATE_DATA_DIR-UNSET}"
+              printf 'HTTPS_PROXY=%s\n' "''${HTTPS_PROXY-UNSET}"
+              printf 'SSL_CERT_FILE=%s\n' "''${SSL_CERT_FILE-UNSET}"
+              printf 'NODE_EXTRA_CA_CERTS=%s\n' "''${NODE_EXTRA_CA_CERTS-UNSET}"
+              printf 'ANTIGRAVITY_PROXY_ACTIVE=%s\n' "''${ANTIGRAVITY_PROXY_ACTIVE-UNSET}"
+              printf 'ANTIGRAVITY_ORIG_SSL_CERT_FILE=%s\n' "''${ANTIGRAVITY_ORIG_SSL_CERT_FILE-UNSET}"
+              if [ "''${RUN_NESTED_BASH:-0}" = "1" ]; then
+                bash -c 'printf "CHILD:HTTPS_PROXY=%s SSL_CERT_FILE=%s ACTIVE=%s ORIG=%s PIN=%s\n" "''${HTTPS_PROXY-UNSET}" "''${SSL_CERT_FILE-UNSET}" "''${ANTIGRAVITY_PROXY_ACTIVE-UNSET}" "''${ANTIGRAVITY_ORIG_SSL_CERT_FILE-UNSET}" "''${ANTIGRAVITY_PIN_SSL_CERT_FILE-UNSET}"'
+              fi
+            '';
+            testProxyCfg = {
+              enable = true;
+              port = 18099;
+              guidelinesOverride = "strip";
+              guidelinesPin = proxy.defaultGuidelinesPin;
+              flagOverrides = {
+                "generic-system-prompt" = false;
+                "enable-programmatic-tools" = true;
+                "comma-flag" = "a,b=c";
+                "numeric-string" = "42";
+              };
+              package = pkgs.mitmproxy;
+            };
+            wrappedDummyAgy = telemetry.wrapAgy {
+              inherit lib pkgs shell;
+              package = dummyAgy;
+              scratchDir = "/nonexistent/agy-proxy-check-missing";
+              templatesDir = proxy.defaultTemplatesDir;
+              proxy = testProxyCfg;
+            };
+            hubWrapperScript = pkgs.writeShellScript "antigravity-hub-test-wrapper" ''
+              set -euo pipefail
+              ${proxy.mkWrapperEnvSnippet {
+                inherit lib;
+                templatesDir = proxy.defaultTemplatesDir;
+                proxy = testProxyCfg;
+                isHub = true;
+              }}
+              printf 'HUB_ARGS:%s\n' "$*"
+              printf 'HUB_PIN_TPL=%s\n' "''${ANTIGRAVITY_PIN_TEMPLATE_DATA_DIR-UNSET}"
+              printf 'HUB_PIN_SSL=%s\n' "''${ANTIGRAVITY_PIN_SSL_CERT_FILE-UNSET}"
+              # Simulate Electron overwriting SSL_CERT_FILE and TEMPLATE_DATA_DIR from login shell.
+              export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+              export TEMPLATE_DATA_DIR=/wrong/templates
+              ${proxy.restorePinnedEnvSnippet lib}
+              printf 'LS_RESTORED_TPL=%s\n' "''${TEMPLATE_DATA_DIR-UNSET}"
+              printf 'LS_RESTORED_SSL=%s\n' "''${SSL_CERT_FILE-UNSET}"
+              printf 'LS_RESTORED_PIN=%s\n' "''${ANTIGRAVITY_PIN_SSL_CERT_FILE-UNSET}"
+            '';
+            proxyStartScript = proxy.mkProxyStartScript {
+              inherit lib pkgs;
+              proxy = testProxyCfg // {
+                port = 0;
+              };
+              systemCaBundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+            };
+          in
+          pkgs.runCommandLocal "antigravity-cli-proxy-overrides"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [
+                pkgs.openssl
+                pkgs.python3
+              ];
+            }
+            ''
+              set -euo pipefail
+              fail() { echo "FAIL: $*" >&2; exit 1; }
+
+              # 1. Bundled templates exist and include guidelines, identity, and the four static prompt templates.
+              for name in guidelines identity browser_safety chrome_default_profile work_efficiently non_interactive_mode; do
+                [ -s "${proxy.defaultTemplatesDir}/system_prompts/$name.tmpl" ] || fail "missing $name.tmpl"
+              done
+              [ "$(find ${proxy.defaultTemplatesDir} -name '*.tmpl' | wc -l)" -eq 23 ] || fail "expected 23 templates"
+
+              # 2. Offline unit tests of _proxy_overrides.py (pin parsing, flags, guidelines drift & rewrite, allow_hosts regex)
+              # and DevModeOverrides.response() blocking on fake flows.
+              python3 -I - ${proxy.addonScript} ${proxy.defaultGuidelinesPin} ${lib.escapeShellArg proxy.allowHostsRegex} <<'PY'
+              import hashlib, importlib.util, json, pathlib, re, sys, tempfile, types
+
+              addon_path, pin_path, allow_re = sys.argv[1], sys.argv[2], sys.argv[3]
+              spec = importlib.util.spec_from_file_location("proxy_overrides", addon_path)
+              mod = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(mod)
+
+              pin = mod.read_pin(pin_path)
+              assert len(pin) == 64
+
+              # allow_hosts matches only Google API endpoints rewritten by the addon.
+              pat = re.compile(allow_re)
+              for host in (
+                  "daily-cloudcode-pa.googleapis.com:443",
+                  "cloudcode-pa.googleapis.com:443",
+                  "aicode.googleapis.com:443",
+                  "daily-cloudcode-pa.googleapis.com",
+              ):
+                  assert pat.search(host), f"allow_hosts missed {host}"
+              for host in (
+                  "api.github.com:443",
+                  "oauth2.googleapis.com:443",
+                  "evil-cloudcode-pa.googleapis.com:443",
+                  "daily-cloudcode-pa.googleapis.com.evil.com:443",
+              ):
+                  assert not pat.search(host), f"allow_hosts matched {host}"
+
+              # Mendel flag parsing and rewriting.
+              names = {"a", "b", "c", "d", "e", "f"}
+              spec = json.dumps({"a": False, "b": 42, "c": 1.5, "d": "hello", "e": "42", "f": "a,b=c"})
+              overrides = mod.parse_flag_overrides(spec)
+              assert set(overrides) == names, overrides
+              assert overrides["a"][:2] == ("boolValue", False)
+              assert overrides["b"][:2] == ("intValue", "42")
+              assert overrides["c"][:2] == ("floatValue", 1.5)
+              assert overrides["d"][:2] == ("stringValue", "hello")
+              assert overrides["e"][:2] == ("stringValue", "42")
+              assert overrides["f"][:2] == ("stringValue", "a,b=c")
+
+              cfg_body = {"experimentConfig": {"experimentFlags": [{"name": "a", "stringValue": "true"}]}}
+              changed = mod.rewrite_flags(cfg_body, "/v1alpha:fetchConfig", overrides)
+              assert set(changed) == names
+              flag_list = cfg_body["experimentConfig"]["experimentFlags"]
+              flags_by_name = {f["name"]: f for f in flag_list}
+              assert len(flag_list) == len(names) and set(flags_by_name) == names, flag_list
+              assert flags_by_name["a"] == {"name": "a", "stringValue": "false"}
+              assert flags_by_name["b"] == {"name": "b", "intValue": "42"}
+              assert flags_by_name["e"] == {"name": "e", "stringValue": "42"}
+              assert flags_by_name["f"] == {"name": "f", "stringValue": "a,b=c"}
+
+              # An int override keeps its decimal text when the server carries the flag as stringValue.
+              int_body = {"experimentConfig": {"experimentFlags": [{"name": "n", "stringValue": "3"}]}}
+              mod.rewrite_flags(int_body, "/v1alpha:fetchConfig", mod.parse_flag_overrides(json.dumps({"n": 7})))
+              assert int_body["experimentConfig"]["experimentFlags"] == [{"name": "n", "stringValue": "7"}], int_body
+
+              # Guidelines check + strip + replace + drift detection.
+              sample_text = "pinned guidelines body"
+              sample_pin = hashlib.sha256(sample_text.encode("utf-8")).hexdigest()
+              ok_body = {
+                  "models": {
+                      "gemini-4-hydrogen-high": {
+                          "modelExperiments": {
+                              "experiments": {
+                                  mod.GUIDELINES_KEY: {"stringValue": sample_text},
+                                  "other-flag": {"boolValue": True},
+                              }
+                          }
+                      },
+                      "other-model": {"modelExperiments": {"experiments": {}}},
+                  }
+              }
+              problems, unpinned, found = mod.check_guidelines(ok_body, sample_pin, "strip")
+              assert problems == [] and unpinned == {} and found == 1
+
+              # Extra template__* key fails drift check.
+              extra_body = {
+                  "models": {
+                      "m": {
+                          "modelExperiments": {
+                              "experiments": {
+                                  mod.GUIDELINES_KEY: {"stringValue": sample_text},
+                                  "template__system_prompts__identity": {"stringValue": "x"},
+                              }
+                          }
+                      }
+                  }
+              }
+              problems, _, _ = mod.check_guidelines(extra_body, sample_pin, "strip")
+              assert any("unpinned server template reference" in p for p in problems), problems
+
+              # Hash mismatch reports drift and returns unpinned text.
+              drift_body = {
+                  "models": {
+                      "m": {"modelExperiments": {"experiments": {mod.GUIDELINES_KEY: {"stringValue": "changed"}}}}
+                  }
+              }
+              problems, unpinned, found = mod.check_guidelines(drift_body, sample_pin, "strip")
+              assert len(problems) == 1 and len(unpinned) == 1 and found == 1
+
+              # Missing key fails in replacement-file mode.
+              problems, _, found = mod.check_guidelines({"models": {}}, sample_pin, "/tmp/custom.tmpl")
+              assert len(problems) == 1 and found == 0
+
+              # Strip deletes only the guidelines key.
+              touched = mod.rewrite_guidelines(ok_body, "strip")
+              assert touched == ["models.gemini-4-hydrogen-high"]
+              assert mod.GUIDELINES_KEY not in ok_body["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]
+              assert ok_body["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]["other-flag"] == {"boolValue": True}
+
+              # DevModeOverrides.response() on fake fetchAvailableModels flows; every blocked case must not forward the body.
+              class FakeResponse:
+                  def __init__(self, status_code, text):
+                      self.status_code = status_code
+                      self.text = text
+
+                  def get_text(self):
+                      return self.text
+
+                  def set_text(self, text):
+                      self.text = text
+
+
+              mod.http = types.SimpleNamespace(
+                  Response=types.SimpleNamespace(make=lambda status, body, headers: FakeResponse(status, body))
+              )
+              tmp = pathlib.Path(tempfile.mkdtemp())
+              pin_file = tmp / "pin"
+              pin_file.write_text(sample_pin + "  guidelines.tmpl\n")
+              drift_name = "server-guidelines." + hashlib.sha256("changed".encode()).hexdigest()[:12] + ".tmpl"
+              blocked = "antigravity-proxy blocked fetchAvailableModels"
+
+
+              def configured(**opts):
+                  options = {
+                      "flag_overrides": "",
+                      "guidelines_override": "strip",
+                      "guidelines_pin": str(pin_file),
+                      "guidelines_drift_dir": "",
+                      "ca_bundle_out": "",
+                      "spki_out": "",
+                      "system_ca_bundle": "",
+                      "stream_tap_log": "",
+                      **opts,
+                  }
+                  mod.ctx = types.SimpleNamespace(options=types.SimpleNamespace(**options))
+                  try:
+                      addon = mod.DevModeOverrides()
+                      addon.configure(set())
+                  finally:
+                      mod.ctx = None
+                  return addon
+
+
+              def respond(addon, text):
+                  flow = types.SimpleNamespace(
+                      id="flow",
+                      request=types.SimpleNamespace(path=mod.MODELS_PATH),
+                      metadata={},
+                      response=FakeResponse(200, text),
+                  )
+                  addon.response(flow)
+                  return flow
+
+
+              def models_body(text):
+                  return {
+                      "models": {
+                          "gemini-4-hydrogen-high": {
+                              "modelExperiments": {
+                                  "experiments": {
+                                      mod.GUIDELINES_KEY: {"stringValue": text},
+                                      "other-flag": {"boolValue": True},
+                                  }
+                              }
+                          },
+                          "other-model": {"modelExperiments": {"experiments": {}}},
+                      }
+                  }
+
+
+              def assert_blocked(flow, reason):
+                  assert flow.response.status_code == 502, (flow.response.status_code, flow.response.text)
+                  assert blocked in flow.response.text and reason in flow.response.text, flow.response.text
+
+
+              # Strip mode blocks drift and saves the server template.
+              drift_dir = tmp / "drift-strip"
+              flow = respond(configured(guidelines_drift_dir=str(drift_dir)), json.dumps(models_body("changed")))
+              assert_blocked(flow, "!= pinned")
+              assert (drift_dir / drift_name).read_text() == "changed"
+
+              # Strip mode with the pinned template removes only the guidelines key.
+              flow = respond(configured(), json.dumps(models_body(sample_text)))
+              assert flow.response.status_code == 200, flow.response.text
+              experiments = json.loads(flow.response.text)["models"]["gemini-4-hydrogen-high"]["modelExperiments"]["experiments"]
+              assert experiments == {"other-flag": {"boolValue": True}}, experiments
+              assert flow.metadata["guidelines_override"]["targets"] == ["models.gemini-4-hydrogen-high"]
+
+              # An unreadable pin blocks even a body without guidelines.
+              flow = respond(configured(guidelines_pin=str(tmp / "missing-pin")), json.dumps({"models": {}}))
+              assert_blocked(flow, "cannot read guidelines_pin")
+
+              # A non-JSON body is blocked.
+              flow = respond(configured(), "<html>")
+              assert_blocked(flow, "not JSON")
+
+              # Null mode still enforces the pin and saves drift.
+              drift_dir = tmp / "drift-null"
+              flow = respond(
+                  configured(guidelines_override="", guidelines_drift_dir=str(drift_dir)),
+                  json.dumps(models_body("changed")),
+              )
+              assert_blocked(flow, "!= pinned")
+              assert (drift_dir / drift_name).read_text() == "changed"
+
+              # Null mode passes the pinned template through unchanged.
+              text = json.dumps(models_body(sample_text))
+              flow = respond(configured(guidelines_override=""), text)
+              assert flow.response.status_code == 200 and flow.response.text == text, flow.response.text
+
+              # Null mode with an unreadable pin blocks.
+              flow = respond(
+                  configured(guidelines_override="", guidelines_pin=str(tmp / "missing-pin")),
+                  json.dumps(models_body(sample_text)),
+              )
+              assert_blocked(flow, "cannot read guidelines_pin")
+
+              # Null mode with a valid pin passes a body without the guidelines key through unchanged.
+              text = json.dumps({"models": {"other-model": {"modelExperiments": {"experiments": {}}}}})
+              flow = respond(configured(guidelines_override=""), text)
+              assert flow.response.status_code == 200 and flow.response.text == text, flow.response.text
+
+              # A drift save that fails still blocks.
+              not_dir = tmp / "not-a-dir"
+              not_dir.write_text("")
+              flow = respond(configured(guidelines_drift_dir=str(not_dir)), json.dumps(models_body("changed")))
+              assert_blocked(flow, "cannot save server template")
+
+              # A drift write that fails partway blocks and leaves nothing in the drift dir.
+              class FailingWriter:
+                  def __init__(self, fd):
+                      self.fd = fd
+
+                  def __enter__(self):
+                      return self
+
+                  def __exit__(self, *exc):
+                      mod.os.close(self.fd)
+                      return False
+
+                  def write(self, data):
+                      raise OSError(28, "No space left on device")
+
+
+              drift_dir = tmp / "drift-partial"
+              real_fdopen = mod.os.fdopen
+              mod.os.fdopen = lambda fd, *args, **kwargs: FailingWriter(fd)
+              try:
+                  flow = respond(configured(guidelines_drift_dir=str(drift_dir)), json.dumps(models_body("changed")))
+              finally:
+                  mod.os.fdopen = real_fdopen
+              assert_blocked(flow, "cannot save server template: [Errno 28] No space left on device")
+              assert list(drift_dir.iterdir()) == [], list(drift_dir.iterdir())
+
+              # An exception inside the check blocks: a lone surrogate escape cannot be hashed as UTF-8.
+              surrogate = json.dumps(models_body("SURROGATE")).replace("SURROGATE", "\\ud800")
+              flow = respond(configured(), surrogate)
+              assert_blocked(flow, "guidelines check failed")
+
+              # Invalid flag_overrides are recorded in configure() and stop startup in running() before READY=1.
+              for bad in ("not json", "[1]", '{"x": null}', '{"x": NaN}', '{"x": 1e999}'):
+                  addon = configured(flag_overrides=bad)
+                  assert addon.overrides == {}, (bad, addon.overrides)
+                  assert addon.flag_overrides_error.startswith("invalid flag_overrides"), bad
+                  stopped = []
+                  mod.ctx = types.SimpleNamespace(master=types.SimpleNamespace(shutdown=lambda: stopped.append(True)))
+                  try:
+                      addon.running()
+                  finally:
+                      mod.ctx = None
+                  assert stopped == [True], bad
+
+              PY
+
+              # 3. Real mitmdump startup via mkProxyStartScript: sd_notify READY=1, bundle.pem, SPKI match openssl,
+              # and typed flag overrides that survive escapeShellArg and --set.
+              export XDG_STATE_HOME="$TMPDIR/state"
+              state_dir="$XDG_STATE_HOME/antigravity-proxy"
+              notify_sock="$TMPDIR/notify.sock"
+              python3 -I - "$notify_sock" ${proxyStartScript} "$state_dir" <<'PY'
+              import os, pathlib, socket, subprocess, sys
+
+              sock_path, start_script, state_dir = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
+              srv = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+              srv.bind(sock_path)
+              srv.settimeout(20.0)
+              env = dict(os.environ, NOTIFY_SOCKET=sock_path, STATE_DIRECTORY=str(state_dir))
+              proc = subprocess.Popen([start_script], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              ready = False
+              try:
+                  msg, _ = srv.recvfrom(4096)
+                  assert msg == b"READY=1", f"unexpected notify payload: {msg!r}"
+                  # All artifacts must already exist at the moment READY=1 arrives.
+                  for rel in ("bundle.pem", "spki.txt", "ca/mitmproxy-ca-cert.pem", "drift"):
+                      assert (state_dir / rel).exists(), f"missing {rel} after READY=1"
+                  ready = True
+              finally:
+                  if proc.poll() is None:
+                      proc.terminate()
+                  out = proc.communicate(timeout=10)[0].decode("utf-8", "replace")
+                  srv.close()
+                  if not ready:
+                      sys.stderr.write(out)
+
+              # configure() logs each override with the proto field it selected.
+              flags_line = next((line for line in out.splitlines() if "proxy_overrides: flags=" in line), None)
+              assert flags_line, out
+              for want in (
+                  "'generic-system-prompt': {'boolValue': False}",
+                  "'enable-programmatic-tools': {'boolValue': True}",
+                  "'comma-flag': {'stringValue': 'a,b=c'}",
+                  "'numeric-string': {'stringValue': '42'}",
+              ):
+                  assert want in flags_line, f"{want} missing from {flags_line}"
+              PY
+
+              expected_spki=$(openssl x509 -in "$state_dir/ca/mitmproxy-ca-cert.pem" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+              actual_spki=$(tr -d '[:space:]' < "$state_dir/spki.txt")
+              [ "$actual_spki" = "$expected_spki" ] || fail "SPKI mismatch: got '$actual_spki', expected '$expected_spki'"
+              [ "$(stat -c %a "$state_dir/bundle.pem")" = "600" ] || fail "bundle.pem permissions"
+              [ "$(stat -c %a "$state_dir/spki.txt")" = "600" ] || fail "spki.txt permissions"
+              grep -Fq -- "$(sed -n '2p' "$state_dir/ca/mitmproxy-ca-cert.pem")" "$state_dir/bundle.pem" || fail "bundle.pem missing proxy CA"
+
+              # 4. agy wrapper fails closed when CA artifacts are missing, but utility subcommands still run.
+              empty_state="$TMPDIR/empty-state"
+              if XDG_STATE_HOME="$empty_state" ${wrappedDummyAgy}/bin/agy -p hi >/dev/null 2>"$TMPDIR/missing.err"; then
+                fail "agy -p succeeded without proxy CA artifacts"
+              fi
+              grep -q 'antigravity-proxy CA artifacts missing' "$TMPDIR/missing.err" || fail "missing CA error text"
+              XDG_STATE_HOME="$empty_state" ${wrappedDummyAgy}/bin/agy --help | grep -q '^ARGS:--help$' || fail "agy --help blocked without proxy"
+              XDG_STATE_HOME="$empty_state" ${wrappedDummyAgy}/bin/agy plugin install foo | grep -q '^ARGS:plugin install foo$' || fail "agy plugin blocked without proxy"
+              XDG_STATE_HOME="$empty_state" ${wrappedDummyAgy}/bin/agy agentapi status | grep -q '^ARGS:agentapi status$' || fail "agy agentapi blocked without proxy"
+
+              # 5. agy wrapper exports TEMPLATE_DATA_DIR + proxy env, and _shell.nix restores original env for child commands.
+              cli_out=$(
+                unset HTTPS_PROXY HTTP_PROXY https_proxy http_proxy NO_PROXY no_proxy NODE_EXTRA_CA_CERTS TEMPLATE_DATA_DIR
+                export SSL_CERT_FILE=/etc/ssl/certs/orig-ca.crt
+                export XDG_STATE_HOME="$TMPDIR/state"
+                export RUN_NESTED_BASH=1
+                ${wrappedDummyAgy}/bin/agy -p hi
+              )
+              printf '%s\n' "$cli_out" | grep -Fq "TEMPLATE_DATA_DIR=${proxy.defaultTemplatesDir}" || fail "missing TEMPLATE_DATA_DIR: $cli_out"
+              printf '%s\n' "$cli_out" | grep -Fq "HTTPS_PROXY=http://127.0.0.1:18099" || fail "missing HTTPS_PROXY: $cli_out"
+              printf '%s\n' "$cli_out" | grep -Fq "SSL_CERT_FILE=$state_dir/bundle.pem" || fail "missing SSL_CERT_FILE: $cli_out"
+              printf '%s\n' "$cli_out" | grep -Fq "NODE_EXTRA_CA_CERTS=$state_dir/ca/mitmproxy-ca-cert.pem" || fail "missing NODE_EXTRA_CA_CERTS: $cli_out"
+              printf '%s\n' "$cli_out" | grep -Fq "CHILD:HTTPS_PROXY=UNSET SSL_CERT_FILE=/etc/ssl/certs/orig-ca.crt ACTIVE=UNSET ORIG=UNSET PIN=UNSET" \
+                || fail "child shell did not restore pre-proxy env: $cli_out"
+
+              # 6. Hub wrapper fails closed without spki.txt, prepends Electron flags, and language_server restores pinned env.
+              if XDG_STATE_HOME="$empty_state" ${hubWrapperScript} --foo >/dev/null 2>&1; then
+                fail "hub wrapper succeeded without proxy CA artifacts"
+              fi
+              hub_out=$(
+                unset HTTPS_PROXY HTTP_PROXY https_proxy http_proxy NO_PROXY no_proxy NODE_EXTRA_CA_CERTS TEMPLATE_DATA_DIR
+                export XDG_STATE_HOME="$TMPDIR/state"
+                ${hubWrapperScript} --foo
+              )
+              printf '%s\n' "$hub_out" | grep -Fq "HUB_ARGS:--proxy-server=http://127.0.0.1:18099 --ignore-certificate-errors-spki-list=$expected_spki --foo" \
+                || fail "hub args mismatch: $hub_out"
+              printf '%s\n' "$hub_out" | grep -Fq "LS_RESTORED_TPL=${proxy.defaultTemplatesDir}" || fail "LS did not restore TEMPLATE_DATA_DIR: $hub_out"
+              printf '%s\n' "$hub_out" | grep -Fq "LS_RESTORED_SSL=$state_dir/bundle.pem" || fail "LS did not restore SSL_CERT_FILE: $hub_out"
+              printf '%s\n' "$hub_out" | grep -Fq "LS_RESTORED_PIN=UNSET" || fail "LS leaked ANTIGRAVITY_PIN_SSL_CERT_FILE: $hub_out"
+
+              echo "ok: antigravity-cli proxy overrides and wrappers" >$out
             '';
       };
     };

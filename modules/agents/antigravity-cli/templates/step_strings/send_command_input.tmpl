@@ -1,0 +1,25 @@
+{{- /*
+Template for SendCommandInputStringConverter.ToOutputString
+Data: StepStringData with Step field
+*/ -}}
+{{- $step := .Step -}}
+{{- $sendInput := $step.GetSendCommandInput -}}
+{{- $output := $sendInput.GetOutput -}}
+{{- $running := $sendInput.GetRunning -}}
+{{- $exitCode := $sendInput.GetExitCode -}}
+{{- $statusStr := $step.GetStatus.String -}}
+
+{{- if or (eq $statusStr "CORTEX_STEP_STATUS_PENDING") (eq $statusStr "CORTEX_STEP_STATUS_RUNNING") (eq $statusStr "CORTEX_STEP_STATUS_INVALID") (eq $statusStr "CORTEX_STEP_STATUS_ERROR") (eq $statusStr "CORTEX_STEP_STATUS_WAITING") (eq $statusStr "CORTEX_STEP_STATUS_UNSPECIFIED") }}
+	{{- template "defaultStatusOutputString" $step }}
+{{- else }}
+Input sent successfully.
+	{{- if $running }}
+The command is still running.
+	{{- else }}
+The command exited with code {{ $exitCode }}.
+	{{- end }}
+	{{- if and $output (ne $output.GetFull "") }}
+Output:
+{{ $output.GetFull }}
+	{{- end }}
+{{- end }}

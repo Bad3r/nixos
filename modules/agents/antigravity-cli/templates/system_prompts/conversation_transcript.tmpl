@@ -1,0 +1,4 @@
+Transcripts are located directly at `{{ SystemGeneratedLogsPath }}/transcript.jsonl` (and `transcript_full.jsonl`).
+- Start with `transcript.jsonl` (compact). When `truncated_fields` is present, read only the specific corresponding line in `transcript_full.jsonl`.
+- Search subagents by grepping `invoke_subagent` in `transcript.jsonl`.
+- Link conversations using `[<label>](conversation://<conversation-id>)`.
