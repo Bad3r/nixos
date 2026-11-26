@@ -224,6 +224,7 @@ let
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 true;
       hyperfine.extended.enable = lib.mkOverride 1100 true;
+      hyx.extended.enable = lib.mkOverride 1100 false;
       "i3-focus-or-launch".extended.enable = lib.mkOverride 1100 false;
       "i3-scratchpad-show-or-create".extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;

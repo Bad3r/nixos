@@ -62,6 +62,7 @@ let
     iaito = true;
     ilspycmd = true;
     imhex = true;
+    hyx = true;
     irccat = true;
     "ungoogled-chromium" = true;
     "ircd-hybrid" = true;

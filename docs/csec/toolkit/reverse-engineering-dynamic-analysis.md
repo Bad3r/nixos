@@ -59,6 +59,11 @@
   - Repo.: <https://www.hopperapp.com/>
   - Docs.: <https://www.hopperapp.com/tutorial.html>
   - Desc.: Commercial disassembler and decompiler for ELF and Mach-O binaries.
+- hyx
+  - run..: `hyx $file`
+  - Repo.: <https://yx7.cc/code/hyx/>
+  - Docs.: <https://yx7.cc/code/hyx/>
+  - Desc.: Minimalistic terminal hex editor with hex and ASCII views, insert and overwrite modes, and undo, for patching binaries in place.
 - iaito
   - run..: `iaito $binary`
   - Repo.: <https://github.com/radareorg/iaito>
