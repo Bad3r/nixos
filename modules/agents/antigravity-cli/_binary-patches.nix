@@ -24,6 +24,8 @@ let
     # system_prompts/<name>.tmpl loads from TEMPLATE_DATA_DIR, falling back
     # to the built-in static string when no disk template is present.
     "staticprompts"
+    # Test patch: replaces jz short (0x74) with jmp short (0xeb) at 0x9e5bc12.
+    "testjmp"
   ];
 in
 {

@@ -4,7 +4,7 @@
 
 Usage: python3 -I _patch_agy.py IN OUT [--patches SET[,SET...]]
 
-Patch sets (default: all six):
+Patch sets (default: all seven):
 
   devmode       language_server.Options.EnvironmentConfig.DevMode (opts+0x1) = true at the entry
                 of language_server.CreateLanguageServerAndServe. The Hub sets it from --dev_mode;
@@ -34,6 +34,7 @@ Patch sets (default: all six):
                 TEMPLATE_DATA_DIR when dev mode is active, and hooks
                 templateprovider.(*TemplateProvider).loadEmbeddedTemplate to fall back to each
                 built-in static string when no disk template is present.
+  testjmp       patches jz short (0x74) to jmp short (0xeb) at 0x9e5bc12.
 
 Both opts stores and the loadEmbeddedTemplate fallback need more room than the hooked
 instructions, so the hooks jump to code in int3 padding past the last Go function (findfunc reports
@@ -53,7 +54,15 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-ALL = ("devmode", "notelemetry", "noautoupdate", "quietwatcher", "agygating", "staticprompts")
+ALL = (
+    "devmode",
+    "notelemetry",
+    "noautoupdate",
+    "quietwatcher",
+    "agygating",
+    "staticprompts",
+    "testjmp",
+)
 
 # sha256 of the unpatched binary -> addresses (file offset == vaddr in the first LOAD segment).
 BUILDS = {
@@ -99,6 +108,9 @@ BUILDS = {
         # templateprovider.(*TemplateProvider).loadEmbeddedTemplate: save ReadFile results to stack
         "embed_read_hook": 0x8C3A985,
         "embed_read_orig": "48897c2438488944245848895c2440",
+        # testjmp: patch jz short (0x74) -> jmp short (0xeb)
+        "test_jmp_addr": 0x9E5BC12,
+        "test_jmp_orig": "7411",
     },
 }
 OPTS_DEVMODE = 0x1
@@ -280,6 +292,13 @@ def _static_edits(build: dict, patches: list[str]) -> list[Edit]:
         if not monitors:
             fail(f"patch set 'agygating' is not supported on agy {build['version']}")
         edits.extend(monitors)
+    if "testjmp" in patches:
+        addr = build.get("test_jmp_addr")
+        orig = build.get("test_jmp_orig")
+        if addr is None or not orig:
+            fail(f"patch set 'testjmp' is not supported on agy {build['version']}")
+        orig_b = bytes.fromhex(orig)
+        edits.append((addr, orig_b, b"\xeb" + orig_b[1:]))
     return edits
 
 
