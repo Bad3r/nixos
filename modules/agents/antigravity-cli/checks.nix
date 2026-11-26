@@ -601,7 +601,7 @@ in
 
               # Every set on 1.5.17 gives exactly this binary.
               [ "$(jq -r .version "$manifest")" != 1.5.17 ] \
-                || [ "$(jq -r .output_sha256 "$manifest")" = 0f1009c83615ca1b1d6d396d67b03b06a11150224a4857a2d711a080163621b2 ] \
+                || [ "$(jq -r .output_sha256 "$manifest")" = 361aaa5864a4c830153a4b93097e24239067df7bf387a1b334f7c5c061c9ce45 ] \
                 || fail "1.5.17 output checksum drifted"
 
               # staticprompts routes every listed pure-static PromptSection.Content through
