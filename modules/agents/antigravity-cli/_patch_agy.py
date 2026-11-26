@@ -107,7 +107,7 @@ def align16(pc: int) -> int:
 def ls_entry(build: dict, pc: int, patches: list[str]) -> tuple[list[Edit], int]:
     """Set DevMode and/or DisableTelemetry in *opts on entry to CreateLanguageServerAndServe."""
     hook, orig = build["ls_hook"], bytes.fromhex(build["ls_orig"])
-    body = orig[:9] + orig[9:11]  # movups [rsp+0xd08],xmm15 ; test [rcx],al (nil check)
+    body = orig[:9] + orig[9:11]  # movups [rsp+0xd38],xmm15 ; test [rcx],al (nil check)
     if "devmode" in patches:
         body += b"\xc6\x41" + bytes([OPTS_DEVMODE, 1])  # mov BYTE PTR [rcx+0x1],0x1
     if "notelemetry" in patches:
@@ -122,7 +122,7 @@ def main_entry(build: dict, pc: int) -> tuple[list[Edit], int]:
     """Set main's package-level Options.DisableTelemetry at the start of main.main."""
     hook, orig = build["main_hook"], bytes.fromhex(build["main_orig"])
     target = build["main_opts"] + OPTS_DISABLE_TELEMETRY
-    body = bytearray(orig)  # mov BYTE PTR [rsp+0x2bf],0x0
+    body = bytearray(orig)  # mov BYTE PTR [rsp+0x2c7],0x0
     ins = pc + len(body)
     body += b"\xc6\x05" + struct.pack("<i", target - (ins + 7)) + b"\x01"  # mov BYTE PTR [rip+X],1
     body += jmp(pc + len(body), hook + len(orig))
