@@ -601,8 +601,36 @@ in
 
               # Every set on 1.5.17 gives exactly this binary.
               [ "$(jq -r .version "$manifest")" != 1.5.17 ] \
-                || [ "$(jq -r .output_sha256 "$manifest")" = 632fcc0d8c113db1fcc1e79244849c6ebd28f8a0d19c7fef4d432dc9fe528e6a ] \
+                || [ "$(jq -r .output_sha256 "$manifest")" = 286870e60a115695bb3568fe8b287c9e5b4a8984e03d0ca015834d785d90c614 ] \
                 || fail "1.5.17 output checksum drifted"
+
+              # staticprompts routes every listed pure-static PromptSection.Content through
+              # TemplateSource{} and hooks loadEmbeddedTemplate to fall back to the built-in strings.
+              python3 -I -c '
+              import hashlib, importlib.util, pathlib, struct, sys
+              spec = importlib.util.spec_from_file_location("patch_agy", sys.argv[1])
+              mod = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(mod)
+              unpatched_b = pathlib.Path(sys.argv[2]).read_bytes()
+              patched_b = pathlib.Path(sys.argv[3]).read_bytes()
+              build = mod.BUILDS[hashlib.sha256(unpatched_b).hexdigest()]
+
+              def lea_target(buf, off, prefix):
+                  assert buf[off : off + 3] == prefix, (hex(off), buf[off : off + 3].hex())
+                  return off + 7 + struct.unpack_from("<i", buf, off + 3)[0]
+
+              for name, off, static_addr in build["static_prompts"]:
+                  assert lea_target(patched_b, off, b"\x48\x8d\x05") == build["template_source_itab"], name
+                  assert lea_target(patched_b, off + 7, b"\x48\x8d\x1d") == build["template_source_zero"], name
+                  assert patched_b[off + 14] == 0xC3, name
+                  assert lea_target(unpatched_b, off + 7, b"\x48\x8d\x1d") == static_addr, name
+
+              hook = build["embed_read_hook"]
+              assert patched_b[hook] == 0xE9
+              cave_target = hook + 5 + struct.unpack_from("<i", patched_b, hook + 1)[0]
+              cave_lo, cave_hi = build["cave"]
+              assert cave_lo <= cave_target < cave_hi, hex(cave_target)
+              ' ${./_patch_agy.py} ${unpatched}/bin/agy ${patched}/bin/agy || fail "staticprompts patch check"
 
               # agygating disables sir_flash_lite and severe_internal_risks_agy, drops the latter
               # to ASK, and changes no other monitor field.
@@ -866,10 +894,11 @@ in
               set -euo pipefail
               fail() { echo "FAIL: $*" >&2; exit 1; }
 
-              # 1. Bundled templates exist and include guidelines + identity.
-              [ -s ${proxy.defaultTemplatesDir}/system_prompts/guidelines.tmpl ] || fail "missing guidelines.tmpl"
-              [ -s ${proxy.defaultTemplatesDir}/system_prompts/identity.tmpl ] || fail "missing identity.tmpl"
-              [ "$(find ${proxy.defaultTemplatesDir} -name '*.tmpl' | wc -l)" -eq 19 ] || fail "expected 19 templates"
+              # 1. Bundled templates exist and include guidelines, identity, and the four static prompt templates.
+              for name in guidelines identity browser_safety chrome_default_profile work_efficiently non_interactive_mode; do
+                [ -s "${proxy.defaultTemplatesDir}/system_prompts/$name.tmpl" ] || fail "missing $name.tmpl"
+              done
+              [ "$(find ${proxy.defaultTemplatesDir} -name '*.tmpl' | wc -l)" -eq 23 ] || fail "expected 23 templates"
 
               # 2. Offline unit tests of _proxy_overrides.py (pin parsing, flags, guidelines drift & rewrite, allow_hosts regex)
               # and DevModeOverrides.response() blocking on fake flows.

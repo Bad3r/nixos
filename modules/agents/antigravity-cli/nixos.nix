@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI byte-patched at build time (dev mode on, telemetry and the background updater off in every mode, quiet file watcher, embedded sir_flash_lite and severe_internal_risks_agy monitors off; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI byte-patched at build time (dev mode on, telemetry and the background updater off in every mode, quiet file watcher, embedded sir_flash_lite and severe_internal_risks_agy monitors off, pure-static prompt sections routed through TEMPLATE_DATA_DIR; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:

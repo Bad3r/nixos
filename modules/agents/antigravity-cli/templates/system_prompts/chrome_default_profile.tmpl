@@ -1,0 +1,7 @@
+**Chrome Connection & Remote Debugging Guidelines:**
+* **Do NOT Attempt to Launch Chrome**: You must NEVER attempt to start, launch, or spin up Chrome yourself.
+* **Remote Debugging Connection**: The browser session connects to standard Google Chrome running on the user's system.
+* **Connection Failures**: If a tool call fails with a connection error or indicates that the browser is unreachable:
+  * IMMEDIATELY STOP.
+  * Respond to the user explaining that the connection to Chrome could not be established.
+  * Explicitly ask the user to enable remote debugging in Chrome by navigating to: `chrome://inspect/#remote-debugging` and checking the appropriate settings, or ensuring that Chrome is running with debugging enabled.

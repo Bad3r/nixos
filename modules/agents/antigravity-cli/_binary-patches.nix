@@ -18,6 +18,12 @@ let
     # Disables the embedded sir_flash_lite and severe_internal_risks_agy
     # tool-call monitors and drops severe_internal_risks_agy from BLOCK to ASK.
     "agygating"
+    # Switches the four pure-static PromptSection.Content methods
+    # (browser_safety, chrome_default_profile, work_efficiently,
+    # non_interactive_mode) from StaticString to TemplateSource{} so
+    # system_prompts/<name>.tmpl loads from TEMPLATE_DATA_DIR, falling back
+    # to the built-in static string when no disk template is present.
+    "staticprompts"
   ];
 in
 {

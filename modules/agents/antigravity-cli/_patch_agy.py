@@ -4,7 +4,7 @@
 
 Usage: python3 -I _patch_agy.py IN OUT [--patches SET[,SET...]]
 
-Patch sets (default: all five):
+Patch sets (default: all six):
 
   devmode       language_server.Options.EnvironmentConfig.DevMode (opts+0x1) = true at the entry
                 of language_server.CreateLanguageServerAndServe. The Hub sets it from --dev_mode;
@@ -28,12 +28,18 @@ Patch sets (default: all five):
                 BLOCK to ASK. Both are LLM pre-filters on pending tool calls;
                 severe_internal_risks_agy runs behind sir_flash_lite. Each edit borrows one byte of
                 the next line's indentation.
+  staticprompts switches the four pure-static PromptSection.Content methods (browser_safety,
+                chrome_default_profile, work_efficiently, non_interactive_mode) from StaticString
+                to TemplateSource{} so templateprovider loads system_prompts/<name>.tmpl from
+                TEMPLATE_DATA_DIR when dev mode is active, and hooks
+                templateprovider.(*TemplateProvider).loadEmbeddedTemplate to fall back to each
+                built-in static string when no disk template is present.
 
-Both opts stores need more room than the hooked instructions, so the hooks jump to code in int3
-padding past the last Go function (findfunc reports no Go function there, so async preemption
-skips it). Each hook re-executes the instructions it replaces and jumps back. A nil opts still
-faults on the first access, now outside Go's symbol table, so the runtime reports a fatal signal
-instead of a nil-pointer panic.
+Both opts stores and the loadEmbeddedTemplate fallback need more room than the hooked
+instructions, so the hooks jump to code in int3 padding past the last Go function (findfunc reports
+no Go function there, so async preemption skips it). Each hook re-executes the instructions it
+replaces and jumps back. A nil opts still faults on the first access, now outside Go's symbol table,
+so the runtime reports a fatal signal instead of a nil-pointer panic.
 
 Only builds listed in BUILDS are patched; every replaced byte and the whole cave are checked
 before anything is written. OUT.patch.json records the patches and both checksums.
@@ -47,7 +53,7 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-ALL = ("devmode", "notelemetry", "noautoupdate", "quietwatcher", "agygating")
+ALL = ("devmode", "notelemetry", "noautoupdate", "quietwatcher", "agygating", "staticprompts")
 
 # sha256 of the unpatched binary -> addresses (file offset == vaddr in the first LOAD segment).
 BUILDS = {
@@ -79,15 +85,34 @@ BUILDS = {
             (0x0D88B09B, b"enabled: true\n ", b"enabled: false\n"),
             (0x0D88B0AA, b" mode: BLOCK\n", b"  mode: ASK \n"),
         ),
+        # Pure-static mixins.(*Section).Content methods (staticprompts):
+        # each is lea rax,[StaticString itab] ; lea rbx,[&StaticString] ; ret
+        "static_string_itab": 0xD6F3DB8,
+        "template_source_itab": 0xD6F5538,
+        "template_source_zero": 0x110E64A0,
+        "static_prompts": (
+            ("browser_safety", 0x9A9E7E0, 0xBCED000),
+            ("chrome_default_profile", 0x9A9E860, 0xBCED010),
+            ("work_efficiently", 0x9AA1600, 0xBCED020),
+            ("non_interactive_mode", 0x9AA74E0, 0xBCED070),
+        ),
+        # templateprovider.(*TemplateProvider).loadEmbeddedTemplate: save ReadFile results to stack
+        "embed_read_hook": 0x8C3A985,
+        "embed_read_orig": "48897c2438488944245848895c2440",
     },
 }
 OPTS_DEVMODE = 0x1
 OPTS_DISABLE_TELEMETRY = 0x122
+NOP2 = bytes.fromhex("6690")
 NOP3 = bytes.fromhex("0f1f00")
 NOP5 = bytes.fromhex("0f1f440000")
 NOP8 = bytes.fromhex("0f1f840000000000")
 INT3 = 0xCC
 ARG_COUNT = 2
+MAX_DISP8 = 0x7F
+QWORD = 8
+DWORD = 4
+WORD = 2
 
 Edit = tuple[int, bytes, bytes]
 
@@ -100,8 +125,118 @@ def jmp(src: int, dst: int) -> bytes:
     return b"\xe9" + struct.pack("<i", dst - (src + 5))
 
 
+def lea_rip(prefix: bytes, ins: int, target: int) -> bytes:
+    return prefix + struct.pack("<i", target - (ins + len(prefix) + 4))
+
+
 def align16(pc: int) -> int:
     return (pc + 0xF) & ~0xF
+
+
+def _cmp_r11_str(body: bytearray, text: bytes, fixups: list[int]) -> None:
+    """Emit literal byte comparisons against [r11], recording JNE rel32 fixups."""
+    if not text or len(text) > MAX_DISP8:
+        fail(f"unsupported static prompt name length {len(text)} for {text!r}")
+    off = 0
+    while len(text) - off >= QWORD:
+        body += b"\x49\xba" + text[off : off + QWORD]  # movabs r10, imm64
+        body += b"\x4d\x39\x13" if off == 0 else b"\x4d\x39\x53" + bytes([off])
+        body += b"\x0f\x85\x00\x00\x00\x00"  # jne target
+        fixups.append(len(body) - 4)
+        off += QWORD
+    if len(text) - off >= DWORD:
+        body += (b"\x41\x81\x3b" if off == 0 else b"\x41\x81\x7b" + bytes([off])) + text[
+            off : off + DWORD
+        ]
+        body += b"\x0f\x85\x00\x00\x00\x00"
+        fixups.append(len(body) - 4)
+        off += DWORD
+    if len(text) - off >= WORD:
+        body += (b"\x66\x41\x81\x3b" if off == 0 else b"\x66\x41\x81\x7b" + bytes([off])) + text[
+            off : off + WORD
+        ]
+        body += b"\x0f\x85\x00\x00\x00\x00"
+        fixups.append(len(body) - 4)
+        off += WORD
+    if len(text) - off == 1:
+        body += (b"\x41\x80\x3b" if off == 0 else b"\x41\x80\x7b" + bytes([off])) + text[
+            off : off + 1
+        ]
+        body += b"\x0f\x85\x00\x00\x00\x00"
+        fixups.append(len(body) - 4)
+
+
+def _patch_rel32(body: bytearray, fixups: list[int], target: int) -> None:
+    for off in fixups:
+        body[off : off + 4] = struct.pack("<i", target - (off + 4))
+
+
+def static_prompts_patch(build: dict, pc: int) -> tuple[list[Edit], int]:
+    """Route pure-static prompt sections through TEMPLATE_DATA_DIR with built-in fallbacks."""
+    edits: list[Edit] = []
+    entries = build["static_prompts"]
+    for _name, content_addr, static_addr in entries:
+        content_orig = (
+            lea_rip(b"\x48\x8d\x05", content_addr, build["static_string_itab"])
+            + lea_rip(b"\x48\x8d\x1d", content_addr + 7, static_addr)
+            + b"\xc3"
+        )
+        content_new = (
+            lea_rip(b"\x48\x8d\x05", content_addr, build["template_source_itab"])
+            + lea_rip(b"\x48\x8d\x1d", content_addr + 7, build["template_source_zero"])
+            + b"\xc3"
+        )
+        edits.append((content_addr, content_orig, content_new))
+
+    hook = build["embed_read_hook"]
+    orig = bytes.fromhex(build["embed_read_orig"])
+    body = bytearray()
+    done_fixups: list[int] = []
+    load_fixups: list[int] = []
+
+    # Only fall back when ReadFile (embed.FS or the provider's fs.FS) returned an error under subdir
+    # "system_prompts".
+    body += b"\x48\x85\xff"  # test rdi, rdi
+    body += b"\x0f\x84\x00\x00\x00\x00"  # je .done
+    done_fixups.append(len(body) - 4)
+    subdir = b"system_prompts"
+    body += b"\x48\x83\x7c\x24\x30" + bytes([len(subdir)])  # cmp QWORD PTR [rsp+0x30], len(subdir)
+    body += b"\x0f\x85\x00\x00\x00\x00"  # jne .done
+    done_fixups.append(len(body) - 4)
+    body += b"\x4c\x8b\x5c\x24\x48"  # mov r11, QWORD PTR [rsp+0x48] (subdir.ptr)
+    _cmp_r11_str(body, subdir, done_fixups)
+
+    body += b"\x4c\x8b\x9c\x24\x48\x01\x00\x00"  # mov r11, QWORD PTR [rsp+0x148] (name.ptr)
+    for name, _content_addr, static_addr in entries:
+        name_b = name.encode("ascii")
+        next_fixups: list[int] = []
+        body += b"\x48\x83\xbc\x24\x50\x01\x00\x00" + bytes([len(name_b)])  # cmp [rsp+0x150], len
+        body += b"\x0f\x85\x00\x00\x00\x00"  # jne .next
+        next_fixups.append(len(body) - 4)
+        _cmp_r11_str(body, name_b, next_fixups)
+        body += lea_rip(b"\x4c\x8d\x1d", pc + len(body), static_addr)
+        body += b"\xe9\x00\x00\x00\x00"  # jmp .load_static
+        load_fixups.append(len(body) - 4)
+        _patch_rel32(body, next_fixups, len(body))
+
+    body += b"\xe9\x00\x00\x00\x00"  # jmp .done (no name matched)
+    done_fixups.append(len(body) - 4)
+
+    _patch_rel32(body, load_fixups, len(body))
+    body += b"\x49\x8b\x03"  # mov rax, QWORD PTR [r11]
+    body += b"\x49\x8b\x5b\x08"  # mov rbx, QWORD PTR [r11+0x8]
+    body += b"\x31\xff"  # xor edi, edi
+    body += b"\x31\xf6"  # xor esi, esi
+
+    _patch_rel32(body, done_fixups, len(body))
+    body += orig
+    body += jmp(pc + len(body), hook + len(orig))
+
+    edits += [
+        (pc, bytes([INT3]) * len(body), bytes(body)),
+        (hook, orig, jmp(hook, pc) + NOP8 + NOP2),
+    ]
+    return edits, align16(pc + len(body))
 
 
 def ls_entry(build: dict, pc: int, patches: list[str]) -> tuple[list[Edit], int]:
@@ -130,18 +265,9 @@ def main_entry(build: dict, pc: int) -> tuple[list[Edit], int]:
     return edits, align16(pc + len(body))
 
 
-def plan(data: bytearray, build: dict, patches: list[str]) -> list[Edit]:
-    cave_lo, cave_hi = build["cave"]
-    if set(data[cave_lo:cave_hi]) != {INT3}:
-        fail(f"cave {cave_lo:#x}-{cave_hi:#x} is not all int3; refusing to patch")
+def _static_edits(build: dict, patches: list[str]) -> list[Edit]:
+    """Build in-place edits that do not allocate code-cave stubs."""
     edits: list[Edit] = []
-    pc = align16(cave_lo)
-    if "devmode" in patches or "notelemetry" in patches:
-        more, pc = ls_entry(build, pc, patches)
-        edits += more
-    if "notelemetry" in patches:
-        more, pc = main_entry(build, pc)
-        edits += more
     if "noautoupdate" in patches:
         hook = build["update_gate"]
         edits.append(
@@ -154,6 +280,27 @@ def plan(data: bytearray, build: dict, patches: list[str]) -> list[Edit]:
         if not monitors:
             fail(f"patch set 'agygating' is not supported on agy {build['version']}")
         edits.extend(monitors)
+    return edits
+
+
+def plan(data: bytearray, build: dict, patches: list[str]) -> list[Edit]:
+    cave_lo, cave_hi = build["cave"]
+    if set(data[cave_lo:cave_hi]) != {INT3}:
+        fail(f"cave {cave_lo:#x}-{cave_hi:#x} is not all int3; refusing to patch")
+    edits: list[Edit] = []
+    pc = align16(cave_lo)
+    if "devmode" in patches or "notelemetry" in patches:
+        more, pc = ls_entry(build, pc, patches)
+        edits += more
+    if "notelemetry" in patches:
+        more, pc = main_entry(build, pc)
+        edits += more
+    edits += _static_edits(build, patches)
+    if "staticprompts" in patches:
+        if not build.get("static_prompts"):
+            fail(f"patch set 'staticprompts' is not supported on agy {build['version']}")
+        more, pc = static_prompts_patch(build, pc)
+        edits += more
     if pc > cave_hi:
         fail("cave too small")
     return edits

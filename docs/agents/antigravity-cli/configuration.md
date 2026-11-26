@@ -43,6 +43,9 @@ Root `agy` sessions (TUI, `-p`, `--hub`) have no telemetry flag, so the `notelem
 The `noautoupdate` patch makes the background updater return before it checks for a release.
 The `quietwatcher` patch drops the `file_watcher.go:194` log line that floods the log at shutdown.
 The `agygating` patch disables the embedded `sir_flash_lite` and `severe_internal_risks_agy` tool-call monitors and drops `severe_internal_risks_agy` from `BLOCK` to `ASK`.
+The `staticprompts` patch loads four compiled static prompt sections from [system_prompts](../../../modules/agents/antigravity-cli/templates/system_prompts) templates: `browser_safety`, `chrome_default_profile`, `work_efficiently`, and `non_interactive_mode`.
+A section without a template keeps its built-in string.
+The bundled `browser_safety` template omits the built-in Prohibited Actions and Content Safety blocks.
 The `devmode` patch enables `TEMPLATE_DATA_DIR` prompt overrides and `SetMendelFlagOverrides`, and serves `/debug/pprof` and `/metrics` on the loopback ports without a CSRF token.
 The patcher is pinned by sha256 to known `agy` builds, so a new release fails the build until `_patch_agy.py` gains a `BUILDS` entry.
 `binaryPatches = [ ]` installs the release unpatched.
