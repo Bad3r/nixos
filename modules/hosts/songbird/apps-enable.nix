@@ -59,6 +59,7 @@ let
     # using qbittorrent-webui.nix instead; they conflict.
     qbittorrent = false;
     herdr = true;
+    "herdr-app" = true;
     hopper = true;
     iaito = true;
     "ida-pro" = true;
