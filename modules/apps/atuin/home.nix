@@ -22,8 +22,12 @@ _: {
           package = lib.attrByPath [ "programs" "atuin" "extended" "package" ] pkgs.atuin osConfig;
           # The arrows stay on zsh's prefix history search (modules/shell/zsh/keybindings.nix).
           flags = [ "--disable-up-arrow" ];
-          # Only atuin's first-run config file sets this, and Home Manager replaces that file.
-          settings.enter_accept = true;
+          settings = {
+            # Only atuin's first-run config file sets this, and Home Manager replaces that file.
+            enter_accept = true;
+            # Unbinds `?` and turns off the Atuin Hub chat.
+            ai.enabled = false;
+          };
         };
       };
     };
