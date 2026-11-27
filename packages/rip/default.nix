@@ -119,13 +119,14 @@ writeShellApplication {
       PROTECT_STATUS=0
       local mountinfo op abs rest comp norm parent base canon enc prefix refusal mount_point
       local -a parts mount_points=()
-      local -A parent_canon=()
+      local -A parent_canon=() mount_set=()
       if ! mountinfo="$(< /proc/self/mountinfo)"; then
         echo "rip: cannot read /proc/self/mountinfo to protect mount points" >&2
         exit 1
       fi
       while read -r _ _ _ _ mount_point _; do
         mount_points+=("$mount_point")
+        mount_set[$mount_point]=1
       done <<< "$mountinfo"
       for op in "$@"; do
         # trash-put reports an empty operand as nonexistent; normpath would turn it into ".".
@@ -216,20 +217,18 @@ writeShellApplication {
         enc="''${enc//$'\n'/\\012}"
         prefix="''${enc%/}/"
         refusal=""
-        for mount_point in "''${mount_points[@]}"; do
-          if [ "$mount_point" = "$enc" ]; then
-            refusal="'$op' is a mount point, which trash-put cannot move intact"
-            break
-          fi
-          if $ONE_FILE_SYSTEM; then
+        if [ -n "''${mount_set[$enc]+set}" ]; then
+          refusal="'$op' is a mount point, which trash-put cannot move intact"
+        elif $ONE_FILE_SYSTEM; then
+          for mount_point in "''${mount_points[@]}"; do
             case "$mount_point" in
               "$prefix"?*)
                 refusal="mount point '$mount_point' lies inside '$op' (--one-file-system)"
                 break
                 ;;
             esac
-          fi
-        done
+          done
+        fi
         if [ -n "$refusal" ]; then
           echo "rip: skipping '$op': $refusal" >&2
           PROTECT_STATUS=1
