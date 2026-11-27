@@ -731,11 +731,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795768188,
-        "narHash": "sha256-FW+/cXroegfQlpQTZft4iT546r6H+kOdTKjiKQ+ZggI=",
+        "lastModified": 1795787144,
+        "narHash": "sha256-8qQyul9pTySEwl/63WDwzDXiov7CdhWkmTXWS+L621I=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "db5c653a049f73bab99b71c6eeb1764168f70337",
+        "rev": "7cee801f86d5c14ecb5d8ef6f82c5c44953efa08",
         "type": "github"
       },
       "original": {

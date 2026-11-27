@@ -1,7 +1,14 @@
 # Herdr
 
+Two Herdr programs have app modules:
+
+- `herdr` is the terminal workspace manager, declared in [its app module](../../../modules/apps/herdr.nix).
+- `herdr-app` is the desktop window, declared in [its app module](../../../modules/apps/herdr-app.nix).
+
+`herdr-app` runs its terminals in the `herdr-core` server that ships in its package.
+The `hc` command of `herdr-core` is not installed system-wide.
+
 Run `herdr` to start or reattach terminal workspaces.
-The package and managed configuration are declared in [the app module](../../../modules/apps/herdr.nix).
 Set additional TOML fields through `programs.herdr.extended.settings`; its `theme` keys override the managed theme.
 
 ## Theme
@@ -29,10 +36,31 @@ The managed configuration disables background release and agent-detection manife
 Bundled agent detection remains available; detection fixes arrive with package updates.
 Explicit updates, remote installation, plugins, hooks, and coding agents can still make network requests.
 An alternative configuration selected through `HERDR_CONFIG_PATH` bypasses the managed settings.
+
 The launcher disables diagnostic log events through `HERDR_LOG`.
 Herdr can still create empty log files and stores session state, including workspace and terminal information.
 
 The source review covers the pinned Herdr CLI, without establishing privacy guarantees for plugins or child processes.
 Recheck outbound request paths when updating the package.
+
+## herdr-app privacy
+
+`herdr-app` keeps a daily usage report with an install id, the agents, layouts, mods, and commands used, and bucketed counts and durations.
+The report also names the OS, architecture, app and core versions, error events, and customization flags.
+The launcher sets `HERDR_TELEMETRY=0`, which stops the report and deletes `~/.config/herdr-app/telemetry/`.
+Settings keeps its usage-data switch and states that `HERDR_TELEMETRY` turned it off.
+
+Report uploads, feedback sending, and update checks run only in release builds.
+The package builds from source.
+The llm-agents fork limits release-note clip downloads from `media.herdr.dev` to release builds as well.
+Leave `HERDR_RELEASES_URL` unset, because it turns hourly update checks back on.
+User-written mods can still load images from URLs and run commands.
+
+The package appends its `herdr-core` to PATH, which keeps the app from running the core installer.
+A `herdr-core` earlier on PATH takes precedence.
+`herdr-core` contains no telemetry and contacts `releases.herdr.dev` only for `hc update` and remote machine installs.
+It asks logind to enable linger on each start.
+The polkit policy in [the polkit module](../../../modules/security/polkit.nix) refuses that request.
+The core therefore stops when the last session of the owner ends.
 
 <https://herdr.dev/docs/configuration/>

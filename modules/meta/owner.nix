@@ -40,6 +40,9 @@
 
           # SSH authorized keys for remote access
           openssh.authorizedKeys.keys = metaOwner.sshKeys;
+
+          # User services stop with the last session; polkit denies linger changes.
+          linger = false;
         };
       };
     };
