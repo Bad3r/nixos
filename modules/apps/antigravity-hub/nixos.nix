@@ -35,6 +35,7 @@ let
       proxyCfg = cliCfg.proxy or { enable = false; };
       shell = import ../../agents/antigravity-cli/_shell.nix {
         inherit lib pkgs scratchDir;
+        atuin = import ../../agents/antigravity-cli/_atuin.nix lib config;
       };
       exportSharedEnv = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") telemetry.sharedEnv

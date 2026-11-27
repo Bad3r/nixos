@@ -33,7 +33,10 @@ let
     }:
     let
       cfg = config.programs."antigravity-cli".extended;
-      shell = import ./_shell.nix { inherit lib pkgs scratchDir; };
+      shell = import ./_shell.nix {
+        inherit lib pkgs scratchDir;
+        atuin = import ./_atuin.nix lib config;
+      };
       telemetry = import ./_telemetry.nix;
       binaryPatches = import ./_binary-patches.nix;
       proxy = import ./_proxy.nix;

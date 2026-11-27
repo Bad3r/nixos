@@ -30,6 +30,24 @@ in
       shell = import ./_shell.nix {
         inherit lib pkgs;
         scratchDir = "/nonexistent/agy-shell-check-missing";
+        atuin = null;
+      };
+
+      # Logs each history call; ATUIN_STUB_START_STATUS and ATUIN_STUB_END_STATUS make a call fail.
+      atuinStub = pkgs.writeShellScriptBin "atuin" ''
+        printf '%s\n' "$*" >>"$ATUIN_STUB_LOG"
+        case "$2" in
+          start)
+            [ "''${ATUIN_STUB_START_STATUS:-0}" -eq 0 ] || exit "$ATUIN_STUB_START_STATUS"
+            printf 'stub-id\n'
+            ;;
+          end) exit "''${ATUIN_STUB_END_STATUS:-0}" ;;
+        esac
+      '';
+      shellAtuin = import ./_shell.nix {
+        inherit lib pkgs;
+        scratchDir = "/nonexistent/agy-shell-check-missing";
+        atuin = atuinStub;
       };
 
       mcpTemplate = json "mcp-template.json" {
@@ -819,6 +837,76 @@ in
               [ -n "${scratchDir}" ]
 
               echo "ok: antigravity-cli shell wrapper" >$out
+            '';
+
+        "antigravity-cli/shell-wrapper-atuin" =
+          pkgs.runCommandLocal "antigravity-cli-shell-wrapper-atuin" { passthru.runtimeCheck = true; }
+            ''
+              set -euo pipefail
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              export ATUIN_STUB_LOG="$TMPDIR/atuin.log"
+              plain=${shell.antigravityBashWrapper}/bin/bash
+              recording=${shellAtuin.antigravityBashWrapper}/bin/bash
+              # Each wrapper strips only its own dir from PATH, so each runs with only its own dir on it.
+              base_path="${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.diffutils}/bin"
+              export PATH="$base_path"
+
+              # Runs bash arguments through both wrappers: status, stdout and stderr must match, and the
+              # recording wrapper must log the expected end call ("" for none, "-" skips the comparison).
+              expect() {
+                local name="$1" want_end="$2"
+                shift 2
+                local plain_status=0 rec_status=0 plain_out rec_out
+                plain_out="$(PATH="${shell.antigravityBashWrapper}/bin:$base_path" "$plain" "$@" 2>"$TMPDIR/plain.err")" || plain_status=$?
+                : >"$ATUIN_STUB_LOG"
+                rec_out="$(PATH="${shellAtuin.antigravityBashWrapper}/bin:$base_path" "$recording" "$@" 2>"$TMPDIR/rec.err")" || rec_status=$?
+                if [ "$plain_status:$plain_out" != "$rec_status:$rec_out" ]; then
+                  echo "FAIL: $name: plain $plain_status '$plain_out', recording $rec_status '$rec_out'" >&2
+                  exit 1
+                fi
+                if ! cmp -s "$TMPDIR/plain.err" "$TMPDIR/rec.err"; then
+                  echo "FAIL: $name: stderr differs" >&2
+                  diff "$TMPDIR/plain.err" "$TMPDIR/rec.err" >&2 || true
+                  exit 1
+                fi
+                local ends
+                ends="$(grep '^history end' "$ATUIN_STUB_LOG" || true)"
+                if [ "$want_end" = "-" ]; then return 0; fi
+                if [ "$ends" != "''${want_end:+history end --exit $want_end stub-id}" ]; then
+                  echo "FAIL: $name: end calls '$ends', want exit '$want_end'" >&2
+                  exit 1
+                fi
+              }
+
+              expect success 0 -c 'printf ok'
+              expect exit-code 7 -c 'printf x; exit 7'
+              expect positional 0 -c 'printf "%s:%s:%s" "$0" "$1" "$2"' arg0 a1 b2
+              expect nounset 127 -uc 'printf x; printf "%s" "$zz"'
+              expect unset-error 127 -c 'printf x; : "''${zz:?m}"'
+              expect errexit 1 -e -c 'printf before; false; printf after'
+              expect errexit-combined 1 -ec 'printf before; false; printf after'
+              expect errexit-long 1 -o errexit -c 'printf before; false; printf after'
+              expect no-errexit 0 -c 'printf before; false; printf after'
+              # The EXIT trap cannot see the signal, so its end call carries the last finished status.
+              expect kill-self - -c 'printf a; kill $$; printf b'
+              expect command-not-found 127 -c 'printf x; no-such-command-agy'
+              expect xtrace 0 -c 'set -x; printf hi'
+              expect xtrace-option 0 -xc 'printf hi'
+              expect xtrace-error 2 -xc 'printf hi; exit 2'
+              expect own-exit-trap 0 -c 'trap "printf t" EXIT; printf x'
+              expect own-exit-trap-early-exit "" -c 'trap "printf t" EXIT; exit 3'
+              expect exec "" -c 'exec ${pkgs.bash}/bin/sh -c "printf e; exit 5"'
+              ATUIN_STUB_END_STATUS=73 expect end-fails 0 -e -c 'printf ok'
+              ATUIN_STUB_START_STATUS=1 expect start-fails "" -c 'printf ok; exit 4'
+
+              if ! grep -qx 'history start --author antigravity --author-kind agent -- printf ok; exit 4' "$ATUIN_STUB_LOG"; then
+                echo "FAIL: start call not logged as expected" >&2
+                cat "$ATUIN_STUB_LOG" >&2
+                exit 1
+              fi
+
+              echo "ok: antigravity-cli shell wrapper atuin recording" >$out
             '';
 
         "antigravity-cli/proxy-overrides" =
