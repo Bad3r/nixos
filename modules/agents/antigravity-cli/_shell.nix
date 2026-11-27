@@ -5,6 +5,8 @@
   lib,
   pkgs,
   scratchDir,
+  # Records each run_command in atuin history when set.
+  atuin ? null,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -104,6 +106,16 @@ let
         rm() {
           "'"$rmShimPath"'" "$@"
         }
+        ${lib.optionalString (atuin != null) ''
+          # atuin logs its own failures under its logs dir; the agent sees only its command.
+          _atuinId="$(${lib.getExe atuin} history start --author antigravity --author-kind agent -- "$_agyCmd" 2>/dev/null)" || _atuinId=""
+          _agyAtuinEnd() {
+            _agyStatus=$?
+            ${lib.getExe atuin} history end --exit "$_agyStatus" "$_atuinId" >/dev/null 2>&1
+            exit "$_agyStatus"
+          }
+          [ -z "$_atuinId" ] || trap _agyAtuinEnd EXIT
+        ''}
         eval -- "$_agyCmd"
       ' "$@"
     fi
