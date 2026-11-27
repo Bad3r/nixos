@@ -70,10 +70,10 @@
   - Docs.: <https://rada.re/n/iaito.html>
   - Desc.: Official Qt GUI for radare2 with disassembly, graph, and hex views.
 - ida-pro
-  - run..: `ida $binary`
+  - run..: `idapro $binary`
   - Repo.: <https://github.com/Bad3r/ida-nix>
   - Docs.: <https://docs.hex-rays.com/>
-  - Desc.: Hex-Rays disassembler and decompiler with the IDA Assist plugin and the IDA MCP server. `ida`, `idat`, and `ida-mcp` run in a bubblewrap sandbox; `ida-assist` and `assist-mcp` run unsandboxed. The vendor files must be in the Nix store first; the ida-nix repository ships the script that adds them.
+  - Desc.: Hex-Rays disassembler and decompiler with the IDA Assist plugin and the IDA MCP server. `idapro-sandbox`, `idat`, and `ida-mcp` run in a bubblewrap sandbox; `idapro` (with IDA Assist) and `assist-mcp` run unsandboxed. The vendor files must be in the Nix store first; the ida-nix repository ships the script that adds them.
 - ilspycmd
   - run..: `ilspycmd $assembly.dll`
   - Repo.: <https://github.com/icsharpcode/ILSpy>

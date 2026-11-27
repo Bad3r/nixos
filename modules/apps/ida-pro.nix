@@ -6,7 +6,7 @@
   Repository: https://github.com/Bad3r/ida-nix
 
   Summary:
-    * Installs `ida`, `idat`, `ida-mcp`, and `ida-sandbox`, each running in a bubblewrap sandbox, plus `ida-assist` and `assist-mcp`, which run unsandboxed because the IDA Assist plugin accepts its MCP bridge only from its own user namespace.
+    * Installs `idapro-sandbox`, `idat`, `ida-mcp`, and `ida-sandbox`, each running in a bubblewrap sandbox, plus `idapro` (IDA with the IDA Assist plugin) and `assist-mcp`, which run unsandboxed because the IDA Assist plugin accepts its MCP bridge only from its own user namespace.
 
   Notes:
     * Every vendor file is a `requireFile` source: run `scripts/ida-setup` from the ida-nix repository once per machine to add them to the Nix store and install the license.
