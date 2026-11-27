@@ -217,6 +217,7 @@ let
       helix.extended.enable = lib.mkOverride 1100 true;
       herdr.extended.enable = lib.mkOverride 1100 false;
       "herdr-app".extended.enable = lib.mkOverride 1100 false;
+      "herdr-core".extended.enable = lib.mkOverride 1100 false;
       hopper.extended.enable = lib.mkOverride 1100 false;
       hsetroot.extended.enable = lib.mkOverride 1100 true;
       htmlq.extended.enable = lib.mkOverride 1100 true;

@@ -61,6 +61,7 @@ let
     qbittorrent = false;
     herdr = true;
     "herdr-app" = true;
+    "herdr-core" = true;
     hopper = true;
     iaito = true;
     "ida-pro" = true;

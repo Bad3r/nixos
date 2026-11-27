@@ -1,12 +1,12 @@
 # Herdr
 
-Two Herdr programs have app modules:
+Three Herdr programs have app modules:
 
 - `herdr` is the terminal workspace manager, declared in [its app module](../../../modules/apps/herdr.nix).
 - `herdr-app` is the desktop window, declared in [its app module](../../../modules/apps/herdr-app.nix).
+- `herdr-core` is the terminal server with the `hc` command, declared in [its app module](../../../modules/apps/herdr-core.nix).
 
 `herdr-app` runs its terminals in the `herdr-core` server that ships in its package.
-The `hc` command of `herdr-core` is not installed system-wide.
 
 Run `herdr` to start or reattach terminal workspaces.
 Set additional TOML fields through `programs.herdr.extended.settings`; its `theme` keys override the managed theme.
@@ -57,10 +57,19 @@ Leave `HERDR_RELEASES_URL` unset, because it turns hourly update checks back on.
 User-written mods can still load images from URLs and run commands.
 
 The package appends its `herdr-core` to PATH, which keeps the app from running the core installer.
-A `herdr-core` earlier on PATH takes precedence.
-`herdr-core` contains no telemetry and contacts `releases.herdr.dev` only for `hc update` and remote machine installs.
-It asks logind to enable linger on each start.
+The system-wide `herdr-core` comes first on PATH; both come from the same llm-agents pin.
+
+## herdr-core
+
+`hc` runs programs and coding agents in terminals that outlive their viewers.
+`herdr-core` contains no telemetry.
+It contacts `releases.herdr.dev` only for `hc update` and for installs on machines added with `hc machine add`.
+Update it through the flake instead of `hc update`.
+
+The core and each terminal run as systemd user services.
+The core asks logind to enable linger on each start.
 The polkit policy in [the polkit module](../../../modules/security/polkit.nix) refuses that request.
-The core therefore stops when the last session of the owner ends.
+The core and its terminals therefore stop when the last session of the owner ends.
+Terminals started with `hc run --keep` return as a fresh shell at the next core start.
 
 <https://herdr.dev/docs/configuration/>
