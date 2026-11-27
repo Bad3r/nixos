@@ -800,7 +800,7 @@ in
                 exit 1
               fi
 
-              # 3. Bare rm and command rm route through trash-put instead of unlinking permanently.
+              # 3. Bare rm and command rm route through rip to the trash instead of unlinking permanently.
               work="$TMPDIR/work"
               mkdir -p "$work"
               touch "$work/a" "$work/b"

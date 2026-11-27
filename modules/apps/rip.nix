@@ -33,7 +33,7 @@ let
       cfg = config.programs.rip.extended;
       owner = metaOwner.username;
 
-      ripWrapper = pkgs.callPackage ../../packages/rip { trash-cli = cfg.package; };
+      ripWrapper = pkgs.rip.override { trash-cli = cfg.package; };
 
       ripCompletion = pkgs.writeTextFile {
         name = "rip-zsh-completion";

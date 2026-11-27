@@ -118,12 +118,21 @@ writeShellApplication {
       KEPT=()
       PROTECT_STATUS=0
       local mountinfo op abs rest comp norm parent base canon enc prefix refusal mount_point
-      local -a parts
+      local -a parts mount_points=()
+      local -A parent_canon=()
       if ! mountinfo="$(< /proc/self/mountinfo)"; then
         echo "rip: cannot read /proc/self/mountinfo to protect mount points" >&2
         exit 1
       fi
+      while read -r _ _ _ _ mount_point _; do
+        mount_points+=("$mount_point")
+      done <<< "$mountinfo"
       for op in "$@"; do
+        # trash-put reports an empty operand as nonexistent; normpath would turn it into ".".
+        if [ -z "$op" ]; then
+          KEPT+=("$op")
+          continue
+        fi
         # os.path.normpath, as trash-put applies before it moves the path.
         abs=0
         case "$op" in
@@ -184,13 +193,18 @@ writeShellApplication {
           /*) ;;
           *) parent="./$parent" ;;
         esac
-        # The trailing dot keeps newlines at the end of the path.
-        if ! canon="$(cd -P -- "$parent" && pwd -P && echo .)"; then
-          echo "rip: cannot resolve '$op' to check for mount points" >&2
-          PROTECT_STATUS=1
-          continue
+        if [ -n "''${parent_canon[$parent]+set}" ]; then
+          canon="''${parent_canon[$parent]}"
+        else
+          # The trailing dot keeps newlines at the end of the path.
+          if ! canon="$(cd -P -- "$parent" && pwd -P && echo .)"; then
+            echo "rip: cannot resolve '$op' to check for mount points" >&2
+            PROTECT_STATUS=1
+            continue
+          fi
+          canon="''${canon%$'\n.'}"
+          parent_canon[$parent]="$canon"
         fi
-        canon="''${canon%$'\n.'}"
         if [ -n "$base" ]; then
           canon="''${canon%/}/$base"
         fi
@@ -202,7 +216,7 @@ writeShellApplication {
         enc="''${enc//$'\n'/\\012}"
         prefix="''${enc%/}/"
         refusal=""
-        while read -r _ _ _ _ mount_point _; do
+        for mount_point in "''${mount_points[@]}"; do
           if [ "$mount_point" = "$enc" ]; then
             refusal="'$op' is a mount point, which trash-put cannot move intact"
             break
@@ -215,7 +229,7 @@ writeShellApplication {
                 ;;
             esac
           fi
-        done <<< "$mountinfo"
+        done
         if [ -n "$refusal" ]; then
           echo "rip: skipping '$op': $refusal" >&2
           PROTECT_STATUS=1
