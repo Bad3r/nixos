@@ -817,6 +817,19 @@ in
                 exit 1
               fi
 
+              # 3b. rip's own modes stay out of reach: the shim rejects them and keeps the trash.
+              for opt in --empty-trash -u -s --graveyard; do
+                if ${shell.rmShim}/bin/rm "$opt" --force x 2>/dev/null; then
+                  echo "FAIL: rm shim accepted $opt" >&2
+                  exit 1
+                fi
+              done
+              ${shell.rmShim}/bin/rm -f -- --empty-trash
+              if [ ! -e "$XDG_DATA_HOME/Trash/files/a" ]; then
+                echo "FAIL: trash emptied through the rm shim" >&2
+                exit 1
+              fi
+
               # Keep config.flake.lib.agents.scratchDir forced during eval.
               [ -n "${scratchDir}" ]
 
