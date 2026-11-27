@@ -630,6 +630,26 @@
         "type": "github"
       }
     },
+    "ida-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795687404,
+        "narHash": "sha256-njNvpCPIuWgEdnUsVm/fPJ0OgohBridrBE63pjtumhk=",
+        "owner": "Bad3r",
+        "repo": "ida-nix",
+        "rev": "bc352324b1679fe719de577b8ab15a7067c2cfb7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Bad3r",
+        "repo": "ida-nix",
+        "type": "github"
+      }
+    },
     "import-tree": {
       "locked": {
         "lastModified": 1788467110,
@@ -1203,6 +1223,7 @@
         "flake-parts": "flake-parts",
         "git-hooks": "git-hooks",
         "home-manager": "home-manager",
+        "ida-nix": "ida-nix",
         "import-tree": "import-tree",
         "llama-cpp": "llama-cpp",
         "llm-agents": "llm-agents",

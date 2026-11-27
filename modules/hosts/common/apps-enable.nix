@@ -231,6 +231,7 @@ let
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
+      "ida-pro".extended.enable = lib.mkOverride 1100 false;
       ifuse.extended.enable = lib.mkOverride 1100 true;
       ilspycmd.extended.enable = lib.mkOverride 1100 false;
       imhex.extended.enable = lib.mkOverride 1100 false;

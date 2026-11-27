@@ -33,6 +33,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # IDA Pro, IDA Assist and the Hex-Rays MCP server, packaged from vendor
+    ida-nix = {
+      url = "github:Bad3r/ida-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     import-tree = {
       url = "github:vic/import-tree";
     };

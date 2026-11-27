@@ -61,6 +61,7 @@ let
     herdr = true;
     hopper = true;
     iaito = true;
+    "ida-pro" = true;
     ilspycmd = true;
     imhex = true;
     hyx = true;
