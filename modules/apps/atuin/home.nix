@@ -27,6 +27,8 @@ _: {
             enter_accept = true;
             # Unbinds `?` and turns off the Atuin Hub chat.
             ai.enabled = false;
+            # Keeps history local even after `atuin login`.
+            auto_sync = false;
           };
         };
       };
