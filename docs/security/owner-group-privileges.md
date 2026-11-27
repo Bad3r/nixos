@@ -52,7 +52,7 @@ Scope:
       - `org.freedesktop.ModemManager*`
     - enables privileged `nmcli` / `mmcli` operations without sudo.
     - present in the evaluated `security.polkit.extraConfig`; the repo-owned
-      `modules/security/polkit.nix` only owns wheel-group rules.
+      `modules/security/polkit.nix` owns only the wheel-group rules and the linger denial.
   - security impact:
     - network tampering, DNS/profile changes, network DoS, and modem control if modem hardware exists.
 

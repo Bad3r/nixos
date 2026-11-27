@@ -18,6 +18,21 @@ let
       };
 
       config = lib.mkMerge [
+        {
+          # Linger is declared per user in Nix; no unprivileged process may change it.
+          security.polkit = {
+            enable = true;
+            extraConfig = ''
+              polkit.addRule(function(action, subject) {
+                if (action.id === "org.freedesktop.login1.set-self-linger" ||
+                    action.id === "org.freedesktop.login1.set-user-linger") {
+                  return polkit.Result.NO;
+                }
+              });
+            '';
+          };
+        }
+
         (lib.mkIf fwupdCfg.enable {
           security.polkit = {
             enable = true;
