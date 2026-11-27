@@ -804,13 +804,15 @@ in
               work="$TMPDIR/work"
               mkdir -p "$work"
               touch "$work/a" "$work/b"
+              mkdir "$work/c"
+              touch "$work/c/f"
               PATH="${shell.antigravityBashWrapper}/bin:${shell.rmShim}/bin:$PATH" \
-                ${shell.antigravityBashWrapper}/bin/bash -c "rm '$work/a' && command rm -f '$work/b'"
-              if [ -e "$work/a" ] || [ -e "$work/b" ]; then
+                ${shell.antigravityBashWrapper}/bin/bash -c "rm '$work/a' && command rm -f '$work/b' && rm -rf --one-file-system -- '$work/c'"
+              if [ -e "$work/a" ] || [ -e "$work/b" ] || [ -e "$work/c" ]; then
                 echo "FAIL: removed files still present in $work" >&2
                 exit 1
               fi
-              if [ ! -e "$XDG_DATA_HOME/Trash/files/a" ] || [ ! -e "$XDG_DATA_HOME/Trash/files/b" ]; then
+              if [ ! -e "$XDG_DATA_HOME/Trash/files/a" ] || [ ! -e "$XDG_DATA_HOME/Trash/files/b" ] || [ ! -e "$XDG_DATA_HOME/Trash/files/c/f" ]; then
                 echo "FAIL: trashed files missing in $XDG_DATA_HOME/Trash/files" >&2
                 exit 1
               fi
