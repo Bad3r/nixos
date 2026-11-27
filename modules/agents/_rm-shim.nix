@@ -1,5 +1,5 @@
-# Shared rm -> rip shim: the codex and claude-code wrappers both route bare `rm`
-# through it so deletions stay recoverable.
+# Shared rm shim: the codex, claude-code, and antigravity-cli wrappers route bare
+# `rm` through it to trash-cli's trash-put so deletions stay recoverable.
 { lib, pkgs }:
 pkgs.writeShellScriptBin "rm" ''
   set -euo pipefail
@@ -38,7 +38,7 @@ pkgs.writeShellScriptBin "rm" ''
         bundle="''${1#-}"
         unsupported="''${bundle//[dfRrv]/}"
         if [ -n "$unsupported" ]; then
-          echo "rm shim: unsupported rm option '$1'; use rip directly for nonstandard flags" >&2
+          echo "rm shim: unsupported rm option '$1'; supported: -f, -r, -R, -d, -v, --one-file-system" >&2
           exit 2
         fi
         case "$bundle" in
@@ -54,7 +54,7 @@ pkgs.writeShellScriptBin "rm" ''
         shift
         ;;
       --*)
-        echo "rm shim: unsupported rm option '$1'; use rip directly for nonstandard flags" >&2
+        echo "rm shim: unsupported rm option '$1'; supported: -f, -r, -R, -d, -v, --one-file-system" >&2
         exit 2
         ;;
       *)
