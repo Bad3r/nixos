@@ -188,8 +188,6 @@
               "*.so"
               "*.a"
               "*.dylib"
-              "*.dll"
-              "*.exe"
 
               # Nix
               "result"
