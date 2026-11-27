@@ -27,8 +27,9 @@ _: {
             enter_accept = true;
             # Unbinds `?` and turns off the Atuin Hub chat.
             ai.enabled = false;
-            # Keeps history local even after `atuin login`.
             auto_sync = false;
+            # An unreachable server blocks manual sync and the daemon's startup capabilities request.
+            sync_address = "http://127.0.0.1:1";
           };
         };
       };
