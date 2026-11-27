@@ -5,13 +5,26 @@
   lib,
   pkgs,
   scratchDir,
-  # Records each run_command in atuin history when set.
-  atuin ? null,
+  # atuin package that records each run_command in history; null records nothing.
+  atuin,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
   sessionTmpdir = import ../_session-tmpdir.nix { inherit lib scratchDir; };
   proxy = import ./_proxy.nix;
+
+  # Each fragment stays on the line it extends and hides its own xtrace, so the command keeps the
+  # line numbers, stderr, status, $$ and signals it has without atuin; no atuin failure changes them.
+  # The EXIT trap closes the row, and the call after eval covers a command that replaced the trap.
+  # A command that ends in exec, or replaces the trap and exits early, leaves its row open; one
+  # killed by a signal records the status of its last finished command. A command that defines
+  # a builtin or _agyAtuinEnd function can change what the recorder runs.
+  atuinSetup =
+    lib.optionalString (atuin != null)
+      ''{ _atuinId="$(${lib.getExe atuin} history start --author antigravity --author-kind agent -- "$_agyCmd" 2>/dev/null)" || _atuinId=""; _agyAtuinEnd() { _agyStatus=$1; builtin [ -n "''${_atuinId:-}" ] || builtin return 0; ${lib.getExe atuin} history end --exit "$1" "$_atuinId" >/dev/null 2>&1 || builtin :; _atuinId=""; }; trap "{ _agyAtuinEnd \"\$?\"; } 2>/dev/null" EXIT; } 2>/dev/null'';
+  atuinEnd = lib.optionalString (
+    atuin != null
+  ) ''; { _agyAtuinEnd "$?"; builtin exit "$_agyStatus"; } 2>/dev/null'';
 
   antigravityBashWrapper = pkgs.writeShellScriptBin "bash" ''
     set -euo pipefail
@@ -106,17 +119,8 @@ let
         rm() {
           "'"$rmShimPath"'" "$@"
         }
-        ${lib.optionalString (atuin != null) ''
-          # atuin logs its own failures under its logs dir; the agent sees only its command.
-          _atuinId="$(${lib.getExe atuin} history start --author antigravity --author-kind agent -- "$_agyCmd" 2>/dev/null)" || _atuinId=""
-          _agyAtuinEnd() {
-            _agyStatus=$?
-            ${lib.getExe atuin} history end --exit "$_agyStatus" "$_atuinId" >/dev/null 2>&1
-            exit "$_agyStatus"
-          }
-          [ -z "$_atuinId" ] || trap _agyAtuinEnd EXIT
-        ''}
-        eval -- "$_agyCmd"
+        ${atuinSetup}
+        eval -- "$_agyCmd"${atuinEnd}
       ' "$@"
     fi
 
