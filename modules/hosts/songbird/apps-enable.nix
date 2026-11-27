@@ -34,6 +34,7 @@ let
     "clojure-lsp" = true;
     leiningen = true;
     lief = true;
+    landrun = true;
     asar = true;
     blackboxprotobuf = true;
     bloaty = true;

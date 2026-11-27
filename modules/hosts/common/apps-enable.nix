@@ -267,6 +267,7 @@ let
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       lazyjournal.extended.enable = lib.mkOverride 1100 true;
+      landrun.extended.enable = lib.mkOverride 1100 false;
       leiningen.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 false;
       libimobiledevice.extended.enable = lib.mkOverride 1100 true;
