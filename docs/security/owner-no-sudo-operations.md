@@ -18,6 +18,10 @@ Scope:
 
 ## Commands That Do Not Require `sudo`
 
+Linger is the exception: `loginctl enable-linger` and `disable-linger` fail for every non-root caller.
+`modules/meta/owner.nix` declares the owner's linger off.
+`modules/security/polkit.nix` denies `org.freedesktop.login1.set-self-linger` and `org.freedesktop.login1.set-user-linger`.
+
 - Power commands:
   - `poweroff`, `reboot`
   - `systemctl poweroff`, `systemctl reboot`
@@ -32,7 +36,7 @@ Scope:
   - mechanism:
     - polkit `networkmanager` group allow rules present in the evaluated
       `security.polkit.extraConfig`; the repo-owned `modules/security/polkit.nix`
-      only owns wheel-group rules.
+      owns only the wheel-group rules and the linger denial.
   - Available without sudo because the owner is in the `networkmanager` group
     (`modules/meta/owner.nix`).
 - Log/kernel visibility:
@@ -111,8 +115,9 @@ Scope:
   - `journalctl -n 20 --no-pager`
   - `dmesg -T | head -n 20`
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
-    - shows the enabled wheel power-off/reboot rule plus the NetworkManager/ModemManager
-      group rules; only wheel rules are owned by `modules/security/polkit.nix`.
+    - shows the enabled wheel power-off/reboot rule, the linger denial, and the
+      NetworkManager/ModemManager group rules; `modules/security/polkit.nix` owns
+      the wheel and linger rules.
       The common host baseline disables the optional wheel systemd
       unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
