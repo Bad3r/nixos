@@ -1,13 +1,13 @@
 /*
-  Package: evil-helix
-  Description: Post-modern modal text editor with Vim keybindings.
-  Homepage: https://github.com/usagi-flow/evil-helix
-  Documentation: https://github.com/usagi-flow/evil-helix#readme
-  Repository: https://github.com/usagi-flow/evil-helix
+  Package: helix
+  Description: Post-modern modal text editor.
+  Homepage: https://helix-editor.com
+  Documentation: https://docs.helix-editor.com
+  Repository: https://github.com/helix-editor/helix
 
   Summary:
-    * Helix fork with Vim-style normal, insert, and visual editing, enabled by `editor.evil`.
-    * Keeps multiple selections and built-in language server support.
+    * Modal editing with multiple selections as a core feature.
+    * Built-in language server support.
 
   Options:
     -h: Print help.
@@ -147,7 +147,6 @@ _: {
             theme = "vscode_dark_2026";
 
             editor = {
-              evil = true;
               line-number = "relative";
               cursorline = true;
               scrolloff = 8;
