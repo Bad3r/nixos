@@ -32,6 +32,69 @@ in
         scratchDir = "/nonexistent/agy-shell-check-missing";
       };
 
+      # Runs as root of its own user and mount namespace: its tmpfs mounts and trash stay in the
+      # build's temp dir and vanish with the namespace.
+      mountGuardFixture = pkgs.writeShellApplication {
+        name = "rm-shim-mount-guard-fixture";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.gnugrep
+          pkgs.util-linux
+        ];
+        text = ''
+          shim=${shell.rmShim}/bin/rm
+          work="$1"
+          fail() {
+            echo "FAIL: $*" >&2
+            exit 1
+          }
+          # The shim must exit 1 and name the reason; the mounts keep their data either way.
+          refused() {
+            local want="$1" rc=0
+            shift
+            "$shim" "$@" 2>"$work/err" || rc=$?
+            [ "$rc" -eq 1 ] || fail "rm $* exited $rc, expected 1: $(cat "$work/err")"
+            grep -Fq -- "$want" "$work/err" || fail "rm $* stderr lacks '$want': $(cat "$work/err")"
+            [ -f "$work/mp/keep" ] || fail "rm $* lost the data in $work/mp"
+            [ -f "$work/nest/mp/keep" ] || fail "rm $* lost the data in $work/nest/mp"
+          }
+
+          mkdir -p "$work/mp" "$work/nest/mp" "$work/moved/mp" "$work/sub" "$work/elsewhere/x" "$work/elsewhere/mp"
+          for mp in "$work/mp" "$work/nest/mp" "$work/moved/mp"; do
+            mount -t tmpfs mount-guard-fixture "$mp"
+            echo keep >"$mp/keep"
+          done
+          ln -s "$work/elsewhere/x" "$work/link"
+          touch "$work/plain-sibling"
+
+          # (a) A mount point operand is skipped while its plain sibling is trashed.
+          refused "'$work/mp' is a mount point" -rf -- "$work/mp" "$work/plain-sibling"
+          [ ! -e "$work/plain-sibling" ] || fail "plain sibling of a mount point still present"
+          [ -e "$XDG_DATA_HOME/Trash/files/plain-sibling" ] || fail "plain sibling of a mount point not in the trash"
+
+          # (b) --one-file-system keeps a directory that holds a mount.
+          refused "mount point '$work/nest/mp' lies inside '$work/nest' (--one-file-system)" \
+            -rf --one-file-system -- "$work/nest"
+
+          # (c) Spellings that trash-put normalizes to the mount point. For link/../mp the kernel
+          # finds the plain elsewhere/mp, but trash-put moves the normalized path.
+          for op in "$work/sub/../mp" "$work/mp/." "$work/mp/" "$work/link/../mp"; do
+            refused "'$op' is a mount point" -rf -- "$op"
+          done
+
+          # (d) Relative operands resolve against the working directory.
+          cd "$work"
+          refused "'mp' is a mount point" -rf mp
+          refused "'link/../mp' is a mount point" -rf link/../mp
+          refused "mount point '$work/nest/mp' lies inside 'nest' (--one-file-system)" -rf --one-file-system nest
+
+          # (e) Without --one-file-system the directory moves whole, mount included, like rm -r.
+          "$shim" -rf -- moved || fail "rm -rf moved exited $?"
+          [ ! -e "$work/moved" ] || fail "directory holding a mount still present"
+          [ -f "$XDG_DATA_HOME/Trash/files/moved/mp/keep" ] || fail "directory holding a mount not trashed whole"
+        '';
+      };
+
       mcpTemplate = json "mcp-template.json" {
         sbx = {
           command = "/nix/store/sbx/bin/sbx-mcp";
@@ -829,6 +892,10 @@ in
                 echo "FAIL: trash emptied through the rm shim" >&2
                 exit 1
               fi
+
+              # 3c. rip keeps mount points, and with --one-file-system any operand holding one, on tmpfs fixtures.
+              mkdir "$work/mounts"
+              ${pkgs.util-linux}/bin/unshare --user --map-root-user --mount ${lib.getExe mountGuardFixture} "$work/mounts"
 
               # Keep config.flake.lib.agents.scratchDir forced during eval.
               [ -n "${scratchDir}" ]
