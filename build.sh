@@ -101,18 +101,61 @@ error_msg() {
 	printf "%bError:%b %s\n" "${RED}" "${NC}" "$1" >&2
 }
 
+# The log is appended by a tee/sed process substitution that this shell cannot
+# wait on before the EXIT trap. The pipe is FIFO, so once the failure banner
+# printed just before the call appears in the log, every earlier line,
+# including the failed builder block, has been written too.
+print_builder_failure_summary() {
+	local banner="$1"
+	if [[ -z ${LOG_FILE} || ! -r ${LOG_FILE} ]]; then
+		return 0
+	fi
+
+	local waited
+	for ((waited = 0; waited < 20; waited++)); do
+		if grep -qF -- "${banner}" "${LOG_FILE}"; then
+			break
+		fi
+		sleep 0.1
+	done
+
+	local summary
+	summary="$(awk '
+		/^error: builder for / {
+			if (found++) print ""
+			in_block = 1
+			print
+			next
+		}
+		in_block && /^[[:space:]]/ { print; next }
+		in_block { in_block = 0 }
+	' "${LOG_FILE}")"
+
+	if [[ -n ${summary} ]]; then
+		printf "\n" >&2
+		error_msg "Failed builder summary (from ${LOG_FILE}):"
+		printf "%s\n" "${summary}" >&2
+	fi
+}
+
 trap_error() {
 	local exit_code=$?
 	local failed_command=${BASH_COMMAND}
 	local line_number=${BASH_LINENO[0]}
 	local func_name=${FUNCNAME[1]:-main}
-	error_msg "Command '${failed_command}' failed with exit code ${exit_code}."
+	local banner="Command '${failed_command}' failed with exit code ${exit_code}."
+	error_msg "${banner}"
 	printf "  at %s() line %s\n" "${func_name}" "${line_number}" >&2
 	if [[ ${#FUNCNAME[@]} -gt 2 ]]; then
 		printf "  Call stack:\n" >&2
 		for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
 			printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i - 1]}" >&2
 		done
+	fi
+	# The trap is inherited by subshells, which would print the summary again
+	# when the parent trap fires for the same failure.
+	if [[ ${BASHPID} == "$$" ]]; then
+		print_builder_failure_summary "${banner}"
 	fi
 	exit "${exit_code}"
 }
