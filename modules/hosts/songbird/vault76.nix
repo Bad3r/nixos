@@ -198,7 +198,7 @@ in
               log = notes()
               assert "uid=1000 bus=unix:path=/run/user/1000/bus" in log, log
               machine.wait_until_fails("systemctl is-active vault76-autolock.service")
-              machine.succeed("test ! -e /run/vault76/timeout")
+              machine.succeed("test ! -e /run/vault76/timeout -a ! -e /run/vault76/last-io -a ! -e /run/vault76/action")
 
           with subtest("a read after the warning keeps it unlocked"):
               machine.succeed("vault76 unlock --timeout=2m")
@@ -274,9 +274,11 @@ in
           with subtest("a killed auto-lock comes back and still locks"):
               machine.succeed("vault76 unlock --timeout=2m")
               machine.wait_for_unit("vault76-autolock.service")
-              machine.succeed("systemctl kill --signal=KILL vault76-autolock.service")
+              # Seed a leftover action file during RestartSec=10s to ensure a restarted daemon clears it.
+              machine.succeed("systemctl kill --signal=KILL vault76-autolock.service && printf 'default\\n' > /run/vault76/action")
               machine.wait_until_succeeds("systemctl show -P NRestarts vault76-autolock.service | grep -qx 1", timeout=30)
               machine.wait_for_unit("vault76-autolock.service")
+              machine.wait_until_succeeds("test ! -e /run/vault76/action", timeout=30)
               wait_locked(200)
 
           with subtest("stopping the mount alone closes the volume"):

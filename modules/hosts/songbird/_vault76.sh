@@ -119,6 +119,10 @@ set_timeout() {
 	touch "$state/reset"
 }
 
+clear_session_state() {
+	rm -f "$state/timeout" "$state/reset" "$state/last-io" "$state/action"
+}
+
 # The processes holding files or a working directory on the volume.
 # Named by argv[0]: a process systemd starts keeps the start of the command's
 # full path as its comm, and coreutils tools share one executable.
@@ -147,7 +151,7 @@ lock_volume() {
 		echo "vault76: $mapper is still open after $crypt_unit stopped" >&2
 		return 1
 	fi
-	rm -f "$state/timeout" "$state/reset"
+	clear_session_state
 }
 
 unlock() {
@@ -280,6 +284,8 @@ notify() {
 
 autolock() {
 	install -d -m 0755 "$state"
+	# Drop any action file left behind by a killed daemon before the poll loop reads it.
+	rm -f "$state/action"
 	local last_io=$EPOCHSECONDS prev="" cur timeout idle warned_at=0 warn_pid=0 busy_noted=0 failed_noted=0 out rc action
 	stop_warning() {
 		if ((warn_pid > 0)); then
@@ -317,6 +323,7 @@ autolock() {
 			read -r action <"$state/action" || true
 		fi
 		if [[ $action == default ]]; then
+			rm -f "$state/action"
 			restart_clock "$(timeout_notice "$timeout")"
 		fi
 		printf '%s\n' "$last_io" >"$state/last-io.new"
@@ -380,7 +387,7 @@ autolock() {
 		exec 9>"$state/lock"
 		flock -n 9 || exit 3
 		mountpoint -q "$mnt" && exit 3
-		rm -f "$state/timeout" "$state/reset" "$state/last-io"
+		clear_session_state
 		[[ -e $mapper ]] || exit 3
 		systemctl stop "$crypt_unit" || true
 		[[ ! -e $mapper ]]
