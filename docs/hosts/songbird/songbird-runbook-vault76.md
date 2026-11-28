@@ -3,48 +3,63 @@
 - [songbird-configuration.md](songbird-configuration.md)
 - [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md)
 
-The `vault76` LUKS2 volume on disk W holds XFS and opens in stage 2, as [vault76.nix](../../../modules/hosts/songbird/vault76.nix) declares.
-Key slot 0 holds a passphrase distinct from root's, slot 1 the keyfile `/etc/cryptsetup-keys.d/vault76.key` on the encrypted root, and slot 2 a systemd recovery key.
-The passphrase, the recovery key, and the header backup live offline.
+The `vault76` LUKS2 volume on disk W holds XFS and opens only on demand, as [vault76.nix](../../../modules/hosts/songbird/vault76.nix) declares.
+Key slot 0 holds a passphrase distinct from root's.
+Two more slots each hold a FIDO2 enrollment of one YubiKey, which unlocks with the key's FIDO2 PIN and a touch.
+No keyfile and no recovery key exist, so losing the passphrase and both YubiKeys loses the data.
+The header backup lives offline.
 The volume has no snapshots and no second copy, so a deleted file is gone.
 The `discard` mount option trims a deleted file's blocks at once.
 TRIM through LUKS shows which blocks are in use to anyone holding the drive, without revealing their contents.
-The empty mount point `/srv/vault76` carries `chattr +i`, so nothing lands on root while the volume is absent.
+The empty mount point `/srv/vault76` carries `chattr +i`, so nothing lands on root while the volume is locked.
 
-## Mount the volume by hand
+## Unlock and mount
 
-Precondition: disk W was absent or locked at boot, so `systemctl status srv-vault76.mount` shows it inactive.
+Precondition: `systemctl status srv-vault76.mount` shows it inactive.
 
-```sh
-sudo systemctl start srv-vault76.mount
-```
+1. Plug in one enrolled YubiKey, then start the mount:
 
-The mount pulls in `systemd-cryptsetup@vault76.service`, which reads the keyfile, or asks for the passphrase when the keyfile is missing.
+   ```sh
+   sudo systemctl start srv-vault76.mount
+   ```
+
+2. Enter the YubiKey's FIDO2 PIN at the prompt and touch the key when it blinks.
+
+The mount pulls in `systemd-cryptsetup@vault76.service`.
+With no enrolled YubiKey plugged in, it asks for the passphrase after 30 seconds.
 
 Verification: `findmnt /srv/vault76` shows `/dev/mapper/vault76` as `xfs` with `discard`.
 
-## Replace the keyfile after a reinstall
+## Lock the volume
 
-Precondition: a reinstall wiped disk A's root filesystem, so the keyfile is gone and `vault76` asks for its passphrase at boot.
+```sh
+sudo systemctl stop srv-vault76.mount systemd-cryptsetup@vault76.service
+```
 
-1. Create a new keyfile:
+Verification: `/dev/mapper/vault76` is absent.
+
+## Replace a lost YubiKey
+
+Precondition: one enrolled YubiKey is lost or broken, and a new YubiKey has a FIDO2 PIN set.
+
+1. Plug in only the YubiKey you still have, enroll it again, and wipe every other FIDO2 slot, the lost key's included:
 
    ```sh
-   sudo install -d -m 0700 /etc/cryptsetup-keys.d
-   sudo sh -c 'umask 077; head -c 512 /dev/urandom > /etc/cryptsetup-keys.d/vault76.key'
-   sudo chmod 0400 /etc/cryptsetup-keys.d/vault76.key
+   sudo systemd-cryptenroll /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1 --wipe-slot=fido2 --fido2-device=auto --fido2-with-client-pin=yes --fido2-with-user-presence=yes
    ```
 
-2. Drop the lost keyfile's slot, then enrol the new one, authenticating both times with the passphrase:
+   The command asks for the passphrase, then the YubiKey's PIN and a touch.
+   It wipes only after the new enrollment succeeds.
+
+2. Plug in only the new YubiKey and enroll it:
 
    ```sh
-   sudo cryptsetup luksKillSlot /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1 1
-   sudo cryptsetup luksAddKey /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1 /etc/cryptsetup-keys.d/vault76.key
+   sudo systemd-cryptenroll /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1 --fido2-device=auto --fido2-with-client-pin=yes --fido2-with-user-presence=yes
    ```
 
 3. Refresh the header backup as the next section describes, since the key slots changed.
 
-Verification: reboot; `/srv/vault76` mounts with no passphrase prompt.
+Verification: `sudo systemd-cryptenroll /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1` lists one `password` slot and two `fido2` slots, and each YubiKey unlocks the volume on its own.
 
 ## Refresh the header backup
 
@@ -54,15 +69,15 @@ Precondition: a key slot was added, removed, or changed.
 
    ```sh
    sudo cryptsetup luksHeaderBackup /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1 --header-backup-file /root/vault76-hdr.img
-   sudo cryptsetup open --test-passphrase --header /root/vault76-hdr.img /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1
+   sudo cryptsetup open --test-passphrase --key-slot 0 --header /root/vault76-hdr.img /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1
    sudo sha256sum /root/vault76-hdr.img
    ```
 
-   The test prompt takes the passphrase; run it once more with the recovery key.
+   The test prompt takes the passphrase.
 
 2. Copy the file to two offline media in separate places and compare the hash on each.
 
-3. Delete `/root/vault76-hdr.img` and every older backup, since an old header keeps a removed key slot valid.
+3. Delete `/root/vault76-hdr.img` and destroy every older backup, since an old header keeps a removed key slot valid.
 
 Verification: `cryptsetup luksDump` of each copy lists the same key slots as the live header.
 
@@ -70,18 +85,16 @@ Verification: `cryptsetup luksDump` of each copy lists the same key slots as the
 
 Precondition: nothing on the volume is to be kept.
 
-1. Unmount the volume, close it, and erase every key slot:
+1. Lock the volume as described above, then erase every key slot:
 
    ```sh
-   sudo umount /srv/vault76
-   sudo cryptsetup close vault76
    sudo cryptsetup luksErase /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1
    ```
 
    `luksErase` asks for confirmation and removes the volume key; the encrypted data stays on the disk, and no key opens it.
    `sudo cryptsetup luksDump /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1` then lists no key slots.
 
-2. Destroy every copy of the header backup and delete `/etc/cryptsetup-keys.d/vault76.key`, since a header backup restores the erased key slots.
+2. Destroy every copy of the header backup, since a header backup restores the erased key slots.
 
 3. Remove [vault76.nix](../../../modules/hosts/songbird/vault76.nix), switch to the new generation, and remove the mount point with `sudo chattr -i /srv/vault76 && sudo rmdir /srv/vault76`.
 
@@ -93,6 +106,7 @@ Precondition: nothing on the volume is to be kept.
 
 ## Check the volume
 
-- `systemctl --failed` listing `systemd-cryptsetup@vault76.service` or `srv-vault76.mount` means the volume did not open or mount.
+- `systemctl --failed` listing `systemd-cryptsetup@vault76.service` or `srv-vault76.mount` after a start means the volume did not open or mount.
+- `ykman fido info` shows a YubiKey's remaining PIN retries; when they run out, the key's FIDO2 function stays blocked until a reset, and a reset destroys its `vault76` enrollment.
 - XFS checksums its metadata only, so a damaged file can read back wrong without an error.
 - `sudo nvme smart-log /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492` reports `critical_warning` and `media_errors` at 0 on a healthy drive.
