@@ -60,6 +60,14 @@ fmt_duration() {
 	fi
 }
 
+timeout_notice() {
+	if [[ $1 == off ]]; then
+		echo "Auto-lock is off."
+	else
+		echo "It locks after $(fmt_duration "$1") without a read or write."
+	fi
+}
+
 # off, or the duration in seconds.
 parse_timeout() {
 	local v=$1 h=0 m=0
@@ -148,6 +156,7 @@ unlock() {
 	take_lock
 	if mountpoint -q "$mnt"; then
 		echo "vault76 is already unlocked at $mnt"
+		[[ -n $timeout ]] || touch "$state/reset"
 	else
 		systemctl start "$mount_unit" || die "unlock failed; see: journalctl -b -u $crypt_unit -u $mount_unit"
 		rm -f "$state/timeout"
@@ -183,11 +192,15 @@ status() {
 		else
 			echo "auto-lock: after $(fmt_duration "$timeout") without a read or write"
 		fi
-		if [[ -r $state/last-io ]]; then
-			read -r last <"$state/last-io" || true
-		fi
-		if [[ $last =~ ^[0-9]+$ ]]; then
-			echo "idle: $(fmt_duration $(((EPOCHSECONDS - last) / 60 * 60)))"
+		if [[ -e $state/reset ]]; then
+			echo "idle: 0m"
+		else
+			if [[ -r $state/last-io ]]; then
+				read -r last <"$state/last-io" || true
+			fi
+			if [[ $last =~ ^[0-9]+$ ]]; then
+				echo "idle: $(fmt_duration $(((EPOCHSECONDS - last) / 60 * 60)))"
+			fi
 		fi
 		systemctl is-active --quiet "$autolock_unit" || echo "warning: $autolock_unit is not running, so nothing locks vault76 on idle"
 	elif [[ -e $mapper ]]; then
@@ -277,7 +290,7 @@ autolock() {
 		warned_at=0
 		rm -f "$state/action"
 	}
-	# A read or write, the Keep unlocked action, or a new timeout restarts the clock.
+	# A read or write, the Keep unlocked action, or vault76 unlock restarts the clock.
 	restart_clock() {
 		last_io=$EPOCHSECONDS
 		busy_noted=0
@@ -296,7 +309,7 @@ autolock() {
 		fi
 		if [[ -e $state/reset ]]; then
 			rm -f "$state/reset"
-			restart_clock "Auto-lock is now $(fmt_duration "$timeout")."
+			restart_clock "$(timeout_notice "$timeout")"
 		fi
 		# Empty while the warning waits for an answer.
 		action=""
@@ -304,7 +317,7 @@ autolock() {
 			read -r action <"$state/action" || true
 		fi
 		if [[ $action == default ]]; then
-			restart_clock "It locks after $(fmt_duration "$timeout") without a read or write."
+			restart_clock "$(timeout_notice "$timeout")"
 		fi
 		printf '%s\n' "$last_io" >"$state/last-io.new"
 		mv "$state/last-io.new" "$state/last-io"

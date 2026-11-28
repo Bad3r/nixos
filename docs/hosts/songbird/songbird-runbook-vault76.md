@@ -62,7 +62,7 @@ sudo vault76 unlock --timeout=45m
 ```
 
 `--timeout` takes `off` or minutes and hours such as `45m`, `1h` or `1h30m`, at least `2m`.
-On an unlocked volume, `vault76 unlock --timeout=...` changes the period and restarts the idle clock.
+On an unlocked volume, `vault76 unlock` restarts the idle clock and applies any `--timeout`.
 The default lives in [vault76.nix](../../../modules/hosts/songbird/vault76.nix) as `autolockMinutes`.
 
 Verification: `vault76 status` shows the period and the idle time, and `journalctl -u vault76-autolock` logs the warning and the lock.

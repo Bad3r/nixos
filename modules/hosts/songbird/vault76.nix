@@ -229,6 +229,16 @@ in
               time.sleep(70)
               assert not locked()
 
+          with subtest("plain unlock after the warning restarts the clock"):
+              reset_notes()
+              machine.succeed("vault76 unlock --timeout=2m")
+              machine.wait_until_succeeds("grep -qs 'locks in 1 minute' /tmp/notify.log", timeout=150)
+              out = machine.succeed("vault76 unlock")
+              assert "already unlocked" in out and "idle: 0m" in out, out
+              machine.wait_until_succeeds("grep -qs 'stays unlocked.*locks after 2m' /tmp/notify.log", timeout=30)
+              time.sleep(70)
+              assert not locked()
+
           with subtest("--timeout=off holds it open, a new timeout locks it"):
               reset_notes()
               assert "auto-lock: off" in machine.succeed("vault76 unlock --timeout=off")
