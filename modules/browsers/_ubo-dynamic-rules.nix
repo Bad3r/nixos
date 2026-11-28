@@ -54,7 +54,7 @@ let
     # Cloud consoles
     "cloud.google.com"
 
-    # AI tools
+    # AI
     "chatgpt.com"
     "auth.openai.com"
     "claude.ai"
@@ -63,6 +63,7 @@ let
     "codeassist.google"
     "codeassist.google.com"
     "aistudio.google.com"
+    "discuss.ai.google.dev"
 
     # Proton web properties
     "proton.me"
