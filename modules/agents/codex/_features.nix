@@ -84,15 +84,21 @@
   # cli_resume_account_check = false; # UnderDevelopment; upstream: false
 
   # Enable JavaScript code mode backed by the standalone host process.
-  code_mode = false; # UnderDevelopment; upstream: false
-  # code_mode = {
-  #   enabled = false;
-  #   default_exec_yield_time_ms = 30000;
-  #   experimental_show_cell_overhead = false;
-  #   tool_input_schema_max_bytes = 16000; # also the minimum
-  #   excluded_tool_namespaces = [ ];
-  #   direct_only_tool_namespaces = [ ];
-  # };
+  # code_mode = true; # UnderDevelopment; upstream: false
+  code_mode = {
+    enabled = true;
+    #   default_exec_yield_time_ms = 30000;
+    experimental_show_cell_overhead = true; # Default: false
+    tool_input_schema_max_bytes = 36000; # also the minimum
+    excluded_tool_namespaces = [
+      "mcp__codex_apps"
+      "multi_agent_v1"
+    ];
+    direct_only_tool_namespaces = [
+      "mcp__history"
+      "mcp__notes"
+    ];
+  };
 
   # Use the code-mode host bundled with the Codex package.
   code_mode_host = true; # Stable; upstream: true
