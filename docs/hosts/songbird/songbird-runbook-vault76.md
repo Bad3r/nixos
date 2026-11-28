@@ -106,7 +106,13 @@ Precondition: a key slot was added, removed, or changed.
 
 2. Copy the file to two offline media in separate places and compare the hash on each.
 
-3. Delete `/root/vault76-hdr.img` and destroy every older backup, since an old header keeps a removed key slot valid.
+3. Remove `/root/vault76-hdr.img` with `shred -u`, not `rm` (aliased to `rip`, which moves files to trash):
+
+   ```sh
+   sudo shred -u /root/vault76-hdr.img
+   ```
+
+   Destroy every older offline backup the same way, since an old header keeps a removed key slot valid.
 
 Verification: `cryptsetup luksDump` of each copy lists the same key slots as the live header.
 
@@ -127,7 +133,7 @@ Precondition: nothing on the volume is to be kept.
    A header backup opens nothing afterwards.
    The partition table stays.
 
-2. Destroy every copy of the header backup.
+2. Destroy every copy of the header backup with `shred -u` rather than `rm`, or wipe its medium.
 
 3. Remove [vault76.nix](../../../modules/hosts/songbird/vault76.nix), switch to the new generation, and remove the mount point with `sudo chattr -i /srv/vault76 && sudo rmdir /srv/vault76`.
 
