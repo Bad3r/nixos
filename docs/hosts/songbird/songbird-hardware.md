@@ -54,8 +54,6 @@
 - Case fans and the AIO pump follow BIOS Q-Fan curves, and the RTX 5080's fans follow the card's own curve.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
-- Windows Boot Manager shares disk A's ESP, so a reinstall that reformats it leaves Windows unbootable: [songbird-runbook-windows.md](songbird-runbook-windows.md#move-windows-boot-manager-to-disk-w).
-- systemd-boot lists Windows from that ESP, and booting it through that entry triggers a BitLocker recovery prompt.
 
 ### UEFI settings
 
