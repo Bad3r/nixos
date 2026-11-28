@@ -51,6 +51,7 @@ BOOTSTRAP_EXPERIMENTAL_FEATURES="nix-command flakes pipe-operator pipe-operators
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[0;33m'
+readonly DIM='\033[2m'
 readonly NC='\033[0m'
 
 # Function to display help
@@ -119,22 +120,100 @@ print_builder_failure_summary() {
 		sleep 0.1
 	done
 
+	local cols="${COLUMNS:-}"
+	if [[ -z ${cols} ]]; then
+		cols="$(stty size </dev/tty 2>/dev/null | awk '{print $2}')" || true
+	fi
+	cols="${cols:-100}"
+	((cols < 40)) && cols=40
+
 	local summary
-	summary="$(awk '
+	summary="$(awk -v max_w="$((cols - 6))" '
+		function flush_block(    idx, header, i, text, n, w, words, line) {
+			if (!in_block) return
+			in_block = 0
+			count++
+
+			header = sprintf("  \033[1;31m%s\033[0m", cur_name)
+			if (cur_reason != "") {
+				header = header sprintf(" \033[2m(%s)\033[0m", cur_reason)
+			}
+			out = out "\n" header "\n"
+
+			for (i = 1; i <= cur_nlines; i++) {
+				text = cur_lines[i]
+				if (text == "") {
+					out = out "    \033[2m│\033[0m\n"
+					continue
+				}
+				n = split(text, words, /[[:space:]]+/)
+				line = ""
+				for (w = 1; w <= n; w++) {
+					if (words[w] == "") continue
+					if (line == "") {
+						line = words[w]
+					} else if (length(line) + 1 + length(words[w]) <= max_w) {
+						line = line " " words[w]
+					} else {
+						out = out "    \033[2m│\033[0m " line "\n"
+						line = words[w]
+					}
+				}
+				if (line != "") {
+					out = out "    \033[2m│\033[0m " line "\n"
+				}
+			}
+
+			if (cur_cmd != "") {
+				out = out "    \033[2m" cur_cmd "\033[0m\n"
+			}
+		}
+
 		/^error: builder for / {
-			if (found++) print ""
+			flush_block()
 			in_block = 1
-			print
+			cur_nlines = 0
+			cur_cmd = ""
+			cur_name = $0
+			sub(/^error: builder for \047/, "", cur_name)
+			sub(/\047.*/, "", cur_name)
+			sub(/^\/nix\/store\/[0-9a-z]+-/, "", cur_name)
+			sub(/\.drv$/, "", cur_name)
+
+			cur_reason = $0
+			if (match(cur_reason, /failed [^;]+/)) {
+				cur_reason = substr(cur_reason, RSTART + 7, RLENGTH - 7)
+				sub(/^with exit code /, "exit ", cur_reason)
+			} else {
+				cur_reason = ""
+			}
 			next
 		}
-		in_block && /^[[:space:]]/ { print; next }
-		in_block { in_block = 0 }
+		in_block && /^[[:space:]]/ {
+			line = $0
+			sub(/^[[:space:]]+/, "", line)
+			if (line ~ /^last [0-9]+ log lines?:$/ || line == "For full logs, run:") {
+				next
+			}
+			if (line ~ /^> ?/) {
+				sub(/^> ?/, "", line)
+				cur_lines[++cur_nlines] = line
+			} else if (line ~ /^nix log / || line ~ /^nix-store -l /) {
+				cur_cmd = line
+			}
+			next
+		}
+		in_block { flush_block() }
+		END {
+			flush_block()
+			if (count > 0) {
+				printf "\033[0;31m==>\033[0m \033[1mFailed builders (%d):\033[0m\n%s", count, out
+			}
+		}
 	' "${LOG_FILE}")"
 
 	if [[ -n ${summary} ]]; then
-		printf "\n" >&2
-		error_msg "Failed builder summary (from ${LOG_FILE}):"
-		printf "%s\n" "${summary}" >&2
+		printf "\n%s\n\n%bFull log: %s%b\n" "${summary}" "${DIM}" "${LOG_FILE}" "${NC}" >&2
 	fi
 }
 
