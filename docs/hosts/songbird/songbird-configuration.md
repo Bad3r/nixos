@@ -26,6 +26,9 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 ## Storage
 
 - The optional LUKS `/data` volume reuses the cached root passphrase, and its unlock is bounded so an absent device or unanswered prompt cannot block root: [hardware-config.nix](../../../modules/hosts/songbird/hardware-config.nix).
+- The LUKS2 `vault76` volume on disk W opens only on demand, through an enrolled YubiKey (FIDO2 PIN and touch) or its passphrase, and no keyfile on root unlocks it: [vault76.nix](../../../modules/hosts/songbird/vault76.nix).
+- `vault76` keeps no snapshots, and its `discard` mount option trims a deleted file's blocks at once: [vault76.nix](../../../modules/hosts/songbird/vault76.nix).
+- `sudo vault76 unlock` and `lock` open and close the volume, `wipe` erases it for good, and `vault76-autolock.service` locks it after 90 minutes without a read or write, with a desktop notice a minute ahead: [vault76.nix](../../../modules/hosts/songbird/vault76.nix).
 - The `/portal` volume mounts through the ntfs3 driver, added to the supported filesystems, with nofail, Windows-safe names, and owner-only masks: [hardware-config.nix](../../../modules/hosts/songbird/hardware-config.nix).
 - `/portal` unmounts before hibernation and remounts after resume, since an image written with the volume mounted corrupts what Windows writes: [hardware-config.nix](../../../modules/hosts/songbird/hardware-config.nix).
 

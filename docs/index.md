@@ -316,8 +316,10 @@
   - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
+- [hosts/songbird/songbird-runbook-vault76.md](hosts/songbird/songbird-runbook-vault76.md)
+  - The `vault76` command, idle auto-lock, YubiKey replacement, header backups, erasure, and health checks for the `vault76` volume on `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
-  - Booting Windows once, installing Windows on disk W, and moving Windows Boot Manager to its own ESP on disk W.
+  - Booting Windows once from NixOS through its own firmware entry.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
   - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
 - [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
