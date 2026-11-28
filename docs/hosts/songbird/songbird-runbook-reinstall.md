@@ -1,6 +1,6 @@
 # Songbird runbook: reinstall
 
-The everyday validation procedure is in [songbird-runbook.md](songbird-runbook.md), and Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md).
+The everyday validation procedure is in [songbird-runbook.md](songbird-runbook.md), Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md), and the `vault76` keyfile a reinstall removes in [songbird-runbook-vault76.md](songbird-runbook-vault76.md).
 
 ## Reinstall NixOS on disk A
 
