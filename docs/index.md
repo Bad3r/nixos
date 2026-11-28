@@ -317,7 +317,7 @@
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-vault76.md](hosts/songbird/songbird-runbook-vault76.md)
-  - On-demand unlock, YubiKey replacement, header backups, erasure, and health checks for the `vault76` volume on `songbird`.
+  - The `vault76` command, idle auto-lock, YubiKey replacement, header backups, erasure, and health checks for the `vault76` volume on `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once from NixOS through its own firmware entry.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)

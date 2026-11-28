@@ -12,31 +12,60 @@ The volume has no snapshots and no second copy, so a deleted file is gone.
 The `discard` mount option trims a deleted file's blocks at once.
 TRIM through LUKS shows which blocks are in use to anyone holding the drive, without revealing their contents.
 The empty mount point `/srv/vault76` carries `chattr +i`, so nothing lands on root while the volume is locked.
+The nightly `updatedb` skips `/srv/vault76`, so the locate database on root holds no file name from the volume.
 
 ## Unlock and mount
 
-Precondition: `systemctl status srv-vault76.mount` shows it inactive.
+Precondition: `vault76 status` reports vault76 locked.
 
-1. Plug in one enrolled YubiKey, then start the mount:
+1. Plug in one enrolled YubiKey, then unlock:
 
    ```sh
-   sudo systemctl start srv-vault76.mount
+   sudo vault76 unlock
    ```
 
 2. Enter the YubiKey's FIDO2 PIN at the prompt and touch the key when it blinks.
 
-The mount pulls in `systemd-cryptsetup@vault76.service`.
+`vault76 unlock` starts `srv-vault76.mount`, which pulls in `systemd-cryptsetup@vault76.service`.
 With no enrolled YubiKey plugged in, it asks for the passphrase after 30 seconds.
+The command refuses when the drive is not attached.
 
 Verification: `findmnt /srv/vault76` shows `/dev/mapper/vault76` as `xfs` with `discard`.
 
 ## Lock the volume
 
 ```sh
-sudo systemctl stop srv-vault76.mount systemd-cryptsetup@vault76.service
+sudo vault76 lock
 ```
 
-Verification: `/dev/mapper/vault76` is absent.
+The lock refuses while a process holds a file or its working directory on `/srv/vault76`, and it names those processes.
+
+Verification: `vault76 status` reports vault76 locked, and `/dev/mapper/vault76` is absent.
+
+## Auto-lock
+
+`vault76-autolock.service` starts with every mount of `/srv/vault76`.
+It locks the volume after 90 minutes without a read or write on `/dev/mapper/vault76`.
+It counts the device's completed reads and writes, so a file served from the page cache is no activity.
+One minute before the lock, a critical notification appears on the owner's desktop.
+Middle-click it, or read or write the drive, to keep vault76 unlocked for another full period.
+Closing the notification any other way keeps the lock.
+While a process holds the volume, the lock waits, a notification names the holders, and the volume locks once they let go.
+When nobody is logged in to a desktop, the lock goes ahead without a notice.
+Stopping `srv-vault76.mount` alone also closes `/dev/mapper/vault76`.
+
+Change the period for the open session; it holds until the next lock:
+
+```sh
+sudo vault76 unlock --timeout=off
+sudo vault76 unlock --timeout=45m
+```
+
+`--timeout` takes `off` or minutes and hours such as `45m`, `1h` or `1h30m`, at least `2m`.
+On an unlocked volume, `vault76 unlock --timeout=...` changes the period and restarts the idle clock.
+The default lives in [vault76.nix](../../../modules/hosts/songbird/vault76.nix) as `autolockMinutes`.
+
+Verification: `vault76 status` shows the period and the idle time, and `journalctl -u vault76-autolock` logs the warning and the lock.
 
 ## Replace a lost YubiKey
 
@@ -85,24 +114,24 @@ Verification: `cryptsetup luksDump` of each copy lists the same key slots as the
 
 Precondition: nothing on the volume is to be kept.
 
-1. Lock the volume as described above, then erase every key slot:
+1. Erase the volume:
 
    ```sh
-   sudo cryptsetup luksErase /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1
+   sudo vault76 wipe
    ```
 
-   `luksErase` asks for confirmation and removes the volume key; the encrypted data stays on the disk, and no key opens it.
-   `sudo cryptsetup luksDump /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1` then lists no key slots.
+   It names the partition and its key slots, then asks to type `vault76`; `--force` skips the question.
+   It locks the volume first and refuses while a process holds it.
+   It then erases every key slot with `cryptsetup luksErase` and checks that none is left.
+   Last, `blkdiscard -z` zero-fills the whole LUKS partition, header and encrypted data alike.
+   A header backup opens nothing afterwards.
+   The partition table stays.
 
-2. Destroy every copy of the header backup, since a header backup restores the erased key slots.
+2. Destroy every copy of the header backup.
 
 3. Remove [vault76.nix](../../../modules/hosts/songbird/vault76.nix), switch to the new generation, and remove the mount point with `sudo chattr -i /srv/vault76 && sudo rmdir /srv/vault76`.
 
-4. To make the drive drop the encrypted blocks as well, discard the whole disk:
-
-   ```sh
-   sudo blkdiscard -f /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492
-   ```
+Verification: `sudo cryptsetup isLuks /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492-part1` fails.
 
 ## Check the volume
 
