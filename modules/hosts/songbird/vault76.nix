@@ -14,7 +14,8 @@ let
       "discard"
       "noauto"
       "nofail"
-      "x-systemd.device-timeout=60s"
+      # Must outlast crypttab's 60s disk wait + 120s unlock timeout plus touch and KDF slack.
+      "x-systemd.device-timeout=240s"
     ];
   };
 
