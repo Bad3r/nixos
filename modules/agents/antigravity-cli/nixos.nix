@@ -68,7 +68,10 @@ let
           description = ''
             Patch sets applied to the `agy` binary at build time (see
             _binary-patches.nix). An empty list installs the binary unpatched.
-            The build fails when the package is not a build the patcher knows.
+            The dynamic patch sets (`notelemetry`, `noautoupdate`,
+            `quietwatcher`) are discovered at build time across releases; other
+            patch sets require a pinned entry in `_agy_patcher/patches.py` and
+            fail the build on unknown releases.
           '';
         };
 

@@ -1,12 +1,12 @@
-# Byte patches applied to the `agy` ELF at build time by _patch_agy.py, which
-# is pinned by sha256 to known builds and checks every replaced byte, so an
-# unknown `agy` release fails the build instead of shipping unpatched.
+# Byte patches applied to the `agy` ELF at build time by _patch_agy.py.
+#
+# `dynamicPatchSets` (`notelemetry`, `noautoupdate`, `quietwatcher`) are located
+# dynamically at build time from Go `pclntab`, `abi.StructType` RTTI, and x86-64
+# Capstone disassembly, failing closed when an expected invariant is ambiguous
+# or absent. Pinned-only sets additionally require a sha256-pinned entry in
+# `_agy_patcher/patches.py` (`BUILDS`).
 let
-  patchSets = [
-    # Options.EnvironmentConfig.DevMode = true in the in-process language
-    # server: TEMPLATE_DATA_DIR overrides, SetMendelFlagOverrides, and
-    # /debug/pprof plus /metrics on its loopback ports without a CSRF token.
-    "devmode"
+  dynamicPatchSets = [
     # Options.DisableTelemetry = true for the language server (TUI, print
     # mode, --hub, acp) and for the CLI's own analytics recorder.
     "notelemetry"
@@ -14,6 +14,16 @@ let
     # updater ignores AGY_CLI_DISABLE_AUTO_UPDATE unless that is exactly "true".
     "noautoupdate"
     # Drops the file_watcher.go:194 log call that floods the log at shutdown.
+    "quietwatcher"
+  ];
+
+  patchSets = [
+    # Options.EnvironmentConfig.DevMode = true in the in-process language
+    # server: TEMPLATE_DATA_DIR overrides, SetMendelFlagOverrides, and
+    # /debug/pprof plus /metrics on its loopback ports without a CSRF token.
+    "devmode"
+    "notelemetry"
+    "noautoupdate"
     "quietwatcher"
     # Disables the embedded sir_flash_lite and severe_internal_risks_agy
     # tool-call monitors and drops severe_internal_risks_agy from BLOCK to ASK.
@@ -27,9 +37,26 @@ let
     # Test patch: skips CheckScriptGuard at 0x9e5bc0a (xor eax, eax ; nop3).
     "testjmp"
   ];
+
+  mkPythonEnv = pkgs: pkgs.python3.withPackages (ps: [ ps.capstone ]);
+
+  mkPatcherSrc =
+    lib:
+    lib.fileset.toSource {
+      root = ./.;
+      fileset = lib.fileset.unions [
+        ./_patch_agy.py
+        ./_agy_patcher
+      ];
+    };
 in
 {
-  inherit patchSets;
+  inherit
+    dynamicPatchSets
+    mkPatcherSrc
+    mkPythonEnv
+    patchSets
+    ;
 
   patchAgy =
     {
@@ -38,11 +65,15 @@ in
       package,
       patches,
     }:
+    let
+      pythonEnv = mkPythonEnv pkgs;
+      patcherSrc = mkPatcherSrc lib;
+    in
     pkgs.runCommandLocal "antigravity-cli-patched-${package.version or "custom"}"
       {
         nativeBuildInputs = [
           pkgs.jq
-          pkgs.python3
+          pythonEnv
         ];
         passthru = {
           inherit patches;
@@ -54,7 +85,8 @@ in
       }
       ''
         mkdir -p "$out/bin" "$out/share/antigravity-cli"
-        python3 -I ${./_patch_agy.py} ${package}/bin/agy "$out/bin/agy" \
+        ${pythonEnv}/bin/python3 -I ${patcherSrc}/_patch_agy.py ${package}/bin/agy "$out/bin/agy" \
+          --version ${lib.escapeShellArg (package.version or "unknown")} \
           --patches ${lib.escapeShellArg (lib.concatStringsSep "," patches)} >/dev/null
         # Keep the input's checksum but not its store path, which would pull the
         # unpatched package into every closure that holds this one.
