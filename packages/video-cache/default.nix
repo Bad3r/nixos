@@ -169,7 +169,7 @@ writeShellApplication {
     fi
 
     # Find new files (not in cache)
-    new_files=$(fd -t f '\.(3gp|avi|flv|m4v|mkv|mov|mp4|mpg|webm|wmv)$' -i "$VIDEO_DIR" \
+    new_files=$(fd -t f '\.(3gp|m4v|mp4|mov|wmv|avi|mpg|mpeg|rmvb|rm|flv|asf|mkv|webm|f4v)$' -i "$VIDEO_DIR" \
       | LC_ALL=C grep -Fxvf <(
         LC_ALL=C awk -F'\t' 'index($0, "\t") { print substr($0, index($0, "\t") + 1) }' "$CACHE_FILE"
       ) || true)
