@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides the `agy` CLI byte-patched at build time (dev mode on, telemetry and the background updater off in every mode, quiet file watcher, embedded sir_flash_lite and severe_internal_risks_agy monitors off, pure-static prompt sections routed through TEMPLATE_DATA_DIR; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
+    * Provides the `agy` CLI byte-patched at build time (telemetry and the background updater off in every mode and quiet file watcher via dynamic build-time discovery; see _binary-patches.nix), wrapped with `--disable_telemetry` on `acp`, disabled auto-updates across all invocations, the controlled agent shell, rm -> trash shim, and per-session TMPDIR.
     * Supports interactive sessions, non-interactive prompts, workspace directory additions, sandboxed execution, and plugin management.
 
   Options:
@@ -68,10 +68,8 @@ let
           description = ''
             Patch sets applied to the `agy` binary at build time (see
             _binary-patches.nix). An empty list installs the binary unpatched.
-            The dynamic patch sets (`notelemetry`, `noautoupdate`,
-            `quietwatcher`) are discovered at build time across releases; other
-            patch sets require a pinned entry in `_agy_patcher/patches.py` and
-            fail the build on unknown releases.
+            Targets are discovered dynamically at build time across releases,
+            and the build fails if any invariant is missing or ambiguous.
           '';
         };
 

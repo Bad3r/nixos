@@ -669,131 +669,6 @@ in
               manifest=${patched}/share/antigravity-cli/agy.patch.json
               fail() { echo "FAIL: $*" >&2; exit 1; }
 
-              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.patchSets)} ] || fail "manifest patch sets"
-              [ "$(jq -r .input_sha256 "$manifest")" = "$(sha256sum ${unpatched}/bin/agy | cut -d' ' -f1)" ] \
-                || fail "input checksum"
-              [ "$(jq -r .output_sha256 "$manifest")" = "$(sha256sum ${patched}/bin/agy | cut -d' ' -f1)" ] \
-                || fail "output checksum"
-              ! grep -q ${lib.escapeShellArg (builtins.unsafeDiscardStringContext (toString unpatched))} "$manifest" \
-                || fail "manifest references the unpatched package"
-
-              # The binaries differ in exactly the bytes the manifest's edits change.
-              expected=$(jq '[.edits[] | . as $e | [range(0; $e.orig | length; 2) | select($e.orig[.:.+2] != $e.new[.:.+2])] | length] | add' "$manifest")
-              actual=$(cmp -l ${unpatched}/bin/agy ${patched}/bin/agy | wc -l || true)
-              [ "$actual" -eq "$expected" ] || fail "$actual bytes differ, manifest edits change $expected"
-
-              # Every set on 1.5.17 gives exactly this binary.
-              [ "$(jq -r .version "$manifest")" != 1.5.17 ] \
-                || [ "$(jq -r .output_sha256 "$manifest")" = 361aaa5864a4c830153a4b93097e24239067df7bf387a1b334f7c5c061c9ce45 ] \
-                || fail "1.5.17 output checksum drifted"
-
-              # staticprompts routes every listed pure-static PromptSection.Content through
-              # TemplateSource{} and hooks loadEmbeddedTemplate to fall back to the built-in strings.
-              python3 -I -c '
-              import hashlib, importlib.util, pathlib, struct, sys
-              spec = importlib.util.spec_from_file_location("patch_agy", sys.argv[1])
-              mod = importlib.util.module_from_spec(spec)
-              spec.loader.exec_module(mod)
-              unpatched_b = pathlib.Path(sys.argv[2]).read_bytes()
-              patched_b = pathlib.Path(sys.argv[3]).read_bytes()
-              build = mod.BUILDS[hashlib.sha256(unpatched_b).hexdigest()]
-
-              def lea_target(buf, off, prefix):
-                  assert buf[off : off + 3] == prefix, (hex(off), buf[off : off + 3].hex())
-                  return off + 7 + struct.unpack_from("<i", buf, off + 3)[0]
-
-              for name, off, static_addr in build["static_prompts"]:
-                  assert lea_target(patched_b, off, b"\x48\x8d\x05") == build["template_source_itab"], name
-                  assert lea_target(patched_b, off + 7, b"\x48\x8d\x1d") == build["template_source_zero"], name
-                  assert patched_b[off + 14] == 0xC3, name
-                  assert lea_target(unpatched_b, off + 7, b"\x48\x8d\x1d") == static_addr, name
-
-              hook = build["embed_read_hook"]
-              assert patched_b[hook] == 0xE9
-              cave_target = hook + 5 + struct.unpack_from("<i", patched_b, hook + 1)[0]
-              cave_lo, cave_hi = build["cave"]
-              assert cave_lo <= cave_target < cave_hi, hex(cave_target)
-              ' ${patcherSrc}/_patch_agy.py ${unpatched}/bin/agy ${patched}/bin/agy || fail "staticprompts patch check"
-
-              # agygating disables sir_flash_lite and severe_internal_risks_agy, drops the latter
-              # to ASK, and changes no other monitor field.
-              python3 -I -c '
-              import re, sys
-              header = re.compile(rb"monitors \{\n +name: \x22([^\x22]+)\x22\n((?: +[a-z_]+: [^\n]*\n)+)")
-              def monitors(path):
-                  data = open(path, "rb").read()
-                  return {
-                      m[1].decode(): {k.decode(): v.decode().strip() for k, v in re.findall(rb"^ *([a-z_]+): (.*)$", m[2], re.M)}
-                      for m in header.finditer(data)
-                  }
-              shipped, patched = map(monitors, sys.argv[1:])
-              assert {"sir_flash_lite", "severe_internal_risks_agy"} <= shipped.keys(), shipped.keys()
-              assert shipped["sir_flash_lite"]["enabled"] == shipped["severe_internal_risks_agy"]["enabled"] == "true", shipped
-              expected = {name: dict(fields) for name, fields in shipped.items()}
-              expected["sir_flash_lite"]["enabled"] = "false"
-              expected["severe_internal_risks_agy"].update(enabled="false", mode="ASK")
-              assert patched == expected, patched
-              ' ${unpatched}/bin/agy ${patched}/bin/agy || fail "agygating monitor fields"
-
-              # A build the patcher does not know fails instead of passing through unpatched.
-              cp ${unpatched}/bin/agy "$TMPDIR/agy-unknown"
-              chmod u+w "$TMPDIR/agy-unknown"
-              printf 'x' | dd of="$TMPDIR/agy-unknown" bs=1 seek=64 conv=notrunc status=none
-              if python3 -I ${patcherSrc}/_patch_agy.py "$TMPDIR/agy-unknown" "$TMPDIR/agy-out" 2>"$TMPDIR/unknown.err"; then
-                fail "patched an unknown build"
-              fi
-              grep -q 'unknown agy build' "$TMPDIR/unknown.err" || fail "unknown build error message"
-              [ ! -e "$TMPDIR/agy-out" ] || fail "wrote output for an unknown build"
-              rm -f "$TMPDIR/agy-unknown"
-
-              # The patched binary still starts.
-              HOME="$TMPDIR" ${patched}/bin/agy --help 2>&1 | grep -q 'Usage of agy' || fail "agy --help"
-
-              # Offline print mode, signed out: the unpatched binary reaches the updater (which skips a
-              # read-only store directory) and fails to flush Clearcut telemetry at exit; the patched
-              # one does neither.
-              run_print() {
-                mkdir -p "$TMPDIR/home-$2"
-                HOME="$TMPDIR/home-$2" timeout 25 "$1" -p hi --log-file "$TMPDIR/$2.log" </dev/null >/dev/null 2>&1 || true
-              }
-              run_print ${unpatched}/bin/agy unpatched
-              run_print ${patched}/bin/agy patched
-              grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/unpatched.log" \
-                || fail "unpatched: updater not reached (test is blind)"
-              grep -q 'telemetry client' "$TMPDIR/unpatched.log" || fail "unpatched: no telemetry flush (test is blind)"
-              grep -q 'Auto-update disabled' "$TMPDIR/patched.log" || fail "patched: updater not disabled"
-              ! grep -q -E 'Spawned background update process|is not fully accessible.*skipping update' "$TMPDIR/patched.log" \
-                || fail "patched: updater reached"
-              ! grep -q 'telemetry client' "$TMPDIR/patched.log" || fail "patched: telemetry client active"
-              ! grep -q 'skipping empty or temp file' "$TMPDIR/patched.log" || fail "patched: file_watcher log line"
-
-              echo "ok: agy binary patches ($expected bytes)" >$out
-            '';
-
-        "antigravity-cli/binary-patches-dynamic" =
-          let
-            unpatched = inputs.llm-agents.packages.${system}.antigravity-cli;
-            patcherSrc = binaryPatches.mkPatcherSrc lib;
-            pythonEnv = binaryPatches.mkPythonEnv pkgs;
-            patched = binaryPatches.patchAgy {
-              inherit lib pkgs;
-              package = unpatched;
-              patches = binaryPatches.dynamicPatchSets;
-            };
-          in
-          pkgs.runCommandLocal "antigravity-cli-binary-patches-dynamic"
-            {
-              passthru.runtimeCheck = true;
-              nativeBuildInputs = [
-                pkgs.jq
-                pythonEnv
-              ];
-            }
-            ''
-              set -euo pipefail
-              manifest=${patched}/share/antigravity-cli/agy.patch.json
-              fail() { echo "FAIL: $*" >&2; exit 1; }
-
               # Unit tests for ELF mapping, x86 encoders, cave allocation, and atomic apply.
               python3 -I - ${patcherSrc} <<'PY'
               import struct
@@ -802,7 +677,7 @@ in
 
               from _agy_patcher.elf import DiscoveryError, Elf64Image, PatchError
               from _agy_patcher.patches import CaveAllocator, Edit, apply_edits
-              from _agy_patcher.x86 import Disassembler, jmp_rel32, lea_rip, mov_rip_byte_imm, nop_sled
+              from _agy_patcher.x86 import Disassembler, jmp_rel32, mov_rip_byte_imm, nop_sled
 
               disasm = Disassembler()
               for n in range(21):
@@ -814,7 +689,6 @@ in
 
               for fn in (
                   lambda: jmp_rel32(0, 1 << 32),
-                  lambda: lea_rip(b"\x48\x8d\x05", 0, 1 << 32),
                   lambda: mov_rip_byte_imm(0, 1 << 32, 1),
               ):
                   try:
@@ -886,7 +760,7 @@ in
               PY
 
               [ "$(jq -r .discovery "$manifest")" = "dynamic" ] || fail "expected dynamic discovery"
-              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.dynamicPatchSets)} ] || fail "manifest dynamic patch sets"
+              [ "$(jq -r '.patches | join(",")' "$manifest")" = ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.patchSets)} ] || fail "manifest patch sets"
               [ "$(jq -r .input_sha256 "$manifest")" = "$(sha256sum ${unpatched}/bin/agy | cut -d' ' -f1)" ] \
                 || fail "input checksum"
               [ "$(jq -r .output_sha256 "$manifest")" = "$(sha256sum ${patched}/bin/agy | cut -d' ' -f1)" ] \
@@ -901,22 +775,19 @@ in
               # Fail-closed negative checks: invalid ELF fails and writes no output.
               printf 'not-an-elf' >"$TMPDIR/bad-elf"
               if python3 -I ${patcherSrc}/_patch_agy.py "$TMPDIR/bad-elf" "$TMPDIR/bad-out" \
-                   --patches ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.dynamicPatchSets)} 2>"$TMPDIR/bad.err"; then
+                   --patches ${lib.escapeShellArg (lib.concatStringsSep "," binaryPatches.patchSets)} 2>"$TMPDIR/bad.err"; then
                 fail "patched invalid ELF"
               fi
               [ ! -e "$TMPDIR/bad-out" ] || fail "wrote output for invalid ELF"
 
-              # Requesting a pinned-only patch set on an unpinned release fails closed.
-              cp ${unpatched}/bin/agy "$TMPDIR/agy-copy"
-              chmod u+w "$TMPDIR/agy-copy"
-              printf 'x' | dd of="$TMPDIR/agy-copy" bs=1 seek=64 conv=notrunc status=none
-              if python3 -I ${patcherSrc}/_patch_agy.py "$TMPDIR/agy-copy" "$TMPDIR/pinned-out" \
-                   --patches devmode 2>"$TMPDIR/pinned.err"; then
-                fail "patched unpinned binary with devmode"
+              # Requesting an unknown patch set fails closed and writes no output.
+              if python3 -I ${patcherSrc}/_patch_agy.py ${unpatched}/bin/agy "$TMPDIR/unknown-out" \
+                   --patches nonexistent 2>"$TMPDIR/unknown.err"; then
+                fail "accepted unknown patch set"
               fi
-              grep -q 'unknown agy build' "$TMPDIR/pinned.err" || fail "missing pinned error message"
-              [ ! -e "$TMPDIR/pinned-out" ] || fail "wrote output for unpinned devmode"
-              rm -f "$TMPDIR/agy-copy" "$TMPDIR/bad-elf"
+              grep -q 'unknown patch set' "$TMPDIR/unknown.err" || fail "missing unknown patch set error message"
+              [ ! -e "$TMPDIR/unknown-out" ] || fail "wrote output for unknown patch set"
+              rm -f "$TMPDIR/bad-elf"
 
               # Verify patched binary starts and suppresses updater, telemetry, and watcher log spam.
               HOME="$TMPDIR" ${patched}/bin/agy --help 2>&1 | grep -q 'Usage of agy' || fail "agy --help"

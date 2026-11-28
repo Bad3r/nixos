@@ -76,12 +76,6 @@ def jmp_rel32(src: int, dst: int) -> bytes:
     return b"\xe9" + _pack_rel32(dst - (src + JMP_REL32_LEN), f"jmp {src:#x}->{dst:#x}")
 
 
-def lea_rip(prefix: bytes, ins_addr: int, target: int) -> bytes:
-    """Encode a RIP-relative `lea` with the given opcode/ModRM `prefix`."""
-    rel = target - (ins_addr + len(prefix) + 4)
-    return prefix + _pack_rel32(rel, f"lea {ins_addr:#x}->{target:#x}")
-
-
 def mov_rcx_disp_byte_imm(disp: int, imm: int) -> bytes:
     """Encode `mov BYTE PTR [rcx + disp], imm` using disp8 when possible."""
     if not (0 <= imm <= U8_MAX):

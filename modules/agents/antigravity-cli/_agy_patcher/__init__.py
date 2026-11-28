@@ -13,12 +13,10 @@ from _agy_patcher.discover import (
 )
 from _agy_patcher.elf import DiscoveryError, Elf64Image, PatchError
 from _agy_patcher.go_meta import FuncRange, GoMetadata, find_struct_field_offset
-from _agy_patcher.patches import ALL, BUILDS, DYNAMIC_PATCHES, Edit, plan_edits
+from _agy_patcher.patches import PATCH_SETS, Edit, plan_edits
 
 __all__ = [
-    "ALL",
-    "BUILDS",
-    "DYNAMIC_PATCHES",
+    "PATCH_SETS",
     "DiscoveryError",
     "DynamicTargets",
     "Edit",

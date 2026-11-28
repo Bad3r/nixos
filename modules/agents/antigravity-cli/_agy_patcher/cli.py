@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from _agy_patcher.elf import Elf64Image, PatchError
-from _agy_patcher.patches import ALL, DYNAMIC_PATCHES, apply_edits, plan_edits
+from _agy_patcher.patches import PATCH_SETS, apply_edits, plan_edits
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -21,24 +21,24 @@ if TYPE_CHECKING:
 
 def _parse_patches(raw: str | None) -> list[str]:
     if raw is None:
-        return list(ALL)
+        return list(PATCH_SETS)
     requested = [item.strip() for item in raw.split(",") if item.strip()]
-    unknown = [item for item in requested if item not in ALL]
+    unknown = [item for item in requested if item not in PATCH_SETS]
     if unknown:
-        msg = f"unknown patch set(s): {','.join(unknown)} (known: {','.join(ALL)})"
+        msg = f"unknown patch set(s): {','.join(unknown)} (known: {','.join(PATCH_SETS)})"
         raise PatchError(msg)
     if not requested:
         msg = "--patches requires at least one patch set"
         raise PatchError(msg)
-    return [item for item in ALL if item in requested]
+    return [item for item in PATCH_SETS if item in requested]
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    dyn = ",".join(DYNAMIC_PATCHES)
+    sets = ",".join(PATCH_SETS)
     parser = argparse.ArgumentParser(
         prog="_patch_agy.py",
         description=(
-            f"Write a byte-patched copy of the agy ELF binary. Dynamic discovery supports: {dyn}."
+            f"Write a dynamically discovered byte-patched copy of the agy ELF binary ({sets})."
         ),
     )
     parser.add_argument("src", type=Path, help="Unpatched input agy ELF binary.")
@@ -46,7 +46,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--patches",
         default=None,
-        help=f"Comma-separated patch sets (default: {','.join(ALL)}).",
+        help=f"Comma-separated patch sets (default: {sets}).",
     )
     parser.add_argument(
         "--version",
@@ -64,12 +64,7 @@ def run(argv: Sequence[str]) -> dict[str, Any]:
     sha = hashlib.sha256(raw).hexdigest()
 
     elf = Elf64Image(raw)
-    edits, discovery_mode, version, discovered = plan_edits(
-        elf=elf,
-        sha256=sha,
-        patches=patches,
-        version_hint=args.version,
-    )
+    edits, discovered = plan_edits(elf=elf, patches=patches)
 
     buf = bytearray(raw)
     resolved = apply_edits(elf, buf, edits)
@@ -82,8 +77,8 @@ def run(argv: Sequence[str]) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "input": str(args.src.resolve()),
         "input_sha256": sha,
-        "version": version,
-        "discovery": discovery_mode,
+        "version": args.version or "unknown",
+        "discovery": "dynamic",
         "patches": patches,
         "edits": [
             {
@@ -94,11 +89,10 @@ def run(argv: Sequence[str]) -> dict[str, Any]:
             }
             for edit, off in resolved
         ],
+        "discovered": discovered,
         "output": str(args.dst.resolve()),
         "output_sha256": hashlib.sha256(buf).hexdigest(),
     }
-    if discovered is not None:
-        manifest["discovered"] = discovered
 
     manifest_path = args.dst.with_name(args.dst.name + ".patch.json")
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
