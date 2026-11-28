@@ -5,8 +5,8 @@
   version,
 }:
 let
-  bin = builtins.dirOf command;
-  modules = "${builtins.dirOf bin}/lib/node_modules";
+  bin = dirOf command;
+  modules = "${dirOf bin}/lib/node_modules";
 in
 {
   # The desktop process supplies the identity and pipe for the current session.
